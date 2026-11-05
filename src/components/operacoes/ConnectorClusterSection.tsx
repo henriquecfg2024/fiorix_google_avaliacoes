@@ -257,6 +257,15 @@ export function ConnectorClusterSection({
     }
   }
 
+  async function handleCancelRollingUpdate() {
+    try {
+      await postConnectorAction({ action: 'cancel_rolling_update' }, 'cancel_rolling_update');
+      toast.success('Rolling Update encerrado e limpo');
+    } catch (err: any) {
+      toast.error('Falha ao cancelar Rolling Update', { description: err.message });
+    }
+  }
+
   async function handleDeleteNode(node: ConnectorClusterNodeSummary) {
     if (node.operationalState === 'ACTIVE') return;
     const ok = window.confirm(
@@ -474,7 +483,7 @@ export function ConnectorClusterSection({
 
       {/* Faixa de Rolling Update em andamento */}
       {rollingUpdate?.active && (
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-indigo-200">
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-indigo-200">
           <div className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4 animate-spin text-indigo-400 shrink-0" />
             <span>
@@ -482,11 +491,50 @@ export function ConnectorClusterSection({
               {rollingUpdate.message || 'Atualizando servidores sem interromper a operação.'}
             </span>
           </div>
-          <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30">
-            {rollingUpdate.phase}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30">
+              {rollingUpdate.phase}
+            </span>
+            <button
+              type="button"
+              disabled={busyAction !== null}
+              onClick={handleCancelRollingUpdate}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 cursor-pointer disabled:opacity-50"
+              title="Encerrar e limpar faixa de Rolling Update"
+            >
+              <X className="h-3 w-3" />
+              <span>Cancelar</span>
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Aviso de transição única para agentes instalados originalmente na v2.6.0 */}
+      {latestVersion &&
+        latestVersion !== 'v2.6.0' &&
+        nodes.some((n) => n.isOnline && n.version === 'v2.6.0') && (
+          <div className="rounded-xl border border-amber-500/35 bg-amber-950/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-100">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-amber-200">
+                  Transição única do v2.6.0 → {latestVersion}:
+                </strong>{' '}
+                o pacote {latestVersion} já está baixado nos servidores, mas o binário antigo{' '}
+                <code className="text-amber-200">v2.6.0</code> exige 1 reinício de serviço único
+                para ativar o novo auto-update automático.
+              </div>
+            </div>
+            <a
+              href="/api/v1/connector/install.ps1?format=activate-bat"
+              download="Ativar-FIORIX-v2.6.2.bat"
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/20 hover:bg-amber-500/30 px-3.5 py-2 text-xs font-bold text-amber-100 transition cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 text-amber-300" />
+              <span>Baixar Ativador Único {latestVersion} (.BAT)</span>
+            </a>
+          </div>
+        )}
 
       {/* Cards Lado a Lado dos Servidores Connector */}
       {nodes.length === 0 ? (

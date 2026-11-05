@@ -13,7 +13,7 @@ interface CpfInputWithValidationProps {
 
 export function CpfInputWithValidation({
   name = 'cpf',
-  required = true,
+  required = false,
   defaultValue = '',
   className = '',
 }: CpfInputWithValidationProps) {
@@ -21,6 +21,7 @@ export function CpfInputWithValidation({
 
   const cleanDigits = value.replace(/\D/g, '');
   const isComplete = cleanDigits.length === 11;
+  const isPartial = cleanDigits.length > 0 && cleanDigits.length < 11;
   const valid = isComplete ? isValidCPF(cleanDigits) : false;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,9 +29,13 @@ export function CpfInputWithValidation({
     const formatted = formatCPF(raw);
     setValue(formatted);
 
-    // Set custom validity to prevent form submission if complete but invalid
+    // Permite deixar em branco quando opcional; bloqueia CPF incompleto ou inválido
     const digits = formatted.replace(/\D/g, '');
-    if (digits.length === 11 && !isValidCPF(digits)) {
+    if (digits.length === 0) {
+      e.target.setCustomValidity('');
+    } else if (digits.length < 11) {
+      e.target.setCustomValidity('Informe os 11 dígitos do CPF ou deixe o campo em branco.');
+    } else if (!isValidCPF(digits)) {
       e.target.setCustomValidity('CPF inválido. Verifique os dígitos informados.');
     } else {
       e.target.setCustomValidity('');
@@ -48,13 +53,15 @@ export function CpfInputWithValidation({
           value={value}
           onChange={handleChange}
           maxLength={14}
-          placeholder="000.000.000-00"
-          className={`w-full h-9 rounded-md px-3 text-xs border transition-colors font-mono ${
+          placeholder={required ? '000.000.000-00' : 'Opcional (000.000.000-00)'}
+          className={`w-full h-10 rounded-md px-3 text-xs border transition-colors font-mono ${
             isComplete
               ? valid
                 ? 'border-emerald-500/60 bg-emerald-500/[0.04] text-emerald-300 focus:border-emerald-400'
                 : 'border-rose-500/60 bg-rose-500/[0.04] text-rose-300 focus:border-rose-400'
-              : 'border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50'
+              : isPartial
+                ? 'border-amber-500/60 bg-amber-500/[0.04] text-amber-200 focus:border-amber-400'
+                : 'border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50'
           } ${className}`}
         />
         {isComplete && (
@@ -70,6 +77,11 @@ export function CpfInputWithValidation({
       {isComplete && (
         <p className={`text-[10px] font-medium flex items-center gap-1 ${valid ? 'text-emerald-400' : 'text-rose-400'}`}>
           {valid ? '✓ CPF Válido (Receita Federal)' : '✗ CPF Inválido (dígitos verificadores incorretos)'}
+        </p>
+      )}
+      {isPartial && (
+        <p className="text-[10px] font-medium text-amber-300/90">
+          Complete os 11 dígitos ou apague para cadastrar sem CPF
         </p>
       )}
     </div>

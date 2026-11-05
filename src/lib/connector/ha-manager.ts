@@ -95,7 +95,13 @@ export interface ConnectorHaNodeRecord {
 export interface RollingUpdateState {
   active: boolean;
   targetVersion: string;
-  phase: 'UPDATING_STANDBY' | 'UPDATING_FORMER_ACTIVE' | 'COMPLETED';
+  phase:
+    | 'UPDATING_STANDBY'
+    | 'UPDATING_FORMER_ACTIVE'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'TIMED_OUT'
+    | 'STAGED_AWAITING_RESTART';
   originalPrimaryId: string | null;
   startedAt: string;
   message?: string;
@@ -1078,6 +1084,58 @@ export async function startRollingUpdate(
   };
 }
 
+export async function cancelRollingUpdate(
+  tenantId: string,
+  actor?: AuthenticatedUser | null,
+): Promise<{ nodes: ConnectorHaNodeRecord[]; rollingState: RollingUpdateState }> {
+  await syncTenantConnectorsHaRows(tenantId);
+  const manifest = getLatestReleaseManifest();
+  const targetVer = manifest?.version ?? 'v2.6.2';
+
+  const rollingState: RollingUpdateState = {
+    active: false,
+    targetVersion: targetVer,
+    phase: 'CANCELLED',
+    originalPrimaryId: null,
+    startedAt: new Date().toISOString(),
+    message: 'Rolling Update encerrado manualmente pelo operador.',
+  };
+
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO public.fiorix_tenant_connector_settings (tenant_id, rolling_update_state, updated_at)
+     VALUES ($1, $2::jsonb, NOW())
+     ON CONFLICT (tenant_id) DO UPDATE SET
+       rolling_update_state = EXCLUDED.rolling_update_state,
+       updated_at = NOW()`,
+    tenantId,
+    JSON.stringify(rollingState),
+  );
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE public.fiorix_connector_ha_nodes
+     SET target_version = NULL,
+         update_status = 'IDLE',
+         update_message = NULL,
+         updated_at = NOW()
+     WHERE tenant_id = $1`,
+    tenantId,
+  );
+
+  await recordAuditLog({
+    modulo: 'OPERACOES_CONNECTOR',
+    acao: 'ATUALIZACAO_REMOTA',
+    registroId: tenantId,
+    registroDescricao: 'Rolling Update cancelado/limpo manualmente pelo operador',
+    detalhes: rollingState as any,
+    userOverride: actor ?? null,
+  });
+
+  return {
+    nodes: await listTenantConnectorNodes(tenantId),
+    rollingState,
+  };
+}
+
 /**
  * Gera Token de Pareamento de uso único (TTL de 15 minutos, apenas hash SHA-256 salvo no banco).
  */
@@ -1342,8 +1400,21 @@ export async function processHeartbeatHaAndBuildDirective(params: {
     let nextUpdateMsg = thisNodeBefore.updateMessage;
 
     if (selfUpdateInfo?.status && selfUpdateInfo.status !== 'IDLE') {
-      nextUpdateStatus = String(selfUpdateInfo.status);
-      nextUpdateMsg = selfUpdateInfo.message ? String(selfUpdateInfo.message).slice(0, 300) : nextUpdateMsg;
+      const updatedMs = selfUpdateInfo.updatedAt ? Date.parse(String(selfUpdateInfo.updatedAt)) : NaN;
+      const staleApplying =
+        selfUpdateInfo.status === 'APPLYING' &&
+        reportedVersion !== selfUpdateInfo.targetVersion &&
+        Number.isFinite(updatedMs) &&
+        Date.now() - updatedMs > 4 * 60 * 1000;
+
+      if (staleApplying) {
+        nextTargetVersion = null;
+        nextUpdateStatus = 'IDLE';
+        nextUpdateMsg = `Pacote ${selfUpdateInfo.targetVersion || 'novo'} já baixado em disco (dist\\index.js.new). Agentes legados v2.6.0 exigem 1 reinício único do serviço.`;
+      } else {
+        nextUpdateStatus = String(selfUpdateInfo.status);
+        nextUpdateMsg = selfUpdateInfo.message ? String(selfUpdateInfo.message).slice(0, 300) : nextUpdateMsg;
+      }
     }
 
     if (nextTargetVersion && reportedVersion === nextTargetVersion) {
@@ -1475,8 +1546,36 @@ export async function processHeartbeatHaAndBuildDirective(params: {
   if (settings.rollingUpdateState?.active) {
     const ru = settings.rollingUpdateState;
     const online = refreshedNodes.filter((n) => n.lastSeenAt && nowMs - n.lastSeenAt.getTime() <= 120_000);
+    const ruStartedMs = ru.startedAt ? Date.parse(ru.startedAt) : NaN;
+    const ruTimedOut = Number.isFinite(ruStartedMs) && nowMs - ruStartedMs > 8 * 60 * 1000;
 
-    if (ru.phase === 'UPDATING_STANDBY') {
+    if (ruTimedOut) {
+      const expiredRu: RollingUpdateState = {
+        active: false,
+        targetVersion: ru.targetVersion,
+        phase: 'TIMED_OUT',
+        originalPrimaryId: null,
+        startedAt: ru.startedAt,
+        message: `Tempo limite de reinício automático excedido (${ru.targetVersion}). Se o servidor estiver em v2.6.0, execute o Ativador Único (.BAT) uma vez.`,
+      };
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_tenant_connector_settings
+         SET rolling_update_state = $2::jsonb, updated_at = NOW()
+         WHERE tenant_id = $1`,
+        tenantId,
+        JSON.stringify(expiredRu),
+      );
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_connector_ha_nodes
+         SET target_version = NULL,
+             update_status = 'IDLE',
+             updated_at = NOW()
+         WHERE tenant_id = $1 AND version <> $2`,
+        tenantId,
+        ru.targetVersion,
+      );
+      refreshedNodes = await listTenantConnectorNodes(tenantId);
+    } else if (ru.phase === 'UPDATING_STANDBY') {
       const standbysPending = online.filter(
         (n) => n.operationalState === 'STANDBY' && n.version !== ru.targetVersion,
       );

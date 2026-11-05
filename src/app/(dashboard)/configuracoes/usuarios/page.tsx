@@ -1,14 +1,13 @@
 import React from 'react';
-import { getUsers, createUser } from '@/app/actions/admin';
+import { getUsers } from '@/app/actions/admin';
 import { listarNomesDepartamentos } from '@/app/actions/departamentos';
 import Link from 'next/link';
 import { UserListTable } from '@/components/configuracoes/UserListTable';
+import { CreateUserForm } from '@/components/configuracoes/CreateUserForm';
 import { auth } from '@/auth';
-import { ArrowLeft, UserPlus, Users, ShieldCheck, CheckCircle2, Info } from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle2, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { CpfInputWithValidation } from '@/components/configuracoes/CpfInputWithValidation';
 
 export default async function UsuariosConfigPage() {
   const session = await auth();
@@ -71,177 +70,7 @@ export default async function UsuariosConfigPage() {
         </div>
 
         {/* Formulário Cadastrar Novo Usuário */}
-        <form action={createUser} className="mt-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 sm:p-6 shadow-sm backdrop-blur-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-              <UserPlus className="h-4 w-4 text-amber-300" />
-              <span>Cadastrar Novo Usuário do Cartório</span>
-            </h4>
-            <span className="text-[11px] text-white/40">* Campos obrigatórios</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Nome Completo *
-              </label>
-              <Input
-                type="text"
-                name="name"
-                required
-                placeholder="Ex: João da Silva"
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
-              />
-            </div>
-
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                E-mail de Acesso *
-              </label>
-              <Input
-                type="email"
-                name="email"
-                required
-                placeholder="nome.sobrenome@7risp.com.br"
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
-              />
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                CPF (Validação RH) *
-              </label>
-              <CpfInputWithValidation name="cpf" required />
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Senha Inicial *
-              </label>
-              <Input
-                type="password"
-                name="password"
-                required
-                defaultValue="Fiorix@2026"
-                placeholder="••••••••"
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
-              />
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Função *
-              </label>
-              <select
-                name="role"
-                defaultValue="COLABORADOR"
-                className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-800 dark:border-white/12 dark:bg-[#0A0F1E] dark:text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
-              >
-                <option value="COLABORADOR">Colaborador</option>
-                <option value="USER">Usuário</option>
-                <option value="RH">RH (Gestão de Pessoas)</option>
-                <option value="SUBSTITUTO">Substituto (ITs & Governança)</option>
-                <option value="ADMIN">Admin (Restrito)</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Departamento *
-              </label>
-              <select
-                name="departamento"
-                defaultValue="Atendimento"
-                className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-800 dark:border-white/12 dark:bg-[#0A0F1E] dark:text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
-              >
-                {departamentosDb.length > 0 ? (
-                  departamentosDb.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value="Atendimento">Atendimento</option>
-                    <option value="Registro">Registro</option>
-                    <option value="Financeiro">Financeiro</option>
-                    <option value="RH">RH</option>
-                    <option value="Administração">Administração</option>
-                    <option value="TI">TI</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            <div className="md:col-span-3 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Cargo *
-              </label>
-              <Input
-                type="text"
-                name="cargo"
-                required
-                defaultValue="auxiliar"
-                placeholder="auxiliar, escrevente, Oficial Substituto..."
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
-              />
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                Ramal
-              </label>
-              <Input
-                type="text"
-                name="ramal"
-                placeholder="Ex: 204"
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
-              />
-            </div>
-
-            <div className="md:col-span-2 flex items-center h-10 mt-6 gap-2">
-              <input
-                type="checkbox"
-                name="podeSerTutor"
-                id="podeSerTutor"
-                className="rounded border-white/20 bg-[#0A0F1E] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-              />
-              <label htmlFor="podeSerTutor" className="text-xs text-white/80 cursor-pointer select-none">
-                Pode ser Tutor de IT?
-              </label>
-            </div>
-
-            <div className="md:col-span-2 flex items-end">
-              <Button 
-                type="submit"
-                className="w-full h-10 bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white shadow-xs transition-colors hover:brightness-105 cursor-pointer"
-              >
-                Cadastrar
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2 border-t border-white/6 text-[11px] text-white/50">
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-cyan-400 block mb-0.5">Colaborador:</span>
-              <span>Acesso a Comunicados, Férias, Holerites e Minha IT.</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-blue-400 block mb-0.5">Usuário:</span>
-              <span>Acesso operacional e consultas ao sistema.</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-purple-400 block mb-0.5">RH:</span>
-              <span>Gestão de Comunicados, Férias e Holerites do Cartório.</span>
-            </div>
-            <div className="p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
-              <span className="font-bold text-indigo-300 block mb-0.5">Substituto:</span>
-              <span>Governança, criação, aprovação e fiscalização de ITs.</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-indigo-400 block mb-0.5">Administrador:</span>
-              <span>Acesso administrativo geral (Henrique Cesar Ferreira Gama).</span>
-            </div>
-          </div>
-        </form>
+        <CreateUserForm departamentosDb={departamentosDb} />
 
         {/* Tabela de Usuários Cadastrados */}
         <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">

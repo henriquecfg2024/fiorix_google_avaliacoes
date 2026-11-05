@@ -232,7 +232,13 @@ export interface ConnectorClusterInfo {
   rollingUpdate: {
     active: boolean;
     targetVersion: string;
-    phase: 'UPDATING_STANDBY' | 'UPDATING_FORMER_ACTIVE' | 'COMPLETED';
+    phase:
+      | 'UPDATING_STANDBY'
+      | 'UPDATING_FORMER_ACTIVE'
+      | 'COMPLETED'
+      | 'CANCELLED'
+      | 'TIMED_OUT'
+      | 'STAGED_AWAITING_RESTART';
     originalPrimaryId: string | null;
     startedAt: string;
     message?: string;

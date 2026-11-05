@@ -200,6 +200,41 @@ describe('FIORIX Multi-Tenant SaaS Connector HA, Provisioning & Release', () => 
     const batText = await batRes.text();
     expect(batText).toContain(token);
     expect(batText).toContain('Install-FiorixConnector');
+
+    const actReq = new NextRequest(
+      'https://fiorix.app/api/v1/connector/install.ps1?format=activate-bat',
+    );
+    const actRes = await getInstallPs1Route(actReq);
+    expect(actRes.status).toBe(200);
+    expect(actRes.headers.get('content-disposition')).toContain('Ativar-FIORIX-v2.6.2.bat');
+    const actBat = await actRes.text();
+    const encMatch = actBat.match(/-EncodedCommand\s+([A-Za-z0-9+/=]+)/);
+    expect(encMatch).not.toBeNull();
+    const decodedPs = Buffer.from(encMatch![1], 'base64').toString('utf16le');
+    expect(decodedPs).toContain('Update-ConnectorFolder');
+
+    if (process.platform === 'win32') {
+      const tmpActPs1 = path.join(
+        process.env.TEMP || process.cwd(),
+        `fiorix-act-ast-${Date.now()}.ps1`,
+      );
+      fs.writeFileSync(tmpActPs1, decodedPs, 'utf8');
+      try {
+        const parseOut = execFileSync(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            `$tokens = $null; $errors = $null; [void][System.Management.Automation.Language.Parser]::ParseFile('${tmpActPs1.replace(/'/g, "''")}', [ref]$tokens, [ref]$errors); if ($errors.Count -gt 0) { Write-Error ($errors | Out-String); exit 1 } else { Write-Output 'AST_OK' }`,
+          ],
+          { encoding: 'utf8' },
+        );
+        expect(parseOut.trim()).toBe('AST_OK');
+      } finally {
+        fs.unlinkSync(tmpActPs1);
+      }
+    }
   });
 });
 

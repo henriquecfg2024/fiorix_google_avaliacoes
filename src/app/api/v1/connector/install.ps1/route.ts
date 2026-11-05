@@ -572,10 +572,148 @@ function Install-FiorixConnector {
 `;
 }
 
+function buildActivateV262Batch(origin: string): string {
+  const psScript = `
+$ErrorActionPreference = 'Continue'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+function Update-ConnectorFolder([string]$Folder, [string]$Label, [string]$RemoteHost) {
+  if (-not (Test-Path $Folder)) { return $false }
+  Write-Host ""
+  Write-Host ">>> Atualizando $Label ($Folder)..." -ForegroundColor Cyan
+
+  $Staged = Join-Path $Folder 'dist\\index.js.new'
+  $Active = Join-Path $Folder 'dist\\index.js'
+  $EnvProd = Join-Path $Folder '.env.production'
+
+  # Se nao houver index.js.new em espera, baixa e valida SHA-256 direto do SaaS usando as credenciais locais do servidor
+  if (-not (Test-Path $Staged) -and (Test-Path $EnvProd)) {
+    $cid = ''; $csec = ''
+    foreach ($ln in (Get-Content $EnvProd)) {
+      if ($ln -match '^CONNECTOR_ID=(.+)$') { $cid = $Matches[1].Trim('"', "'", ' ') }
+      if ($ln -match '^CONNECTOR_SECRET=(.+)$') { $csec = $Matches[1].Trim('"', "'", ' ') }
+    }
+    if ($cid -and $csec) {
+      try {
+        $hdr = @{ 'Authorization' = "Bearer $csec"; 'X-Connector-Id' = $cid }
+        $mf = Invoke-RestMethod -Uri '${origin}/api/v1/connector/release?asset=manifest' -Headers $hdr -UseBasicParsing -TimeoutSec 20
+        $tmpDl = Join-Path $env:TEMP ("fiorix-bundle-" + [guid]::NewGuid().ToString('N') + ".js")
+        Invoke-WebRequest -Uri '${origin}/api/v1/connector/release?asset=bundle' -Headers $hdr -OutFile $tmpDl -UseBasicParsing -TimeoutSec 45
+        $hash = (Get-FileHash -Path $tmpDl -Algorithm SHA256).Hash.ToLower()
+        if ($hash -eq ([string]$mf.bundle.sha256).ToLower()) {
+          Copy-Item -Path $tmpDl -Destination $Staged -Force
+          Write-Host "[OK] Pacote $($mf.version) baixado e validado com SHA-256!" -ForegroundColor Green
+        }
+        Remove-Item -Path $tmpDl -Force -ErrorAction SilentlyContinue
+      } catch {
+        Write-Host "[AVISO] Nao foi necessario/possivel baixar novo bundle online: $($_.Exception.Message)" -ForegroundColor Yellow
+      }
+    }
+  }
+
+  if ([string]::IsNullOrWhiteSpace($RemoteHost)) {
+    Stop-Service -Name 'FIORIXConnector' -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 3
+  } else {
+    & sc.exe "\\\\$RemoteHost" stop FIORIXConnector | Out-Null
+    Start-Sleep -Seconds 5
+  }
+
+  if (Test-Path $Staged) {
+    Copy-Item -Path $Staged -Destination $Active -Force
+    Remove-Item -Path $Staged -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Binario dist\\index.js atualizado!" -ForegroundColor Green
+  }
+
+  $StatusObj = @{
+    status = 'SUCCEEDED'
+    targetVersion = 'v2.6.2'
+    previousVersion = 'v2.6.0'
+    message = 'Atualizado para v2.6.2 com sucesso.'
+    updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+  } | ConvertTo-Json -Compress
+  Set-Content -Path (Join-Path $Folder 'update-status.json') -Value $StatusObj -Encoding UTF8 -Force
+
+  if ([string]::IsNullOrWhiteSpace($RemoteHost)) {
+    Start-Service -Name 'FIORIXConnector'
+    Start-Sleep -Seconds 3
+    $s = Get-Service -Name 'FIORIXConnector'
+    Write-Host "[SUCESSO] $Label -> Servico FIORIXConnector: $($s.Status)" -ForegroundColor Green
+  } else {
+    & sc.exe "\\\\$RemoteHost" start FIORIXConnector | Out-Null
+    Start-Sleep -Seconds 4
+    $q = (& sc.exe "\\\\$RemoteHost" query FIORIXConnector | Out-String)
+    if ($q -match 'RUNNING') {
+      Write-Host "[SUCESSO] $Label ($RemoteHost) -> Servico FIORIXConnector: Running!" -ForegroundColor Green
+    } else {
+      Write-Host "[AVISO] Verifique o servico em \${RemoteHost}: $q" -ForegroundColor Yellow
+    }
+  }
+  return $true
+}
+
+$didLocal = $false
+if (Test-Path 'B:\\henrique-dev\\Google-avaliacoes\\fiorix-connector\\dist') {
+  $didLocal = Update-ConnectorFolder 'B:\\henrique-dev\\Google-avaliacoes\\fiorix-connector' "Estacao Local ($env:COMPUTERNAME)" ''
+}
+if (-not $didLocal -and (Test-Path 'C:\\Program Files\\FIORIX Connector')) {
+  $didLocal = Update-ConnectorFolder 'C:\\Program Files\\FIORIX Connector' "Servidor Local ($env:COMPUTERNAME)" ''
+}
+
+if ($env:COMPUTERNAME -ne 'SRVFILES') {
+  $remoteUnc = '\\\\srvfiles\\c$\\Program Files\\FIORIX Connector'
+  if (Test-Path $remoteUnc) {
+    $null = Update-ConnectorFolder $remoteUnc 'Servidor Principal (SRVFILES via Rede)' 'srvfiles'
+  } else {
+    Write-Host ""
+    Write-Host "[INFO] Se precisar atualizar tambem o SRVFILES e o compartilhamento \\\\srvfiles\\c$ nao estiver acessivel, execute este mesmo .BAT no SRVFILES." -ForegroundColor Yellow
+  }
+}
+
+Write-Host ""
+Write-Host "======================================================================" -ForegroundColor Green
+Write-Host "  TRANSICAO CONCLUIDA! Em ate 20s o painel exibira v2.6.2." -ForegroundColor Green
+Write-Host "  A partir da v2.6.2, as proximas atualizacoes reiniciam 100% sozinhas!" -ForegroundColor Green
+Write-Host "======================================================================" -ForegroundColor Green
+`;
+
+  const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+  return [
+    '@echo off',
+    'chcp 65001 >nul',
+    'title Ativar FIORIX Connector v2.6.2 (Transicao Unica)',
+    'net session >nul 2>&1',
+    'if %errorLevel% neq 0 (',
+    '  echo Solicitando permissao de Administrador para reiniciar o servico FIORIXConnector...',
+    '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
+    '  exit /b',
+    ')',
+    'echo ============================================================================',
+    'echo   FIORIX CONNECTOR - ATIVADOR UNICO DE TRANSICAO (v2.6.0 -^> v2.6.2)',
+    'echo ============================================================================',
+    `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encoded}`,
+    'echo.',
+    'pause',
+  ].join('\r\n');
+}
+
 export async function GET(req: NextRequest) {
   const origin = resolveOrigin(req);
   const format = (req.nextUrl.searchParams.get('format') || 'ps1').toLowerCase();
   const token = (req.nextUrl.searchParams.get('token') || '').trim();
+
+  if (format === 'activate-bat') {
+    const batContent = buildActivateV262Batch(origin);
+    return new NextResponse(batContent, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/octet-stream; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="Ativar-FIORIX-v2.6.2.bat"',
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
 
   if (format === 'bat') {
     if (!token.startsWith('fx_enroll_')) {

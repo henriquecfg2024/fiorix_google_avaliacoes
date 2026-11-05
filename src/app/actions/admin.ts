@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
-import { isValidCPF } from '@/lib/cpf-validator';
+import { isValidCPF, formatCPF } from '@/lib/cpf-validator';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
 
@@ -47,95 +47,127 @@ export async function getTenants() {
   });
 }
 
-export async function createUser(formData: FormData) {
-  const currentUser = await requireRole('ADMIN', 'MASTER');
+export async function createUserAction(
+  formData: FormData
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'MASTER');
 
-  const name = (formData.get('name') as string)?.trim();
-  const email = (formData.get('email') as string)?.trim().toLowerCase();
-  const password = formData.get('password') as string;
-  const cpf = (formData.get('cpf') as string)?.trim() || null;
-  const departamento = (formData.get('departamento') as string) || 'Atendimento';
-  const cargo = (formData.get('cargo') as string)?.trim() || 'auxiliar';
-  const ramal = (formData.get('ramal') as string)?.trim() || null;
-  const podeSerTutor = formData.get('podeSerTutor') === 'true' || formData.get('podeSerTutor') === 'on';
+    const name = (formData.get('name') as string)?.trim();
+    const email = (formData.get('email') as string)?.trim().toLowerCase();
+    const password = (formData.get('password') as string) || '';
+    const rawCpf = (formData.get('cpf') as string)?.trim() || '';
+    const cpfDigits = rawCpf.replace(/\D/g, '');
+    const cpf = cpfDigits.length > 0 ? formatCPF(cpfDigits) : null;
+    const departamento = (formData.get('departamento') as string)?.trim() || 'Atendimento';
+    const cargo = (formData.get('cargo') as string)?.trim() || 'auxiliar';
+    const ramal = (formData.get('ramal') as string)?.trim() || null;
+    const podeSerTutor =
+      formData.get('podeSerTutor') === 'true' || formData.get('podeSerTutor') === 'on';
 
-  // REGRA DE FUNÇÃO: Só Henrique Cesar pode ser ADMIN; todos os outros viram COLABORADOR ou RH
-  let role = 'COLABORADOR';
-  const requestedRole = (formData.get('role') as string) || 'COLABORADOR';
-  if (name.toLowerCase().includes('henrique cesar') && requestedRole === 'ADMIN') {
-    role = 'ADMIN';
-  } else if (requestedRole === 'RH') {
-    role = 'RH';
-  } else if (requestedRole === 'USER') {
-    role = 'USER';
-  } else {
-    role = 'COLABORADOR';
-  }
-
-  if (!name || !email || !password) {
-    throw new Error('Nome, e-mail e senha são obrigatórios.');
-  }
-
-  // PROTEÇÃO MASTER
-  if (email === 'admin@fiorix.com.br') {
-    throw new Error('Operação negada: Usuário MASTER protegido.');
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    throw new Error('Já existe um usuário cadastrado com este e-mail.');
-  }
-
-  if (cpf) {
-    if (!isValidCPF(cpf)) {
-      throw new Error('CPF inválido. Verifique os dígitos e tente novamente.');
+    if (!name || !email || !password) {
+      return { error: 'Nome, e-mail e senha são obrigatórios.' };
     }
-    const existingCpf = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM public."User" WHERE cpf = $1 LIMIT 1`,
-      cpf
-    );
-    if (existingCpf.length > 0) {
-      throw new Error('Já existe um colaborador cadastrado com este CPF.');
+
+    if (password.trim().length < 6) {
+      return { error: 'A senha inicial deve ter no mínimo 6 caracteres.' };
     }
-  }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+    // REGRA DE FUNÇÃO: Só Henrique Cesar pode ser ADMIN; demais funções seguem seleção permitida
+    let role = 'COLABORADOR';
+    const requestedRole = (formData.get('role') as string) || 'COLABORADOR';
+    if (requestedRole === 'ADMIN') {
+      if (!name.toLowerCase().includes('henrique cesar')) {
+        return {
+          error: 'Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.',
+        };
+      }
+      role = 'ADMIN';
+    } else if (requestedRole === 'RH') {
+      role = 'RH';
+    } else if (requestedRole === 'SUBSTITUTO') {
+      role = 'SUBSTITUTO';
+    } else if (requestedRole === 'USER') {
+      role = 'USER';
+    } else {
+      role = 'COLABORADOR';
+    }
 
-  await prisma.$executeRawUnsafe(
-    `
-    INSERT INTO public."User" (
-      id, name, email, "passwordHash", role, "tenantId", 
-      cpf, departamento, cargo, ramal, pode_ser_tutor, status, 
-      "createdAt", "updatedAt"
-    )
-    VALUES (
-      gen_random_uuid()::text, $1, $2, $3, $4::"Role", $5, 
-      $6, $7, $8, $9, $10, 'ativo', 
-      NOW(), NOW()
+    // PROTEÇÃO MASTER
+    if (email === 'admin@fiorix.com.br') {
+      return { error: 'Operação negada: Usuário MASTER protegido.' };
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return { error: 'Já existe um usuário cadastrado com este e-mail.' };
+    }
+
+    // CPF opcional: valida apenas quando preenchido
+    if (cpfDigits.length > 0) {
+      if (!isValidCPF(cpfDigits)) {
+        return {
+          error: 'CPF inválido. Informe os 11 dígitos válidos ou deixe o campo em branco.',
+        };
+      }
+      const existingCpf = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 LIMIT 1`,
+        cpfDigits
+      );
+      if (existingCpf.length > 0) {
+        return { error: 'Já existe um colaborador cadastrado com este CPF.' };
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await prisma.$executeRawUnsafe(
+      `
+      INSERT INTO public."User" (
+        id, name, email, "passwordHash", role, "tenantId", 
+        cpf, departamento, cargo, ramal, pode_ser_tutor, status, 
+        "createdAt", "updatedAt"
+      )
+      VALUES (
+        gen_random_uuid()::text, $1, $2, $3, $4::"Role", $5, 
+        $6, $7, $8, $9, $10, 'ativo', 
+        NOW(), NOW()
+      );
+    `,
+      name,
+      email,
+      passwordHash,
+      role,
+      currentUser.tenantId,
+      cpf,
+      departamento,
+      cargo,
+      ramal,
+      podeSerTutor
     );
-  `,
-    name,
-    email,
-    passwordHash,
-    role,
-    currentUser.tenantId,
-    cpf,
-    departamento,
-    cargo,
-    ramal,
-    podeSerTutor
-  );
 
-  await recordAuditLog({
-    modulo: 'USUARIOS',
-    acao: 'INCLUSAO',
-    registroDescricao: `Colaborador/Usuário "${name}" (${email}) criado`,
-    detalhes: { name, email, role, departamento, cargo, ramal },
-    userOverride: currentUser,
-  });
+    await recordAuditLog({
+      modulo: 'USUARIOS',
+      acao: 'INCLUSAO',
+      registroDescricao: `Colaborador/Usuário "${name}" (${email}) criado${cpf ? '' : ' (sem CPF)'}`,
+      detalhes: { name, email, role, departamento, cargo, ramal, hasCpf: Boolean(cpf) },
+      userOverride: currentUser,
+    });
 
-  revalidatePath('/configuracoes/usuarios');
-  revalidatePath('/configuracoes');
+    revalidatePath('/configuracoes/usuarios');
+    revalidatePath('/configuracoes');
+    revalidatePath('/sistema/pessoas');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Erro em createUserAction:', err);
+    return {
+      error: err?.message || 'Não foi possível concluir o cadastro do usuário.',
+    };
+  }
+}
+
+export async function createUser(formData: FormData): Promise<void> {
+  await createUserAction(formData);
 }
 
 export async function createTenant(formData: FormData) {
@@ -316,11 +348,15 @@ export async function updateUserCpf(userId: string, newCpf: string) {
     return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
-  const cleanCpf = newCpf.trim();
-  if (cleanCpf) {
+  const cpfDigits = (newCpf || '').replace(/\D/g, '');
+  const cleanCpf = cpfDigits.length > 0 ? formatCPF(cpfDigits) : '';
+  if (cpfDigits.length > 0) {
+    if (!isValidCPF(cpfDigits)) {
+      return { error: 'CPF inválido. Verifique os dígitos ou deixe o campo em branco.' };
+    }
     const existing = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM public."User" WHERE cpf = $1 AND id != $2 LIMIT 1`,
-      cleanCpf,
+      `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
+      cpfDigits,
       userId
     );
     if (existing.length > 0) {
@@ -428,15 +464,16 @@ export async function updateUserProfile(
     }
   }
 
-  // Validar CPF único
-  const cleanCpf = data.cpf?.trim() || '';
-  if (cleanCpf) {
-    if (!isValidCPF(cleanCpf)) {
-      return { error: 'CPF inválido. Verifique os dígitos e tente novamente.' };
+  // Validar CPF único (opcional)
+  const cpfDigits = (data.cpf || '').replace(/\D/g, '');
+  const cleanCpf = cpfDigits.length > 0 ? formatCPF(cpfDigits) : '';
+  if (cpfDigits.length > 0) {
+    if (!isValidCPF(cpfDigits)) {
+      return { error: 'CPF inválido. Verifique os dígitos ou deixe o campo em branco.' };
     }
     const existingCpf = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM public."User" WHERE cpf = $1 AND id != $2 LIMIT 1`,
-      cleanCpf,
+      `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
+      cpfDigits,
       userId
     );
     if (existingCpf.length > 0) {
@@ -445,7 +482,7 @@ export async function updateUserProfile(
   }
 
   // Validar role
-  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'ADMIN'];
   if (data.role && !validRoles.includes(data.role)) {
     return { error: 'Função inválida.' };
   }
