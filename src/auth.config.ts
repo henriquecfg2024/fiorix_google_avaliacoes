@@ -32,7 +32,7 @@ export const authConfig = {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
 
-        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO'].includes(role)) {
+        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'].includes(role)) {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
 
@@ -78,8 +78,8 @@ export const authConfig = {
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
         }
 
-        // Regras para perfil SUBSTITUTO: governança de ITs, operacional, BI, espaço pessoal e gestão de pessoas/comunicados
-        if (role === 'SUBSTITUTO') {
+        // Regras para perfil SUBSTITUTO e VISITANTE (visitante controlado via Gerenciar Permissões com mesmo teto estrutural)
+        if (role === 'SUBSTITUTO' || role === 'VISITANTE') {
           if (
             nextUrl.pathname.startsWith('/gestao-documental') ||
             nextUrl.pathname.startsWith('/visualizador-documental') ||
@@ -101,7 +101,7 @@ export const authConfig = {
           ) {
             return true;
           }
-          return Response.redirect(new URL('/administracao/its', nextUrl));
+          return Response.redirect(new URL(role === 'VISITANTE' ? '/dashboard' : '/administracao/its', nextUrl));
         }
 
         // Regras para perfil USER: acesso operacional ao dashboard, bi, avaliacoes, relatorios, pessoas
@@ -127,6 +127,9 @@ export const authConfig = {
         }
         if (role === 'SUBSTITUTO') {
           return Response.redirect(new URL('/administracao/its', nextUrl));
+        }
+        if (role === 'VISITANTE') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
         }
         return Response.redirect(new URL('/dashboard', nextUrl));
       }

@@ -106,7 +106,7 @@ export function FiorixTopbar() {
   const role = (currentUser?.role as Role) || "USER";
   const homeRoute = getHomeRouteForRole(role);
   const visibleGroups = filterNavigationByRole(role, allowedItemIds);
-  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role.toUpperCase());
+  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO", "VISITANTE"].includes(role.toUpperCase());
 
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/8 bg-[#080A12]/90 backdrop-blur-md transition-colors duration-300">

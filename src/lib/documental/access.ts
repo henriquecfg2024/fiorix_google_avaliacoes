@@ -6,7 +6,7 @@ export class DocumentAccessError extends Error {
 }
 
 /** Perfis de gestão/supervisão que já tinham acesso à Gestão Documental. */
-const PERFIS_GESTAO = ['ADMIN', 'MASTER', 'SUBSTITUTO'];
+const PERFIS_GESTAO = ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'];
 
 const normalizar = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 

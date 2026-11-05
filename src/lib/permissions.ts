@@ -3,7 +3,7 @@
  * Supported Roles: MASTER, ADMIN, USER, RH, COLABORADOR
  */
 
-export type AppRole = 'MASTER' | 'ADMIN' | 'USER' | 'RH' | 'COLABORADOR';
+export type AppRole = 'MASTER' | 'ADMIN' | 'SUBSTITUTO' | 'VISITANTE' | 'USER' | 'RH' | 'COLABORADOR';
 
 export interface UserLike {
   role?: string | null;
@@ -14,6 +14,8 @@ export interface UserLike {
 export const ROLE_LABELS: Record<AppRole, string> = {
   MASTER: 'Master',
   ADMIN: 'Administrador',
+  SUBSTITUTO: 'Substituto',
+  VISITANTE: 'Visitante',
   RH: 'RH',
   USER: 'Usuário',
   COLABORADOR: 'Colaborador',
@@ -23,6 +25,8 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
   COLABORADOR: 'Acesso somente a Comunicados, Férias e Holerites pessoais.',
   USER: 'Acesso operacional padrão do FIORIX.',
   RH: 'Gerenciamento de Comunicados, Férias e Holerites.',
+  SUBSTITUTO: 'Governança de ITs, supervisão operacional e gestão de comunicados.',
+  VISITANTE: 'Perfil externo/teste controlado em Gerenciar Permissões.',
   ADMIN: 'Acesso administrativo da organização.',
   MASTER: 'Acesso irrestrito ao sistema.',
 };
@@ -39,6 +43,7 @@ export function getHomeRouteForRole(userOrRole?: UserLike | string | null): stri
       return '/sistema/pessoas';
     case 'SUBSTITUTO':
       return '/administracao/its';
+    case 'VISITANTE':
     case 'USER':
     case 'ADMIN':
     case 'MASTER':
@@ -79,7 +84,7 @@ export function canManagePeople(userOrRole?: UserLike | string | null): boolean 
  */
 export function canManageComunicados(userOrRole?: UserLike | string | null): boolean {
   const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
-  return role === 'RH' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO';
+  return role === 'RH' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO' || role === 'VISITANTE';
 }
 
 /**
@@ -104,7 +109,7 @@ export function canAccessSettings(userOrRole?: UserLike | string | null): boolea
  */
 export function canAccessBi(userOrRole?: UserLike | string | null): boolean {
   const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
-  return role === 'USER' || role === 'ADMIN' || role === 'MASTER';
+  return role === 'USER' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO' || role === 'VISITANTE';
 }
 
 /**
@@ -113,7 +118,7 @@ export function canAccessBi(userOrRole?: UserLike | string | null): boolean {
  */
 export function canAccessGestao(userOrRole?: UserLike | string | null): boolean {
   const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
-  return role === 'USER' || role === 'ADMIN' || role === 'MASTER';
+  return role === 'USER' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO' || role === 'VISITANTE';
 }
 
 /**

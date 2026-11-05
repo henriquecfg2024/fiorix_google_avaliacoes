@@ -143,6 +143,7 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
             <option value="USER">Usuário</option>
             <option value="RH">RH (Gestão de Pessoas)</option>
             <option value="SUBSTITUTO">Substituto (ITs &amp; Governança)</option>
+            <option value="VISITANTE">Visitante (Teste / Permissões)</option>
             <option value="ADMIN">Admin (Restrito)</option>
           </select>
         </div>
@@ -232,7 +233,7 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2 border-t border-white/6 text-[11px] text-white/50">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 pt-2 border-t border-white/6 text-[11px] text-white/50">
         <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
           <span className="font-bold text-cyan-400 block mb-0.5">Colaborador:</span>
           <span>Acesso a Comunicados, Férias, Holerites e Minha IT.</span>
@@ -248,6 +249,10 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
         <div className="p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
           <span className="font-bold text-indigo-300 block mb-0.5">Substituto:</span>
           <span>Governança, criação, aprovação e fiscalização de ITs.</span>
+        </div>
+        <div className="p-2.5 rounded-xl border border-teal-500/30 bg-teal-500/5">
+          <span className="font-bold text-teal-300 block mb-0.5">Visitante:</span>
+          <span>Perfil de teste/externo com menus controlados em Gerenciar Permissões.</span>
         </div>
         <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
           <span className="font-bold text-indigo-400 block mb-0.5">Administrador:</span>

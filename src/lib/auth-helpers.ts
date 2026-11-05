@@ -124,7 +124,10 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
 export async function requireRole(...allowedRoles: Array<Role | string>): Promise<AuthenticatedUser> {
   const user = await requireAuth();
 
-  if (!allowedRoles.includes(user.role)) {
+  if (
+    !allowedRoles.includes(user.role) &&
+    !(user.role === 'VISITANTE' && allowedRoles.includes('SUBSTITUTO'))
+  ) {
     throw new Error('Acesso negado: Permissão insuficiente para realizar esta operação.');
   }
 

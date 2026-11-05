@@ -6,8 +6,8 @@ import { NavCatalogGroup, NavCatalogItem } from './types';
  */
 export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
   { id: 'documental', label: 'GESTÃO DOCUMENTAL', items: [
-    { id: 'gestao_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO'], label: 'Manifestações', href: '/gestao-documental', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Pesquisa de arquivos locais pelo Connector' },
-    { id: 'visualizador_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO'], label: 'Visualizador', href: '/gestao-documental/visualizador', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Visualizador universal de documentos e matrículas digitalizadas' },
+    { id: 'gestao_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Manifestações', href: '/gestao-documental', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Pesquisa de arquivos locais pelo Connector' },
+    { id: 'visualizador_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Visualizador', href: '/gestao-documental/visualizador', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Visualizador universal de documentos e matrículas digitalizadas' },
   ] },
   {
     id: 'gestao',
@@ -129,7 +129,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupId: 'rhGestao',
         groupLabel: 'GESTÃO DE PESSOAS',
         description: 'Quadro de colaboradores, férias e holerites',
-        structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO'],
+        structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO', 'VISITANTE'],
         sharedWithId: 'gestao_comunicados',
         sharedNote: 'Compartilha a rota base /sistema/pessoas com Gestão de Comunicados',
       },
@@ -146,7 +146,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupId: 'governancaIts',
         groupLabel: 'INSTRUÇÕES DE TRABALHO',
         description: 'Acompanhe, revise e aprove Instruções de Trabalho',
-        structuralRoles: ['MASTER', 'ADMIN', 'SUBSTITUTO'],
+        structuralRoles: ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE'],
       },
     ],
   },
@@ -177,7 +177,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupId: 'trabalho',
         groupLabel: 'ROTINA DE TRABALHO',
         description: 'Criar comunicados e gerenciar ciências',
-        structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO'],
+        structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO', 'VISITANTE'],
         sharedWithId: 'gestao_pessoas',
         sharedNote: 'Compartilha a rota base /sistema/pessoas com Painel de Pessoas',
       },
@@ -297,6 +297,7 @@ export const ITEM_BY_HREF = new Map<string, NavCatalogItem>(
 export const EDITABLE_ROLES: Array<{ role: string; label: string }> = [
   { role: 'ADMIN', label: 'Administrador (ADMIN)' },
   { role: 'SUBSTITUTO', label: 'Oficial Substituto (SUBSTITUTO)' },
+  { role: 'VISITANTE', label: 'Visitante / Teste (VISITANTE)' },
   { role: 'RH', label: 'Recursos Humanos (RH)' },
   { role: 'USER', label: 'Operador Padrão (USER)' },
   { role: 'COLABORADOR', label: 'Colaborador de Cartório (COLABORADOR)' },

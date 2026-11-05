@@ -20,8 +20,8 @@ export default async function PainelRHPage() {
 
   const userRole = session.user.role || "USER";
 
-  // Permitido para ADMIN, RH, MASTER, GESTOR e SUBSTITUTO
-  const ALLOWED_ROLES = ["ADMIN", "RH", "MASTER", "GESTOR", "SUBSTITUTO"];
+  // Permitido para ADMIN, RH, MASTER, GESTOR, SUBSTITUTO e VISITANTE
+  const ALLOWED_ROLES = ["ADMIN", "RH", "MASTER", "GESTOR", "SUBSTITUTO", "VISITANTE"];
   if (!ALLOWED_ROLES.includes(userRole)) {
     redirect("/pessoas");
   }

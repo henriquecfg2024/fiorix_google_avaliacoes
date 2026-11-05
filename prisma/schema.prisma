@@ -17,6 +17,7 @@ enum Role {
   USER
   RH
   COLABORADOR
+  VISITANTE
 }
 
 enum Sentiment {

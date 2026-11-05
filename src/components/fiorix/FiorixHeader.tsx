@@ -129,7 +129,7 @@ export function FiorixHeader() {
 
   const role = ((currentUser?.role as Role) || "USER").toUpperCase();
   const homeRoute = getHomeRouteForRole(currentUser?.role);
-  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role);
+  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO", "VISITANTE"].includes(role);
 
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">

@@ -143,8 +143,8 @@ export async function getItsPageData() {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
-  // Apenas SUBSTITUTO, ADMIN e MASTER possuem prerrogativa de acessar a Governança Geral de ITs
-  if (!['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(currentUser.role)) {
+  // Apenas SUBSTITUTO, VISITANTE, ADMIN e MASTER possuem prerrogativa de acessar a Governança Geral de ITs
+  if (!['SUBSTITUTO', 'VISITANTE', 'ADMIN', 'MASTER'].includes(currentUser.role)) {
     throw new Error('Acesso restrito: Apenas Oficiais Substitutos e Administradores possuem acesso à Governança de ITs.');
   }
 

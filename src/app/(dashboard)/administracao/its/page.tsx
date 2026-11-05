@@ -23,8 +23,8 @@ export default async function InstrucoesTrabalhoPage({ searchParams }: PageProps
 
   const userRole = String(session.user.role || "USER").toUpperCase();
 
-  // Apenas SUBSTITUTO, ADMIN e MASTER acessam a Governança de ITs
-  if (!["SUBSTITUTO", "ADMIN", "MASTER"].includes(userRole)) {
+  // Apenas SUBSTITUTO, VISITANTE, ADMIN e MASTER acessam a Governança de ITs
+  if (!["SUBSTITUTO", "VISITANTE", "ADMIN", "MASTER"].includes(userRole)) {
     redirect(userRole === "RH" ? "/sistema/pessoas" : "/minha-it");
   }
 

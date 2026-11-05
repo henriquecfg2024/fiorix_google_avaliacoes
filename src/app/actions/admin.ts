@@ -87,6 +87,8 @@ export async function createUserAction(
       role = 'RH';
     } else if (requestedRole === 'SUBSTITUTO') {
       role = 'SUBSTITUTO';
+    } else if (requestedRole === 'VISITANTE') {
+      role = 'VISITANTE';
     } else if (requestedRole === 'USER') {
       role = 'USER';
     } else {
@@ -244,11 +246,11 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 
 export async function updateUserRole(
   userId: string,
-  newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN'
+  newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'VISITANTE' | 'ADMIN'
 ) {
   const currentUser = await requireRole('ADMIN', 'MASTER');
 
-  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'ADMIN'];
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'VISITANTE', 'ADMIN'];
   if (!validRoles.includes(newRole)) {
     return { error: 'Função inválida fornecida.' };
   }
@@ -482,7 +484,7 @@ export async function updateUserProfile(
   }
 
   // Validar role
-  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'ADMIN'];
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'VISITANTE', 'ADMIN'];
   if (data.role && !validRoles.includes(data.role)) {
     return { error: 'Função inválida.' };
   }

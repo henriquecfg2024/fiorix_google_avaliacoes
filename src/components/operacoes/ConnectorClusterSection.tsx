@@ -518,11 +518,16 @@ export function ConnectorClusterSection({
               <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-amber-200">
-                  Transição única do v2.6.0 → {latestVersion}:
+                  Transição única do v2.6.0 → {latestVersion} pendente em{' '}
+                  {nodes
+                    .filter((n) => n.isOnline && n.version === 'v2.6.0')
+                    .map((n) => n.hostname || n.name)
+                    .join(', ')}
+                  :
                 </strong>{' '}
-                o pacote {latestVersion} já está baixado nos servidores, mas o binário antigo{' '}
-                <code className="text-amber-200">v2.6.0</code> exige 1 reinício de serviço único
-                para ativar o novo auto-update automático.
+                execute o mesmo ativador único <code className="text-amber-200">.BAT</code> neste(s)
+                servidor(es) restante(s) para concluir a migração do binário antigo{' '}
+                <code className="text-amber-200">v2.6.0</code>.
               </div>
             </div>
             <a

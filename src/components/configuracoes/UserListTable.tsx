@@ -78,7 +78,7 @@ export function UserListTable({
   // Modal Confirmação de Função
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     user: UserItem;
-    newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN';
+    newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'VISITANTE' | 'ADMIN';
     impact: string;
   } | null>(null);
 
@@ -114,6 +114,8 @@ export function UserListTable({
         return 'bg-purple-500/10 text-purple-400 border-purple-500/25';
       case 'SUBSTITUTO':
         return 'bg-indigo-500/20 text-indigo-300 border-indigo-400/40 font-bold shadow-xs shadow-indigo-500/20';
+      case 'VISITANTE':
+        return 'bg-teal-500/15 text-teal-300 border-teal-400/35 font-semibold';
       case 'ADMIN':
         return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25';
       case 'MASTER':
@@ -143,12 +145,14 @@ export function UserListTable({
         return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
       case 'Ofício':
         return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+      case 'VISITANTE':
+        return 'bg-teal-500/10 text-teal-300 border-teal-500/25';
       default:
         return 'bg-white/5 text-white/70 border-white/10';
     }
   };
 
-  const onSelectRole = (user: UserItem, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN') => {
+  const onSelectRole = (user: UserItem, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'VISITANTE' | 'ADMIN') => {
     if (user.role === newRole) return;
     if (user.role === 'MASTER' || user.email === 'admin@fiorix.com.br') {
       alert('Usuário MASTER protegido - não pode ser alterado.');
@@ -163,7 +167,7 @@ export function UserListTable({
     executeRoleChange(user.id, newRole);
   };
 
-  const executeRoleChange = async (userId: string, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN') => {
+  const executeRoleChange = async (userId: string, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'VISITANTE' | 'ADMIN') => {
     setUpdatingRoleId(userId);
     try {
       const res = await updateUserRole(userId, newRole);
@@ -349,6 +353,7 @@ export function UserListTable({
               <option value="MASTER" className="bg-[#0A0F1E]">MASTER</option>
               <option value="ADMIN" className="bg-[#0A0F1E]">ADMIN</option>
               <option value="SUBSTITUTO" className="bg-[#0A0F1E]">SUBSTITUTO</option>
+              <option value="VISITANTE" className="bg-[#0A0F1E]">VISITANTE</option>
               <option value="RH" className="bg-[#0A0F1E]">RH</option>
               <option value="USER" className="bg-[#0A0F1E]">USER</option>
               <option value="COLABORADOR" className="bg-[#0A0F1E]">COLABORADOR</option>
@@ -457,7 +462,7 @@ export function UserListTable({
                         onChange={(e) =>
                           onSelectRole(
                             u,
-                            e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN'
+                            e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'VISITANTE' | 'ADMIN'
                           )
                         }
                         className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-amber-400/50 cursor-pointer ${getRoleBadge(
@@ -468,6 +473,7 @@ export function UserListTable({
                         <option value="USER" className="bg-[#121624] text-blue-300 py-1 font-medium">Usuário</option>
                         <option value="RH" className="bg-[#121624] text-purple-300 py-1 font-medium">RH</option>
                         <option value="SUBSTITUTO" className="bg-[#121624] text-indigo-300 py-1 font-bold">Substituto</option>
+                        <option value="VISITANTE" className="bg-[#121624] text-teal-300 py-1 font-semibold">Visitante</option>
                         <option value="ADMIN" className="bg-[#121624] text-amber-300 py-1 font-bold">Admin</option>
                       </select>
                     )}
@@ -664,6 +670,7 @@ export function UserListTable({
                     <option value="USER" className="bg-[#121624] text-blue-300 py-1">Usuário</option>
                     <option value="RH" className="bg-[#121624] text-purple-300 py-1">RH</option>
                     <option value="SUBSTITUTO" className="bg-[#121624] text-indigo-300 py-1 font-bold">Substituto</option>
+                    <option value="VISITANTE" className="bg-[#121624] text-teal-300 py-1 font-semibold">Visitante</option>
                     <option value="ADMIN" className="bg-[#121624] text-amber-300 py-1 font-bold">Admin</option>
                   </select>
                 </div>

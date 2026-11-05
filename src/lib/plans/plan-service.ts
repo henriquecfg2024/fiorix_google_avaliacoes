@@ -195,8 +195,8 @@ export function getStaticRolePermissions(role: string, moduleId: string): Set<Mo
     return actions;
   }
 
-  // GESTOR e SUBSTITUTO (Preserva integralmente o papel legado SUBSTITUTO com aprovações)
-  if (normalizedRole === 'GESTOR' || normalizedRole === 'SUBSTITUTO') {
+  // GESTOR, SUBSTITUTO e VISITANTE (Preserva integralmente o papel SUBSTITUTO com controle via Gerenciar Permissões)
+  if (normalizedRole === 'GESTOR' || normalizedRole === 'SUBSTITUTO' || normalizedRole === 'VISITANTE') {
     actions.add('view');
     if (mod.supportedActions.includes('create')) actions.add('create');
     if (mod.supportedActions.includes('edit')) actions.add('edit');

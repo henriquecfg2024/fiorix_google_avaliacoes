@@ -13,7 +13,7 @@ export default async function InstrucoesTrabalhoRoutePage() {
   const userRole = String(session.user.role || 'COLABORADOR').toUpperCase();
 
   // Perfis de liderança/gestão acessam a Governança completa de ITs
-  if (['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(userRole)) {
+  if (['SUBSTITUTO', 'VISITANTE', 'ADMIN', 'MASTER'].includes(userRole)) {
     redirect('/administracao/its');
   }
 
