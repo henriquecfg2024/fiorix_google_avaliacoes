@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
 import { auth } from '@/auth';
 import {
+  clearDepartmentUsersIndividualOverrides,
   computeNavPermissionsState,
   getEffectiveUserNavigation,
   getAllowedNavItemsForUser,
@@ -203,6 +204,29 @@ export async function savePermissionsBatchAction(params: {
       success: false,
       updatedCount: 0,
       message: err?.message || 'Falha ao salvar permissões no servidor.',
+    };
+  }
+}
+
+/**
+ * Limpa exceções individuais dos colaboradores vinculados a um departamento para que herdem as regras do departamento.
+ */
+export async function clearDepartmentUsersOverridesAction(params: {
+  tenantId: string;
+  departamento: string;
+}) {
+  try {
+    const master = await requireRole('MASTER');
+    return await clearDepartmentUsersIndividualOverrides({
+      ...params,
+      masterUser: master,
+    });
+  } catch (err: any) {
+    return {
+      success: false,
+      deletedRulesCount: 0,
+      affectedUsersCount: 0,
+      message: err?.message || 'Falha ao limpar exceções individuais do departamento.',
     };
   }
 }

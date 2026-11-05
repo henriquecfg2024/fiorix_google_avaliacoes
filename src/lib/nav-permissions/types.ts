@@ -81,6 +81,7 @@ export interface ItemEffectiveState {
   roleRule: boolean | null; // true = ALLOW, false = DENY, null = sem regra (usa legado)
   departmentOverride?: OverrideValue | null; // 'ALLOW' | 'DENY' | null (herdar do perfil)
   userOverride: OverrideValue | null; // 'ALLOW' | 'DENY' | null (herdar)
+  legacyAllowed?: boolean;
   effectiveStatus: EffectiveAccessStatus;
   effectiveAllowed: boolean;
   isBlockedBySystem: boolean;
@@ -94,10 +95,20 @@ export interface NavPermissionsGroupView {
   items: ItemEffectiveState[];
 }
 
+export interface DepartmentUserOverrideSummary {
+  userId: string;
+  name: string;
+  email: string;
+  allowCount: number;
+  denyCount: number;
+  totalOverrides: number;
+}
+
 export interface NavPermissionsTreeResponse {
   groups: NavPermissionsGroupView[];
   itemsState: ItemEffectiveState[];
   isFlagActive: boolean;
+  departmentUsersWithOverrides?: DepartmentUserOverrideSummary[];
 }
 
 export interface TenantContextItem {

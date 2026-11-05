@@ -9,6 +9,7 @@ import {
   checkStructuralRestriction,
 } from './catalog';
 import {
+  DepartmentUserOverrideSummary,
   ItemEffectiveState,
   NavCatalogItem,
   NavPermissionsTreeResponse,
@@ -119,6 +120,50 @@ export async function getUserRulesFromDb(
 }
 
 /**
+ * Lista colaboradores de um departamento que possuem exceções individuais em fiorix_nav_user_rules
+ * (as quais têm precedência sobre as regras do departamento).
+ */
+export async function getDepartmentUsersWithOverrides(
+  tenantId: string,
+  departamento?: string | null
+): Promise<DepartmentUserOverrideSummary[]> {
+  const trimmed = (departamento || '').trim();
+  if (!trimmed) return [];
+
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         u.id AS "userId",
+         COALESCE(u.name, 'Sem Nome') AS name,
+         u.email,
+         COUNT(*) FILTER (WHERE ur.override = 'ALLOW')::int AS "allowCount",
+         COUNT(*) FILTER (WHERE ur.override = 'DENY')::int AS "denyCount",
+         COUNT(*)::int AS "totalOverrides"
+       FROM public.fiorix_nav_user_rules ur
+       JOIN public."User" u
+         ON u.id = ur.user_id AND u."tenantId" = ur.tenant_id
+       WHERE ur.tenant_id = $1
+         AND u.role <> 'MASTER'
+         AND LOWER(TRIM(COALESCE(u.departamento, ''))) = LOWER(TRIM($2))
+       GROUP BY u.id, u.name, u.email
+       ORDER BY LOWER(COALESCE(u.name, '')) ASC`,
+      tenantId,
+      trimmed
+    );
+    return rows.map((r) => ({
+      userId: String(r.userId),
+      name: String(r.name || 'Sem Nome'),
+      email: String(r.email || ''),
+      allowCount: Number(r.allowCount || 0),
+      denyCount: Number(r.denyCount || 0),
+      totalOverrides: Number(r.totalOverrides || 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Calcula o estado efetivo de cada item do catálogo para o alvo:
  * ROLE/PERFIL, DEPARTMENT/DEPARTAMENTO ou USER/COLABORADOR.
  */
@@ -153,10 +198,16 @@ export async function computeNavPermissionsState(params: {
     ? await getUserRulesFromDb(tenantId, targetId)
     : new Map<string, OverrideValue>();
 
+  // 4. Se for modo DEPARTAMENTO, identifica colaboradores deste departamento com exceções individuais conflitantes
+  const departmentUsersWithOverrides = isDeptMode
+    ? await getDepartmentUsersWithOverrides(tenantId, targetId)
+    : undefined;
+
   const itemsState: ItemEffectiveState[] = ALL_NAV_CATALOG_ITEMS.map((item) => {
     const roleRuleVal = roleRules.has(item.id) ? roleRules.get(item.id)! : null;
     const deptOverrideVal = deptRules.has(item.id) ? deptRules.get(item.id)! : null;
     const userOverrideVal = userRules.has(item.id) ? userRules.get(item.id)! : null;
+    const legacyAllowed = isItemVisibleInLegacy(item, effectiveRole);
 
     // A. Verifica guarda estrutural no servidor
     // No modo DEPARTAMENTO, um departamento pode conter colaboradores ADMIN/SUBSTITUTO/RH/VISITANTE/USER;
@@ -200,7 +251,6 @@ export async function computeNavPermissionsState(params: {
         effectiveAllowed = roleRuleVal;
         effectiveStatus = roleRuleVal ? 'ALLOWED_INHERITED' : 'DENIED_INHERITED';
       } else {
-        const legacyAllowed = isItemVisibleInLegacy(item, effectiveRole);
         effectiveAllowed = legacyAllowed;
         effectiveStatus = legacyAllowed ? 'ALLOWED_INHERITED' : 'DENIED_INHERITED';
       }
@@ -211,6 +261,7 @@ export async function computeNavPermissionsState(params: {
       roleRule: roleRuleVal,
       departmentOverride: deptOverrideVal,
       userOverride: userOverrideVal,
+      legacyAllowed,
       effectiveStatus,
       effectiveAllowed,
       isBlockedBySystem: structuralCheck.isBlocked,
@@ -226,7 +277,86 @@ export async function computeNavPermissionsState(params: {
     items: g.items.map((item) => stateMap.get(item.id)!),
   }));
 
-  return { groups, itemsState, isFlagActive };
+  return {
+    groups,
+    itemsState,
+    isFlagActive,
+    ...(departmentUsersWithOverrides !== undefined ? { departmentUsersWithOverrides } : {}),
+  };
+}
+
+/**
+ * Remove todas as exceções individuais (fiorix_nav_user_rules) dos colaboradores pertencentes
+ * ao departamento informado, garantindo que passem a herdar integralmente as regras do departamento.
+ */
+export async function clearDepartmentUsersIndividualOverrides(params: {
+  tenantId: string;
+  departamento: string;
+  masterUser: { id: string; name?: string | null; email?: string | null; role: string };
+}): Promise<{
+  success: boolean;
+  deletedRulesCount: number;
+  affectedUsersCount: number;
+  message: string;
+}> {
+  const { tenantId, departamento, masterUser } = params;
+  if (masterUser.role !== 'MASTER') {
+    throw new Error('Acesso negado: somente o MASTER pode alterar permissões de menu.');
+  }
+
+  const trimmedDepto = (departamento || '').trim();
+  if (!trimmedDepto) {
+    throw new Error('Departamento alvo inválido.');
+  }
+
+  const affectedUsers = await getDepartmentUsersWithOverrides(tenantId, trimmedDepto);
+  const affectedUsersCount = affectedUsers.length;
+
+  let deletedRulesCount = 0;
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.$executeRawUnsafe(
+      `DELETE FROM public.fiorix_nav_user_rules ur
+       USING public."User" u
+       WHERE ur.tenant_id = $1
+         AND u.id = ur.user_id
+         AND u."tenantId" = ur.tenant_id
+         AND u.role <> 'MASTER'
+         AND LOWER(TRIM(COALESCE(u.departamento, ''))) = LOWER(TRIM($2))`,
+      tenantId,
+      trimmedDepto
+    );
+    deletedRulesCount = Number(deleted || 0);
+  });
+
+  await recordAuditLog({
+    modulo: 'PERMISSOES_MENU' as any,
+    acao: 'ALTERACAO',
+    registroId: `DEPARTMENT_CLEAR_USER_OVERRIDES:${trimmedDepto}`,
+    registroDescricao: `Remoção de ${deletedRulesCount} exceções individuais de ${affectedUsersCount} colaborador(es) do departamento [${trimmedDepto}] no tenant [${tenantId}]`,
+    detalhes: {
+      tenantId,
+      departamento: trimmedDepto,
+      deletedRulesCount,
+      affectedUsersCount,
+      affectedUsers: affectedUsers.map((u) => ({
+        userId: u.userId,
+        name: u.name,
+        email: u.email,
+        totalOverrides: u.totalOverrides,
+      })),
+    },
+    userOverride: masterUser as any,
+  });
+
+  return {
+    success: true,
+    deletedRulesCount,
+    affectedUsersCount,
+    message:
+      deletedRulesCount > 0
+        ? `Exceções individuais removidas (${deletedRulesCount} regras em ${affectedUsersCount} colaborador(es)). Agora todos herdam as regras do departamento ${trimmedDepto}.`
+        : `Nenhuma exceção individual pendente no departamento ${trimmedDepto}.`,
+  };
 }
 
 /**

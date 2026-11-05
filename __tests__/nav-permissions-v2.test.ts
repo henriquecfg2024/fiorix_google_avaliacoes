@@ -621,3 +621,138 @@ describe('FIORIX — Menu INICIAL (/dashboard) configurável em Permissões de M
     delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
   });
 });
+
+describe('FIORIX — Detecção e Limpeza de Exceções Individuais Conflitantes por Departamento', () => {
+  it('identifica colaboradores com exceções individuais no modo DEPARTAMENTO e limpa mediante ação do MASTER', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const {
+      computeNavPermissionsState,
+      clearDepartmentUsersIndividualOverrides,
+      getAllowedNavItemsForUser,
+      getFirstAllowedRouteForUser,
+      isRouteAllowedForUser,
+    } = await import('@/lib/nav-permissions/service');
+
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    // 1. Modo DEPARTAMENTO detecta Cristiane Falanga com 20 ALLOW individuais conflitantes e preserva legacyAllowed
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules (USER)
+      .mockResolvedValueOnce([
+        { item_id: 'gestao_documental', override: 'ALLOW' },
+        { item_id: 'visualizador_documental', override: 'ALLOW' },
+        { item_id: 'avaliacoes', override: 'DENY' },
+        { item_id: 'inicio', override: 'DENY' },
+      ] as any) // deptRules (USUCAPIÃO JUDICIAL)
+      .mockResolvedValueOnce([
+        {
+          userId: 'c7ri_u_016',
+          name: 'Cristiane Falanga',
+          email: 'falanga@7risp.com.br',
+          allowCount: 20,
+          denyCount: 0,
+          totalOverrides: 20,
+        },
+      ] as any); // departmentUsersWithOverrides
+
+    const tree = await computeNavPermissionsState({
+      tenantId: 'tenant-123',
+      targetType: 'DEPARTAMENTO',
+      targetId: 'USUCAPIÃO JUDICIAL',
+    });
+
+    expect(tree.departmentUsersWithOverrides).toEqual([
+      {
+        userId: 'c7ri_u_016',
+        name: 'Cristiane Falanga',
+        email: 'falanga@7risp.com.br',
+        allowCount: 20,
+        denyCount: 0,
+        totalOverrides: 20,
+      },
+    ]);
+
+    const avaliacoesState = tree.itemsState.find((s) => s.item.id === 'avaliacoes')!;
+    expect(avaliacoesState.effectiveAllowed).toBe(false);
+    expect(avaliacoesState.legacyAllowed).toBe(true);
+
+    // 2. Bloqueia limpeza se não for MASTER ou se departamento for vazio
+    await expect(
+      clearDepartmentUsersIndividualOverrides({
+        tenantId: 'tenant-123',
+        departamento: 'USUCAPIÃO JUDICIAL',
+        masterUser: { id: 'adm-1', role: 'ADMIN' },
+      })
+    ).rejects.toThrow('Acesso negado: somente o MASTER pode alterar permissões de menu.');
+
+    await expect(
+      clearDepartmentUsersIndividualOverrides({
+        tenantId: 'tenant-123',
+        departamento: '   ',
+        masterUser: { id: 'master-1', role: 'MASTER' },
+      })
+    ).rejects.toThrow('Departamento alvo inválido.');
+
+    // 3. Limpa exceções individuais dos colaboradores do departamento com sucesso
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([
+      {
+        userId: 'c7ri_u_016',
+        name: 'Cristiane Falanga',
+        email: 'falanga@7risp.com.br',
+        allowCount: 20,
+        denyCount: 0,
+        totalOverrides: 20,
+      },
+    ] as any);
+    const executeSpy = vi.fn().mockResolvedValue(20);
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (cb: any) => {
+      return cb({ $executeRawUnsafe: executeSpy });
+    });
+
+    const clearRes = await clearDepartmentUsersIndividualOverrides({
+      tenantId: 'tenant-123',
+      departamento: 'USUCAPIÃO JUDICIAL',
+      masterUser: { id: 'master-1', role: 'MASTER' },
+    });
+    expect(clearRes.success).toBe(true);
+    expect(clearRes.deletedRulesCount).toBe(20);
+    expect(clearRes.affectedUsersCount).toBe(1);
+
+    // 4. Após limpeza, Cristiane Falanga herda 100% do departamento USUCAPIÃO JUDICIAL (apenas Gestão Documental)
+    const deptRulesAll = ALL_NAV_CATALOG_ITEMS.filter((i) => !i.isMasterOnly).map((i) => ({
+      item_id: i.id,
+      override:
+        i.id === 'gestao_documental' || i.id === 'visualizador_documental'
+          ? 'ALLOW'
+          : 'DENY',
+    }));
+
+    const falanga = {
+      id: 'c7ri_u_016',
+      role: 'USER',
+      tenantId: 'tenant-123',
+      departamento: 'USUCAPIÃO JUDICIAL',
+    };
+
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules
+      .mockResolvedValueOnce([] as any) // userRules (limpas!)
+      .mockResolvedValueOnce(deptRulesAll as any); // deptRules
+
+    const navAfter = await getAllowedNavItemsForUser(falanga);
+    expect(navAfter.allowedItemIds).toEqual(['gestao_documental', 'visualizador_documental']);
+
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // userRules
+      .mockResolvedValueOnce(deptRulesAll as any); // deptRules
+    expect(await isRouteAllowedForUser('/avaliacoes', falanga)).toBe(false);
+
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules
+      .mockResolvedValueOnce([] as any) // userRules
+      .mockResolvedValueOnce(deptRulesAll as any); // deptRules
+    expect(await getFirstAllowedRouteForUser(falanga)).toBe('/gestao-documental');
+
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
+});
