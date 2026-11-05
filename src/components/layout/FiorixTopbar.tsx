@@ -291,12 +291,13 @@ export function FiorixTopbar() {
             <span>7º RI São Paulo</span>
           </div>
 
-          {/* Selo Permanente de Topo para Perfil VISITANTE */}
+          {/* Selo Permanente de Topo para Perfil VISITANTE (clicar alterna a faixa informativa) */}
           {isVisitor && (
-            <div
-              role="status"
-              title="Credencial de Visitante com acesso provisório e monitorado"
-              className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-teal-500/15 px-3 py-1 text-[11px] font-extrabold tracking-wide text-amber-200 shadow-xs shadow-amber-500/10"
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("fiorix:toggle-visitor-banner"))}
+              title="Credencial de Visitante com acesso provisório e monitorado (clique para mostrar ou ocultar detalhes)"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 hover:border-amber-300/70 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-teal-500/15 px-3 py-1 text-[11px] font-extrabold tracking-wide text-amber-200 shadow-xs shadow-amber-500/10 transition-colors cursor-pointer"
             >
               <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
               <span>VISITANTE</span>
@@ -304,7 +305,7 @@ export function FiorixTopbar() {
               <span className="hidden sm:inline text-teal-200 font-semibold">
                 ACESSO PROVISÓRIO
               </span>
-            </div>
+            </button>
           )}
         </div>
 
