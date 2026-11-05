@@ -360,6 +360,61 @@ describe('FIORIX — Gestão Documental liberada para todos os grupos via Permis
   });
 });
 
+describe('FIORIX — Visibilidade de cards em Minha Conta (/minha-conta)', () => {
+  it('exibe Segurança & Dispositivos Conectados apenas para MASTER e ADMIN, e Notificações & Privacidade apenas para quem tem Mensagens ativo', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const { resolveMinhaContaVisibility } = await import('@/lib/usuarios/minhaContaVisibility');
+
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    // 1. MASTER e ADMIN visualizam ambos os cards
+    expect(await resolveMinhaContaVisibility({ id: 'm1', role: 'MASTER', tenantId: 'tenant-123' })).toEqual({
+      showConfiguracoesLink: true,
+      showNotificacoesPrivacidade: true,
+      showSegurancaDispositivos: true,
+    });
+    expect(await resolveMinhaContaVisibility({ id: 'a1', role: 'ADMIN', tenantId: 'tenant-123' })).toEqual({
+      showConfiguracoesLink: true,
+      showNotificacoesPrivacidade: true,
+      showSegurancaDispositivos: true,
+    });
+
+    // 2. USER com Mensagens ativo vê Notificações & Privacidade, mas NÃO vê Segurança & Dispositivos Conectados
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([{ item_id: 'mensagens', override: 'ALLOW' }] as any) // /mensagens -> userRules
+      .mockResolvedValueOnce([] as any) // /configuracoes -> userRules
+      .mockResolvedValueOnce([] as any); // /configuracoes -> roleRules
+    expect(
+      await resolveMinhaContaVisibility({ id: 'u-msg', role: 'USER', tenantId: 'tenant-123' })
+    ).toEqual({
+      showConfiguracoesLink: false,
+      showNotificacoesPrivacidade: true,
+      showSegurancaDispositivos: false,
+    });
+
+    // 3. USER (ex.: Cristiane Falanga) ou COLABORADOR (ex.: Sara) com Mensagens desativado NÃO vê nenhum dos dois cards
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([{ item_id: 'mensagens', override: 'DENY' }] as any) // /mensagens -> userRules
+      .mockResolvedValueOnce([] as any) // /configuracoes -> userRules
+      .mockResolvedValueOnce([] as any) // /configuracoes -> deptRules
+      .mockResolvedValueOnce([] as any); // /configuracoes -> roleRules
+    expect(
+      await resolveMinhaContaVisibility({
+        id: 'u-falanga',
+        role: 'USER',
+        tenantId: 'tenant-123',
+        departamento: 'LIGAÇÃO JUDICIAL',
+      })
+    ).toEqual({
+      showConfiguracoesLink: false,
+      showNotificacoesPrivacidade: false,
+      showSegurancaDispositivos: false,
+    });
+
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
+});
+
 describe('FIORIX — Integridade das Migrations Preparadas V2', () => {
   it('verifica que o arquivo de migration v2 existe e contém definições de role e user rules', () => {
     const migPath = path.resolve(

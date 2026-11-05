@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
 import { NotificacoesConfig } from '@/components/configuracoes/NotificacoesConfig';
 import { DispositivosConectados } from '@/components/configuracoes/DispositivosConectados';
+import { resolveMinhaContaVisibility } from '@/lib/usuarios/minhaContaVisibility';
+
+export const dynamic = 'force-dynamic';
 
 export default async function MinhaContaPage() {
   const session = await auth();
@@ -12,11 +16,36 @@ export default async function MinhaContaPage() {
     redirect('/login');
   }
 
+  let effectiveRole = session.user.role || 'USER';
+  let effectiveTenantId: string | null = (session.user as any).tenantId || null;
+  let effectiveDepartamento: string | null = (session.user as any).departamento || null;
+
+  if (session.user.id) {
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, tenantId: true, departamento: true },
+      });
+      if (dbUser) {
+        effectiveRole = String(dbUser.role || effectiveRole);
+        effectiveTenantId = dbUser.tenantId || effectiveTenantId;
+        effectiveDepartamento = dbUser.departamento ?? effectiveDepartamento;
+      }
+    } catch {
+      // Mantém dados da sessão em caso de indisponibilidade pontual
+    }
+  }
+
   const user = {
+    id: session.user.id || null,
     name: session.user.name || 'Usuário',
     email: session.user.email,
-    role: session.user.role || 'USER',
+    role: effectiveRole,
+    tenantId: effectiveTenantId,
+    departamento: effectiveDepartamento,
   };
+
+  const visibility = await resolveMinhaContaVisibility(user);
 
   const roleBadgeClass =
     user.role === 'MASTER'
@@ -82,7 +111,7 @@ export default async function MinhaContaPage() {
                 </div>
               </div>
 
-              {user.role !== 'USER' && (
+              {visibility.showConfiguracoesLink && (
                 <div className="mt-5">
                   <Link
                     href="/configuracoes"
@@ -117,29 +146,33 @@ export default async function MinhaContaPage() {
           <PasswordForm />
         </section>
 
-        {/* MÓDULO MENSAGENS — NOTIFICAÇÕES & PRIVACIDADE */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
-          <div className="mb-5 space-y-1">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Notificações & Privacidade</h2>
-            <p className="text-sm text-slate-500 dark:text-white/55">
-              Personalize alertas de mensagens diretas, grupos, sons e prévias na tela de bloqueio.
-            </p>
-          </div>
+        {/* MÓDULO MENSAGENS — NOTIFICAÇÕES & PRIVACIDADE (somente quem possui Mensagens ativo ou MASTER/ADMIN) */}
+        {visibility.showNotificacoesPrivacidade && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
+            <div className="mb-5 space-y-1">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Notificações & Privacidade</h2>
+              <p className="text-sm text-slate-500 dark:text-white/55">
+                Personalize alertas de mensagens diretas, grupos, sons e prévias na tela de bloqueio.
+              </p>
+            </div>
 
-          <NotificacoesConfig />
-        </section>
+            <NotificacoesConfig />
+          </section>
+        )}
 
-        {/* MÓDULO MENSAGENS — DISPOSITIVOS CONECTADOS */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
-          <div className="mb-5 space-y-1">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Segurança & Dispositivos Conectados</h2>
-            <p className="text-sm text-slate-500 dark:text-white/55">
-              Gerencie aparelhos autorizados a receber notificações Web Push e revogue acessos instantaneamente.
-            </p>
-          </div>
+        {/* MÓDULO MENSAGENS — SEGURANÇA & DISPOSITIVOS CONECTADOS (exclusivo MASTER e ADMIN) */}
+        {visibility.showSegurancaDispositivos && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
+            <div className="mb-5 space-y-1">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Segurança & Dispositivos Conectados</h2>
+              <p className="text-sm text-slate-500 dark:text-white/55">
+                Gerencie aparelhos autorizados a receber notificações Web Push e revogue acessos instantaneamente.
+              </p>
+            </div>
 
-          <DispositivosConectados />
-        </section>
+            <DispositivosConectados />
+          </section>
+        )}
       </main>
     </div>
   );

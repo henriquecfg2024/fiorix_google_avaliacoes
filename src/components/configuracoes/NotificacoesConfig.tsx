@@ -54,9 +54,25 @@ export function NotificacoesConfig() {
       })
       .finally(() => setLoading(false));
 
-    // Verifica se este dispositivo já tem subscription ativa
-    getExistingPushSubscription().then((sub) => {
-      setIsPushActiveOnDevice(!!sub);
+    // Verifica se este dispositivo tem subscription ativa vinculada ao usuário logado
+    getExistingPushSubscription().then(async (sub) => {
+      if (!sub?.endpoint) {
+        setIsPushActiveOnDevice(false);
+        return;
+      }
+      try {
+        const res = await fetch('/api/push/subscribe');
+        if (!res.ok) {
+          setIsPushActiveOnDevice(false);
+          return;
+        }
+        const data = await res.json();
+        const isOwnedAndActive = Array.isArray(data?.devices)
+          && data.devices.some((d: any) => d.isActive && d.endpoint === sub.endpoint);
+        setIsPushActiveOnDevice(isOwnedAndActive);
+      } catch {
+        setIsPushActiveOnDevice(false);
+      }
     });
   }, []);
 

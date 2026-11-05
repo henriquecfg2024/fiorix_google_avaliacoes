@@ -192,6 +192,7 @@ export async function GET() {
       },
       select: {
         id: true,
+        endpoint: true,
         deviceName: true,
         userAgent: true,
         isActive: true,
