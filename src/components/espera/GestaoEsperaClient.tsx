@@ -2479,64 +2479,70 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                       slaMinutes={slaMinutes}
                     />
                   </div>
-                  <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
-                    {/* Banner de status / seleção */}
-                    {selectedDate ? (
-                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
-                          <span>
-                            Exibindo atendimentos para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
-                            {isWeekend(selectedDate) ? (
-                              <span className="text-rose-400 ml-1.5 font-bold">
-                                — Final de semana (Não há expediente no Cartório / Fechado)
-                              </span>
-                            ) : (
-                              <> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas</>
-                            )}
-                          </span>
+                  <div className="lg:col-span-8 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl flex flex-col justify-between space-y-4">
+                    <div className="space-y-4">
+                      {/* Banner de status / seleção */}
+                      {selectedDate ? (
+                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
+                            <span>
+                              Exibindo atendimentos para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                              {isWeekend(selectedDate) ? (
+                                <span className="text-rose-400 ml-1.5 font-bold">
+                                  — Final de semana (Não há expediente no Cartório / Fechado)
+                                </span>
+                              ) : (
+                                <> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas</>
+                              )}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDate(null)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30 shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Ver mês completo</span>
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDate(null)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30 shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>Ver mês completo</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-300 text-xs shadow-lg">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                          <span>Exibindo todos os atendimentos do mês ({calendarBaseRecords.length} senhas emitidas nos dias úteis)</span>
+                      ) : (
+                        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-300 text-xs shadow-lg">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span>Exibindo todos os atendimentos do mês ({calendarBaseRecords.length} senhas emitidas nos dias úteis)</span>
+                          </div>
+                          <span className="text-[11px] text-slate-400">Clique em qualquer dia do calendário para filtrar</span>
                         </div>
-                        <span className="text-[11px] text-slate-400">Clique em qualquer dia do calendário para filtrar</span>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Cards de Métricas de Atendimento do Período */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Total Senhas</span>
-                        <div className="text-2xl font-black text-white font-mono">{activeRecords.length}</div>
-                        <div className="text-[10px] text-slate-500">no período ativo</div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400">Dentro do SLA</span>
-                        <div className="text-2xl font-black text-emerald-400 font-mono">
-                          {recordsWithWait.length > 0 ? `${Math.round((dentroSla.length / recordsWithWait.length) * 100)}%` : '—'}
+                      {/* Cards Superiores: Total Senhas e Dentro do SLA (logo abaixo do card de status do período) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Total Senhas</span>
+                          <div className="text-2xl font-black text-white font-mono">{activeRecords.length}</div>
+                          <div className="text-[10px] text-slate-500">no período ativo</div>
                         </div>
-                        <div className="text-[10px] text-slate-500">{dentroSla.length} atendimentos</div>
+                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-emerald-500/20 space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-emerald-400">Dentro do SLA</span>
+                          <div className="text-2xl font-black text-emerald-400 font-mono">
+                            {recordsWithWait.length > 0 ? `${Math.round((dentroSla.length / recordsWithWait.length) * 100)}%` : '—'}
+                          </div>
+                          <div className="text-[10px] text-slate-500">{dentroSla.length} atendimentos</div>
+                        </div>
                       </div>
-                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                    </div>
+
+                    {/* Cards Inferiores: Média de Espera e Desistências */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/8">
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-indigo-500/20 space-y-1">
                         <span className="text-[10px] uppercase font-bold text-indigo-400">Média de Espera</span>
                         <div className="text-2xl font-black text-indigo-300 font-mono">
                           {recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0} min
                         </div>
                         <div className="text-[10px] text-slate-500">meta: até {slaMinutes} min</div>
                       </div>
-                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-rose-500/20 space-y-1">
                         <span className="text-[10px] uppercase font-bold text-rose-400">Desistências</span>
                         <div className="text-2xl font-black text-rose-400 font-mono">
                           {activeRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length}
@@ -2808,44 +2814,116 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-indigo-400" />
-                        <span>Visão Executiva de Fluxo Horário</span>
-                      </h4>
-                      <p className="text-xs text-slate-400">
-                        {selectedDate
-                          ? `Análise de afluência e tempo de espera hora a hora do dia selecionado.`
-                          : `Média consolidada de senhas e tempos de espera por faixa horária no mês.`}
-                      </p>
+                    {/* Card Superior: Visão Executiva de Fluxo Horário com SLA no Pico e Espera Média no Pico dentro dele */}
+                    <div className="rounded-2xl border border-indigo-500/20 bg-white/[0.02] p-4 sm:p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-indigo-400" />
+                            <span>Visão Executiva de Fluxo Horário</span>
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            {selectedDate
+                              ? `Análise de afluência e tempo de espera hora a hora do dia selecionado.`
+                              : `Média consolidada de senhas e tempos de espera por faixa horária no mês.`}
+                          </p>
+                        </div>
+                        {displayHorariosPico.length > 0 && (
+                          <span className="self-start sm:self-auto text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
+                            {displayHorariosPico.length}{' '}
+                            {displayHorariosPico.length === 1 ? 'faixa horária' : 'faixas horárias'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="p-3.5 rounded-xl bg-[#0B1020]/90 border border-emerald-500/20 space-y-1">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-[10px] uppercase font-bold text-emerald-400">
+                              SLA no Horário de Pico
+                            </span>
+                            {picoDestaque && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                Pico {picoDestaque.hora}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-2xl font-black text-emerald-400 font-mono">
+                            {picoDestaque && picoDestaque.total > 0
+                              ? `${Math.round((picoDestaque.dentroSla / picoDestaque.total) * 100)}%`
+                              : '—'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 leading-snug">
+                            {picoDestaque
+                              ? `Conformidade de atendimento na faixa das ${picoDestaque.hora}`
+                              : 'conformidade no pico'}
+                          </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-[#0B1020]/90 border border-cyan-500/20 space-y-1">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-[10px] uppercase font-bold text-cyan-400">
+                              Espera Média no Pico
+                            </span>
+                            {picoDestaque && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                Pico {picoDestaque.hora}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-2xl font-black text-cyan-300 font-mono">
+                            {picoDestaque ? `${picoDestaque.mediaEsperaMin} min` : '—'}
+                          </div>
+                          <div className="text-[10px] text-slate-400 leading-snug">
+                            {picoDestaque
+                              ? `Tempo médio de espera na fila às ${picoDestaque.hora}`
+                              : 'tempo na fila'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Destaques de Pico */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Horário de Maior Fluxo</span>
-                        <div className="text-xl font-black text-indigo-300 font-mono">
-                          {picoDestaque ? picoDestaque.hora : '—'}
+                    {/* Destaque da Faixa de Maior Fluxo */}
+                    <div className="pt-2 border-t border-white/8">
+                      <div className="p-4 rounded-2xl bg-indigo-500/[0.05] border border-indigo-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] uppercase font-bold text-indigo-300">
+                              Horário de Maior Fluxo
+                            </span>
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                              Faixa Líder
+                            </span>
+                          </div>
+                          <div className="text-xl sm:text-2xl font-black text-white font-mono">
+                            {picoDestaque ? picoDestaque.hora : '—'}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-500">
-                          {picoDestaque ? `${picoDestaque.total} senhas emitidas` : 'Sem emissões'}
-                        </div>
-                      </div>
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400">SLA no Horário de Pico</span>
-                        <div className="text-xl font-black text-emerald-400 font-mono">
-                          {picoDestaque && picoDestaque.total > 0
-                            ? `${Math.round((picoDestaque.dentroSla / picoDestaque.total) * 100)}%`
-                            : '—'}
-                        </div>
-                        <div className="text-[10px] text-slate-500">conformidade no pico</div>
-                      </div>
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-cyan-400">Espera Média no Pico</span>
-                        <div className="text-xl font-black text-cyan-300 font-mono">
-                          {picoDestaque ? `${picoDestaque.mediaEsperaMin} min` : '—'}
-                        </div>
-                        <div className="text-[10px] text-slate-500">tempo na fila</div>
+
+                        {picoDestaque ? (
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                            <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                              <div className="text-[9px] uppercase font-mono text-slate-400">Senhas Emitidas</div>
+                              <div className="text-sm font-black font-mono text-indigo-300">
+                                {picoDestaque.total}
+                              </div>
+                            </div>
+                            <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                              <div className="text-[9px] uppercase font-mono text-slate-400">Dentro do SLA</div>
+                              <div className="text-sm font-black font-mono text-emerald-400">
+                                {picoDestaque.dentroSla}
+                              </div>
+                            </div>
+                            <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                              <div className="text-[9px] uppercase font-mono text-slate-400">Fora do SLA</div>
+                              <div className="text-sm font-black font-mono text-rose-400">
+                                {picoDestaque.foraSla}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">Sem emissões</span>
+                        )}
                       </div>
                     </div>
                   </div>
