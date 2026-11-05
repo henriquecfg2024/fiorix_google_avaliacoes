@@ -98,7 +98,7 @@ export function VisitorAccessBanner({ variant = 'default' }: VisitorAccessBanner
           <div className="flex items-center gap-2 shrink-0 self-start lg:self-center">
             <div className="inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/80">
               <Eye className="h-3.5 w-3.5 text-teal-300" />
-              <span>Ambiente Monitorado • ISO/IEC 27001</span>
+              <span>Ambiente Monitorado</span>
             </div>
           </div>
         </div>
@@ -106,3 +106,4 @@ export function VisitorAccessBanner({ variant = 'default' }: VisitorAccessBanner
     </div>
   );
 }
+

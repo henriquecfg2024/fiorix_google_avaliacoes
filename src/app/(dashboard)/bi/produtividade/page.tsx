@@ -1137,23 +1137,461 @@ export default function ProdutividadePage() {
     return { certidoes: montarCurva(cert, max), titulos: montarCurva(tit, max), max };
   }, [hasRealData, filtroHorario, registrosCanal]);
 
-  // Tabela de serviços: filtra sobre todos os registros do recorte e só depois limita a exibição
-  const servicosFiltrados = useMemo(() => {
-    const query = buscaTabela.trim().toLowerCase();
-    if (!query) return registrosFoco;
-    return registrosFoco.filter(
-      (item) =>
+  const correspondeBusca = useCallback(
+    (item: RegistroNormalizado) => {
+      const query = buscaTabela.trim().toLowerCase();
+      if (!query) return true;
+      return (
         item.numero.toLowerCase().includes(query) ||
         item.colaborador.toLowerCase().includes(query) ||
         item.tipoDetalhado.toLowerCase().includes(query) ||
         item.canal.toLowerCase().includes(query)
-    );
-  }, [registrosFoco, buscaTabela]);
+      );
+    },
+    [buscaTabela]
+  );
+
+  // Tabela de serviços: filtra sobre todos os registros do recorte e só depois limita a exibição
+  const servicosFiltrados = useMemo(
+    () => registrosFoco.filter(correspondeBusca),
+    [registrosFoco, correspondeBusca]
+  );
 
   const servicosVisiveis = useMemo(
     () => servicosFiltrados.slice(0, LIMITE_TABELA),
     [servicosFiltrados]
   );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // MÉTRICAS DINÂMICAS DOS 3 CARDS SUPERIORES E SUB-DESTAQUES POR ABA ATIVA
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // 1) Base da aba Visão Geral: mix Certidões x Títulos no recorte atual
+  const mixVisaoGeral = useMemo(() => {
+    const base = registrosSegmentados.filter(correspondeHorario);
+    let certidoes = 0;
+    let titulos = 0;
+    base.forEach((r) => {
+      if (r.tipo === "CERTIDÃO") certidoes += r.quantidade;
+      else titulos += r.quantidade;
+    });
+    if (!hasRealData && !filtroHorario) {
+      return { certidoes: 3898, titulos: 2824 };
+    }
+    return { certidoes, titulos };
+  }, [registrosSegmentados, correspondeHorario, hasRealData, filtroHorario]);
+
+  // 2) Base da aba Produtividade: média por operador, operadores ativos e ritmo diário por canal
+  const metricasProdutividadeCanais = useMemo(() => {
+    const base = registrosPeriodo.filter(
+      (r) =>
+        (filtroTipo === "TODOS" || r.tipo === filtroTipo) &&
+        (filtroColaborador === "TODOS" || r.colaborador === filtroColaborador) &&
+        correspondeHorario(r)
+    );
+
+    const resumir = (lista: RegistroNormalizado[]) => {
+      const ops = new Map<string, { total: number; dias: Set<string>; canal: "Digital ONR" | "Presencial" }>();
+      const diasSet = new Set<string>();
+      let volume = 0;
+
+      lista.forEach((r) => {
+        volume += r.quantidade;
+        if (r.data) diasSet.add(r.data);
+        let op = ops.get(r.colaborador);
+        if (!op) {
+          op = { total: 0, dias: new Set<string>(), canal: r.canal };
+          ops.set(r.colaborador, op);
+        }
+        op.total += r.quantidade;
+        if (r.data) op.dias.add(r.data);
+      });
+
+      const operadores = ops.size;
+      const dias = diasSet.size;
+      const mediaColab = operadores > 0 ? Math.round(volume / operadores) : 0;
+      const mediaDia = dias > 0 ? Math.round(volume / dias) : 0;
+      const ranking = Array.from(ops.entries())
+        .map(([nome, v]) => ({
+          nome,
+          total: v.total,
+          dias: v.dias.size,
+          canal: v.canal,
+        }))
+        .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
+
+      return { volume, operadores, dias, mediaColab, mediaDia, ranking };
+    };
+
+    if (!hasRealData && !filtroHorario) {
+      return {
+        todos: {
+          volume: 6722,
+          operadores: 22,
+          dias: 5,
+          mediaColab: 306,
+          mediaDia: 1344,
+          ranking: [{ nome: "eProtocolo", total: 2890, dias: 5, canal: "Digital ONR" as const }],
+          pctVolume: "100%",
+          barCss: "100%",
+        },
+        digital: {
+          volume: 4549,
+          operadores: 4,
+          dias: 5,
+          mediaColab: 1137,
+          mediaDia: 910,
+          ranking: [{ nome: "eProtocolo", total: 2890, dias: 5, canal: "Digital ONR" as const }],
+          pctVolume: "67,7%",
+          barCss: "67.7%",
+        },
+        presencial: {
+          volume: 2173,
+          operadores: 18,
+          dias: 5,
+          mediaColab: 121,
+          mediaDia: 435,
+          ranking: [{ nome: "Mariana", total: 312, dias: 5, canal: "Presencial" as const }],
+          pctVolume: "32,3%",
+          barCss: "32.3%",
+        },
+      };
+    }
+
+    const todos = resumir(base);
+    const digital = resumir(base.filter((r) => r.canal === "Digital ONR"));
+    const presencial = resumir(base.filter((r) => r.canal === "Presencial"));
+    const pctDigNum = todos.volume > 0 ? (digital.volume / todos.volume) * 100 : 0;
+    const pctPresNum = todos.volume > 0 ? (presencial.volume / todos.volume) * 100 : 0;
+
+    return {
+      todos: { ...todos, pctVolume: "100%", barCss: todos.volume > 0 ? "100%" : "0%" },
+      digital: {
+        ...digital,
+        pctVolume: formatarPct(digital.volume, todos.volume),
+        barCss: `${pctDigNum.toFixed(1)}%`,
+      },
+      presencial: {
+        ...presencial,
+        pctVolume: formatarPct(presencial.volume, todos.volume),
+        barCss: `${pctPresNum.toFixed(1)}%`,
+      },
+    };
+  }, [registrosPeriodo, filtroTipo, filtroColaborador, correspondeHorario, hasRealData, filtroHorario]);
+
+  // 3) Base da aba Serviços: protocolos únicos (descontando reentradas do mesmo pedido) e reativa à busca
+  const metricasServicosCanais = useMemo(() => {
+    const base = registrosSegmentados.filter(correspondeHorario).filter(correspondeBusca);
+
+    const resumir = (lista: RegistroNormalizado[]) => {
+      const protocolosSet = new Set<string>();
+      const naturezasSet = new Set<string>();
+      let movimentacoes = 0;
+      let certidoes = 0;
+      let titulos = 0;
+
+      lista.forEach((r) => {
+        const chavePedido = r.numero && r.numero !== "—" ? r.numero : `row_${r.id}`;
+        protocolosSet.add(chavePedido);
+        if (r.tipoDetalhado) naturezasSet.add(r.tipoDetalhado);
+        movimentacoes += r.quantidade;
+        if (r.tipo === "CERTIDÃO") certidoes += r.quantidade;
+        else titulos += r.quantidade;
+      });
+
+      return {
+        protocolos: protocolosSet.size,
+        movimentacoes,
+        certidoes,
+        titulos,
+        naturezas: naturezasSet.size,
+      };
+    };
+
+    if (!hasRealData && !filtroHorario && !buscaTabela.trim()) {
+      return {
+        todos: {
+          protocolos: 5980,
+          movimentacoes: 6722,
+          certidoes: 3898,
+          titulos: 2824,
+          naturezas: 12,
+          pct: "100%",
+          barCss: "100%",
+        },
+        digital: {
+          protocolos: 3912,
+          movimentacoes: 4549,
+          certidoes: 2610,
+          titulos: 1939,
+          naturezas: 7,
+          pct: "65,4%",
+          barCss: "65.4%",
+        },
+        presencial: {
+          protocolos: 2068,
+          movimentacoes: 2173,
+          certidoes: 1288,
+          titulos: 885,
+          naturezas: 9,
+          pct: "34,6%",
+          barCss: "34.6%",
+        },
+      };
+    }
+
+    const todos = resumir(base);
+    const digital = resumir(base.filter((r) => r.canal === "Digital ONR"));
+    const presencial = resumir(base.filter((r) => r.canal === "Presencial"));
+    const pctDigNum = todos.protocolos > 0 ? (digital.protocolos / todos.protocolos) * 100 : 0;
+    const pctPresNum = todos.protocolos > 0 ? (presencial.protocolos / todos.protocolos) * 100 : 0;
+
+    return {
+      todos: { ...todos, pct: "100%", barCss: todos.protocolos > 0 ? "100%" : "0%" },
+      digital: {
+        ...digital,
+        pct: formatarPct(digital.protocolos, todos.protocolos),
+        barCss: `${pctDigNum.toFixed(1)}%`,
+      },
+      presencial: {
+        ...presencial,
+        pct: formatarPct(presencial.protocolos, todos.protocolos),
+        barCss: `${pctPresNum.toFixed(1)}%`,
+      },
+    };
+  }, [registrosSegmentados, correspondeHorario, correspondeBusca, hasRealData, filtroHorario, buscaTabela]);
+
+  // Configuração visual dos 3 cards superiores de acordo com a aba ativa
+  const heroCardsAba = useMemo(() => {
+    if (activeTab === "produtividade") {
+      const p = metricasProdutividadeCanais;
+      return {
+        orientacao: "Produtividade média por colaborador em cada canal · Clique em um card para filtrar a equipe",
+        todos: {
+          titulo: "PRODUTIVIDADE GERAL",
+          valor: p.todos.mediaColab.toLocaleString("pt-BR"),
+          sufixo: "serv./colab.",
+          subtitulo: `${p.todos.operadores} colaboradores ativos · ${p.todos.mediaDia.toLocaleString("pt-BR")}/dia · ${p.todos.volume.toLocaleString("pt-BR")} entradas`,
+          barCss: p.todos.barCss,
+          ctaAtivo: `Exibindo toda a equipe (${p.todos.operadores})`,
+          ctaInativo: `Ver toda a equipe (${p.todos.operadores})`,
+          resumoSelect: `Todos os canais (${p.todos.mediaColab.toLocaleString("pt-BR")}/colab · ${p.todos.operadores} ativos)`,
+        },
+        digital: {
+          titulo: "DIGITAL ONR · PRODUTIVIDADE",
+          valor: p.digital.mediaColab.toLocaleString("pt-BR"),
+          sufixo: "serv./caixa",
+          subtitulo: `${p.digital.operadores} caixas digitais · ${p.digital.mediaDia.toLocaleString("pt-BR")}/dia · ${p.digital.volume.toLocaleString("pt-BR")} entradas (${p.digital.pctVolume})`,
+          barCss: p.digital.barCss,
+          ctaAtivo: `Exibindo equipe Digital ONR (${p.digital.operadores})`,
+          ctaInativo: `Ver equipe Digital ONR (${p.digital.operadores})`,
+          resumoSelect: `Digital ONR (${p.digital.mediaColab.toLocaleString("pt-BR")}/caixa · ${p.digital.operadores} ativos)`,
+        },
+        presencial: {
+          titulo: "PRESENCIAL · PRODUTIVIDADE",
+          valor: p.presencial.mediaColab.toLocaleString("pt-BR"),
+          sufixo: "serv./atend.",
+          subtitulo: `${p.presencial.operadores} atendentes de balcão · ${p.presencial.mediaDia.toLocaleString("pt-BR")}/dia · ${p.presencial.volume.toLocaleString("pt-BR")} entradas (${p.presencial.pctVolume})`,
+          barCss: p.presencial.barCss,
+          ctaAtivo: `Exibindo equipe Presencial (${p.presencial.operadores})`,
+          ctaInativo: `Ver equipe Presencial (${p.presencial.operadores})`,
+          resumoSelect: `Presencial (${p.presencial.mediaColab.toLocaleString("pt-BR")}/atend · ${p.presencial.operadores} ativos)`,
+        },
+      };
+    }
+
+    if (activeTab === "servicos") {
+      const s = metricasServicosCanais;
+      const termo = buscaTabela.trim();
+      return {
+        orientacao: "Protocolos únicos atendidos por canal (descontando reentradas) · Reage também à busca da tabela",
+        todos: {
+          titulo: "PROTOCOLOS ÚNICOS",
+          valor: s.todos.protocolos.toLocaleString("pt-BR"),
+          sufixo: "protocolos",
+          subtitulo: termo
+            ? `Busca "${termo}" · ${s.todos.movimentacoes.toLocaleString("pt-BR")} movimentações encontradas`
+            : `${s.todos.movimentacoes.toLocaleString("pt-BR")} movimentações · ${s.todos.certidoes.toLocaleString("pt-BR")} certidões · ${s.todos.titulos.toLocaleString("pt-BR")} títulos`,
+          barCss: s.todos.barCss,
+          ctaAtivo: "Exibindo todos os protocolos",
+          ctaInativo: "Ver todos os protocolos",
+          resumoSelect: `Todos os canais (${s.todos.protocolos.toLocaleString("pt-BR")} protocolos)`,
+        },
+        digital: {
+          titulo: "DIGITAL ONR · PROTOCOLOS",
+          valor: s.digital.protocolos.toLocaleString("pt-BR"),
+          sufixo: s.digital.pct,
+          subtitulo: `${s.digital.movimentacoes.toLocaleString("pt-BR")} movimentações ONR · ${s.digital.naturezas} tipos de serviço`,
+          barCss: s.digital.barCss,
+          ctaAtivo: "Exibindo protocolos digitais",
+          ctaInativo: "Ver protocolos digitais",
+          resumoSelect: `Digital ONR (${s.digital.protocolos.toLocaleString("pt-BR")} protocolos)`,
+        },
+        presencial: {
+          titulo: "PRESENCIAL · PROTOCOLOS",
+          valor: s.presencial.protocolos.toLocaleString("pt-BR"),
+          sufixo: s.presencial.pct,
+          subtitulo: `${s.presencial.movimentacoes.toLocaleString("pt-BR")} movimentações no balcão · ${s.presencial.naturezas} tipos de serviço`,
+          barCss: s.presencial.barCss,
+          ctaAtivo: "Exibindo protocolos presenciais",
+          ctaInativo: "Ver protocolos presenciais",
+          resumoSelect: `Presencial (${s.presencial.protocolos.toLocaleString("pt-BR")} protocolos)`,
+        },
+      };
+    }
+
+    const digPctNum = totaisExibidos.total > 0 ? (totaisExibidos.digital / totaisExibidos.total) * 100 : 0;
+    const presPctNum = totaisExibidos.total > 0 ? (totaisExibidos.presencial / totaisExibidos.total) * 100 : 0;
+
+    return {
+      orientacao: "Selecione um card para consultar o fluxo de entradas por canal",
+      todos: {
+        titulo: "TOTAL DE ENTRADAS",
+        valor: totaisExibidos.total.toLocaleString("pt-BR"),
+        sufixo: null as string | null,
+        subtitulo: filtroHorario
+          ? `Entradas filtradas às ${filtroHorario.hora}h · Geral`
+          : `${mixVisaoGeral.certidoes.toLocaleString("pt-BR")} certidões · ${mixVisaoGeral.titulos.toLocaleString("pt-BR")} títulos recebidos`,
+        barCss: totaisExibidos.total > 0 ? "100%" : "0%",
+        ctaAtivo: "Exibindo todos os serviços",
+        ctaInativo: "Ver todos os serviços",
+        resumoSelect: `Todos os canais (${totaisExibidos.total.toLocaleString("pt-BR")})`,
+      },
+      digital: {
+        titulo: "DIGITAL ONR",
+        valor: totaisExibidos.digital.toLocaleString("pt-BR"),
+        sufixo: totaisExibidos.digitalPct,
+        subtitulo: filtroHorario
+          ? `Volume ONR filtrado às ${filtroHorario.hora}h`
+          : "Clique para consultar entradas eletrônicas do ONR",
+        barCss: `${digPctNum.toFixed(1)}%`,
+        ctaAtivo: "Exibindo serviços digitais",
+        ctaInativo: "Ver serviços digitais",
+        resumoSelect: `Digital ONR (${totaisExibidos.digital.toLocaleString("pt-BR")})`,
+      },
+      presencial: {
+        titulo: "PRESENCIAL",
+        valor: totaisExibidos.presencial.toLocaleString("pt-BR"),
+        sufixo: totaisExibidos.presencialPct,
+        subtitulo: filtroHorario
+          ? `Volume Balcão filtrado às ${filtroHorario.hora}h`
+          : "Clique para consultar entradas presenciais do balcão",
+        barCss: `${presPctNum.toFixed(1)}%`,
+        ctaAtivo: "Exibindo serviços presenciais",
+        ctaInativo: "Ver serviços presenciais",
+        resumoSelect: `Presencial (${totaisExibidos.presencial.toLocaleString("pt-BR")})`,
+      },
+    };
+  }, [
+    activeTab,
+    metricasProdutividadeCanais,
+    metricasServicosCanais,
+    buscaTabela,
+    totaisExibidos,
+    filtroHorario,
+    mixVisaoGeral,
+  ]);
+
+  // Sub-faixa de 3 destaques contextualizada para cada aba
+  const destaquesPorAba = useMemo(() => {
+    if (activeTab === "produtividade") {
+      const recorte = metricasProdutividadeCanais[filtroCanal];
+      const lider = recorte.ranking[0];
+      const top3Vol = recorte.ranking.slice(0, 3).reduce((acc, item) => acc + item.total, 0);
+      const top3Pct = formatarPct(top3Vol, recorte.volume);
+      const mediaLiderDia = lider && lider.dias > 0 ? Math.round(lider.total / lider.dias) : 0;
+
+      return {
+        card1: {
+          label: "RITMO DIÁRIO DA EQUIPE",
+          badge: recorte.dias > 0 ? `${recorte.dias} dia${recorte.dias > 1 ? "s" : ""} ativo${recorte.dias > 1 ? "s" : ""}` : "Sem datas",
+          titulo: recorte.dias > 0 ? `${recorte.mediaDia.toLocaleString("pt-BR")} serviços / dia` : "Sem ritmo calculado",
+          detalhe: `${recorte.volume.toLocaleString("pt-BR")} entradas distribuídas entre ${recorte.operadores} operador${recorte.operadores === 1 ? "" : "es"}`,
+        },
+        card2: {
+          label: "LÍDER DE PRODUTIVIDADE",
+          badge: lider ? (lider.canal === "Digital ONR" ? "1º · DIGITAL ONR" : "1º · BALCÃO") : "SEM DADOS",
+          titulo: lider ? lider.nome : "—",
+          detalhe: lider
+            ? `${mediaLiderDia > 0 ? `${mediaLiderDia.toLocaleString("pt-BR")}/dia · ` : ""}${lider.total.toLocaleString("pt-BR")} serviços (${formatarPct(lider.total, recorte.volume)})`
+            : "Nenhum operador encontrado para os filtros atuais",
+        },
+        card3: {
+          label: "CONCENTRAÇÃO TOP 3",
+          badge: `${recorte.operadores} OPERADORES`,
+          titulo: recorte.volume > 0 ? `${top3Pct} do volume` : "0,0%",
+          detalhe:
+            recorte.volume > 0
+              ? `${top3Vol.toLocaleString("pt-BR")} serviços concentrados nos 3 maiores operadores`
+              : "Sem volume registrado no recorte",
+        },
+      };
+    }
+
+    if (activeTab === "servicos") {
+      const recorte = metricasServicosCanais[filtroCanal];
+      const reentradas = Math.max(0, recorte.movimentacoes - recorte.protocolos);
+      const razao =
+        recorte.protocolos > 0
+          ? (recorte.movimentacoes / recorte.protocolos).toFixed(2).replace(".", ",")
+          : "0,00";
+      const topNatureza = agruparOrdenado(servicosFiltrados, (r) => r.tipoDetalhado)[0];
+
+      return {
+        card1: {
+          label: "REENTRADAS DE PROTOCOLO",
+          badge: `${razao} mov./pedido`,
+          titulo:
+            reentradas > 0
+              ? `${reentradas.toLocaleString("pt-BR")} movimentações complementares`
+              : "1 movimentação por protocolo",
+          detalhe: `${recorte.protocolos.toLocaleString("pt-BR")} protocolos únicos em ${recorte.movimentacoes.toLocaleString("pt-BR")} registros`,
+        },
+        card2: {
+          label: "MIX DOCUMENTAL",
+          badge: "CERTIDÕES × TÍTULOS",
+          titulo: `${formatarPct(recorte.certidoes, recorte.movimentacoes)} Certidões · ${formatarPct(recorte.titulos, recorte.movimentacoes)} Títulos`,
+          detalhe: `${recorte.certidoes.toLocaleString("pt-BR")} certidões e ${recorte.titulos.toLocaleString("pt-BR")} títulos listados`,
+        },
+        card3: {
+          label: "NATUREZA PREDOMINANTE",
+          badge: `${recorte.naturezas} TIPOS ATIVOS`,
+          titulo: topNatureza ? topNatureza.chave : "—",
+          detalhe: topNatureza
+            ? `${topNatureza.total.toLocaleString("pt-BR")} registros (${formatarPct(topNatureza.total, recorte.movimentacoes)} da listagem)`
+            : "Nenhum serviço encontrado na busca atual",
+        },
+      };
+    }
+
+    return {
+      card1: {
+        label: "PICO DE ENTRADAS",
+        badge: destaquesExibidos.pico.badge,
+        titulo: destaquesExibidos.pico.titulo,
+        detalhe: destaquesExibidos.pico.detalhe,
+      },
+      card2: {
+        label: "USUÁRIO EM DESTAQUE",
+        badge: destaquesExibidos.usuario.rotulo,
+        titulo: destaquesExibidos.usuario.nome,
+        detalhe: destaquesExibidos.usuario.detalhe,
+      },
+      card3: {
+        label: "SERVIÇO EM DESTAQUE",
+        badge: destaquesExibidos.servico.rotulo,
+        titulo: destaquesExibidos.servico.nome,
+        detalhe: destaquesExibidos.servico.detalhe,
+      },
+    };
+  }, [
+    activeTab,
+    metricasProdutividadeCanais,
+    metricasServicosCanais,
+    filtroCanal,
+    servicosFiltrados,
+    destaquesExibidos,
+  ]);
 
   // Exportar CSV
   const handleExportCSV = () => {
@@ -1298,7 +1736,7 @@ export default function ProdutividadePage() {
           <div className="text-xs text-slate-200 font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
             <span>
-              Selecione um card para consultar os serviços por canal ·{" "}
+              {heroCardsAba.orientacao} ·{" "}
               <strong className="text-cyan-300">Todos os cards abaixo interagem com o filtro selecionado</strong>
             </span>
           </div>
@@ -1306,13 +1744,7 @@ export default function ProdutividadePage() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0E1528] border border-cyan-500/30 text-xs">
               <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Canal ativo:</span>
-              <span className="font-bold text-cyan-300">
-                {filtroCanal === "todos"
-                  ? `Todos os canais (${totaisExibidos.total.toLocaleString("pt-BR")})`
-                  : filtroCanal === "digital"
-                  ? `Digital ONR (${totaisExibidos.digital.toLocaleString("pt-BR")})`
-                  : `Presencial (${totaisExibidos.presencial.toLocaleString("pt-BR")})`}
-              </span>
+              <span className="font-bold text-cyan-300">{heroCardsAba[filtroCanal].resumoSelect}</span>
             </div>
 
             {filtroHorario && (
@@ -1342,10 +1774,10 @@ export default function ProdutividadePage() {
         </div>
 
         {/* ───────────────────────────────────────────────────────────── */}
-        {/* CARDS PRINCIPAIS CLICÁVEIS (FAIXA ÚNICA: SERVIÇOS POR CANAL) */}
+        {/* CARDS PRINCIPAIS CLICÁVEIS (DINÂMICOS CONFORME A ABA ATIVA)   */}
         {/* ───────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* CARD 1: TOTAL DE ENTRADAS */}
+          {/* CARD 1: TODOS OS CANAIS */}
           <div
             role="button"
             tabIndex={0}
@@ -1365,7 +1797,7 @@ export default function ProdutividadePage() {
           >
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                TOTAL DE ENTRADAS
+                {heroCardsAba.todos.titulo}
               </span>
               <div className="flex items-center gap-2">
                 {filtroHorario && (
@@ -1386,18 +1818,24 @@ export default function ProdutividadePage() {
             </div>
 
             <div className="space-y-1 mb-6">
-              <div className="text-4xl font-black text-white font-mono tracking-tight">
-                {totaisExibidos.total.toLocaleString("pt-BR")}
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-white font-mono tracking-tight">
+                  {heroCardsAba.todos.valor}
+                </span>
+                {heroCardsAba.todos.sufixo && (
+                  <span className="text-xs font-bold text-cyan-300 font-mono">
+                    {heroCardsAba.todos.sufixo}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-300">
-                {filtroHorario
-                  ? `Entradas filtradas às ${filtroHorario.hora}h · Geral`
-                  : "Clique para consultar todos os serviços"}
-              </p>
+              <p className="text-xs text-slate-300">{heroCardsAba.todos.subtitulo}</p>
             </div>
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
-              <div className="bg-indigo-500 h-1.5 rounded-full w-full" />
+              <div
+                className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: heroCardsAba.todos.barCss }}
+              />
             </div>
 
             <div
@@ -1408,7 +1846,7 @@ export default function ProdutividadePage() {
               }`}
             >
               <span>
-                {filtroCanal === "todos" ? "Exibindo todos os serviços" : "Ver todos os serviços"}
+                {filtroCanal === "todos" ? heroCardsAba.todos.ctaAtivo : heroCardsAba.todos.ctaInativo}
               </span>
               {filtroCanal === "todos" ? (
                 <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
@@ -1440,7 +1878,7 @@ export default function ProdutividadePage() {
           >
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                DIGITAL ONR
+                {heroCardsAba.digital.titulo}
               </span>
               <div className="flex items-center gap-2">
                 {filtroHorario && (
@@ -1463,23 +1901,21 @@ export default function ProdutividadePage() {
             <div className="space-y-1 mb-6">
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-black text-white font-mono tracking-tight">
-                  {totaisExibidos.digital.toLocaleString("pt-BR")}
+                  {heroCardsAba.digital.valor}
                 </span>
-                <span className="text-xs font-bold text-emerald-400 font-mono">
-                  {totaisExibidos.digitalPct}
-                </span>
+                {heroCardsAba.digital.sufixo && (
+                  <span className="text-xs font-bold text-emerald-400 font-mono">
+                    {heroCardsAba.digital.sufixo}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-300">
-                {filtroHorario
-                  ? `Volume ONR filtrado às ${filtroHorario.hora}h`
-                  : "Clique para consultar serviços do ONR"}
-              </p>
+              <p className="text-xs text-slate-300">{heroCardsAba.digital.subtitulo}</p>
             </div>
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
               <div
                 className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: totaisExibidos.digitalPct }}
+                style={{ width: heroCardsAba.digital.barCss }}
               />
             </div>
 
@@ -1491,7 +1927,7 @@ export default function ProdutividadePage() {
               }`}
             >
               <span>
-                {filtroCanal === "digital" ? "Exibindo serviços digitais" : "Ver serviços digitais"}
+                {filtroCanal === "digital" ? heroCardsAba.digital.ctaAtivo : heroCardsAba.digital.ctaInativo}
               </span>
               {filtroCanal === "digital" ? (
                 <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-300">
@@ -1523,7 +1959,7 @@ export default function ProdutividadePage() {
           >
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                PRESENCIAL
+                {heroCardsAba.presencial.titulo}
               </span>
               <div className="flex items-center gap-2">
                 {filtroHorario && (
@@ -1546,23 +1982,21 @@ export default function ProdutividadePage() {
             <div className="space-y-1 mb-6">
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-black text-white font-mono tracking-tight">
-                  {totaisExibidos.presencial.toLocaleString("pt-BR")}
+                  {heroCardsAba.presencial.valor}
                 </span>
-                <span className="text-xs font-bold text-sky-400 font-mono">
-                  {totaisExibidos.presencialPct}
-                </span>
+                {heroCardsAba.presencial.sufixo && (
+                  <span className="text-xs font-bold text-sky-400 font-mono">
+                    {heroCardsAba.presencial.sufixo}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-slate-300">
-                {filtroHorario
-                  ? `Volume Balcão filtrado às ${filtroHorario.hora}h`
-                  : "Clique para consultar serviços do balcão"}
-              </p>
+              <p className="text-xs text-slate-300">{heroCardsAba.presencial.subtitulo}</p>
             </div>
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
               <div
                 className="bg-sky-500 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: totaisExibidos.presencialPct }}
+                style={{ width: heroCardsAba.presencial.barCss }}
               />
             </div>
 
@@ -1574,7 +2008,9 @@ export default function ProdutividadePage() {
               }`}
             >
               <span>
-                {filtroCanal === "presencial" ? "Exibindo serviços presenciais" : "Ver serviços presenciais"}
+                {filtroCanal === "presencial"
+                  ? heroCardsAba.presencial.ctaAtivo
+                  : heroCardsAba.presencial.ctaInativo}
               </span>
               {filtroCanal === "presencial" ? (
                 <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md bg-sky-500/20 border border-sky-400/40 text-sky-300">
@@ -1633,9 +2069,9 @@ export default function ProdutividadePage() {
                   onChange={(e) => handleSelecionarCanal(e.target.value as CanalFiltro)}
                   className="w-full rounded-xl bg-[#080D1A] border border-cyan-500/40 px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-cyan-400 appearance-none transition-colors cursor-pointer"
                 >
-                  <option value="todos">Todos os canais ({totaisExibidos.total.toLocaleString("pt-BR")})</option>
-                  <option value="digital">Digital ONR ({totaisExibidos.digital.toLocaleString("pt-BR")})</option>
-                  <option value="presencial">Presencial ({totaisExibidos.presencial.toLocaleString("pt-BR")})</option>
+                  <option value="todos">{heroCardsAba.todos.resumoSelect}</option>
+                  <option value="digital">{heroCardsAba.digital.resumoSelect}</option>
+                  <option value="presencial">{heroCardsAba.presencial.resumoSelect}</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-cyan-400 absolute right-3 top-3 pointer-events-none" />
               </div>
@@ -1716,60 +2152,60 @@ export default function ProdutividadePage() {
         </div>
 
         {/* ───────────────────────────────────────────────────────────── */}
-        {/* SUB-FAIXA DE DESTAQUES INTELIGENTES (REAGEM AO CARD E HORÁRIO)*/}
+        {/* SUB-FAIXA DE DESTAQUES INTELIGENTES (CONTEXTUAIS POR ABA)     */}
         {/* ───────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* DESTAQUE 1: PICO DE ENTRADAS */}
+          {/* DESTAQUE 1 */}
           <div className="rounded-[20px] border border-white/10 bg-[#0B1020]/90 p-5 shadow-lg space-y-1.5 transition-all duration-300">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300">
-                PICO DE ENTRADAS
+                {destaquesPorAba.card1.label}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold">
-                {destaquesExibidos.pico.badge}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold shrink-0">
+                {destaquesPorAba.card1.badge}
               </span>
             </div>
             <div className="text-base font-bold text-white tracking-tight">
-              {destaquesExibidos.pico.titulo}
+              {destaquesPorAba.card1.titulo}
             </div>
-            <p className="text-xs text-slate-300">{destaquesExibidos.pico.detalhe}</p>
+            <p className="text-xs text-slate-300">{destaquesPorAba.card1.detalhe}</p>
           </div>
 
-          {/* DESTAQUE 2: USUÁRIO / ATENDENTE EM DESTAQUE */}
+          {/* DESTAQUE 2 */}
           <div className="rounded-[20px] border border-white/10 bg-[#0B1020]/90 p-5 shadow-lg space-y-1.5 transition-all duration-300">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300">
-                USUÁRIO EM DESTAQUE
+                {destaquesPorAba.card2.label}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold">
-                {destaquesExibidos.usuario.rotulo}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold shrink-0">
+                {destaquesPorAba.card2.badge}
               </span>
             </div>
             <div className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              <span>{destaquesExibidos.usuario.nome}</span>
-              {filtroCanal === "presencial" && (
+              <span>{destaquesPorAba.card2.titulo}</span>
+              {activeTab === "visao_geral" && filtroCanal === "presencial" && (
                 <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">
                   Balcão
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-300">{destaquesExibidos.usuario.detalhe}</p>
+            <p className="text-xs text-slate-300">{destaquesPorAba.card2.detalhe}</p>
           </div>
 
-          {/* DESTAQUE 3: SERVIÇO EM DESTAQUE */}
+          {/* DESTAQUE 3 */}
           <div className="rounded-[20px] border border-white/10 bg-[#0B1020]/90 p-5 shadow-lg space-y-1.5 transition-all duration-300">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300">
-                SERVIÇO EM DESTAQUE
+                {destaquesPorAba.card3.label}
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 font-bold">
-                {destaquesExibidos.servico.rotulo}
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 font-bold shrink-0">
+                {destaquesPorAba.card3.badge}
               </span>
             </div>
             <div className="text-base font-bold text-white tracking-tight">
-              {destaquesExibidos.servico.nome}
+              {destaquesPorAba.card3.titulo}
             </div>
-            <p className="text-xs text-slate-300">{destaquesExibidos.servico.detalhe}</p>
+            <p className="text-xs text-slate-300">{destaquesPorAba.card3.detalhe}</p>
           </div>
         </div>
 
@@ -2196,7 +2632,10 @@ export default function ProdutividadePage() {
                       : "Todos os serviços"}
                   </span>
                   <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300">
-                    {servicosFiltrados.length} listados
+                    {servicosFiltrados.length.toLocaleString("pt-BR")} movimentações
+                  </span>
+                  <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
+                    {metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos
                   </span>
                   {filtroHorario && (
                     <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-bold">
@@ -2225,9 +2664,11 @@ export default function ProdutividadePage() {
                       {filtroHorario.dia ? ` em ${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia}` : " (todos os dias)"} ·{" "}
                     </span>
                   ) : null}
-                  Entradas do canal selecionado ·{" "}
+                  {activeTab === "servicos" ? "Catálogo de protocolos e movimentações · " : "Entradas do canal selecionado · "}
                   <strong className="text-cyan-300">
-                    {filtroCanal === "digital"
+                    {activeTab === "servicos"
+                      ? `${metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos (${metricasServicosCanais[filtroCanal].movimentacoes.toLocaleString("pt-BR")} movimentações)`
+                      : filtroCanal === "digital"
                       ? `Digital ONR selecionado · ${totaisExibidos.digital.toLocaleString("pt-BR")} serviços no período`
                       : filtroCanal === "presencial"
                       ? `Presencial selecionado · ${totaisExibidos.presencial.toLocaleString("pt-BR")} serviços no período`
