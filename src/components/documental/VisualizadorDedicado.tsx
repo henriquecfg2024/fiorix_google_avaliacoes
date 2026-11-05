@@ -154,7 +154,9 @@ export function VisualizadorDedicado() {
   const [documentoAtivo, setDocumentoAtivo] = useState<DocumentTextResult | null>(null);
   const [arquivoAtivo, setArquivoAtivo] = useState<MatchItem | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
+  const [progressoPdf, setProgressoPdf] = useState<{ recebido: number; total: number } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const abortDocRef = useRef<AbortController | null>(null);
 
   // Controles de navegação e exibição Siplan Image
   const [currentPage, setCurrentPage] = useState(1);
@@ -212,6 +214,7 @@ export function VisualizadorDedicado() {
   // PDFs baixados do Connector viram blob: em memória; libera o anterior ao trocar de documento/sair
   const pdfBlobUrlRef = useRef<string | null>(null);
   useEffect(() => () => {
+    abortDocRef.current?.abort();
     if (pdfBlobUrlRef.current) URL.revokeObjectURL(pdfBlobUrlRef.current);
   }, []);
 
@@ -259,12 +262,18 @@ export function VisualizadorDedicado() {
   };
 
   /** Cria o job no FIORIX e aguarda o Connector do cartório concluir. */
-  async function executarJob<T>(payload: Record<string, unknown>, mensagemFalha: string, timeoutMs = 60000): Promise<T> {
+  async function executarJob<T>(
+    payload: Record<string, unknown>,
+    mensagemFalha: string,
+    timeoutMs = 60000,
+    signal?: AbortSignal,
+  ): Promise<T> {
     if (!connectorId) throw new Error('Nenhum Connector do cartório disponível. Verifique se o serviço está em execução.');
     const response = await fetch('/api/gestao-documental', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ connectorId, ...payload }),
+      signal,
     });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error || mensagemFalha);
@@ -273,9 +282,19 @@ export function VisualizadorDedicado() {
     const deadline = Date.now() + timeoutMs;
     let tentativa = 0;
     while (Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, tentativa === 0 ? 250 : 600));
+      if (signal?.aborted) {
+        const abortErr = new Error('Operação cancelada.');
+        abortErr.name = 'AbortError';
+        throw abortErr;
+      }
+      await new Promise(r => setTimeout(r, tentativa === 0 ? 180 : 420));
+      if (signal?.aborted) {
+        const abortErr = new Error('Operação cancelada.');
+        abortErr.name = 'AbortError';
+        throw abortErr;
+      }
       tentativa++;
-      const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+      const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store', signal });
       const state = await res.json();
       if (!res.ok) throw new Error(state.error || mensagemFalha);
       if (state.status === 'complete' && state.result) return state.result as T;
@@ -377,14 +396,39 @@ export function VisualizadorDedicado() {
     }
   }
 
-  /** Resolve PDF via link rápido local ou transferência HTTPS em blocos (compatível com Safari, Mac, iPad e qualquer PC). */
-  async function baixarPdfDoConnector(resultado: DocumentTextResult, file: MatchItem): Promise<DocumentTextResult> {
+  function cancelarCarregamentoDocumento() {
+    pedidoDocRef.current++;
+    abortDocRef.current?.abort();
+    abortDocRef.current = null;
+    setIsLoadingDoc(false);
+    setProgressoPdf(null);
+    if (!documentoAtivo) {
+      setExploradorAberto(true);
+    }
+  }
+
+  /** Resolve PDF via link rápido local ou transferência HTTPS em blocos paralelos (compatível com Safari, Mac, iPad e qualquer PC). */
+  async function baixarPdfDoConnector(
+    resultado: DocumentTextResult,
+    file: MatchItem,
+    signal?: AbortSignal,
+  ): Promise<DocumentTextResult> {
     if (!resultado.localUrl && !resultado.pdfDataUrl?.startsWith('data:application/pdf')) return resultado;
+    const tamanhoInicial = resultado.size || file.size || 0;
+    if (tamanhoInicial > 0) {
+      setProgressoPdf({ recebido: 0, total: tamanhoInicial });
+    }
     const resolvido = await resolverPdfParaNavegador(resultado, {
       connectorId,
       rootId: file.rootId,
       relativePath: file.relativePath,
-      tamanhoEsperado: resultado.size || file.size || 0,
+      tamanhoEsperado: tamanhoInicial,
+      signal,
+      onProgress: (recebido, total) => {
+        if (!signal?.aborted) {
+          setProgressoPdf({ recebido, total });
+        }
+      },
     });
     if (!resolvido) return resultado;
     return { ...resultado, pdfDataUrl: resolvido.url, pdfBlob: resolvido.blob, localUrl: undefined };
@@ -392,10 +436,14 @@ export function VisualizadorDedicado() {
 
   // Abre e lê o arquivo pelo conector do cartório
   async function abrirDocumento(file: MatchItem, forceFresh = false) {
+    abortDocRef.current?.abort();
+    const controller = new AbortController();
+    abortDocRef.current = controller;
     const pedido = ++pedidoDocRef.current;
     setExploradorAberto(false);
     setArquivoAtivo(file);
     setIsLoadingDoc(true);
+    setProgressoPdf(file.size ? { recebido: 0, total: file.size } : null);
     setErrorMessage('');
     setPanPosition({ x: 0, y: 0 });
     setCurrentPage(1);
@@ -435,10 +483,12 @@ export function VisualizadorDedicado() {
       const bruto = await executarJob<DocumentTextResult>(
         { type: 'read_document_text', rootId: file.rootId, relativePath: file.relativePath, ...(forceFresh ? { forceFresh: true } : {}) },
         'Falha ao renderizar documento no Connector.',
+        60000,
+        controller.signal,
       );
-      if (pedido !== pedidoDocRef.current) return;
-      const pronto = await baixarPdfDoConnector(bruto, file);
-      if (pedido !== pedidoDocRef.current) return;
+      if (pedido !== pedidoDocRef.current || controller.signal.aborted) return;
+      const pronto = await baixarPdfDoConnector(bruto, file, controller.signal);
+      if (pedido !== pedidoDocRef.current || controller.signal.aborted) return;
       if (pdfBlobUrlRef.current && pdfBlobUrlRef.current !== pronto.pdfDataUrl) {
         URL.revokeObjectURL(pdfBlobUrlRef.current);
         pdfBlobUrlRef.current = null;
@@ -447,7 +497,7 @@ export function VisualizadorDedicado() {
       setDocumentoAtivo(pronto);
       setErrorMessage('');
     } catch (err: any) {
-      if (pedido !== pedidoDocRef.current) return;
+      if (pedido !== pedidoDocRef.current || controller.signal.aborted || err?.name === 'AbortError') return;
       // Link do servidor de arquivos expirou: pede um novo ao Connector uma única vez
       if (err instanceof LinkLocalExpiradoError && !forceFresh) {
         await abrirDocumento(file, true);
@@ -457,6 +507,7 @@ export function VisualizadorDedicado() {
     } finally {
       if (pedido === pedidoDocRef.current) {
         setIsLoadingDoc(false);
+        setProgressoPdf(null);
       }
     }
   }
@@ -1694,10 +1745,43 @@ export function VisualizadorDedicado() {
           {exploradorAberto ? (
             renderExploradorPrincipal()
           ) : isLoadingDoc ? (
-            <div className="flex-1 flex flex-col items-center justify-center space-y-3 bg-slate-950">
-              <RefreshCw className="h-8 w-8 animate-spin text-amber-400" />
-              <p className="text-sm text-slate-300 font-semibold">Carregando documento pelo conector...</p>
-              <p className="text-xs text-slate-500 font-mono">Processando acervo oficial do 7º RI</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950">
+              <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/90 p-6 text-center shadow-2xl space-y-4">
+                <RefreshCw className="h-8 w-8 animate-spin text-amber-400 mx-auto" />
+                <div className="space-y-1">
+                  <p className="text-sm text-slate-200 font-semibold">Carregando documento pelo conector...</p>
+                  {arquivoAtivo?.name && (
+                    <p className="text-xs text-cyan-300 font-mono break-all">{arquivoAtivo.name}</p>
+                  )}
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    {progressoPdf && progressoPdf.total > 0
+                      ? `Transferindo via HTTPS seguro • ${formatarTamanho(progressoPdf.recebido)} de ${formatarTamanho(progressoPdf.total)} (${Math.min(100, Math.round((progressoPdf.recebido / progressoPdf.total) * 100))}%)`
+                      : 'Processando acervo oficial do 7º RI'}
+                  </p>
+                </div>
+
+                {progressoPdf && progressoPdf.total > 0 && (
+                  <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-white/10">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-200"
+                      style={{
+                        width: `${Math.min(100, Math.max(3, Math.round((progressoPdf.recebido / progressoPdf.total) * 100)))}%`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={cancelarCarregamentoDocumento}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-800/80 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Cancelar carregamento</span>
+                  </button>
+                </div>
+              </div>
             </div>
           ) : errorMessage && !documentoAtivo ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-slate-950">
@@ -1779,12 +1863,12 @@ export function VisualizadorDedicado() {
             </div>
           ) : isPdf && documentoAtivo?.pdfDataUrl ? (
             /* CASO 2: VISUALIZADOR PDF INTERATIVO (Safari, Chrome, Edge, Firefox) */
-            <div className="w-full h-full flex flex-col bg-slate-900">
+            <div className="flex-1 min-h-0 w-full flex flex-col bg-slate-900">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 sm:py-1.5 text-[11px] text-slate-300 shrink-0">
                 <span className="w-full sm:w-auto sm:flex-1 min-w-0 leading-snug whitespace-normal sm:truncate">
                   {isIOSOrIPadOS()
                     ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para navegar por todas as páginas.'
-                    : `Documento PDF • ${documentoAtivo.fileName}`}
+                    : `Documento PDF • ${documentoAtivo.fileName}${documentoAtivo.size ? ` • ${formatarTamanho(documentoAtivo.size)}` : ''}`}
                 </span>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                   <a
@@ -1806,14 +1890,10 @@ export function VisualizadorDedicado() {
                   </a>
                 </div>
               </div>
-              <div
-                className="flex-1 w-full overflow-auto bg-white"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
+              <div className="relative flex-1 min-h-0 w-full bg-white">
                 <iframe
                   src={documentoAtivo.pdfDataUrl}
-                  className="w-full h-full border-0 bg-white"
-                  style={{ height: '100%', minHeight: '360px' }}
+                  className="absolute inset-0 w-full h-full border-0 bg-white"
                   title={documentoAtivo.fileName}
                 />
               </div>

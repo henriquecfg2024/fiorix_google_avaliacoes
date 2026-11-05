@@ -6,7 +6,9 @@
  * a partir de qualquer estação, Mac, tablet ou celular.
  */
 
-export const TAMANHO_BLOCO_PDF_HTTPS = 2_097_152; // 2,0 MB bruto (~2,67 MB em base64, ágil em redes móveis e seguro abaixo de 4,5 MB)
+export const TAMANHO_BLOCO_PDF_HTTPS = 2_490_368; // ~2,38 MB bruto (~3,17 MB em base64, abaixo do limite de 2,40 MB do Connector e 4,5 MB serverless)
+const CONCORRENCIA_BLOCOS_HTTPS = 4; // Janela paralela para manter o Connector alimentado sem intervalos ociosos
+const MAX_BLOCOS_PDF_HTTPS = 220; // Suporta processos digitais volumosos de até ~520 MB
 
 export class LinkLocalExpiradoError extends Error {
   constructor(msg = 'Link temporário do PDF expirado.') {
@@ -157,6 +159,42 @@ export interface OpcoesDownloadPdf {
   relativePath?: string;
   tamanhoEsperado?: number;
   onProgress?: (recebido: number, total: number) => void;
+  signal?: AbortSignal;
+}
+
+function criarErroAbortado(): Error {
+  if (typeof DOMException !== 'undefined') {
+    return new DOMException('Transferência de documento cancelada.', 'AbortError');
+  }
+  const erro = new Error('Transferência de documento cancelada.');
+  erro.name = 'AbortError';
+  return erro;
+}
+
+function lancarSeCancelado(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw criarErroAbortado();
+  }
+}
+
+function ehErroAbortado(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { name?: string }).name === 'AbortError');
+}
+
+function aguardarComCancelamento(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return new Promise(resolve => setTimeout(resolve, ms));
+  if (signal.aborted) return Promise.reject(criarErroAbortado());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(criarErroAbortado());
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function podeTentarServidorLocalDireto(localUrl: string): boolean {
@@ -183,8 +221,12 @@ async function tentarBaixarDiretoRedeLocal(
   url: string,
   tamanhoEsperado: number,
   onProgress?: (recebido: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<{ blob: Blob; url: string }> {
+  lancarSeCancelado(signal);
   const controller = new AbortController();
+  const aoAbortarExterno = () => controller.abort();
+  signal?.addEventListener('abort', aoAbortarExterno, { once: true });
   // Timeout curto de conexão inicial (2s) para não travar estações remotas antes do fallback HTTPS
   const timerConexao = setTimeout(() => controller.abort(), 2200);
   let response: Response;
@@ -197,6 +239,11 @@ async function tentarBaixarDiretoRedeLocal(
     });
   } finally {
     clearTimeout(timerConexao);
+    signal?.removeEventListener('abort', aoAbortarExterno);
+  }
+
+  if (signal?.aborted) {
+    throw criarErroAbortado();
   }
 
   if (response.status === 404) {
@@ -218,16 +265,27 @@ async function tentarBaixarDiretoRedeLocal(
   const partes: Uint8Array[] = [];
   let recebido = 0;
   let ultimaAtualizacao = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    partes.push(value);
-    recebido += value.length;
-    const agora = performance.now();
-    if (onProgress && agora - ultimaAtualizacao > 120) {
-      ultimaAtualizacao = agora;
-      onProgress(recebido, Math.max(total, recebido));
+  try {
+    for (;;) {
+      lancarSeCancelado(signal);
+      const { done, value } = await reader.read();
+      if (done) break;
+      partes.push(value);
+      recebido += value.length;
+      const agora = performance.now();
+      if (onProgress && agora - ultimaAtualizacao > 120) {
+        ultimaAtualizacao = agora;
+        onProgress(recebido, Math.max(total, recebido));
+      }
     }
+  } catch (err) {
+    if (signal?.aborted) {
+      try {
+        await reader.cancel();
+      } catch {}
+      throw criarErroAbortado();
+    }
+    throw err;
   }
   onProgress?.(recebido, Math.max(total, recebido));
   const pdfBlob = new Blob(partes as BlobPart[], { type: 'application/pdf' });
@@ -247,9 +305,162 @@ export function mimePorExtensao(nomeOuExt: string): string {
   return 'application/octet-stream';
 }
 
+async function solicitarBlocoUnicoViaHttps(opcoes: {
+  connectorId: string;
+  rootId: string;
+  relativePath: string;
+  offset: number;
+  length: number;
+  ehPrimeiroBloco: boolean;
+  signal?: AbortSignal;
+}): Promise<ChunkJobPayload> {
+  const { connectorId, rootId, relativePath, offset, length, ehPrimeiroBloco, signal } = opcoes;
+  let chunkData: ChunkJobPayload | null = null;
+  let ultimoErroBloco: Error | null = null;
+
+  for (let tentativaBloco = 0; tentativaBloco < 3; tentativaBloco++) {
+    lancarSeCancelado(signal);
+    if (tentativaBloco > 0) {
+      await aguardarComCancelamento(350 * tentativaBloco, signal);
+    }
+    try {
+      const postRes = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId,
+          type: 'read_document_chunk',
+          rootId,
+          relativePath,
+          offset,
+          length,
+        }),
+        signal,
+      });
+      const postBody = await postRes.json();
+      if (!postRes.ok) {
+        throw new Error(postBody.error || 'Falha ao solicitar bloco do arquivo ao Connector.');
+      }
+
+      if (postBody.status === 'complete' && postBody.result) {
+        chunkData = postBody.result as ChunkJobPayload;
+        break;
+      }
+
+      const deadline = Date.now() + 60000;
+      let tent = 0;
+      while (Date.now() < deadline) {
+        await aguardarComCancelamento(tent === 0 ? 110 : tent < 6 ? 190 : 300, signal);
+        tent++;
+        const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
+          cache: 'no-store',
+          signal,
+        });
+        const pollState = await pollRes.json();
+        if (!pollRes.ok) throw new Error(pollState.error || 'Erro ao baixar bloco do documento.');
+        if (pollState.status === 'complete' && pollState.result) {
+          chunkData = pollState.result as ChunkJobPayload;
+          break;
+        }
+        if (pollState.status === 'failed') {
+          const detalheErro =
+            pollState.result && typeof pollState.result === 'object' && typeof (pollState.result as Record<string, unknown>).error === 'string'
+              ? String((pollState.result as Record<string, unknown>).error)
+              : '';
+          if (!detalheErro && ehPrimeiroBloco) {
+            throw new Error(
+              'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez ' +
+                '(execute reiniciar-servico-connector.bat como Administrador) para liberar a transferência de arquivos via HTTPS.',
+            );
+          }
+          throw new Error(
+            detalheErro
+              ? `O Connector não conseguiu ler o arquivo solicitado (${detalheErro}).`
+              : 'O Connector não conseguiu ler o arquivo solicitado.',
+          );
+        }
+      }
+
+      if (chunkData) break;
+      ultimoErroBloco = new Error('Tempo limite excedido durante a transferência de um bloco do arquivo.');
+    } catch (err) {
+      if (ehErroAbortado(err) || signal?.aborted) {
+        throw criarErroAbortado();
+      }
+      ultimoErroBloco = err instanceof Error ? err : new Error('Falha ao transferir bloco do arquivo.');
+      if (ultimoErroBloco.message.includes('reiniciar-servico-connector.bat')) {
+        throw ultimoErroBloco;
+      }
+    }
+  }
+
+  if (!chunkData) {
+    throw ultimoErroBloco || new Error('Tempo limite excedido durante a transferência do arquivo.');
+  }
+
+  if (typeof chunkData.chunkBase64 !== 'string') {
+    throw new Error(
+      'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez (reiniciar-servico-connector.bat) ' +
+        'para habilitar a transferência de arquivos em qualquer navegador/estação via HTTPS.',
+    );
+  }
+
+  return chunkData;
+}
+
+async function baixarFaixaExataViaHttps(opcoes: {
+  connectorId: string;
+  rootId: string;
+  relativePath: string;
+  inicio: number;
+  tamanhoFaixa: number;
+  ehPrimeiroBloco: boolean;
+  signal?: AbortSignal;
+  aoReceberParte: (bytesLidos: number, totalReportado?: number) => void;
+}): Promise<{ partes: Uint8Array[]; eof: boolean; totalSize: number }> {
+  const { connectorId, rootId, relativePath, inicio, tamanhoFaixa, ehPrimeiroBloco, signal, aoReceberParte } = opcoes;
+  const partes: Uint8Array[] = [];
+  let deslocamento = 0;
+  let eof = false;
+  let totalSize = 0;
+
+  while (deslocamento < tamanhoFaixa) {
+    lancarSeCancelado(signal);
+    const restante = Math.min(TAMANHO_BLOCO_PDF_HTTPS, tamanhoFaixa - deslocamento);
+    const chunk = await solicitarBlocoUnicoViaHttps({
+      connectorId,
+      rootId,
+      relativePath,
+      offset: inicio + deslocamento,
+      length: restante,
+      ehPrimeiroBloco: ehPrimeiroBloco && deslocamento === 0,
+      signal,
+    });
+
+    if (typeof chunk.totalSize === 'number' && chunk.totalSize > 0) {
+      totalSize = chunk.totalSize;
+    }
+
+    const bytes = chunk.chunkBase64 && chunk.chunkBase64.length > 0 ? decodificarBase64ParaBytes(chunk.chunkBase64) : new Uint8Array(0);
+    const lidos = chunk.bytesRead ?? bytes.length;
+    if (bytes.length > 0) {
+      partes.push(bytes);
+      deslocamento += lidos;
+      aoReceberParte(bytes.length, totalSize);
+    }
+
+    if (chunk.eof || lidos === 0) {
+      eof = true;
+      break;
+    }
+  }
+
+  return { partes, eof, totalSize };
+}
+
 /**
  * Fallback universal via HTTPS (funciona em Safari, Mac, iPad, iPhone, Android e qualquer PC fora do servidor do Connector):
- * transfere o PDF ou arquivo original (.DOC, .DOCX, etc.) em blocos seguros de 2,0 MB pelo canal autenticado do Connector.
+ * transfere o PDF ou arquivo original (.DOC, .DOCX, etc.) em janela paralela de blocos seguros pelo canal autenticado do Connector.
  */
 export async function baixarPdfEmBlocosViaHttps(opcoes: {
   connectorId: string;
@@ -258,121 +469,141 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
   mimeType?: string;
   tamanhoEsperado?: number;
   onProgress?: (recebido: number, total: number) => void;
+  signal?: AbortSignal;
 }): Promise<{ blob: Blob; url: string }> {
-  const { connectorId, rootId, relativePath, onProgress } = opcoes;
+  const { connectorId, rootId, relativePath, onProgress, signal } = opcoes;
   const mimeType = opcoes.mimeType || 'application/pdf';
+  lancarSeCancelado(signal);
+
   let total = opcoes.tamanhoEsperado || 0;
-  let offset = 0;
-  const partes: Uint8Array[] = [];
+  let bytesRecebidos = 0;
   onProgress?.(0, total);
 
-  // Limite de segurança de 110 blocos (~220 MB)
-  for (let blocoIdx = 0; blocoIdx < 110; blocoIdx++) {
-    let chunkData: ChunkJobPayload | null = null;
-    let ultimoErroBloco: Error | null = null;
+  const controladorInterno = new AbortController();
+  const aoAbortarExterno = () => controladorInterno.abort();
+  signal?.addEventListener('abort', aoAbortarExterno, { once: true });
 
-    for (let tentativaBloco = 0; tentativaBloco < 3; tentativaBloco++) {
-      if (tentativaBloco > 0) {
-        await new Promise(r => setTimeout(r, 400 * tentativaBloco));
+  try {
+    const partesFinais: Uint8Array[] = [];
+    let offsetBase = 0;
+
+    // Se o tamanho ainda não é conhecido, busca o bloco 0 primeiro para descobrir totalSize
+    if (total <= 0) {
+      const inicial = await baixarFaixaExataViaHttps({
+        connectorId,
+        rootId,
+        relativePath,
+        inicio: 0,
+        tamanhoFaixa: TAMANHO_BLOCO_PDF_HTTPS,
+        ehPrimeiroBloco: true,
+        signal: controladorInterno.signal,
+        aoReceberParte: (lidos, reportado) => {
+          if (reportado && reportado > total) total = reportado;
+          bytesRecebidos += lidos;
+          onProgress?.(bytesRecebidos, Math.max(total, bytesRecebidos));
+        },
+      });
+      partesFinais.push(...inicial.partes);
+      offsetBase = bytesRecebidos;
+      if (inicial.totalSize > total) total = inicial.totalSize;
+
+      if (inicial.eof || (total > 0 && offsetBase >= total)) {
+        const blobUnico = new Blob(partesFinais as BlobPart[], { type: mimeType });
+        return { blob: blobUnico, url: URL.createObjectURL(blobUnico) };
       }
-      try {
-        const postRes = await fetch('/api/gestao-documental', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            connectorId,
-            type: 'read_document_chunk',
-            rootId,
-            relativePath,
-            offset,
-            length: TAMANHO_BLOCO_PDF_HTTPS,
-          }),
+    }
+
+    // Se temos o tamanho total, dispara os blocos restantes em janela paralela ordenada (4 em voo)
+    if (total > offsetBase) {
+      const limiteBytes = Math.min(total, MAX_BLOCOS_PDF_HTTPS * TAMANHO_BLOCO_PDF_HTTPS);
+      const faixas: Array<{ slot: number; inicio: number; tamanho: number }> = [];
+      for (let pos = offsetBase, idx = 0; pos < limiteBytes && idx < MAX_BLOCOS_PDF_HTTPS; pos += TAMANHO_BLOCO_PDF_HTTPS, idx++) {
+        faixas.push({
+          slot: idx,
+          inicio: pos,
+          tamanho: Math.min(TAMANHO_BLOCO_PDF_HTTPS, limiteBytes - pos),
         });
-        const postBody = await postRes.json();
-        if (!postRes.ok) {
-          throw new Error(postBody.error || 'Falha ao solicitar bloco do arquivo ao Connector.');
-        }
-
-        if (postBody.status === 'complete' && postBody.result) {
-          chunkData = postBody.result as ChunkJobPayload;
-          break;
-        }
-
-        const deadline = Date.now() + 45000;
-        let tent = 0;
-        let conectorDesatualizado = false;
-        while (Date.now() < deadline) {
-          await new Promise(r => setTimeout(r, tent === 0 ? 160 : tent < 5 ? 300 : 480));
-          tent++;
-          const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
-            cache: 'no-store',
-          });
-          const pollState = await pollRes.json();
-          if (!pollRes.ok) throw new Error(pollState.error || 'Erro ao baixar bloco do documento.');
-          if (pollState.status === 'complete' && pollState.result) {
-            chunkData = pollState.result as ChunkJobPayload;
-            break;
-          }
-          if (pollState.status === 'failed') {
-            const detalheErro =
-              pollState.result && typeof pollState.result === 'object' && typeof (pollState.result as Record<string, unknown>).error === 'string'
-                ? String((pollState.result as Record<string, unknown>).error)
-                : '';
-            if (!detalheErro && blocoIdx === 0) {
-              conectorDesatualizado = true;
-              throw new Error(
-                'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez ' +
-                  '(execute reiniciar-servico-connector.bat como Administrador) para liberar a transferência de arquivos via HTTPS.',
-              );
-            }
-            throw new Error(
-              detalheErro
-                ? `O Connector não conseguiu ler o arquivo solicitado (${detalheErro}).`
-                : 'O Connector não conseguiu ler o arquivo solicitado.',
-            );
-          }
-        }
-
-        if (chunkData) break;
-        if (conectorDesatualizado) break;
-        ultimoErroBloco = new Error('Tempo limite excedido durante a transferência de um bloco do arquivo.');
-      } catch (err) {
-        ultimoErroBloco = err instanceof Error ? err : new Error('Falha ao transferir bloco do arquivo.');
-        if (ultimoErroBloco.message.includes('reiniciar-servico-connector.bat')) {
-          throw ultimoErroBloco;
-        }
       }
+
+      const resultadosPorSlot: Uint8Array[][] = new Array(faixas.length);
+      let cursor = 0;
+      let erroFatal: unknown = null;
+
+      const executarTrabalhador = async () => {
+        while (true) {
+          if (erroFatal) return;
+          const meuIndice = cursor++;
+          if (meuIndice >= faixas.length) return;
+          const faixa = faixas[meuIndice];
+          try {
+            const resFaixa = await baixarFaixaExataViaHttps({
+              connectorId,
+              rootId,
+              relativePath,
+              inicio: faixa.inicio,
+              tamanhoFaixa: faixa.tamanho,
+              ehPrimeiroBloco: offsetBase === 0 && faixa.slot === 0,
+              signal: controladorInterno.signal,
+              aoReceberParte: (lidos, reportado) => {
+                if (reportado && reportado > total) total = reportado;
+                bytesRecebidos += lidos;
+                onProgress?.(bytesRecebidos, Math.max(total, bytesRecebidos));
+              },
+            });
+            resultadosPorSlot[faixa.slot] = resFaixa.partes;
+          } catch (err) {
+            if (!erroFatal) {
+              erroFatal = err;
+              controladorInterno.abort();
+            }
+            return;
+          }
+        }
+      };
+
+      const qtdWorkers = Math.min(CONCORRENCIA_BLOCOS_HTTPS, faixas.length);
+      await Promise.all(Array.from({ length: qtdWorkers }, () => executarTrabalhador()));
+
+      if (erroFatal) {
+        if (signal?.aborted) throw criarErroAbortado();
+        throw erroFatal;
+      }
+
+      for (const grupo of resultadosPorSlot) {
+        if (grupo) partesFinais.push(...grupo);
+      }
+      offsetBase = limiteBytes;
     }
 
-    if (!chunkData) {
-      throw ultimoErroBloco || new Error('Tempo limite excedido durante a transferência do arquivo.');
+    // Caso o arquivo tenha bytes remanescentes além do tamanho inicialmente estimado, conclui sequencialmente
+    let segurancaExtra = 0;
+    while (total > offsetBase && offsetBase < MAX_BLOCOS_PDF_HTTPS * TAMANHO_BLOCO_PDF_HTTPS && segurancaExtra < 20) {
+      segurancaExtra++;
+      const cauda = await baixarFaixaExataViaHttps({
+        connectorId,
+        rootId,
+        relativePath,
+        inicio: offsetBase,
+        tamanhoFaixa: Math.min(TAMANHO_BLOCO_PDF_HTTPS, total - offsetBase),
+        ehPrimeiroBloco: false,
+        signal: controladorInterno.signal,
+        aoReceberParte: (lidos, reportado) => {
+          if (reportado && reportado > total) total = reportado;
+          bytesRecebidos += lidos;
+          onProgress?.(bytesRecebidos, Math.max(total, bytesRecebidos));
+        },
+      });
+      partesFinais.push(...cauda.partes);
+      offsetBase = bytesRecebidos;
+      if (cauda.eof) break;
     }
 
-    if (typeof chunkData.chunkBase64 !== 'string') {
-      throw new Error(
-        'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez (reiniciar-servico-connector.bat) ' +
-          'para habilitar a transferência de arquivos em qualquer navegador/estação via HTTPS.',
-      );
-    }
-
-    if (typeof chunkData.totalSize === 'number' && chunkData.totalSize > 0) {
-      total = chunkData.totalSize;
-    }
-
-    if (chunkData.chunkBase64.length > 0) {
-      const bytes = decodificarBase64ParaBytes(chunkData.chunkBase64);
-      partes.push(bytes);
-      offset += chunkData.bytesRead ?? bytes.length;
-      onProgress?.(offset, Math.max(total, offset));
-    }
-
-    if (chunkData.eof || (chunkData.bytesRead ?? 0) === 0 || (total > 0 && offset >= total)) {
-      break;
-    }
+    const blob = new Blob(partesFinais as BlobPart[], { type: mimeType });
+    onProgress?.(blob.size, Math.max(total, blob.size));
+    return { blob, url: URL.createObjectURL(blob) };
+  } finally {
+    signal?.removeEventListener('abort', aoAbortarExterno);
   }
-
-  const blob = new Blob(partes as BlobPart[], { type: mimeType });
-  return { blob, url: URL.createObjectURL(blob) };
 }
 
 /**
@@ -387,10 +618,11 @@ export async function baixarArquivoOriginalViaHttps(opcoes: {
   fileName: string;
   tamanhoEsperado?: number;
   onProgress?: (recebido: number, total: number) => void;
+  signal?: AbortSignal;
 }): Promise<void> {
   let cid = (opcoes.connectorId || '').trim();
   if (!cid) {
-    const cRes = await fetch('/api/gestao-documental', { cache: 'no-store' });
+    const cRes = await fetch('/api/gestao-documental', { cache: 'no-store', signal: opcoes.signal });
     if (cRes.ok) {
       const cData = await cRes.json();
       const lista: Array<{ id: string; operationalState?: string; lastSeenAt?: string | null }> = cData.connectors || [];
@@ -415,6 +647,7 @@ export async function baixarArquivoOriginalViaHttps(opcoes: {
     mimeType: mimePorExtensao(opcoes.fileName),
     tamanhoEsperado: opcoes.tamanhoEsperado,
     onProgress: opcoes.onProgress,
+    signal: opcoes.signal,
   });
 
   const link = document.createElement('a');
@@ -439,6 +672,8 @@ export async function resolverPdfParaNavegador(
   },
   opcoes: OpcoesDownloadPdf = {},
 ): Promise<{ url: string; blob?: Blob } | null> {
+  lancarSeCancelado(opcoes.signal);
+
   // 1. Se já veio embutido como data:application/pdf;base64,... (ex.: PDFs até 2,4 MB), converte direto em Blob local
   if (resultado.pdfDataUrl) {
     if (resultado.pdfDataUrl.startsWith('data:application/pdf')) {
@@ -457,8 +692,11 @@ export async function resolverPdfParaNavegador(
   if (resultado.localUrl && podeTentarServidorLocalDireto(resultado.localUrl)) {
     try {
       opcoes.onProgress?.(0, tamanho);
-      return await tentarBaixarDiretoRedeLocal(resultado.localUrl, tamanho, opcoes.onProgress);
+      return await tentarBaixarDiretoRedeLocal(resultado.localUrl, tamanho, opcoes.onProgress, opcoes.signal);
     } catch (err) {
+      if (ehErroAbortado(err) || opcoes.signal?.aborted) {
+        throw criarErroAbortado();
+      }
       // Se não temos coordenadas para buscar via HTTPS e o ticket expirou, repassa LinkLocalExpiradoError
       if (
         err instanceof LinkLocalExpiradoError &&
@@ -478,6 +716,7 @@ export async function resolverPdfParaNavegador(
       relativePath: opcoes.relativePath,
       tamanhoEsperado: tamanho,
       onProgress: opcoes.onProgress,
+      signal: opcoes.signal,
     });
   }
 
@@ -489,4 +728,3 @@ export async function resolverPdfParaNavegador(
 
   return null;
 }
-

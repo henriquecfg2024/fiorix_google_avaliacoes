@@ -46,7 +46,7 @@ export const readDocumentChunkInput = z.object({
   type: z.literal('read_document_chunk'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
-  offset: z.number().int().min(0).max(209715200),
+  offset: z.number().int().min(0).max(524288000),
   length: z.number().int().min(1024).max(2621440).optional(),
 }).strict();
 

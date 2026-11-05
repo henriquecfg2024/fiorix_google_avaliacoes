@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Search,
   Download,
@@ -10,6 +10,10 @@ import {
   RefreshCw,
   Sparkles,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   RotateCcw,
   SlidersHorizontal,
   FileText,
@@ -17,6 +21,10 @@ import {
   Layers,
   Users,
   ArrowRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Printer,
   X,
   Clock,
 } from "lucide-react";
@@ -117,8 +125,26 @@ interface RegistroNormalizado extends ServicoItem {
   quantidade: number;
 }
 
-// Quantidade máxima de linhas renderizadas na tabela (a contagem e o CSV usam o total filtrado)
-const LIMITE_TABELA = 500;
+// Opções de paginação e ordenação por coluna — Padrão FIORIX
+type ColunaOrdenacao = "dataHora" | "numero" | "colaborador" | "canal" | "tipoDetalhado";
+
+const ROTULO_COLUNA_ORDEM: Record<ColunaOrdenacao, string> = {
+  dataHora: "Data / Hora",
+  numero: "Serviço",
+  colaborador: "Colaborador",
+  canal: "Canal",
+  tipoDetalhado: "Tipo / Detalhe",
+};
+
+const OPCOES_ITENS_PAGINA = [15, 25, 50, 100] as const;
+
+const escapeHtml = (valor: string) =>
+  String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DADOS DE BENCHMARK ILUSTRATIVO (REFERÊNCIA DE ALTA FIDELIDADE)
@@ -713,6 +739,39 @@ export default function ProdutividadePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dbRows, setDbRows] = useState<RawProdutividadeRow[]>([]);
+  const [sortBy, setSortBy] = useState<ColunaOrdenacao>("dataHora");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [itensPorPagina, setItensPorPagina] = useState<number>(25);
+  const [menuImprimirAberto, setMenuImprimirAberto] = useState(false);
+  const printMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [
+    activeTab,
+    filtroCanal,
+    filtroHorario,
+    startDate,
+    endDate,
+    filtroTipo,
+    filtroColaborador,
+    buscaTabela,
+    sortBy,
+    sortOrder,
+    itensPorPagina,
+  ]);
+
+  useEffect(() => {
+    if (!menuImprimirAberto) return;
+    const handleClickFora = (event: MouseEvent) => {
+      if (printMenuRef.current && !printMenuRef.current.contains(event.target as Node)) {
+        setMenuImprimirAberto(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
+  }, [menuImprimirAberto]);
 
   // Carregar dados reais da API
   const fetchData = useCallback(async () => {
@@ -1151,16 +1210,80 @@ export default function ProdutividadePage() {
     [buscaTabela]
   );
 
-  // Tabela de serviços: filtra sobre todos os registros do recorte e só depois limita a exibição
+  // Tabela de serviços: filtra sobre todos os registros do recorte, ordena por coluna e pagina (Padrão FIORIX)
   const servicosFiltrados = useMemo(
     () => registrosFoco.filter(correspondeBusca),
     [registrosFoco, correspondeBusca]
   );
 
-  const servicosVisiveis = useMemo(
-    () => servicosFiltrados.slice(0, LIMITE_TABELA),
-    [servicosFiltrados]
+  const handleOrdenarColuna = useCallback(
+    (coluna: ColunaOrdenacao) => {
+      if (sortBy === coluna) {
+        setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      } else {
+        setSortBy(coluna);
+        setSortOrder(coluna === "dataHora" ? "desc" : "asc");
+      }
+      setPaginaAtual(1);
+    },
+    [sortBy]
   );
+
+  const servicosOrdenados = useMemo(() => {
+    const fator = sortOrder === "asc" ? 1 : -1;
+    const copia = [...servicosFiltrados];
+    copia.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "dataHora") {
+        const chaveA = `${a.data || "0000-00-00"} ${a.hora || "00:00"}`;
+        const chaveB = `${b.data || "0000-00-00"} ${b.hora || "00:00"}`;
+        cmp = chaveA.localeCompare(chaveB);
+      } else if (sortBy === "numero") {
+        cmp = String(a.numero || "").localeCompare(String(b.numero || ""), "pt-BR", {
+          numeric: true,
+          sensitivity: "base",
+        });
+      } else if (sortBy === "colaborador") {
+        cmp = a.colaborador.localeCompare(b.colaborador, "pt-BR", { sensitivity: "base" });
+      } else if (sortBy === "canal") {
+        cmp = a.canal.localeCompare(b.canal, "pt-BR", { sensitivity: "base" });
+      } else if (sortBy === "tipoDetalhado") {
+        cmp = a.tipoDetalhado.localeCompare(b.tipoDetalhado, "pt-BR", { sensitivity: "base" });
+      }
+      if (cmp !== 0) return cmp * fator;
+      const desempateData = `${b.data || ""} ${b.hora || ""}`.localeCompare(`${a.data || ""} ${a.hora || ""}`);
+      if (desempateData !== 0) return desempateData;
+      return Number(a.id) - Number(b.id);
+    });
+    return copia;
+  }, [servicosFiltrados, sortBy, sortOrder]);
+
+  const totalServicosTabela = servicosOrdenados.length;
+  const totalPaginasTabela = Math.max(1, Math.ceil(totalServicosTabela / itensPorPagina));
+  const paginaSeguraTabela = Math.min(paginaAtual, totalPaginasTabela);
+  const indiceInicioTabela = totalServicosTabela === 0 ? 0 : (paginaSeguraTabela - 1) * itensPorPagina + 1;
+  const indiceFimTabela = Math.min(paginaSeguraTabela * itensPorPagina, totalServicosTabela);
+
+  const servicosPaginados = useMemo(
+    () =>
+      servicosOrdenados.slice(
+        (paginaSeguraTabela - 1) * itensPorPagina,
+        paginaSeguraTabela * itensPorPagina
+      ),
+    [servicosOrdenados, paginaSeguraTabela, itensPorPagina]
+  );
+
+  const paginasVisiveis = useMemo(() => {
+    const maxBotoes = 5;
+    let inicio = Math.max(1, paginaSeguraTabela - Math.floor(maxBotoes / 2));
+    const fim = Math.min(totalPaginasTabela, inicio + maxBotoes - 1);
+    if (fim - inicio + 1 < maxBotoes) {
+      inicio = Math.max(1, fim - maxBotoes + 1);
+    }
+    const lista: number[] = [];
+    for (let p = inicio; p <= fim; p++) lista.push(p);
+    return lista;
+  }, [paginaSeguraTabela, totalPaginasTabela]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // MÉTRICAS DINÂMICAS DOS 3 CARDS SUPERIORES E SUB-DESTAQUES POR ABA ATIVA
@@ -1593,14 +1716,14 @@ export default function ProdutividadePage() {
     destaquesExibidos,
   ]);
 
-  // Exportar CSV
+  // Exportar CSV (respeitando a ordenação ativa da tabela)
   const handleExportCSV = () => {
-    if (servicosFiltrados.length === 0) {
+    if (servicosOrdenados.length === 0) {
       toast.warning("Nenhum serviço para exportar com os filtros atuais.");
       return;
     }
     const headers = ["Data/Hora", "Serviço", "Colaborador", "Canal", "Tipo/Detalhe"];
-    const rows = servicosFiltrados.map((p) => [
+    const rows = servicosOrdenados.map((p) => [
       `"${p.dataHora}"`,
       `"${p.numero}"`,
       `"${p.colaborador}"`,
@@ -1616,7 +1739,282 @@ export default function ProdutividadePage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(`Exportados ${servicosFiltrados.length} serviços em formato CSV.`);
+    toast.success(`Exportados ${servicosOrdenados.length.toLocaleString("pt-BR")} serviços em formato CSV.`);
+  };
+
+  // Impressão Oficial da Listagem — Padrão FIORIX (página atual ou todos os registros filtrados)
+  const handleImprimirListagem = (escopo: "pagina" | "todos") => {
+    setMenuImprimirAberto(false);
+    const registrosImprimir = escopo === "pagina" ? servicosPaginados : servicosOrdenados;
+
+    if (registrosImprimir.length === 0) {
+      toast.warning("Nenhum registro disponível para impressão com os filtros atuais.");
+      return;
+    }
+
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      toast.error("Permita pop-ups no navegador para abrir a listagem de impressão.");
+      return;
+    }
+
+    const tituloCanal =
+      filtroCanal === "digital"
+        ? "Serviços Digitais · ONR"
+        : filtroCanal === "presencial"
+        ? "Serviços Presenciais · Balcão"
+        : "Todos os Canais Consolidados";
+
+    const periodoTexto =
+      startDate || endDate
+        ? `${startDate ? formatarDataCurta(startDate) : "Início"} a ${endDate ? formatarDataCurta(endDate) : "Hoje"}`
+        : "Período integral";
+
+    const escopoTexto =
+      escopo === "pagina"
+        ? `Página ${paginaSeguraTabela} de ${totalPaginasTabela} (${registrosImprimir.length.toLocaleString("pt-BR")} registros)`
+        : `Listagem completa filtrada (${registrosImprimir.length.toLocaleString("pt-BR")} registros)`;
+
+    const ordemTexto = `${ROTULO_COLUNA_ORDEM[sortBy]} (${sortOrder === "asc" ? "Crescente" : "Decrescente"})`;
+    const resumoCanal = metricasServicosCanais[filtroCanal];
+    const filtrosExtras: string[] = [];
+    if (filtroHorario) {
+      filtrosExtras.push(
+        `Horário: ${filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia} ` : ""}às ${filtroHorario.hora}h`
+      );
+    }
+    if (filtroTipo !== "TODOS") filtrosExtras.push(`Tipo: ${filtroTipo}`);
+    if (filtroColaborador !== "TODOS") filtrosExtras.push(`Colaborador: ${filtroColaborador}`);
+    if (buscaTabela.trim()) filtrosExtras.push(`Busca: "${buscaTabela.trim()}"`);
+
+    const emitidoEm = new Date().toLocaleString("pt-BR");
+    const offsetNumeracao = escopo === "pagina" ? (paginaSeguraTabela - 1) * itensPorPagina : 0;
+
+    const linhasHtml = registrosImprimir
+      .map((item, idx) => {
+        const dataCompleta = item.data ? `${formatarDataCurta(item.data)} · ${item.hora}` : item.dataHora;
+        return `
+          <tr>
+            <td class="col-seq">${offsetNumeracao + idx + 1}</td>
+            <td class="col-data">${escapeHtml(dataCompleta)}</td>
+            <td class="col-num">${escapeHtml(String(item.numero).replace(/^#/, ""))}</td>
+            <td>${escapeHtml(item.colaborador)}</td>
+            <td>
+              <span class="badge ${item.canal === "Digital ONR" ? "badge-digital" : "badge-presencial"}">
+                ${escapeHtml(item.canal)}
+              </span>
+            </td>
+            <td>${escapeHtml(item.tipoDetalhado)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    printWin.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Relatório de Recepção e Serviços — 7º RI de São Paulo</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .brand {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #0369a1;
+      margin-bottom: 2px;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #475569;
+      margin: 2px 0 0 0;
+    }
+    .meta-right {
+      text-align: right;
+      font-size: 10px;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .summary-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: #f8fafc;
+    }
+    .summary-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+    }
+    .summary-val {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 2px;
+    }
+    .filters-bar {
+      font-size: 10px;
+      color: #334155;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+    }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: left;
+      padding: 7px 8px;
+      border: 1px solid #0f172a;
+    }
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      color: #1e293b;
+    }
+    tbody tr:nth-child(even) td { background: #f8fafc; }
+    .col-seq { width: 34px; color: #64748b; font-family: monospace; text-align: right; }
+    .col-data { width: 118px; white-space: nowrap; font-family: monospace; }
+    .col-num { width: 92px; font-weight: 700; font-family: monospace; color: #1d4ed8; }
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge-digital { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+    .badge-presencial { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+    .footer {
+      margin-top: 14px;
+      padding-top: 8px;
+      border-top: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5px;
+      color: #64748b;
+    }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="brand">7º Oficial de Registro de Imóveis de São Paulo • Sistema FIORIX</div>
+      <h1 class="title">Relatório de Recepção — ${escapeHtml(tituloCanal)}</h1>
+      <p class="subtitle">Período: ${escapeHtml(periodoTexto)} • ${escapeHtml(escopoTexto)}</p>
+    </div>
+    <div class="meta-right">
+      <div><strong>Emitido em:</strong> ${escapeHtml(emitidoEm)}</div>
+      <div><strong>Ordenação:</strong> ${escapeHtml(ordemTexto)}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">Movimentações Filtradas</div>
+      <div class="summary-val">${totalServicosTabela.toLocaleString("pt-BR")}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Protocolos Únicos</div>
+      <div class="summary-val">${resumoCanal.protocolos.toLocaleString("pt-BR")}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Certidões / Títulos</div>
+      <div class="summary-val">${resumoCanal.certidoes.toLocaleString("pt-BR")} / ${resumoCanal.titulos.toLocaleString("pt-BR")}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Registros Impressos</div>
+      <div class="summary-val">${registrosImprimir.length.toLocaleString("pt-BR")}</div>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <strong>Escopo ativo:</strong> Canal: ${escapeHtml(tituloCanal)} | Ordem: ${escapeHtml(ordemTexto)}${
+      filtrosExtras.length > 0 ? ` | ${escapeHtml(filtrosExtras.join(" | "))}` : ""
+    }
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="col-seq">#</th>
+        <th class="col-data">Data / Hora</th>
+        <th class="col-num">Serviço</th>
+        <th>Colaborador</th>
+        <th>Canal</th>
+        <th>Tipo / Detalhe</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${linhasHtml}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <span>7º Oficial de Registro de Imóveis de São Paulo • Gestão de Qualidade e Prazos</span>
+    <span>Total impresso: ${registrosImprimir.length.toLocaleString("pt-BR")} de ${totalServicosTabela.toLocaleString("pt-BR")} movimentações</span>
+  </div>
+</body>
+</html>`);
+    printWin.document.close();
+    setTimeout(() => {
+      try {
+        printWin.focus();
+        printWin.print();
+      } catch {}
+    }, 220);
   };
 
   // Cores de intensidade do Heatmap
@@ -2677,8 +3075,8 @@ export default function ProdutividadePage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative w-full sm:w-64">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative w-full sm:w-60">
                   <Search className="w-3.5 h-3.5 text-slate-300 absolute left-3 top-2.5" />
                   <input
                     type="text"
@@ -2687,6 +3085,82 @@ export default function ProdutividadePage() {
                     onChange={(e) => setBuscaTabela(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-400 transition-colors"
                   />
+                </div>
+
+                {/* Indicador de Ordenação Ativa — Padrão FIORIX */}
+                <button
+                  type="button"
+                  onClick={() => handleOrdenarColuna(sortBy)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#080D1A] hover:bg-[#11192E] border border-white/15 hover:border-cyan-400/40 text-xs text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
+                  title="Clique para alternar entre ordem crescente e decrescente"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Ordem:</span>
+                  <strong className="text-white">{ROTULO_COLUNA_ORDEM[sortBy]}</strong>
+                  <span className="text-[11px] text-cyan-300 font-semibold">
+                    ({sortOrder === "asc" ? "Crescente" : "Decrescente"})
+                  </span>
+                </button>
+
+                {/* Botão Imprimir Listagem — Padrão FIORIX */}
+                <div className="relative" ref={printMenuRef}>
+                  <div className="inline-flex rounded-xl shadow-sm border border-emerald-500/40 bg-emerald-600/20 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleImprimirListagem("pagina")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+                      title={`Imprimir página atual (${servicosPaginados.length.toLocaleString("pt-BR")} registros)`}
+                    >
+                      <Printer className="w-3.5 h-3.5 text-white" />
+                      <span>Imprimir Listagem</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMenuImprimirAberto((prev) => !prev)}
+                      className="px-2 py-1.5 rounded-lg hover:bg-emerald-500/30 text-emerald-200 transition-colors cursor-pointer"
+                      title="Escolher entre imprimir a página atual ou toda a listagem filtrada"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {menuImprimirAberto && (
+                    <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-[#10172A] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/10 mb-1">
+                        Opções de Impressão da Listagem
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleImprimirListagem("pagina")}
+                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-white">Imprimir página atual</div>
+                          <div className="text-[11px] text-slate-400">
+                            {servicosPaginados.length.toLocaleString("pt-BR")}{" "}
+                            {servicosPaginados.length === 1 ? "registro visível" : "registros visíveis"} na página{" "}
+                            {paginaSeguraTabela}
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleImprimirListagem("todos")}
+                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-white">Imprimir toda a listagem</div>
+                          <div className="text-[11px] text-slate-400">
+                            Todos os {totalServicosTabela.toLocaleString("pt-BR")} registros filtrados
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -2700,21 +3174,53 @@ export default function ProdutividadePage() {
               </div>
             </div>
 
-            {/* Tabela de 5 Colunas */}
+            {/* Tabela de 5 Colunas com Ordenação Clicável — Padrão FIORIX */}
             <div className="overflow-x-auto pt-2">
               <table className="w-full text-left text-xs">
                 <thead className="select-none bg-[#080D1A] text-[11px] uppercase tracking-wider text-slate-300 border-b border-white/10">
                   <tr>
-                    <th className="px-4 py-3 font-bold">Data / hora</th>
-                    <th className="px-4 py-3 font-bold">Serviço</th>
-                    <th className="px-4 py-3 font-bold">Colaborador</th>
-                    <th className="px-4 py-3 font-bold">Canal</th>
-                    <th className="px-4 py-3 font-bold">Tipo / detalhe</th>
+                    {(
+                      [
+                        { key: "dataHora", label: "Data / hora" },
+                        { key: "numero", label: "Serviço" },
+                        { key: "colaborador", label: "Colaborador" },
+                        { key: "canal", label: "Canal" },
+                        { key: "tipoDetalhado", label: "Tipo / detalhe" },
+                      ] as const
+                    ).map((col) => {
+                      const ativo = sortBy === col.key;
+                      return (
+                        <th
+                          key={col.key}
+                          aria-sort={ativo ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
+                          onClick={() => handleOrdenarColuna(col.key)}
+                          title={`Clique para ordenar por ${col.label}`}
+                          className={`group px-4 py-3 font-bold cursor-pointer transition-colors ${
+                            ativo
+                              ? "bg-cyan-500/10 text-cyan-300"
+                              : "hover:bg-white/[0.04] hover:text-white"
+                          }`}
+                        >
+                          <div className="inline-flex items-center gap-1.5">
+                            <span>{col.label}</span>
+                            {ativo ? (
+                              sortOrder === "asc" ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 opacity-60 group-hover:opacity-100 group-hover:text-cyan-300 shrink-0 transition-opacity" />
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/6">
-                  {servicosVisiveis.length > 0 ? (
-                    servicosVisiveis.map((item) => (
+                  {servicosPaginados.length > 0 ? (
+                    servicosPaginados.map((item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-white/[0.03] transition-colors text-slate-300"
@@ -2757,23 +3263,111 @@ export default function ProdutividadePage() {
               </table>
             </div>
 
-            {/* Rodapé da Tabela */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-white/8 text-xs text-slate-300">
-              <div>
-                {hasRealData
-                  ? servicosFiltrados.length > servicosVisiveis.length
-                    ? `Mostrando os ${servicosVisiveis.length.toLocaleString("pt-BR")} mais recentes de ${servicosFiltrados.length.toLocaleString("pt-BR")} serviços (o CSV exporta todos)`
-                    : `${servicosFiltrados.length.toLocaleString("pt-BR")} serviços exibidos`
-                  : `${servicosFiltrados.length} serviços ilustrativos exibidos`}{" "}
-                ·{" "}
-                <span className="capitalize font-bold text-cyan-300">{filtroCanal}</span>
+            {/* Rodapé com Barra de Paginação Completa — Padrão FIORIX */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-t border-white/10 bg-[#080D1A] px-5 py-4 rounded-2xl text-white">
+              <div className="text-xs text-slate-400 text-center lg:text-left">
+                Exibindo <strong className="text-white">{indiceInicioTabela.toLocaleString("pt-BR")}</strong> a{" "}
+                <strong className="text-white">{indiceFimTabela.toLocaleString("pt-BR")}</strong> de{" "}
+                <strong className="text-white">{totalServicosTabela.toLocaleString("pt-BR")}</strong> movimentações{" "}
+                <span className="text-emerald-300">
+                  ({metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos)
+                </span>{" "}
+                · <span className="capitalize font-bold text-cyan-300">{filtroCanal}</span>
                 {filtroHorario && (
                   <span className="text-cyan-400 font-semibold ml-1">
                     · Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
                   </span>
                 )}
               </div>
-              <div className="font-medium text-slate-400">Prévia analítica dos serviços</div>
+
+              <div className="flex items-center gap-4 flex-wrap justify-center lg:justify-end">
+                {/* Seletor de Tamanho de Página */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span>Exibir:</span>
+                  <div className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0B1020] p-0.5">
+                    {OPCOES_ITENS_PAGINA.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          setItensPorPagina(size);
+                          setPaginaAtual(1);
+                        }}
+                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                          itensPorPagina === size
+                            ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold shadow-xs"
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Navegação de Páginas */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={paginaSeguraTabela <= 1}
+                    onClick={() => setPaginaAtual(1)}
+                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    title="Primeira Página"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={paginaSeguraTabela <= 1}
+                    onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    title="Página Anterior"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="hidden sm:flex items-center gap-1 px-1">
+                    {paginasVisiveis.map((numPag) => (
+                      <button
+                        key={numPag}
+                        type="button"
+                        onClick={() => setPaginaAtual(numPag)}
+                        className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer border ${
+                          numPag === paginaSeguraTabela
+                            ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+                            : "bg-[#0B1020] border-white/10 text-slate-300 hover:bg-white/[0.08] hover:text-white"
+                        }`}
+                      >
+                        {numPag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="text-xs px-2 font-medium text-slate-300 whitespace-nowrap">
+                    Página <strong className="text-white">{paginaSeguraTabela.toLocaleString("pt-BR")}</strong> de{" "}
+                    <strong className="text-white">{totalPaginasTabela.toLocaleString("pt-BR")}</strong>
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={paginaSeguraTabela >= totalPaginasTabela}
+                    onClick={() => setPaginaAtual((p) => Math.min(totalPaginasTabela, p + 1))}
+                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    title="Próxima Página"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={paginaSeguraTabela >= totalPaginasTabela}
+                    onClick={() => setPaginaAtual(totalPaginasTabela)}
+                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    title="Última Página"
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
