@@ -27,6 +27,7 @@ import {
   Printer,
   X,
   Clock,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
@@ -136,7 +137,7 @@ const ROTULO_COLUNA_ORDEM: Record<ColunaOrdenacao, string> = {
   tipoDetalhado: "Tipo / Detalhe",
 };
 
-const OPCOES_ITENS_PAGINA = [15, 25, 50, 100] as const;
+const OPCOES_ITENS_PAGINA = [10, 25, 50] as const;
 
 const escapeHtml = (valor: string) =>
   String(valor ?? "")
@@ -742,7 +743,7 @@ export default function ProdutividadePage() {
   const [sortBy, setSortBy] = useState<ColunaOrdenacao>("dataHora");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const [itensPorPagina, setItensPorPagina] = useState<number>(25);
+  const [itensPorPagina, setItensPorPagina] = useState<number>(10);
   const [menuImprimirAberto, setMenuImprimirAberto] = useState(false);
   const printMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -862,6 +863,15 @@ export default function ProdutividadePage() {
       return true;
     });
   }, [hasRealData, registrosBase, startDate, endDate]);
+
+  // Se o usuário restringir o período para datas que não contêm o dia da semana filtrado no heatmap (ex: 04/11 a 05/11 sem Terça-feira), remove o filtro órfão
+  useEffect(() => {
+    if (!filtroHorario?.dia || registrosPeriodo.length === 0) return;
+    const diaExisteNoPeriodo = registrosPeriodo.some((r) => r.diaKey === filtroHorario.dia);
+    if (!diaExisteNoPeriodo) {
+      setFiltroHorario(null);
+    }
+  }, [registrosPeriodo, filtroHorario]);
 
   // Período + filtros secundários (tipo e colaborador): base comum de cards, heatmap e tabela
   const registrosSegmentados = useMemo(
@@ -1273,17 +1283,7 @@ export default function ProdutividadePage() {
     [servicosOrdenados, paginaSeguraTabela, itensPorPagina]
   );
 
-  const paginasVisiveis = useMemo(() => {
-    const maxBotoes = 5;
-    let inicio = Math.max(1, paginaSeguraTabela - Math.floor(maxBotoes / 2));
-    const fim = Math.min(totalPaginasTabela, inicio + maxBotoes - 1);
-    if (fim - inicio + 1 < maxBotoes) {
-      inicio = Math.max(1, fim - maxBotoes + 1);
-    }
-    const lista: number[] = [];
-    for (let p = inicio; p <= fim; p++) lista.push(p);
-    return lista;
-  }, [paginaSeguraTabela, totalPaginasTabela]);
+  // Paginação padronizada FIORIX (10 / 25 / 50 + navegação compacta igual à Espera)
 
   // ───────────────────────────────────────────────────────────────────────────
   // MÉTRICAS DINÂMICAS DOS 3 CARDS SUPERIORES E SUB-DESTAQUES POR ABA ATIVA
@@ -1408,7 +1408,7 @@ export default function ProdutividadePage() {
 
     const resumir = (lista: RegistroNormalizado[]) => {
       const protocolosSet = new Set<string>();
-      const naturezasSet = new Set<string>();
+      const naturezasMap = new Map<string, number>();
       let movimentacoes = 0;
       let certidoes = 0;
       let titulos = 0;
@@ -1416,18 +1416,25 @@ export default function ProdutividadePage() {
       lista.forEach((r) => {
         const chavePedido = r.numero && r.numero !== "—" ? r.numero : `row_${r.id}`;
         protocolosSet.add(chavePedido);
-        if (r.tipoDetalhado) naturezasSet.add(r.tipoDetalhado);
+        if (r.tipoDetalhado) {
+          naturezasMap.set(r.tipoDetalhado, (naturezasMap.get(r.tipoDetalhado) || 0) + r.quantidade);
+        }
         movimentacoes += r.quantidade;
         if (r.tipo === "CERTIDÃO") certidoes += r.quantidade;
         else titulos += r.quantidade;
       });
+
+      const naturezasLista = Array.from(naturezasMap.entries())
+        .map(([nome, qtd]) => ({ nome, qtd }))
+        .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome, "pt-BR"));
 
       return {
         protocolos: protocolosSet.size,
         movimentacoes,
         certidoes,
         titulos,
-        naturezas: naturezasSet.size,
+        naturezas: naturezasLista.length,
+        naturezasLista,
       };
     };
 
@@ -1439,6 +1446,7 @@ export default function ProdutividadePage() {
           certidoes: 3898,
           titulos: 2824,
           naturezas: 12,
+          naturezasLista: [] as Array<{ nome: string; qtd: number }>,
           pct: "100%",
           barCss: "100%",
         },
@@ -1447,7 +1455,17 @@ export default function ProdutividadePage() {
           movimentacoes: 4549,
           certidoes: 2610,
           titulos: 1939,
-          naturezas: 7,
+          naturezas: 8,
+          naturezasLista: [
+            { nome: "Depósito de Certidões", qtd: 800 },
+            { nome: "Saída de Certidão com Saldo a Receber", qtd: 711 },
+            { nome: "Complemento de Depósito de Títulos", qtd: 377 },
+            { nome: "Saída de Títulos com Saldo Zerado", qtd: 305 },
+            { nome: "Depósito de Títulos", qtd: 275 },
+            { nome: "Depósito de Reentrada de Títulos", qtd: 11 },
+            { nome: "Saída de Título c Exigência com Saldo a Devolver", qtd: 2 },
+            { nome: "Saída de Título Registrado com Saldo a Devolver", qtd: 1 },
+          ],
           pct: "65,4%",
           barCss: "65.4%",
         },
@@ -1456,7 +1474,20 @@ export default function ProdutividadePage() {
           movimentacoes: 2173,
           certidoes: 1288,
           titulos: 885,
-          naturezas: 9,
+          naturezas: 11,
+          naturezasLista: [
+            { nome: "Depósito de Certidões", qtd: 415 },
+            { nome: "Depósito de Títulos", qtd: 181 },
+            { nome: "Saída de Títulos com Saldo Zerado", qtd: 133 },
+            { nome: "Complemento de Depósito de Títulos", qtd: 101 },
+            { nome: "Saída de Certidão com Saldo a Devolver", qtd: 56 },
+            { nome: "Saída de Título c Exigência com Saldo a Devolver", qtd: 20 },
+            { nome: "Saída de Título Registrado com Saldo a Devolver", qtd: 12 },
+            { nome: "Saída de Título Registrado com Saldo a Receber", qtd: 7 },
+            { nome: "Depósito de Reentrada de Títulos", qtd: 5 },
+            { nome: "Complemento de Depósito de Certidões", qtd: 4 },
+            { nome: "Saída de Certidões com Saldo Zerado", qtd: 1 },
+          ],
           pct: "34,6%",
           barCss: "34.6%",
         },
@@ -1545,6 +1576,7 @@ export default function ProdutividadePage() {
           valor: s.digital.protocolos.toLocaleString("pt-BR"),
           sufixo: s.digital.pct,
           subtitulo: `${s.digital.movimentacoes.toLocaleString("pt-BR")} movimentações ONR · ${s.digital.naturezas} tipos de serviço`,
+          tiposLista: s.digital.naturezasLista,
           barCss: s.digital.barCss,
           ctaAtivo: "Exibindo protocolos digitais",
           ctaInativo: "Ver protocolos digitais",
@@ -1555,6 +1587,7 @@ export default function ProdutividadePage() {
           valor: s.presencial.protocolos.toLocaleString("pt-BR"),
           sufixo: s.presencial.pct,
           subtitulo: `${s.presencial.movimentacoes.toLocaleString("pt-BR")} movimentações no balcão · ${s.presencial.naturezas} tipos de serviço`,
+          tiposLista: s.presencial.naturezasLista,
           barCss: s.presencial.barCss,
           ctaAtivo: "Exibindo protocolos presenciais",
           ctaInativo: "Ver protocolos presenciais",
@@ -2308,6 +2341,21 @@ export default function ProdutividadePage() {
                 )}
               </div>
               <p className="text-xs text-slate-300">{heroCardsAba.digital.subtitulo}</p>
+              {activeTab === "servicos" &&
+                "tiposLista" in heroCardsAba.digital &&
+                Array.isArray(heroCardsAba.digital.tiposLista) &&
+                heroCardsAba.digital.tiposLista.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-emerald-500/15 space-y-1">
+                    <span className="block text-[10px] font-mono uppercase tracking-wider text-emerald-300/90 font-semibold">
+                      {heroCardsAba.digital.tiposLista.length} tipos de serviço ONR:
+                    </span>
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      {heroCardsAba.digital.tiposLista
+                        .map((t) => `${t.nome} (${t.qtd.toLocaleString("pt-BR")})`)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                )}
             </div>
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
@@ -2389,6 +2437,21 @@ export default function ProdutividadePage() {
                 )}
               </div>
               <p className="text-xs text-slate-300">{heroCardsAba.presencial.subtitulo}</p>
+              {activeTab === "servicos" &&
+                "tiposLista" in heroCardsAba.presencial &&
+                Array.isArray(heroCardsAba.presencial.tiposLista) &&
+                heroCardsAba.presencial.tiposLista.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-sky-500/15 space-y-1">
+                    <span className="block text-[10px] font-mono uppercase tracking-wider text-sky-300/90 font-semibold">
+                      {heroCardsAba.presencial.tiposLista.length} tipos de serviço presenciais:
+                    </span>
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      {heroCardsAba.presencial.tiposLista
+                        .map((t) => `${t.nome} (${t.qtd.toLocaleString("pt-BR")})`)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                )}
             </div>
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
@@ -2435,7 +2498,10 @@ export default function ProdutividadePage() {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (filtroHorario) setFiltroHorario(null);
+                  }}
                   className="w-full rounded-xl bg-[#080D1A] border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400/80 transition-colors"
                 />
               </div>
@@ -2450,7 +2516,10 @@ export default function ProdutividadePage() {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    if (filtroHorario) setFiltroHorario(null);
+                  }}
                   className="w-full rounded-xl bg-[#080D1A] border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400/80 transition-colors"
                 />
               </div>
@@ -3015,110 +3084,56 @@ export default function ProdutividadePage() {
         )}
 
         {/* ───────────────────────────────────────────────────────────── */}
-        {/* CARD: TABELA DE SERVIÇOS (EXIBIDA EM VISÃO GERAL E SERVIÇOS)  */}
+        {/* CARD PADRÃO FIORIX (1:1 ESPERA): LISTAGEM DE SERVIÇOS         */}
         {/* ───────────────────────────────────────────────────────────── */}
         {!loading && (activeTab === "visao_geral" || activeTab === "servicos") && (
-          <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4 animate-in fade-in duration-300">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
-                  <span>
-                    {filtroCanal === "digital"
-                      ? "Serviços digitais · ONR"
-                      : filtroCanal === "presencial"
-                      ? "Serviços presenciais"
-                      : "Todos os serviços"}
-                  </span>
-                  <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300">
-                    {servicosFiltrados.length.toLocaleString("pt-BR")} movimentações
-                  </span>
-                  <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300">
-                    {metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos
-                  </span>
-                  {filtroHorario && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-bold">
-                      <Clock className="w-3 h-3 text-cyan-400" />
-                      <span>
-                        Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFiltroHorario(null);
-                          toast.info("Filtro de horário removido da tabela.");
-                        }}
-                        className="ml-1 hover:text-white"
-                        title="Limpar filtro de horário"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+          <div className="rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 backdrop-blur-xl p-5 sm:p-6 shadow-sm dark:shadow-2xl space-y-4 animate-in fade-in duration-300">
+            {/* Cabeçalho do Card (Idêntico à Espera) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+                  <Activity className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                      {filtroCanal === "digital"
+                        ? "Serviços digitais · ONR"
+                        : filtroCanal === "presencial"
+                        ? "Serviços presenciais"
+                        : "Todos os serviços"}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25">
+                      {servicosFiltrados.length.toLocaleString("pt-BR")} registros
                     </span>
-                  )}
-                </h2>
-                <p className="text-xs text-slate-300">
-                  {filtroHorario ? (
-                    <span>
-                      Filtrando faixa das <strong className="text-cyan-300">{filtroHorario.hora}h</strong>
-                      {filtroHorario.dia ? ` em ${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia}` : " (todos os dias)"} ·{" "}
-                    </span>
-                  ) : null}
-                  {activeTab === "servicos" ? "Catálogo de protocolos e movimentações · " : "Entradas do canal selecionado · "}
-                  <strong className="text-cyan-300">
-                    {activeTab === "servicos"
-                      ? `${metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos (${metricasServicosCanais[filtroCanal].movimentacoes.toLocaleString("pt-BR")} movimentações)`
-                      : filtroCanal === "digital"
-                      ? `Digital ONR selecionado · ${totaisExibidos.digital.toLocaleString("pt-BR")} serviços no período`
-                      : filtroCanal === "presencial"
-                      ? `Presencial selecionado · ${totaisExibidos.presencial.toLocaleString("pt-BR")} serviços no período`
-                      : `Todos os canais selecionados · ${totaisExibidos.total.toLocaleString("pt-BR")} serviços no período`}
-                  </strong>
-                </p>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Monitoramento de protocolos únicos ({metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")}) e movimentações de recepção
+                    {filtroHorario
+                      ? ` · Filtrado às ${filtroHorario.hora}h${filtroHorario.dia ? ` (${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia})` : ""}`
+                      : ""}
+                  </p>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative w-full sm:w-60">
-                  <Search className="w-3.5 h-3.5 text-slate-300 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por serviço, nome ou tipo..."
-                    value={buscaTabela}
-                    onChange={(e) => setBuscaTabela(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:border-cyan-400 transition-colors"
-                  />
-                </div>
-
-                {/* Indicador de Ordenação Ativa — Padrão FIORIX */}
-                <button
-                  type="button"
-                  onClick={() => handleOrdenarColuna(sortBy)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#080D1A] hover:bg-[#11192E] border border-white/15 hover:border-cyan-400/40 text-xs text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
-                  title="Clique para alternar entre ordem crescente e decrescente"
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Ordem:</span>
-                  <strong className="text-white">{ROTULO_COLUNA_ORDEM[sortBy]}</strong>
-                  <span className="text-[11px] text-cyan-300 font-semibold">
-                    ({sortOrder === "asc" ? "Crescente" : "Decrescente"})
-                  </span>
-                </button>
-
-                {/* Botão Imprimir Listagem — Padrão FIORIX */}
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                {/* Botão Imprimir Listagem no padrão Espera */}
                 <div className="relative" ref={printMenuRef}>
-                  <div className="inline-flex rounded-xl shadow-sm border border-emerald-500/40 bg-emerald-600/20 p-0.5">
+                  <div className="inline-flex items-center rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 transition-all shadow-2xs">
                     <button
                       type="button"
-                      onClick={() => handleImprimirListagem("pagina")}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
-                      title={`Imprimir página atual (${servicosPaginados.length.toLocaleString("pt-BR")} registros)`}
+                      onClick={() => handleImprimirListagem("todos")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                      title={`Imprimir toda a listagem filtrada (${totalServicosTabela.toLocaleString("pt-BR")} registros)`}
                     >
-                      <Printer className="w-3.5 h-3.5 text-white" />
+                      <Printer className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                       <span>Imprimir Listagem</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setMenuImprimirAberto((prev) => !prev)}
-                      className="px-2 py-1.5 rounded-lg hover:bg-emerald-500/30 text-emerald-200 transition-colors cursor-pointer"
-                      title="Escolher entre imprimir a página atual ou toda a listagem filtrada"
+                      className="px-2 py-1.5 rounded-r-xl border-l border-slate-200 dark:border-white/10 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-slate-500 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                      title="Opções de impressão"
                     >
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
@@ -3127,35 +3142,31 @@ export default function ProdutividadePage() {
                   {menuImprimirAberto && (
                     <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-[#10172A] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/10 mb-1">
-                        Opções de Impressão da Listagem
+                        Opções de Impressão
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleImprimirListagem("pagina")}
-                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                      >
-                        <Printer className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-semibold text-white">Imprimir página atual</div>
-                          <div className="text-[11px] text-slate-400">
-                            {servicosPaginados.length.toLocaleString("pt-BR")}{" "}
-                            {servicosPaginados.length === 1 ? "registro visível" : "registros visíveis"} na página{" "}
-                            {paginaSeguraTabela}
-                          </div>
-                        </div>
-                      </button>
-
                       <button
                         type="button"
                         onClick={() => handleImprimirListagem("todos")}
                         className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                       >
-                        <Printer className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                        <Printer className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-white">Imprimir toda a listagem</div>
+                          <div className="font-semibold text-white">Toda a listagem filtrada</div>
                           <div className="text-[11px] text-slate-400">
-                            Todos os {totalServicosTabela.toLocaleString("pt-BR")} registros filtrados
+                            {totalServicosTabela.toLocaleString("pt-BR")} registros filtrados
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleImprimirListagem("pagina")}
+                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-white">Somente página atual</div>
+                          <div className="text-[11px] text-slate-400">
+                            {servicosPaginados.length.toLocaleString("pt-BR")} registros na página {paginaSeguraTabela}
                           </div>
                         </div>
                       </button>
@@ -3166,26 +3177,154 @@ export default function ProdutividadePage() {
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#080D1A] border border-white/15 hover:border-white/30 text-white text-xs font-semibold hover:bg-white/5 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs"
                 >
-                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <Download className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                   <span>Exportar CSV</span>
                 </button>
               </div>
             </div>
 
-            {/* Tabela de 5 Colunas com Ordenação Clicável — Padrão FIORIX */}
-            <div className="overflow-x-auto pt-2">
+            {/* Barra de Filtros, Busca e Ordenação em Linha Única (Idêntica à Espera) */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por protocolo, colaborador ou tipo de serviço..."
+                  value={buscaTabela}
+                  onChange={(e) => {
+                    setBuscaTabela(e.target.value);
+                    setPaginaAtual(1);
+                  }}
+                  className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/60 transition-all shadow-2xs"
+                />
+                {buscaTabela && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuscaTabela("");
+                      setPaginaAtual(1);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                    title="Limpar busca"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Filtro 1: Tipo Documental */}
+                <select
+                  value={filtroTipo}
+                  onChange={(e) => {
+                    setFiltroTipo(e.target.value);
+                    setPaginaAtual(1);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium"
+                  title="Filtrar por natureza documental"
+                >
+                  <option value="TODOS" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Todos os Tipos
+                  </option>
+                  <option value="CERTIDÃO" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Certidões
+                  </option>
+                  <option value="TÍTULO" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Títulos
+                  </option>
+                </select>
+
+                {/* Filtro 2: Colaborador / Caixa */}
+                <select
+                  value={filtroColaborador}
+                  onChange={(e) => {
+                    setFiltroColaborador(e.target.value);
+                    setPaginaAtual(1);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium max-w-[180px] truncate"
+                  title="Filtrar por Colaborador"
+                >
+                  <option value="TODOS" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Todos Atendentes
+                  </option>
+                  {colaboradoresDisponiveis.map(([nome]) => (
+                    <option
+                      key={nome}
+                      value={nome}
+                      className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white"
+                    >
+                      {nome}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Menu de Ordenação */}
+                <div className="relative inline-flex items-center rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] px-3 py-2 text-xs text-slate-700 dark:text-slate-200 shadow-2xs">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 mr-2 shrink-0" />
+                  <select
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [col, ord] = e.target.value.split("-") as [ColunaOrdenacao, "asc" | "desc"];
+                      setSortBy(col);
+                      setSortOrder(ord);
+                      setPaginaAtual(1);
+                    }}
+                    className="bg-transparent text-slate-800 dark:text-white font-medium text-xs focus:outline-none cursor-pointer pr-1"
+                    title="Menu de ordenação"
+                  >
+                    <option value="dataHora-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Mais recentes (Data/Hora)
+                    </option>
+                    <option value="dataHora-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Mais antigos (Data/Hora)
+                    </option>
+                    <option value="numero-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Protocolo (Crescente)
+                    </option>
+                    <option value="numero-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Protocolo (Decrescente)
+                    </option>
+                    <option value="colaborador-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Colaborador (A → Z)
+                    </option>
+                    <option value="colaborador-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Colaborador (Z → A)
+                    </option>
+                    <option value="tipoDetalhado-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Tipo / Serviço (A → Z)
+                    </option>
+                    <option value="canal-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Canal (A → Z)
+                    </option>
+                  </select>
+                </div>
+
+                {(buscaTabela || filtroTipo !== "TODOS" || filtroColaborador !== "TODOS" || filtroHorario) && (
+                  <button
+                    type="button"
+                    onClick={handleLimparFiltros}
+                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer whitespace-nowrap px-1"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tabela Formatada Padrão Fiorix (1:1 Espera) */}
+            <div className="overflow-x-auto rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/40 dark:bg-[#070b16]/70 shadow-inner">
               <table className="w-full text-left text-xs">
-                <thead className="select-none bg-[#080D1A] text-[11px] uppercase tracking-wider text-slate-300 border-b border-white/10">
+                <thead className="bg-slate-100/80 dark:bg-[#080811] text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/8 select-none">
                   <tr>
                     {(
                       [
-                        { key: "dataHora", label: "Data / hora" },
                         { key: "numero", label: "Serviço" },
-                        { key: "colaborador", label: "Colaborador" },
+                        { key: "tipoDetalhado", label: "Tipo / Detalhe" },
+                        { key: "dataHora", label: "Data / Hora" },
                         { key: "canal", label: "Canal" },
-                        { key: "tipoDetalhado", label: "Tipo / detalhe" },
+                        { key: "colaborador", label: "Colaborador" },
                       ] as const
                     ).map((col) => {
                       const ativo = sortBy === col.key;
@@ -3195,22 +3334,22 @@ export default function ProdutividadePage() {
                           aria-sort={ativo ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
                           onClick={() => handleOrdenarColuna(col.key)}
                           title={`Clique para ordenar por ${col.label}`}
-                          className={`group px-4 py-3 font-bold cursor-pointer transition-colors ${
+                          className={`py-3.5 px-4 cursor-pointer select-none transition-colors group ${
                             ativo
-                              ? "bg-cyan-500/10 text-cyan-300"
-                              : "hover:bg-white/[0.04] hover:text-white"
+                              ? "text-indigo-600 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-500/10"
+                              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
                           }`}
                         >
                           <div className="inline-flex items-center gap-1.5">
                             <span>{col.label}</span>
                             {ativo ? (
                               sortOrder === "asc" ? (
-                                <ArrowUp className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
                               ) : (
-                                <ArrowDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
                               )
                             ) : (
-                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-500 opacity-60 group-hover:opacity-100 group-hover:text-cyan-300 shrink-0 transition-opacity" />
+                              <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
                             )}
                           </div>
                         </th>
@@ -3218,40 +3357,73 @@ export default function ProdutividadePage() {
                     })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/6">
+                <tbody className="divide-y divide-slate-200/70 dark:divide-white/6">
                   {servicosPaginados.length > 0 ? (
-                    servicosPaginados.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-white/[0.03] transition-colors text-slate-300"
-                      >
-                        <td className="px-4 py-3.5 font-medium text-white/90">
-                          {item.dataHora}
-                        </td>
-                        <td className="px-4 py-3.5 font-mono font-bold text-indigo-400">
-                          <span className="hover:underline cursor-pointer flex items-center gap-1">
-                            {String(item.numero).replace(/^#/, "")}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 font-medium text-white">
-                          {item.colaborador}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${
-                              item.canal === "Digital ONR"
-                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-                                : "bg-sky-500/15 border-sky-500/30 text-sky-300"
-                            }`}
-                          >
-                            {item.canal}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-300">
-                          {item.tipoDetalhado}
-                        </td>
-                      </tr>
-                    ))
+                    servicosPaginados.map((item) => {
+                      const partesNome = (item.colaborador || "—").trim().split(/\s+/);
+                      const iniciais =
+                        partesNome.length >= 2
+                          ? (partesNome[0][0] + partesNome[1][0]).toUpperCase()
+                          : (item.colaborador || "SR").slice(0, 2).toUpperCase();
+                      const isTitulo = item.tipo === "TÍTULO";
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className="hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors text-slate-300"
+                        >
+                          {/* Código do Protocolo / Serviço */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+                              {String(item.numero).replace(/^#/, "")}
+                            </span>
+                          </td>
+
+                          {/* Tipo / Detalhe como badge de serviço estilo Espera */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${
+                                isTitulo
+                                  ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                                  : "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30"
+                              }`}
+                            >
+                              {item.tipoDetalhado}
+                            </span>
+                          </td>
+
+                          {/* Data / Hora */}
+                          <td className="py-3 px-4 whitespace-nowrap font-mono text-xs text-slate-600 dark:text-slate-300">
+                            {item.dataHora}
+                          </td>
+
+                          {/* Canal */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border ${
+                                item.canal === "Digital ONR"
+                                  ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/25"
+                                  : "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/25"
+                              }`}
+                            >
+                              {item.canal}
+                            </span>
+                          </td>
+
+                          {/* Colaborador com Avatar de Iniciais */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
+                                {iniciais}
+                              </div>
+                              <span className="text-xs font-medium text-slate-800 dark:text-slate-200 uppercase truncate max-w-[180px]">
+                                {item.colaborador}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={5} className="text-center py-10 text-slate-400">
@@ -3263,28 +3435,33 @@ export default function ProdutividadePage() {
               </table>
             </div>
 
-            {/* Rodapé com Barra de Paginação Completa — Padrão FIORIX */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-t border-white/10 bg-[#080D1A] px-5 py-4 rounded-2xl text-white">
-              <div className="text-xs text-slate-400 text-center lg:text-left">
-                Exibindo <strong className="text-white">{indiceInicioTabela.toLocaleString("pt-BR")}</strong> a{" "}
-                <strong className="text-white">{indiceFimTabela.toLocaleString("pt-BR")}</strong> de{" "}
-                <strong className="text-white">{totalServicosTabela.toLocaleString("pt-BR")}</strong> movimentações{" "}
-                <span className="text-emerald-300">
-                  ({metricasServicosCanais[filtroCanal].protocolos.toLocaleString("pt-BR")} protocolos únicos)
-                </span>{" "}
-                · <span className="capitalize font-bold text-cyan-300">{filtroCanal}</span>
-                {filtroHorario && (
-                  <span className="text-cyan-400 font-semibold ml-1">
-                    · Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
+            {/* Rodapé com Paginação Padrão Fiorix (Idêntico à Espera) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400">
+              <div className="text-center sm:text-left">
+                Exibindo{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {indiceInicioTabela.toLocaleString("pt-BR")}
+                </strong>{" "}
+                a{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {indiceFimTabela.toLocaleString("pt-BR")}
+                </strong>{" "}
+                de{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {totalServicosTabela.toLocaleString("pt-BR")}
+                </strong>{" "}
+                registros
+                {(buscaTabela || filtroTipo !== "TODOS" || filtroColaborador !== "TODOS" || filtroHorario) && (
+                  <span className="ml-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                    (filtrado)
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-4 flex-wrap justify-center lg:justify-end">
-                {/* Seletor de Tamanho de Página */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+                <div className="flex items-center gap-1.5">
                   <span>Exibir:</span>
-                  <div className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0B1020] p-0.5">
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0B1020] p-0.5">
                     {OPCOES_ITENS_PAGINA.map((size) => (
                       <button
                         key={size}
@@ -3295,8 +3472,8 @@ export default function ProdutividadePage() {
                         }}
                         className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
                           itensPorPagina === size
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold shadow-xs"
-                            : "text-slate-400 hover:text-white"
+                            ? "bg-gradient-to-r from-indigo-500 to-amber-500 text-white font-semibold shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         }`}
                       >
                         {size}
@@ -3305,13 +3482,12 @@ export default function ProdutividadePage() {
                   </div>
                 </div>
 
-                {/* Navegação de Páginas */}
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     disabled={paginaSeguraTabela <= 1}
                     onClick={() => setPaginaAtual(1)}
-                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                     title="Primeira Página"
                   >
                     <ChevronsLeft className="w-3.5 h-3.5" />
@@ -3320,39 +3496,21 @@ export default function ProdutividadePage() {
                     type="button"
                     disabled={paginaSeguraTabela <= 1}
                     onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
-                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                     title="Página Anterior"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="hidden sm:flex items-center gap-1 px-1">
-                    {paginasVisiveis.map((numPag) => (
-                      <button
-                        key={numPag}
-                        type="button"
-                        onClick={() => setPaginaAtual(numPag)}
-                        className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer border ${
-                          numPag === paginaSeguraTabela
-                            ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-                            : "bg-[#0B1020] border-white/10 text-slate-300 hover:bg-white/[0.08] hover:text-white"
-                        }`}
-                      >
-                        {numPag}
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="text-xs px-2 font-medium text-slate-300 whitespace-nowrap">
-                    Página <strong className="text-white">{paginaSeguraTabela.toLocaleString("pt-BR")}</strong> de{" "}
-                    <strong className="text-white">{totalPaginasTabela.toLocaleString("pt-BR")}</strong>
+                  <span className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-200/60 dark:border-white/10">
+                    {paginaSeguraTabela.toLocaleString("pt-BR")} / {totalPaginasTabela.toLocaleString("pt-BR")}
                   </span>
 
                   <button
                     type="button"
                     disabled={paginaSeguraTabela >= totalPaginasTabela}
                     onClick={() => setPaginaAtual((p) => Math.min(totalPaginasTabela, p + 1))}
-                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                     title="Próxima Página"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -3361,7 +3519,7 @@ export default function ProdutividadePage() {
                     type="button"
                     disabled={paginaSeguraTabela >= totalPaginasTabela}
                     onClick={() => setPaginaAtual(totalPaginasTabela)}
-                    className="h-8 w-8 rounded-lg border border-white/15 bg-[#0B1020] text-white hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
                     title="Última Página"
                   >
                     <ChevronsRight className="w-3.5 h-3.5" />

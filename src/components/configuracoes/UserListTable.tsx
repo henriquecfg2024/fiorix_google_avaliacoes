@@ -16,6 +16,7 @@ import {
   bulkToggleUsers2FA,
 } from '@/app/actions/admin';
 import { isValidCPF } from '@/lib/cpf-validator';
+import { matchesCollaboratorSearch } from '@/lib/usuarios/collaboratorSearch';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -447,16 +448,17 @@ export function UserListTable({
     return { activeCount, verifiedCount, total: usuarios.length };
   }, [usuarios, optimistic2FA]);
 
-  // Filtragem dos Usuários
+  const hasActiveUserFilters = Boolean(
+    searchTerm.trim() ||
+      selectedDepto !== 'TODOS' ||
+      selectedRole !== 'TODOS' ||
+      selected2FAFilter !== 'TODOS'
+  );
+
+  // Filtragem dos Usuários (acento-insensível, múltiplos termos e CPF somente quando há dígitos)
   const filteredUsers = useMemo(() => {
     return usuarios.filter((u) => {
-      const term = searchTerm.toLowerCase();
-      const matchName = (u.name || '').toLowerCase().includes(term);
-      const matchEmail = u.email.toLowerCase().includes(term);
-      const matchCpf = (u.cpf || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''));
-      const matchCargo = (u.cargo || '').toLowerCase().includes(term);
-
-      const matchesSearch = !searchTerm || matchName || matchEmail || matchCpf || matchCargo;
+      const matchesSearch = matchesCollaboratorSearch(u, searchTerm);
       const matchesDepto = selectedDepto === 'TODOS' || u.departamento === selectedDepto;
       const matchesRole = selectedRole === 'TODOS' || u.role === selectedRole;
 
@@ -475,7 +477,15 @@ export function UserListTable({
     });
   }, [usuarios, searchTerm, selectedDepto, selectedRole, selected2FAFilter, optimistic2FA]);
 
-  const departamentos = ['TODOS', ...Array.from(new Set([...departamentosDisponiveis, ...usuarios.map(u => u.departamento).filter(Boolean) as string[]])).sort()];
+  const departamentos = [
+    'TODOS',
+    ...Array.from(
+      new Set([
+        ...departamentosDisponiveis,
+        ...(usuarios.map((u) => u.departamento).filter(Boolean) as string[]),
+      ])
+    ).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })),
+  ];
 
   return (
     <div className="space-y-4">
@@ -520,20 +530,46 @@ export function UserListTable({
         </div>
       </div>
 
-      {/* Barra de Busca e Filtros */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 bg-white/[0.02] border border-white/8 rounded-2xl">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+      {/* Barra de Pesquisa de Colaboradores e Filtros */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3 bg-white/[0.02] border border-white/10 rounded-2xl">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search
+            className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${
+              searchTerm.trim() ? 'text-amber-400' : 'text-white/45'
+            }`}
+          />
           <input
             type="text"
-            placeholder="Buscar por Nome, E-mail, CPF ou Cargo..."
+            aria-label="Pesquisar colaborador por nome, e-mail, CPF, cargo ou ramal"
+            placeholder="Pesquisar nome do colaborador, e-mail, CPF, cargo ou ramal..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#070A12] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder:text-white/30 focus:outline-hidden focus:border-amber-400/50"
+            className="w-full bg-[#070A12] border border-white/12 rounded-xl pl-10 pr-9 py-2 text-xs text-white placeholder:text-white/40 focus:outline-hidden focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/20 transition-all"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              title="Limpar pesquisa por nome"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-white/45 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-mono text-[11px] font-semibold ${
+              hasActiveUserFilters
+                ? 'border-amber-400/35 bg-amber-500/10 text-amber-300'
+                : 'border-white/10 bg-[#070A12] text-white/60'
+            }`}
+          >
+            {hasActiveUserFilters
+              ? `Exibindo ${filteredUsers.length} de ${usuarios.length}`
+              : `${usuarios.length} colaboradores`}
+          </span>
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs dark:bg-[#070A12] dark:border-white/10">
             <Building className="w-3.5 h-3.5 text-white/40" />
             <select
@@ -581,6 +617,22 @@ export function UserListTable({
               <option value="DESATIVADO" className="bg-[#0A0F1E]">2FA: Desativado</option>
             </select>
           </div>
+
+          {hasActiveUserFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedDepto('TODOS');
+                setSelectedRole('TODOS');
+                setSelected2FAFilter('TODOS');
+              }}
+              className="inline-flex items-center gap-1 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+              Limpar
+            </button>
+          )}
         </div>
       </div>
 
@@ -601,6 +653,36 @@ export function UserListTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-white/8 font-medium text-white/80">
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-12 px-4 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2 text-white/60">
+                    <Search className="w-6 h-6 text-amber-400/60" />
+                    <p className="text-xs font-semibold text-white/85">
+                      Nenhum colaborador encontrado{searchTerm.trim() ? ` para "${searchTerm.trim()}"` : ''}.
+                    </p>
+                    <p className="text-[11px] text-white/45">
+                      Verifique a grafia do nome ou limpe os filtros ativos para visualizar todo o quadro.
+                    </p>
+                    {hasActiveUserFilters && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSelectedDepto('TODOS');
+                          setSelectedRole('TODOS');
+                          setSelected2FAFilter('TODOS');
+                        }}
+                        className="mt-1 inline-flex items-center gap-1.5 rounded-xl border border-amber-400/35 bg-amber-500/15 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/25 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Restaurar quadro completo ({usuarios.length})
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : null}
             {filteredUsers.map((u) => {
               const isMaster = u.role === 'MASTER' || u.email === 'admin@fiorix.com.br';
               const isRevealed = Boolean(revealedCpfs[u.id]);

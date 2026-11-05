@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ShieldCheck,
   Printer,
@@ -36,7 +36,13 @@ import {
   BarChart3,
   Filter,
   Info,
+  Activity,
+  Download,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
+import { CAUSAS_CONFIG } from "@/lib/qualidade/classificarCausa";
 
 export interface ProtocoloFaltanteItem {
   numeroPrenotacao: number;
@@ -293,17 +299,35 @@ export function QualidadeDashboardClient() {
     }
   };
 
-  // Ordenação da Tabela Indicadores por Colaborador
+  // Ordenação, Filtros e Paginação da Tabela Indicadores por Colaborador (Padrão FIORIX / Espera)
   const [colabSortCol, setColabSortCol] = useState<string>("nome");
   const [colabSortDir, setColabSortDir] = useState<"asc" | "desc">("asc");
+  const [colabFiltroSituacao, setColabFiltroSituacao] = useState<string>("ALL");
+  const [colabFiltroAtividade, setColabFiltroAtividade] = useState<string>("ALL");
+  const [colabPagina, setColabPagina] = useState<number>(1);
+  const [colabItensPorPagina, setColabItensPorPagina] = useState<number>(10);
+  const [colabPrintMenuOpen, setColabPrintMenuOpen] = useState<boolean>(false);
+  const colabPrintMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!colabPrintMenuOpen) return;
+    const handleOutside = (ev: MouseEvent) => {
+      if (colabPrintMenuRef.current && !colabPrintMenuRef.current.contains(ev.target as Node)) {
+        setColabPrintMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [colabPrintMenuOpen]);
 
   const handleColabSort = (col: string) => {
     if (colabSortCol === col) {
       setColabSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setColabSortCol(col);
-      setColabSortDir("asc");
+      setColabSortDir(col === "producao" || col === "erros" || col === "percentualErro" ? "desc" : "asc");
     }
+    setColabPagina(1);
   };
 
   // Modais / Gavetas Laterais
@@ -384,15 +408,50 @@ export function QualidadeDashboardClient() {
     fetchData();
   }, [fetchData]);
 
-  // Filtragem e Ordenação de Colaboradores na Tabela
+  const colabAtividadesUnicas = useMemo(() => {
+    return Array.from(new Set(colaboradores.map((c) => c.atividade).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" })
+    );
+  }, [colaboradores]);
+
+  // Filtragem e Ordenação de Colaboradores na Tabela (todas as 7 colunas ordenáveis)
   const colaboradoresFiltrados = useMemo(() => {
     let list = [...colaboradores];
     if (buscaColaborador.trim()) {
       const q = buscaColaborador.toLowerCase();
-      list = list.filter((c) => c.nome.toLowerCase().includes(q) || c.departamento.toLowerCase().includes(q));
+      list = list.filter(
+        (c) =>
+          c.nome.toLowerCase().includes(q) ||
+          c.departamento.toLowerCase().includes(q) ||
+          c.atividade.toLowerCase().includes(q) ||
+          c.origem.toLowerCase().includes(q)
+      );
     }
 
+    if (colabFiltroSituacao === "CONFORME") {
+      list = list.filter((c) => c.dentroLimite);
+    } else if (colabFiltroSituacao === "ACIMA_LIMITE") {
+      list = list.filter((c) => !c.dentroLimite);
+    } else if (colabFiltroSituacao === "SEM_ERROS") {
+      list = list.filter((c) => c.erros === 0);
+    } else if (colabFiltroSituacao === "COM_ERROS") {
+      list = list.filter((c) => c.erros > 0);
+    }
+
+    if (colabFiltroAtividade !== "ALL") {
+      list = list.filter((c) => c.atividade === colabFiltroAtividade);
+    }
+
+    const fator = colabSortDir === "asc" ? 1 : -1;
     list.sort((a, b) => {
+      if (colabSortCol === "fichaStatus") {
+        const statusA = a.dentroLimite ? 0 : 1;
+        const statusB = b.dentroLimite ? 0 : 1;
+        if (statusA !== statusB) return (statusA - statusB) * fator;
+        if (a.percentualErro !== b.percentualErro) return (a.percentualErro - b.percentualErro) * fator;
+        return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+      }
+
       let valA: any = a[colabSortCol as keyof ColaboradorItem];
       let valB: any = b[colabSortCol as keyof ColaboradorItem];
 
@@ -400,27 +459,40 @@ export function QualidadeDashboardClient() {
       if (valB === undefined || valB === null) valB = "";
 
       if (typeof valA === "string" && typeof valB === "string") {
-        return colabSortDir === "asc"
-          ? valA.localeCompare(valB, "pt-BR", { numeric: true, sensitivity: "base" })
-          : valB.localeCompare(valA, "pt-BR", { numeric: true, sensitivity: "base" });
+        const cmp = valA.localeCompare(valB, "pt-BR", { numeric: true, sensitivity: "base" });
+        if (cmp !== 0) return cmp * fator;
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        if (valA !== valB) return (valA - valB) * fator;
       }
 
-      if (typeof valA === "number" && typeof valB === "number") {
-        return colabSortDir === "asc" ? valA - valB : valB - valA;
-      }
-
-      return 0;
+      return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
     });
 
     return list;
-  }, [colaboradores, buscaColaborador, colabSortCol, colabSortDir]);
+  }, [
+    colaboradores,
+    buscaColaborador,
+    colabFiltroSituacao,
+    colabFiltroAtividade,
+    colabSortCol,
+    colabSortDir,
+  ]);
 
-  // Departamentos disponíveis e colaboradores vinculados ao setor selecionado no formulário
+  const colabTotalPaginas = Math.max(1, Math.ceil(colaboradoresFiltrados.length / colabItensPorPagina));
+  const colabPaginaSegura = Math.min(colabPagina, colabTotalPaginas);
+  const colabStartIndex = (colabPaginaSegura - 1) * colabItensPorPagina;
+  const colabEndIndex = Math.min(colabStartIndex + colabItensPorPagina, colaboradoresFiltrados.length);
+  const colaboradoresPaginados = useMemo(
+    () => colaboradoresFiltrados.slice(colabStartIndex, colabEndIndex),
+    [colaboradoresFiltrados, colabStartIndex, colabEndIndex]
+  );
+
+  // Departamentos disponíveis (em ordem alfabética pt-BR)
   const departamentosDisponiveis = useMemo(() => {
     const list = Array.from(new Set(colaboradores.map((c) => c.departamento).filter(Boolean)));
     if (!list.includes("Qualificação Registral")) list.push("Qualificação Registral");
     if (!list.includes("Balcão & Recepção")) list.push("Balcão & Recepção");
-    return list;
+    return list.sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
   }, [colaboradores]);
 
   const colaboradoresDoDeptoLimite = useMemo(() => {
@@ -656,33 +728,128 @@ export function QualidadeDashboardClient() {
     );
   };
 
-  // Helper para renderizar cabeçalhos de coluna ordenáveis em Colaboradores
+  // Helper para renderizar cabeçalhos de coluna ordenáveis em Colaboradores (Padrão Espera 1:1)
   const renderColabSortHeader = (colKey: string, label: string, align: "left" | "right" = "left") => {
     const isSorted = colabSortCol === colKey;
     return (
       <th
         onClick={() => handleColabSort(colKey)}
-        className={`pb-3 px-3 cursor-pointer select-none group/th transition-all hover:bg-slate-800/80 ${
-          align === "right" ? "text-right" : "text-left"
-        } ${isSorted ? "text-cyan-300 font-bold bg-slate-800/40" : "text-slate-400 font-semibold"}`}
+        className={`py-3.5 px-4 cursor-pointer select-none transition-colors group ${
+          isSorted
+            ? "text-indigo-600 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-500/10"
+            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
+        } ${align === "right" ? "text-right" : "text-left"}`}
         title={`Clique para ordenar por ${label}`}
       >
-        <div className={`inline-flex items-center gap-1.5 ${align === "right" ? "justify-end" : "justify-start"}`}>
+        <div className={`inline-flex items-center gap-1.5 ${align === "right" ? "justify-end w-full" : ""}`}>
           <span>{label}</span>
-          <span className="shrink-0 transition-opacity">
-            {isSorted ? (
-              colabSortDir === "asc" ? (
-                <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
-              ) : (
-                <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
-              )
+          {isSorted ? (
+            colabSortDir === "asc" ? (
+              <ArrowUp className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
             ) : (
-              <ArrowUpDown className="w-3 h-3 text-slate-600 group-hover/th:text-slate-300" />
-            )}
-          </span>
+              <ArrowDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+            )
+          ) : (
+            <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+          )}
         </div>
       </th>
     );
+  };
+
+  const handleExportColaboradoresCSV = () => {
+    if (colaboradoresFiltrados.length === 0) return;
+    const headers = ["Colaborador", "Departamento", "Atividade", "Origem", "Producao", "Erros", "% Erro", "Status Limite"];
+    const rows = colaboradoresFiltrados.map((c) => [
+      `"${c.nome}"`,
+      `"${c.departamento}"`,
+      `"${c.atividade}"`,
+      `"${c.origem}"`,
+      String(c.producao),
+      String(c.erros),
+      `"${c.percentualErro}%"`,
+      `"${c.dentroLimite ? "Conforme" : "Acima do Limite"}"`,
+    ]);
+    const csv = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `indicadores_colaboradores_${competencia}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImprimirColaboradores = (escopo: "todos" | "pagina") => {
+    setColabPrintMenuOpen(false);
+    const lista = escopo === "pagina" ? colaboradoresPaginados : colaboradoresFiltrados;
+    if (lista.length === 0) return;
+
+    const win = window.open("", "_blank", "width=1120,height=820");
+    if (!win) return;
+
+    const esc = (v: unknown) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const emitidoEm = new Date().toLocaleString("pt-BR");
+    const offset = escopo === "pagina" ? colabStartIndex : 0;
+    const linhasHtml = lista
+      .map(
+        (c, idx) => `<tr>
+          <td class="num">${offset + idx + 1}</td>
+          <td><strong>${esc(c.nome)}</strong><div class="sub">${esc(c.departamento)}</div></td>
+          <td>${esc(c.atividade)}</td>
+          <td class="mono">${esc(c.origem)}</td>
+          <td class="right mono strong">${c.producao.toLocaleString("pt-BR")}</td>
+          <td class="right mono strong">${c.erros}</td>
+          <td class="right mono strong ${c.dentroLimite ? "ok" : "alert"}">${c.percentualErro}%</td>
+          <td>${c.dentroLimite ? "Conforme (≤ " + c.limite + "%)" : "Acima do Limite (> " + c.limite + "%)"}</td>
+        </tr>`
+      )
+      .join("");
+
+    win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"/><title>FIORIX — Indicadores por Colaborador (${esc(competencia)})</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; font-size: 11px; }
+        .toolbar { display:flex; justify-content:space-between; align-items:center; background:#0f172a; color:#f8fafc; padding:10px 14px; border-radius:8px; margin-bottom:14px; }
+        .btn { background:#4f46e5; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer; }
+        .header { display:flex; justify-content:space-between; border-bottom:2px solid #0f172a; padding-bottom:10px; margin-bottom:12px; }
+        h1 { margin:2px 0 4px; font-size:17px; }
+        table { width:100%; border-collapse:collapse; font-size:10.5px; }
+        th { background:#0f172a; color:#fff; padding:7px 8px; text-align:left; font-size:9.5px; text-transform:uppercase; }
+        td { padding:6px 8px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+        tr:nth-child(even) td { background:#f8fafc; }
+        .num { width:28px; color:#64748b; font-family:monospace; }
+        .sub { font-size:9.5px; color:#64748b; }
+        .mono { font-family:Consolas, monospace; }
+        .strong { font-weight:700; }
+        .right { text-align:right; }
+        .ok { color:#047857; }
+        .alert { color:#be123c; }
+        @media print { body { padding:0; } .no-print { display:none !important; } }
+      </style></head><body>
+      <div class="toolbar no-print">
+        <span><strong>Pré-visualização Oficial FIORIX</strong> — ${lista.length} colaboradores (${escopo === "pagina" ? "Página atual" : "Listagem filtrada completa"})</span>
+        <button class="btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+      </div>
+      <div class="header">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#4f46e5;text-transform:uppercase">7º Oficial de Registro de Imóveis de São Paulo • Sistema FIORIX</div>
+          <h1>Indicadores por Colaborador — Controle de Qualidade (${esc(mesSelecionadoInfo.label)})</h1>
+          <div style="color:#475569">Tipo de Retorno: ${esc(tipoRetorno)} • Origem: ${esc(origem)}${buscaColaborador.trim() ? " • Busca: " + esc(buscaColaborador.trim()) : ""} • Total listado: ${lista.length} colaboradores</div>
+        </div>
+        <div style="text-align:right;font-size:10px;color:#334155">Emitido em: ${esc(emitidoEm)}</div>
+      </div>
+      <table><thead><tr><th class="num">#</th><th>Colaborador / Setor</th><th>Atividade</th><th>Origem</th><th class="right">Produção</th><th class="right">Erros</th><th class="right">% Erro</th><th>Conformidade</th></tr></thead><tbody>${linhasHtml}</tbody></table>
+    </body></html>`);
+    win.document.close();
+    setTimeout(() => { try { win.focus(); win.print(); } catch {} }, 300);
   };
 
   // Resetar todos os filtros
@@ -1812,52 +1979,108 @@ export function QualidadeDashboardClient() {
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS
            ══════════════════════════════════════════════════════════════════ */}
       {/* ══════════════════════════════════════════════════════════════════
-           5. TABELA "INDICADORES POR COLABORADOR"
+           5. CARD PADRÃO FIORIX (1:1 ESPERA): INDICADORES POR COLABORADOR
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <section className="rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 backdrop-blur-xl p-5 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+        {/* Cabeçalho do Card (Idêntico à Espera) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-slate-800 text-slate-400">
-              <Users className="w-5 h-5 text-slate-400" />
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+              <Activity className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-semibold text-white tracking-wide">Indicadores por Colaborador</h3>
-                <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-slate-400 border border-slate-800">
-                  Responsável = Usuário Destino do Retorno
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-slate-800/80 text-[11px] font-mono text-slate-400">
-                  {colaboradores.length} colaboradores
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Indicadores por Colaborador
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25">
+                  {colaboradores.length} registros
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Auditoria contínua de qualidade
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Auditoria contínua de qualidade, produção e retornos atribuídos por colaborador
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             {colaboradoresVisivel && (
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={buscaColaborador}
-                  onChange={(e) => setBuscaColaborador(e.target.value)}
-                  placeholder="Filtrar colaborador..."
-                  className="pl-8 pr-3 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-                />
-              </div>
+              <>
+                <div className="relative" ref={colabPrintMenuRef}>
+                  <div className="inline-flex items-center rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 transition-all shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => handleImprimirColaboradores("todos")}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-xl hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                      title={`Imprimir toda a listagem filtrada (${colaboradoresFiltrados.length} colaboradores)`}
+                    >
+                      <Printer className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                      <span>Imprimir Listagem</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setColabPrintMenuOpen((prev) => !prev)}
+                      className="px-2 py-1.5 rounded-r-xl border-l border-slate-200 dark:border-white/10 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-slate-500 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                      title="Opções de impressão"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {colabPrintMenuOpen && (
+                    <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-[#10172A] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/10 mb-1">
+                        Opções de Impressão
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleImprimirColaboradores("todos")}
+                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-white">Toda a listagem filtrada</div>
+                          <div className="text-[11px] text-slate-400">
+                            {colaboradoresFiltrados.length} colaboradores filtrados
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleImprimirColaboradores("pagina")}
+                        className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-white">Somente página atual</div>
+                          <div className="text-[11px] text-slate-400">
+                            {colaboradoresPaginados.length} visíveis na página {colabPaginaSegura}
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportColaboradoresCSV}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  <span>Exportar CSV</span>
+                </button>
+              </>
             )}
 
             <button
               type="button"
               onClick={() => setColaboradoresVisivel((prev) => !prev)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#151A2C] hover:bg-[#1E263F] border border-slate-700/80 text-xs text-slate-300 hover:text-white font-medium transition-all active:scale-95 shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs"
             >
-              <span>{colaboradoresVisivel ? "Ocultar Colaboradores" : "Exibir Colaboradores"}</span>
+              <span>{colaboradoresVisivel ? "Ocultar" : `Exibir (${colaboradores.length})`}</span>
               <ChevronDown
-                className={`w-4 h-4 text-cyan-400 transition-transform duration-200 ${
+                className={`w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 transition-transform duration-200 ${
                   colaboradoresVisivel ? "rotate-180" : ""
                 }`}
               />
@@ -1865,88 +2088,369 @@ export function QualidadeDashboardClient() {
           </div>
         </div>
 
-        {/* Tabela visível somente quando expandida */}
         {colaboradoresVisivel && (
-          <div className="pt-2 border-t border-slate-800/80 space-y-2">
-            {/* Dica de ordenação para o usuário */}
-            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-              <span className="flex items-center gap-1.5 font-mono text-[10px]">
-                <ArrowUpDown className="w-3 h-3 text-cyan-400" />
-                <span>Clique nos cabeçalhos das colunas para ordenar (ascendente/descendente)</span>
-              </span>
-              <span className="text-[10px] font-mono text-cyan-300">
-                Ordenando por: <strong className="uppercase">{colabSortCol}</strong> ({colabSortDir.toUpperCase()})
-              </span>
+          <>
+            {/* Barra de Filtros, Busca e Ordenação em Linha Única (Idêntica à Espera) */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por colaborador, setor ou atividade..."
+                  value={buscaColaborador}
+                  onChange={(e) => {
+                    setBuscaColaborador(e.target.value);
+                    setColabPagina(1);
+                  }}
+                  className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/60 transition-all shadow-2xs"
+                />
+                {buscaColaborador && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuscaColaborador("");
+                      setColabPagina(1);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                    title="Limpar busca"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Filtro por Situação */}
+                <select
+                  value={colabFiltroSituacao}
+                  onChange={(e) => {
+                    setColabFiltroSituacao(e.target.value);
+                    setColabPagina(1);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium"
+                  title="Filtrar por Situação"
+                >
+                  <option value="ALL" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Todas Situações
+                  </option>
+                  <option value="CONFORME" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Dentro do Limite
+                  </option>
+                  <option value="ACIMA_LIMITE" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Acima do Limite
+                  </option>
+                  <option value="SEM_ERROS" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Zero Erros (0%)
+                  </option>
+                  <option value="COM_ERROS" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Com Retornos (&gt; 0)
+                  </option>
+                </select>
+
+                {/* Filtro por Atividade */}
+                <select
+                  value={colabFiltroAtividade}
+                  onChange={(e) => {
+                    setColabFiltroAtividade(e.target.value);
+                    setColabPagina(1);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium max-w-[180px] truncate"
+                  title="Filtrar por Atividade"
+                >
+                  <option value="ALL" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                    Todas Atividades
+                  </option>
+                  {colabAtividadesUnicas.map((atv) => (
+                    <option
+                      key={atv}
+                      value={atv}
+                      className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white"
+                    >
+                      {atv}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Menu de Ordenação */}
+                <div className="relative inline-flex items-center rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] px-3 py-2 text-xs text-slate-700 dark:text-slate-200 shadow-2xs">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 mr-2 shrink-0" />
+                  <select
+                    value={`${colabSortCol}-${colabSortDir}`}
+                    onChange={(e) => {
+                      const [col, dir] = e.target.value.split("-") as [string, "asc" | "desc"];
+                      setColabSortCol(col);
+                      setColabSortDir(dir);
+                      setColabPagina(1);
+                    }}
+                    className="bg-transparent text-slate-800 dark:text-white font-medium text-xs focus:outline-none cursor-pointer pr-1"
+                    title="Menu de ordenação"
+                  >
+                    <option value="nome-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Colaborador (A → Z)
+                    </option>
+                    <option value="nome-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Colaborador (Z → A)
+                    </option>
+                    <option value="producao-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Maior Produção
+                    </option>
+                    <option value="producao-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Menor Produção
+                    </option>
+                    <option value="erros-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Maior Nº de Erros
+                    </option>
+                    <option value="percentualErro-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Maior % de Erro
+                    </option>
+                    <option value="percentualErro-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Menor % de Erro
+                    </option>
+                    <option value="atividade-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Atividade (A → Z)
+                    </option>
+                    <option value="origem-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Origem (A → Z)
+                    </option>
+                    <option value="fichaStatus-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                      Situação / Ficha
+                    </option>
+                  </select>
+                </div>
+
+                {(buscaColaborador || colabFiltroSituacao !== "ALL" || colabFiltroAtividade !== "ALL") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuscaColaborador("");
+                      setColabFiltroSituacao("ALL");
+                      setColabFiltroAtividade("ALL");
+                      setColabPagina(1);
+                    }}
+                    className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer whitespace-nowrap px-1"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-[#090E1D]">
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="border-b border-slate-800 bg-[#151A2C] text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
+            {/* Tabela Formatada Padrão Fiorix (1:1 Espera, ordenável nas 7 colunas) */}
+            <div className="overflow-x-auto rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/40 dark:bg-[#070b16]/70 shadow-inner">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100/80 dark:bg-[#080811] text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/8 select-none">
+                  <tr>
                     {renderColabSortHeader("nome", "Colaborador")}
                     {renderColabSortHeader("atividade", "Atividade")}
                     {renderColabSortHeader("origem", "Origem")}
-                    {renderColabSortHeader("producao", "Produção")}
-                    {renderColabSortHeader("erros", "Erros")}
-                    {renderColabSortHeader("percentualErro", "% Erro")}
-                    <th className="pb-3 pl-3 pr-4 text-right text-slate-400 font-sans font-semibold uppercase text-[10px] tracking-wider">
-                      Ficha Individual
-                    </th>
+                    {renderColabSortHeader("producao", "Produção", "right")}
+                    {renderColabSortHeader("erros", "Erros", "right")}
+                    {renderColabSortHeader("percentualErro", "% Erro", "right")}
+                    {renderColabSortHeader("fichaStatus", "Ficha Individual", "right")}
                   </tr>
                 </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {colaboradoresFiltrados.map((c) => (
-                  <tr key={c.nome} className="hover:bg-[#151A2C] transition-colors">
-                    <td className="py-3.5 pr-4 font-sans font-semibold text-white flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold">
-                        {c.iniciais}
-                      </span>
-                      <div>
-                        <div className="text-white font-bold flex items-center gap-1.5 uppercase">
-                          <span>{c.nome.toUpperCase()}</span>
-                          {c.reincidente && (
-                            <span
-                              className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold"
-                              title={c.reincidenciaMotivo}
-                            >
-                              ⚠️ Reincidente
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono font-normal">{c.departamento}</div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-3 font-sans text-slate-400">{c.atividade}</td>
-                    <td className="py-3.5 px-3">
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-sans text-slate-300">
-                        {c.origem}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-3 font-bold text-white">{c.producao}</td>
-                    <td className="py-3.5 px-3 text-white font-bold">{c.erros}</td>
-                    <td className={`py-3.5 px-3 font-bold ${c.dentroLimite ? "text-emerald-400" : "text-rose-400"}`}>
-                      {c.percentualErro}%
-                    </td>
-                    <td className="py-3.5 pl-3 text-right">
-                      <div className="flex items-center justify-end">
-                        <button
-                          onClick={() => handleAbrirFicha(c)}
-                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold text-xs flex items-center gap-1 border border-cyan-500/30 transition-all active:scale-95"
-                          title="Abrir Ficha de Feedback Individual"
+                <tbody className="divide-y divide-slate-200/70 dark:divide-white/6">
+                  {colaboradoresPaginados.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-slate-400">
+                        Nenhum colaborador encontrado para os filtros selecionados.
+                      </td>
+                    </tr>
+                  ) : (
+                    colaboradoresPaginados.map((c) => {
+                      const isRecepcao = c.atividade.toLowerCase().includes("recep");
+                      return (
+                        <tr
+                          key={c.nome}
+                          className="hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors text-slate-300"
                         >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>Ficha PDF</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </section>
+                          {/* Colaborador com Avatar de Iniciais */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
+                                {c.iniciais}
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                                  <span>{c.nome.toUpperCase()}</span>
+                                  {c.reincidente && (
+                                    <span
+                                      className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold"
+                                      title={c.reincidenciaMotivo}
+                                    >
+                                      ⚠️ Reincidente
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                  {c.departamento}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Atividade em badge colorido estilo Espera */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border ${
+                                isRecepcao
+                                  ? "bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30"
+                                  : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                              }`}
+                            >
+                              {c.atividade}
+                            </span>
+                          </td>
+
+                          {/* Origem */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-medium bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+                              {c.origem}
+                            </span>
+                          </td>
+
+                          {/* Produção */}
+                          <td className="py-3 px-4 whitespace-nowrap text-right">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+                              {c.producao.toLocaleString("pt-BR")}
+                            </span>
+                          </td>
+
+                          {/* Erros */}
+                          <td className="py-3 px-4 whitespace-nowrap text-right font-mono font-bold text-slate-800 dark:text-white">
+                            {c.erros}
+                          </td>
+
+                          {/* % Erro estilo pill Espera */}
+                          <td className="py-3 px-4 whitespace-nowrap text-right">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold border ${
+                                c.dentroLimite
+                                  ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/25"
+                                  : "bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/25"
+                              }`}
+                            >
+                              {c.dentroLimite ? (
+                                <CheckCircle2 className="w-3 h-3 shrink-0" />
+                              ) : (
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                              )}
+                              {c.percentualErro}%
+                            </span>
+                          </td>
+
+                          {/* Ficha Individual */}
+                          <td className="py-3 px-4 whitespace-nowrap text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirFicha(c)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 font-semibold text-xs transition-all cursor-pointer"
+                              title="Abrir Ficha Individual de Qualidade"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Ficha PDF</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Rodapé com Paginação Padrão Fiorix (Idêntico à Espera) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400">
+              <div className="text-center sm:text-left">
+                Exibindo{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {colaboradoresFiltrados.length === 0 ? 0 : colabStartIndex + 1}
+                </strong>{" "}
+                a{" "}
+                <strong className="text-slate-900 dark:text-white">{colabEndIndex}</strong> de{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {colaboradoresFiltrados.length}
+                </strong>{" "}
+                registros
+                {(buscaColaborador || colabFiltroSituacao !== "ALL" || colabFiltroAtividade !== "ALL") && (
+                  <span className="ml-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                    (filtrado)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+                <div className="flex items-center gap-1.5">
+                  <span>Exibir:</span>
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0B1020] p-0.5">
+                    {[10, 25, 50].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          setColabItensPorPagina(size);
+                          setColabPagina(1);
+                        }}
+                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                          colabItensPorPagina === size
+                            ? "bg-gradient-to-r from-indigo-500 to-amber-500 text-white font-semibold shadow-xs"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={colabPaginaSegura <= 1}
+                    onClick={() => setColabPagina(1)}
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                    title="Primeira Página"
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={colabPaginaSegura <= 1}
+                    onClick={() => setColabPagina((p) => Math.max(1, p - 1))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                    title="Página Anterior"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <span className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-200/60 dark:border-white/10">
+                    {colabPaginaSegura} / {colabTotalPaginas}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={colabPaginaSegura >= colabTotalPaginas}
+                    onClick={() => setColabPagina((p) => Math.min(colabTotalPaginas, p + 1))}
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                    title="Próxima Página"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={colabPaginaSegura >= colabTotalPaginas}
+                    onClick={() => setColabPagina(colabTotalPaginas)}
+                    className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                    title="Última Página"
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
       {/* ══════════════════════════════════════════════════════════════════
            DRAWER 1: ALTERAR LIMITE DE ERRO (SUBSTITUTO)
@@ -2189,11 +2693,11 @@ export function QualidadeDashboardClient() {
                     onChange={(e) => setRevisaoForm({ ...revisaoForm, categoriaRevisada: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
                   >
-                    <option value="Qualificação das Partes">Qualificação das Partes</option>
-                    <option value="Certidões & Documentação">Certidões & Documentação</option>
-                    <option value="Tributos & ITBI">Tributos & ITBI</option>
-                    <option value="Divergência Registral">Divergência Registral</option>
-                    <option value="Firma & Representação">Firma & Representação</option>
+                    {CAUSAS_CONFIG.map((cfg) => (
+                      <option key={cfg.id} value={cfg.nome}>
+                        {cfg.nome}
+                      </option>
+                    ))}
                     <option value="Outras Causas">Outras Causas</option>
                   </select>
                 </div>

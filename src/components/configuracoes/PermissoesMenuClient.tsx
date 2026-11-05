@@ -10,7 +10,6 @@ import {
   Search,
   Check,
   X,
-  RotateCcw,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
@@ -23,6 +22,7 @@ import {
 } from 'lucide-react';
 import {
   TenantContextItem,
+  DepartmentContextItem,
   EligibleUserItem,
   UiTargetMode,
   ItemEffectiveState,
@@ -31,6 +31,7 @@ import {
 } from '@/lib/nav-permissions/types';
 import { EDITABLE_ROLES } from '@/lib/nav-permissions/catalog';
 import {
+  getDepartmentsForTenantNavAction,
   getEligibleUsersForTenantAction,
   getPermissionsForTargetAction,
   savePermissionsBatchAction,
@@ -50,17 +51,21 @@ export function PermissoesMenuClient({
     initialTenants[0]?.id || ''
   );
 
-  // 2. Modo: COLABORADOR ou PERFIL (Regra inegociável: apenas esses dois modos)
+  // 2. Modo: PERFIL, DEPARTAMENTO ou COLABORADOR
   const [targetType, setTargetType] = useState<UiTargetMode>('PERFIL');
 
-  // 3. Alvo selecionado
+  // 3. Alvos selecionados
   const [selectedRole, setSelectedRole] = useState<string>('ADMIN');
+  const [selectedDepartamento, setSelectedDepartamento] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [urlDeptoHint, setUrlDeptoHint] = useState<string | null>(null);
 
-  // 4. Lista de colaboradores carregada para a organização
+  // 4. Departamentos e colaboradores carregados para a organização
+  const [departmentsList, setDepartmentsList] = useState<DepartmentContextItem[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState<boolean>(false);
   const [usersList, setUsersList] = useState<EligibleUserItem[]>([]);
   const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
-  const [userSearchTerm, setUserSearchTerm] = useState<string>('');
+  const [userSearchTerm] = useState<string>('');
 
   // 5. Estado carregado do servidor
   const [treeData, setTreeData] = useState<NavPermissionsTreeResponse | null>(null);
@@ -85,38 +90,86 @@ export function PermissoesMenuClient({
 
   // 10. Diálogo de confirmação para troca com pendências
   const [pendingTargetSwitch, setPendingTargetSwitch] = useState<{
-    type: 'TENANT' | 'TARGET_TYPE' | 'ROLE' | 'USER';
+    type: 'TENANT' | 'TARGET_TYPE' | 'ROLE' | 'DEPARTMENT' | 'USER';
     newTenantId?: string;
     newTargetType?: UiTargetMode;
     newRole?: string;
+    newDepartamento?: string;
     newUserId?: string;
   } | null>(null);
 
   const hasUnsavedChanges = Object.keys(draftChanges).length > 0;
 
-  // Organização selecionada completa
-  const currentTenant = useMemo(() => {
-    return initialTenants.find((t) => t.id === selectedTenantId) || initialTenants[0];
-  }, [initialTenants, selectedTenantId]);
+  // Lê query string (?departamento=... ou ?modo=departamento) ao abrir a página
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const deptoParam = sp.get('departamento');
+    const modoParam = sp.get('modo');
+    if (deptoParam && deptoParam.trim()) {
+      setTargetType('DEPARTAMENTO');
+      setUrlDeptoHint(deptoParam.trim());
+    } else if (modoParam?.toLowerCase() === 'departamento') {
+      setTargetType('DEPARTAMENTO');
+    }
+  }, []);
 
   // Colaborador selecionado completo
   const currentSelectedUser = useMemo(() => {
     return usersList.find((u) => u.id === selectedUserId);
   }, [usersList, selectedUserId]);
 
-  // Carrega lista de usuários ao trocar de tenant
+  // Departamento selecionado completo
+  const currentSelectedDept = useMemo(() => {
+    return departmentsList.find(
+      (d) => d.nome.toLowerCase() === selectedDepartamento.toLowerCase()
+    );
+  }, [departmentsList, selectedDepartamento]);
+
+  // Carrega listas de departamentos e usuários ao trocar de tenant
   useEffect(() => {
     if (!selectedTenantId) return;
 
     let isMounted = true;
+    setLoadingDepartments(true);
     setLoadingUsers(true);
+
+    getDepartmentsForTenantNavAction(selectedTenantId)
+      .then((deptos) => {
+        if (!isMounted) return;
+        setDepartmentsList(deptos);
+        if (deptos.length > 0) {
+          const hinted = urlDeptoHint
+            ? deptos.find((d) => d.nome.toLowerCase() === urlDeptoHint.toLowerCase())
+            : null;
+          if (hinted) {
+            setSelectedDepartamento(hinted.nome);
+            setUrlDeptoHint(null);
+          } else {
+            setSelectedDepartamento((prev) =>
+              prev && deptos.some((d) => d.nome === prev) ? prev : deptos[0].nome
+            );
+          }
+        } else {
+          setSelectedDepartamento('');
+        }
+      })
+      .catch((err) => {
+        console.error('Erro ao carregar departamentos do tenant:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingDepartments(false);
+      });
+
     getEligibleUsersForTenantAction(selectedTenantId)
       .then((users) => {
         if (!isMounted) return;
         setUsersList(users);
-        if (users.length > 0 && !selectedUserId) {
-          setSelectedUserId(users[0].id);
-        } else if (users.length === 0) {
+        if (users.length > 0) {
+          setSelectedUserId((prev) =>
+            prev && users.some((u) => u.id === prev) ? prev : users[0].id
+          );
+        } else {
           setSelectedUserId('');
         }
       })
@@ -130,11 +183,15 @@ export function PermissoesMenuClient({
     return () => {
       isMounted = false;
     };
-  }, [selectedTenantId]);
+  }, [selectedTenantId, urlDeptoHint]);
 
   // Carrega permissões do alvo atual
   const fetchTree = useCallback(async () => {
     if (!selectedTenantId) return;
+    if (targetType === 'DEPARTAMENTO' && !selectedDepartamento) {
+      setTreeData(null);
+      return;
+    }
     if (targetType === 'COLABORADOR' && !selectedUserId) {
       setTreeData(null);
       return;
@@ -146,11 +203,25 @@ export function PermissoesMenuClient({
     setSaveErrorMsg(null);
 
     try {
+      const apiTargetType =
+        targetType === 'PERFIL'
+          ? 'ROLE'
+          : targetType === 'DEPARTAMENTO'
+            ? 'DEPARTMENT'
+            : 'USER';
+      const apiTargetId =
+        targetType === 'PERFIL'
+          ? selectedRole
+          : targetType === 'DEPARTAMENTO'
+            ? selectedDepartamento
+            : selectedUserId;
+
       const data = await getPermissionsForTargetAction({
         tenantId: selectedTenantId,
-        targetType: targetType === 'PERFIL' ? 'ROLE' : 'USER',
-        targetId: targetType === 'PERFIL' ? selectedRole : selectedUserId,
+        targetType: apiTargetType,
+        targetId: apiTargetId,
         userRole: currentSelectedUser?.role,
+        userDepartamento: currentSelectedUser?.departamento,
       });
 
       setTreeData(data);
@@ -162,7 +233,14 @@ export function PermissoesMenuClient({
     } finally {
       setLoadingTree(false);
     }
-  }, [selectedTenantId, targetType, selectedRole, selectedUserId, currentSelectedUser]);
+  }, [
+    selectedTenantId,
+    targetType,
+    selectedRole,
+    selectedDepartamento,
+    selectedUserId,
+    currentSelectedUser,
+  ]);
 
   useEffect(() => {
     fetchTree();
@@ -199,6 +277,16 @@ export function PermissoesMenuClient({
     }
   };
 
+  const handleDepartamentoChange = (newDepartamento: string) => {
+    if (newDepartamento === selectedDepartamento) return;
+    if (hasUnsavedChanges) {
+      setPendingTargetSwitch({ type: 'DEPARTMENT', newDepartamento });
+    } else {
+      setSelectedDepartamento(newDepartamento);
+      setDraftChanges({});
+    }
+  };
+
   const handleUserChange = (newUserId: string) => {
     if (newUserId === selectedUserId) return;
     if (hasUnsavedChanges) {
@@ -221,6 +309,11 @@ export function PermissoesMenuClient({
       setTargetType(pendingTargetSwitch.newTargetType);
     } else if (pendingTargetSwitch.type === 'ROLE' && pendingTargetSwitch.newRole) {
       setSelectedRole(pendingTargetSwitch.newRole);
+    } else if (
+      pendingTargetSwitch.type === 'DEPARTMENT' &&
+      pendingTargetSwitch.newDepartamento
+    ) {
+      setSelectedDepartamento(pendingTargetSwitch.newDepartamento);
     } else if (pendingTargetSwitch.type === 'USER' && pendingTargetSwitch.newUserId) {
       setSelectedUserId(pendingTargetSwitch.newUserId);
     }
@@ -237,7 +330,6 @@ export function PermissoesMenuClient({
       const next = { ...prev };
       next[itemId] = action;
 
-      // Sincronização automática para rotas compartilhadas
       if (itemId === 'gestao_comunicados') {
         next['gestao_pessoas'] = action;
       } else if (itemId === 'gestao_pessoas') {
@@ -289,10 +381,23 @@ export function PermissoesMenuClient({
     }));
 
     try {
+      const apiTargetType =
+        targetType === 'PERFIL'
+          ? 'ROLE'
+          : targetType === 'DEPARTAMENTO'
+            ? 'DEPARTMENT'
+            : 'USER';
+      const apiTargetId =
+        targetType === 'PERFIL'
+          ? selectedRole
+          : targetType === 'DEPARTAMENTO'
+            ? selectedDepartamento
+            : selectedUserId;
+
       const result = await savePermissionsBatchAction({
         tenantId: selectedTenantId,
-        targetType: targetType === 'PERFIL' ? 'ROLE' : 'USER',
-        targetId: targetType === 'PERFIL' ? selectedRole : selectedUserId,
+        targetType: apiTargetType,
+        targetId: apiTargetId,
         targetRoleForUser: currentSelectedUser?.role,
         changes,
       });
@@ -354,7 +459,7 @@ export function PermissoesMenuClient({
     );
   }, [usersList, userSearchTerm]);
 
-  // Função para derivar a visualização do item considerando o rascunho
+  // Deriva a visualização do item considerando o rascunho
   const resolveDraftItemState = (itemState: ItemEffectiveState) => {
     const draft = draftChanges[itemState.item.id];
     if (draft === undefined) {
@@ -363,12 +468,24 @@ export function PermissoesMenuClient({
         badge = 'Bloqueado pelo sistema';
       } else if (targetType === 'PERFIL') {
         badge = itemState.effectiveAllowed ? 'Ativado' : 'Desativado';
+      } else if (targetType === 'DEPARTAMENTO') {
+        if (itemState.departmentOverride === 'ALLOW') {
+          badge = 'Ativado · departamento';
+        } else if (itemState.departmentOverride === 'DENY') {
+          badge = 'Desativado · departamento';
+        } else {
+          badge = 'Herdado do perfil';
+        }
       } else {
         // COLABORADOR
         if (itemState.effectiveStatus === 'ALLOWED_INDIVIDUAL') {
           badge = 'Ativado · individual';
         } else if (itemState.effectiveStatus === 'DENIED_INDIVIDUAL') {
           badge = 'Desativado · individual';
+        } else if (itemState.effectiveStatus === 'ALLOWED_DEPARTMENT') {
+          badge = 'Ativado · depto';
+        } else if (itemState.effectiveStatus === 'DENIED_DEPARTMENT') {
+          badge = 'Desativado · depto';
         } else if (itemState.effectiveStatus === 'ALLOWED_INHERITED') {
           badge = 'Ativado · herdado';
         } else {
@@ -391,8 +508,7 @@ export function PermissoesMenuClient({
         isEffectiveVisible: willBeVisible,
         stateBadge: willBeVisible ? 'Ativado' : 'Desativado',
       };
-    } else {
-      // Modo COLABORADOR
+    } else if (targetType === 'DEPARTAMENTO') {
       if (draft === 'HERDAR') {
         const isInheritedAllowed =
           itemState.roleRule !== null
@@ -400,12 +516,52 @@ export function PermissoesMenuClient({
             : itemState.effectiveAllowed;
         return {
           ...itemState,
+          departmentOverride: null,
+          effectiveAllowed: isInheritedAllowed,
+          isEffectiveVisible: isInheritedAllowed,
+          stateBadge: 'Herdado do perfil',
+        };
+      } else if (draft === 'ALLOW') {
+        return {
+          ...itemState,
+          departmentOverride: 'ALLOW' as const,
+          effectiveAllowed: true,
+          isEffectiveVisible: true,
+          stateBadge: 'Ativado · departamento',
+        };
+      } else {
+        return {
+          ...itemState,
+          departmentOverride: 'DENY' as const,
+          effectiveAllowed: false,
+          isEffectiveVisible: false,
+          stateBadge: 'Desativado · departamento',
+        };
+      }
+    } else {
+      // Modo COLABORADOR
+      if (draft === 'HERDAR') {
+        const inheritedFromDept = itemState.departmentOverride ?? null;
+        const isInheritedAllowed =
+          inheritedFromDept !== null
+            ? inheritedFromDept === 'ALLOW'
+            : itemState.roleRule !== null
+              ? itemState.roleRule
+              : itemState.effectiveAllowed;
+        const inheritedBadge =
+          inheritedFromDept !== null
+            ? inheritedFromDept === 'ALLOW'
+              ? 'Ativado · depto'
+              : 'Desativado · depto'
+            : isInheritedAllowed
+              ? 'Ativado · herdado'
+              : 'Desativado · herdado';
+        return {
+          ...itemState,
           userOverride: null,
           effectiveAllowed: isInheritedAllowed,
           isEffectiveVisible: isInheritedAllowed,
-          stateBadge: isInheritedAllowed
-            ? 'Ativado · herdado'
-            : 'Desativado · herdado',
+          stateBadge: inheritedBadge,
         };
       } else if (draft === 'ALLOW') {
         return {
@@ -453,7 +609,7 @@ export function PermissoesMenuClient({
           </div>
           <p className="mt-1 text-sm text-slate-400 max-w-2xl">
             Configure regras personalizadas de visualização e acesso a menus e rotas
-            por colaborador ou papel do sistema.
+            por perfil do sistema, departamento ou colaborador.
           </p>
         </div>
 
@@ -480,9 +636,9 @@ export function PermissoesMenuClient({
 
       {/* SEÇÃO DE CONTROLES: ORGANIZAÇÃO, MODO E ALVO */}
       <section className="rounded-2xl border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-lg space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
           {/* 1. SELETOR DE ORGANIZAÇÃO LOCAL */}
-          <div className="md:col-span-4 space-y-1.5">
+          <div className="lg:col-span-3 space-y-1.5">
             <label className="text-xs font-semibold tracking-wider text-slate-300 flex items-center gap-1.5 uppercase">
               <Building2 className="w-3.5 h-3.5 text-amber-400" />
               Organização (Cartório)
@@ -500,42 +656,54 @@ export function PermissoesMenuClient({
             </select>
           </div>
 
-          {/* 2. CONFIGURAR POR: COLABORADOR OU PERFIL */}
-          <div className="md:col-span-4 space-y-1.5">
+          {/* 2. CONFIGURAR POR: PERFIL, DEPARTAMENTO OU COLABORADOR */}
+          <div className="lg:col-span-5 space-y-1.5">
             <label className="text-xs font-semibold tracking-wider text-slate-300 flex items-center gap-1.5 uppercase">
               <Layers className="w-3.5 h-3.5 text-amber-400" />
               Configurar Por
             </label>
-            <div className="grid grid-cols-2 p-1 bg-[#131B31] rounded-xl border border-white/10 text-xs font-bold">
+            <div className="grid grid-cols-3 p-1 bg-[#131B31] rounded-xl border border-white/10 text-[11px] sm:text-xs font-bold gap-1">
               <button
                 type="button"
                 onClick={() => handleTargetTypeChange('PERFIL')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-all cursor-pointer ${
                   targetType === 'PERFIL'
                     ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Shield className="w-3.5 h-3.5" />
-                PERFIL
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">PERFIL</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTargetTypeChange('DEPARTAMENTO')}
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-all cursor-pointer ${
+                  targetType === 'DEPARTAMENTO'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">DEPARTAMENTO</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleTargetTypeChange('COLABORADOR')}
-                className={`flex items-center justify-center gap-2 py-2 rounded-lg transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg transition-all cursor-pointer ${
                   targetType === 'COLABORADOR'
                     ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Users className="w-3.5 h-3.5" />
-                COLABORADOR
+                <Users className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">COLABORADOR</span>
               </button>
             </div>
           </div>
 
-          {/* 3. ALVO ESPECÍFICO (ROLE OU COLABORADOR) */}
-          <div className="md:col-span-4 space-y-1.5">
+          {/* 3. ALVO ESPECÍFICO (ROLE, DEPARTAMENTO OU COLABORADOR) */}
+          <div className="lg:col-span-4 space-y-1.5">
             {targetType === 'PERFIL' ? (
               <>
                 <label className="text-xs font-semibold tracking-wider text-slate-300 flex items-center gap-1.5 uppercase">
@@ -553,6 +721,37 @@ export function PermissoesMenuClient({
                     </option>
                   ))}
                 </select>
+              </>
+            ) : targetType === 'DEPARTAMENTO' ? (
+              <>
+                <label className="text-xs font-semibold tracking-wider text-slate-300 flex items-center gap-1.5 uppercase">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                  Departamento ({departmentsList.length} cadastrados)
+                </label>
+                {loadingDepartments ? (
+                  <div className="flex items-center gap-2 h-[42px] px-3.5 bg-[#131B31] rounded-xl border border-white/10 text-xs text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                    Carregando departamentos...
+                  </div>
+                ) : departmentsList.length === 0 ? (
+                  <div className="h-[42px] flex items-center px-3.5 bg-[#131B31] rounded-xl border border-red-500/20 text-xs text-red-300">
+                    Nenhum departamento encontrado neste cartório.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedDepartamento}
+                    onChange={(e) => handleDepartamentoChange(e.target.value)}
+                    className="w-full bg-[#131B31] border border-white/15 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-white rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors"
+                  >
+                    {departmentsList.map((d) => (
+                      <option key={d.id} value={d.nome}>
+                        {d.nome}
+                        {d.sigla ? ` (${d.sigla})` : ''} — {d.totalColaboradores} colab.
+                        {!d.ativo ? ' [Inativo]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </>
             ) : (
               <>
@@ -587,6 +786,57 @@ export function PermissoesMenuClient({
             )}
           </div>
         </div>
+
+        {/* DETALHES DO DEPARTAMENTO SELECIONADO (MODO DEPARTAMENTO) */}
+        {targetType === 'DEPARTAMENTO' && currentSelectedDept && (
+          <div className="p-3.5 rounded-xl border border-white/10 bg-[#10172A] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-8 h-8 rounded-xl border border-white/20 flex items-center justify-center font-bold text-white shadow-xs"
+                style={{ backgroundColor: currentSelectedDept.cor || '#6366f1' }}
+              >
+                {(currentSelectedDept.sigla || currentSelectedDept.nome.slice(0, 2)).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-semibold text-white flex items-center gap-2 flex-wrap">
+                  <span>{currentSelectedDept.nome}</span>
+                  {currentSelectedDept.sigla && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/5 text-slate-300">
+                      {currentSelectedDept.sigla}
+                    </span>
+                  )}
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+                    {currentSelectedDept.totalColaboradores} colaborador(es)
+                  </span>
+                </div>
+                <div className="text-slate-400 text-[11px] mt-0.5">
+                  Regras aplicadas a todos os colaboradores deste departamento • Precedência:{' '}
+                  <strong className="text-amber-300">
+                    Colaborador Individual &gt; Departamento &gt; Perfil
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href="/configuracoes/departamentos"
+                className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] font-semibold text-slate-300 hover:text-white transition-colors"
+              >
+                Ver Departamentos
+              </Link>
+              <span
+                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                  currentSelectedDept.ativo
+                    ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : 'border border-red-500/30 bg-red-500/10 text-red-400'
+                }`}
+              >
+                {currentSelectedDept.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* DETALHES DO COLABORADOR SELECIONADO (MODO INDIVIDUAL) */}
         {targetType === 'COLABORADOR' && currentSelectedUser && (
@@ -714,7 +964,6 @@ export function PermissoesMenuClient({
           {filteredGroups.map((group: NavPermissionsGroupView) => {
             const isCollapsed = collapsedGroups[group.id] || false;
 
-            // Calcula contadores do grupo considerando o rascunho
             const itemsWithDraft = group.items.map(resolveDraftItemState);
             const activeCount = itemsWithDraft.filter(
               (i) => i.isEffectiveVisible
@@ -776,14 +1025,14 @@ export function PermissoesMenuClient({
 
                   {/* AÇÕES EM LOTE DO GRUPO */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    {targetType === 'COLABORADOR' ? (
+                    {targetType === 'COLABORADOR' || targetType === 'DEPARTAMENTO' ? (
                       <>
                         <button
                           type="button"
                           onClick={() =>
                             handleBatchGroupAction(group.items, 'HERDAR')
                           }
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 transition-colors cursor-pointer"
                           title="Restaurar herança de todos os itens gerenciáveis deste grupo"
                         >
                           Restaurar Herança
@@ -793,7 +1042,7 @@ export function PermissoesMenuClient({
                           onClick={() =>
                             handleBatchGroupAction(group.items, 'ALLOW')
                           }
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-colors cursor-pointer"
                         >
                           Ativar Todos
                         </button>
@@ -802,7 +1051,7 @@ export function PermissoesMenuClient({
                           onClick={() =>
                             handleBatchGroupAction(group.items, 'DENY')
                           }
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
                         >
                           Desativar Todos
                         </button>
@@ -814,7 +1063,7 @@ export function PermissoesMenuClient({
                           onClick={() =>
                             handleBatchGroupAction(group.items, 'ALLOW')
                           }
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 transition-colors cursor-pointer"
                         >
                           Ativar Todos
                         </button>
@@ -823,7 +1072,7 @@ export function PermissoesMenuClient({
                           onClick={() =>
                             handleBatchGroupAction(group.items, 'DENY')
                           }
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 transition-colors cursor-pointer"
                         >
                           Desativar Todos
                         </button>
@@ -838,6 +1087,10 @@ export function PermissoesMenuClient({
                     {itemsWithDraft.map((itemState) => {
                       const item = itemState.item;
                       const hasPending = draftChanges[item.id] !== undefined;
+                      const activeOverrideValue =
+                        targetType === 'DEPARTAMENTO'
+                          ? itemState.departmentOverride ?? null
+                          : itemState.userOverride;
 
                       return (
                         <div
@@ -879,13 +1132,18 @@ export function PermissoesMenuClient({
                               </div>
                             )}
 
-                            {/* MOTIVO DE BLOQUEIO ESTRUTURAL */}
-                            {itemState.isBlockedBySystem && (
+                            {/* MOTIVO DE BLOQUEIO OU OBSERVAÇÃO ESTRUTURAL */}
+                            {itemState.isBlockedBySystem ? (
                               <div className="flex items-center gap-1.5 text-[11px] text-red-300/90 pt-0.5">
                                 <Lock className="w-3.5 h-3.5 text-red-400" />
                                 <span>{itemState.blockedReason}</span>
                               </div>
-                            )}
+                            ) : itemState.blockedReason ? (
+                              <div className="flex items-center gap-1.5 text-[11px] text-amber-300/80 pt-0.5">
+                                <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                <span>{itemState.blockedReason}</span>
+                              </div>
+                            ) : null}
                           </div>
 
                           {/* CONTROLES E BADGE DE STATUS */}
@@ -895,9 +1153,12 @@ export function PermissoesMenuClient({
                               className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
                                 itemState.isBlockedBySystem
                                   ? 'border border-red-500/30 bg-red-500/10 text-red-300'
-                                  : itemState.isEffectiveVisible
-                                  ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                                  : 'border border-slate-700 bg-slate-800 text-slate-400'
+                                  : targetType === 'DEPARTAMENTO' &&
+                                      itemState.stateBadge === 'Herdado do perfil'
+                                    ? 'border border-indigo-500/25 bg-indigo-500/10 text-indigo-300'
+                                    : itemState.isEffectiveVisible
+                                      ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                      : 'border border-slate-700 bg-slate-800 text-slate-400'
                               }`}
                             >
                               {itemState.isBlockedBySystem ? (
@@ -907,7 +1168,10 @@ export function PermissoesMenuClient({
                                 </>
                               ) : (
                                 <>
-                                  {itemState.isEffectiveVisible ? (
+                                  {targetType === 'DEPARTAMENTO' &&
+                                  itemState.stateBadge === 'Herdado do perfil' ? (
+                                    <Layers className="w-3 h-3 text-indigo-400" />
+                                  ) : itemState.isEffectiveVisible ? (
                                     <Check className="w-3 h-3 text-emerald-400" />
                                   ) : (
                                     <X className="w-3 h-3 text-slate-400" />
@@ -922,15 +1186,16 @@ export function PermissoesMenuClient({
                               !item.isMasterOnly &&
                               !item.isProtected && (
                                 <div className="flex items-center gap-1.5">
-                                  {targetType === 'COLABORADOR' ? (
+                                  {targetType === 'COLABORADOR' ||
+                                  targetType === 'DEPARTAMENTO' ? (
                                     <div className="flex items-center p-1 bg-[#131B31] rounded-xl border border-white/10 text-xs">
                                       <button
                                         type="button"
                                         onClick={() =>
                                           setItemDraftAction(item.id, 'HERDAR')
                                         }
-                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-                                          itemState.userOverride === null &&
+                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
+                                          activeOverrideValue === null &&
                                           draftChanges[item.id] === undefined
                                             ? 'bg-white/10 text-white font-bold'
                                             : draftChanges[item.id] === 'HERDAR'
@@ -945,8 +1210,8 @@ export function PermissoesMenuClient({
                                         onClick={() =>
                                           setItemDraftAction(item.id, 'ALLOW')
                                         }
-                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-                                          itemState.userOverride === 'ALLOW' &&
+                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
+                                          activeOverrideValue === 'ALLOW' &&
                                           draftChanges[item.id] === undefined
                                             ? 'bg-emerald-600 text-white font-bold'
                                             : draftChanges[item.id] === 'ALLOW'
@@ -961,8 +1226,8 @@ export function PermissoesMenuClient({
                                         onClick={() =>
                                           setItemDraftAction(item.id, 'DENY')
                                         }
-                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-                                          itemState.userOverride === 'DENY' &&
+                                        className={`px-2.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
+                                          activeOverrideValue === 'DENY' &&
                                           draftChanges[item.id] === undefined
                                             ? 'bg-red-600 text-white font-bold'
                                             : draftChanges[item.id] === 'DENY'
@@ -980,7 +1245,7 @@ export function PermissoesMenuClient({
                                         onClick={() =>
                                           setItemDraftAction(item.id, 'ALLOW')
                                         }
-                                        className={`px-3 py-1.5 rounded-lg transition-colors font-medium ${
+                                        className={`px-3 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
                                           itemState.isEffectiveVisible &&
                                           draftChanges[item.id] === undefined
                                             ? 'bg-emerald-600 text-white font-bold'
@@ -996,7 +1261,7 @@ export function PermissoesMenuClient({
                                         onClick={() =>
                                           setItemDraftAction(item.id, 'DENY')
                                         }
-                                        className={`px-3 py-1.5 rounded-lg transition-colors font-medium ${
+                                        className={`px-3 py-1.5 rounded-lg transition-colors font-medium cursor-pointer ${
                                           !itemState.isEffectiveVisible &&
                                           draftChanges[item.id] === undefined
                                             ? 'bg-red-600 text-white font-bold'
@@ -1044,7 +1309,7 @@ export function PermissoesMenuClient({
                 type="button"
                 onClick={handleCancelDraft}
                 disabled={saving}
-                className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors"
+                className="px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1052,7 +1317,7 @@ export function PermissoesMenuClient({
                 type="button"
                 onClick={() => handleSave(false)}
                 disabled={saving}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-md shadow-amber-500/20 flex items-center gap-2"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-md shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
               >
                 {saving ? (
                   <>
@@ -1095,14 +1360,14 @@ export function PermissoesMenuClient({
               <button
                 type="button"
                 onClick={() => setPendingTargetSwitch(null)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
               >
                 Permanecer
               </button>
               <button
                 type="button"
                 onClick={() => applyPendingSwitch()}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition-colors"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition-colors cursor-pointer"
               >
                 Descartar
               </button>
@@ -1110,7 +1375,7 @@ export function PermissoesMenuClient({
                 type="button"
                 onClick={() => handleSave(true)}
                 disabled={saving}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 cursor-pointer"
               >
                 {saving ? (
                   <>

@@ -40,24 +40,26 @@ export async function getDepartamentos(): Promise<DepartamentoItem[]> {
        COALESCE((SELECT count(*)::int FROM public.fiorix_its i WHERE i.tenant_id = d.tenant_id AND i.departamento = d.nome AND i.deleted_at IS NULL), 0) as "totalIts"
      FROM public.fiorix_departamentos d
      WHERE d.tenant_id = $1
-     ORDER BY d.ordem ASC, d.nome ASC`,
+     ORDER BY LOWER(d.nome) ASC`,
     tenantId
   );
 
-  return rows.map((r) => ({
-    id: r.id,
-    nome: r.nome,
-    sigla: r.sigla,
-    cor: r.cor || '#6366f1',
-    ativo: r.ativo ?? true,
-    ordem: Number(r.ordem || 0),
-    totalColaboradores: Number(r.totalColaboradores || 0),
-    totalIts: Number(r.totalIts || 0),
-    createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '',
-    updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : '',
-    criadoPorNome: r.criadoPorNome || 'Sistema / Inicial',
-    atualizadoPorNome: r.atualizadoPorNome,
-  }));
+  return rows
+    .map((r) => ({
+      id: r.id,
+      nome: r.nome,
+      sigla: r.sigla,
+      cor: r.cor || '#6366f1',
+      ativo: r.ativo ?? true,
+      ordem: Number(r.ordem || 0),
+      totalColaboradores: Number(r.totalColaboradores || 0),
+      totalIts: Number(r.totalIts || 0),
+      createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '',
+      updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : '',
+      criadoPorNome: r.criadoPorNome || 'Sistema / Inicial',
+      atualizadoPorNome: r.atualizadoPorNome,
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
 }
 
 export async function criarDepartamento(data: {
@@ -275,11 +277,13 @@ export async function listarNomesDepartamentos(): Promise<string[]> {
   const tenantId = currentUser.tenantId;
 
   const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT nome FROM public.fiorix_departamentos WHERE tenant_id = $1 AND ativo = true ORDER BY ordem ASC, nome ASC`,
+    `SELECT nome FROM public.fiorix_departamentos WHERE tenant_id = $1 AND ativo = true ORDER BY LOWER(nome) ASC`,
     tenantId
   );
 
-  return rows.map((r) => r.nome);
+  return rows
+    .map((r) => String(r.nome))
+    .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
 }
 
 /**

@@ -288,3 +288,95 @@ describe('FIORIX — Duplo Fator (2FA) por Usuário para Todas as Funções', ()
     }
   });
 });
+
+
+describe('FIORIX — Permissões de Menu por Departamento (Precedência Colaborador > Departamento > Perfil > Legado)', () => {
+  it('salva regras no modo DEPARTAMENTO somente quando acionado por MASTER e valida departamento vazio', async () => {
+    await expect(
+      saveNavPermissionsBatch({
+        tenantId: 'tenant-123',
+        targetType: 'DEPARTAMENTO',
+        targetId: '   ',
+        changes: [{ itemId: 'avaliacoes', action: 'ALLOW' }],
+        masterUser: { id: 'super-master', role: 'MASTER' },
+      })
+    ).rejects.toThrow('Departamento alvo inválido.');
+
+    const { prisma } = await import('@/lib/prisma');
+    const executeSpy = vi.fn().mockResolvedValue(1);
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (cb: any) => {
+      return cb({ $executeRawUnsafe: executeSpy });
+    });
+
+    const res = await saveNavPermissionsBatch({
+      tenantId: 'tenant-123',
+      targetType: 'DEPARTAMENTO',
+      targetId: 'Qualificação',
+      changes: [{ itemId: 'qualidade', action: 'ALLOW' }],
+      masterUser: { id: 'super-master', role: 'MASTER' },
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.updatedCount).toBe(1);
+    expect(executeSpy).toHaveBeenCalled();
+  });
+
+  it('aplica precedência Colaborador > Departamento > Perfil em getAllowedNavItemsForUser e isRouteAllowedForUser', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const { getAllowedNavItemsForUser, isRouteAllowedForUser } = await import('@/lib/nav-permissions/service');
+
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    // 1) Perfil USER bloqueia qualidade e espera; Departamento Atendimento libera espera e qualidade;
+    //    Colaborador individualmente bloqueia qualidade (DENY), mantendo espera liberada pelo Departamento.
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([
+        { item_id: 'espera', visible: false },
+        { item_id: 'qualidade', visible: false },
+      ] as any) // roleRules
+      .mockResolvedValueOnce([
+        { item_id: 'qualidade', override: 'DENY' },
+      ] as any) // userRules
+      .mockResolvedValueOnce([
+        { item_id: 'espera', override: 'ALLOW' },
+        { item_id: 'qualidade', override: 'ALLOW' },
+      ] as any); // deptRules
+
+    const user = {
+      id: 'user-atd-1',
+      role: 'USER',
+      tenantId: 'tenant-123',
+      departamento: 'Atendimento',
+    };
+
+    const allowed = await getAllowedNavItemsForUser(user);
+    expect(allowed.enabled).toBe(true);
+    expect(allowed.allowedItemIds).toContain('espera'); // liberado pelo Departamento sobrepondo Perfil
+    expect(allowed.allowedItemIds).not.toContain('qualidade'); // bloqueado pelo Colaborador sobrepondo Departamento
+
+    // Verifica rota direta /espera (liberada pelo Departamento)
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([]) // userRules
+      .mockResolvedValueOnce([{ item_id: 'espera', override: 'ALLOW' }] as any); // deptRules
+
+    expect(await isRouteAllowedForUser('/espera', user)).toBe(true);
+
+    // Verifica que guarda estrutural impede item restrito mesmo se Departamento tiver ALLOW
+    const centralAllowed = allowed.allowedItemIds.includes('central_operacoes');
+    expect(centralAllowed).toBe(false);
+
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
+
+  it('verifica que a migration preparada de fiorix_nav_department_rules existe e ativa RLS', () => {
+    const deptMigPath = path.resolve(
+      __dirname,
+      '../supabase/prepared-migrations/20261105163000_fiorix_nav_department_rules.sql'
+    );
+    expect(fs.existsSync(deptMigPath)).toBe(true);
+    const sql = fs.readFileSync(deptMigPath, 'utf-8');
+    expect(sql).toContain('fiorix_nav_department_rules');
+    expect(sql).toContain('ENABLE ROW LEVEL SECURITY');
+    expect(sql).toContain('REVOKE ALL ON public.fiorix_nav_department_rules FROM PUBLIC');
+  });
+});

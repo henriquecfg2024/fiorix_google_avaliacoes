@@ -1,12 +1,20 @@
-export type TargetType = 'ROLE' | 'USER' | 'PERFIL' | 'COLABORADOR';
+export type TargetType =
+  | 'ROLE'
+  | 'DEPARTMENT'
+  | 'USER'
+  | 'PERFIL'
+  | 'DEPARTAMENTO'
+  | 'COLABORADOR';
 
-export type UiTargetMode = 'PERFIL' | 'COLABORADOR';
+export type UiTargetMode = 'PERFIL' | 'DEPARTAMENTO' | 'COLABORADOR';
 
 export type OverrideValue = 'ALLOW' | 'DENY';
 
 export type EffectiveAccessStatus =
   | 'ALLOWED_INHERITED'
   | 'DENIED_INHERITED'
+  | 'ALLOWED_DEPARTMENT'
+  | 'DENIED_DEPARTMENT'
   | 'ALLOWED_INDIVIDUAL'
   | 'DENIED_INDIVIDUAL'
   | 'BLOCKED_BY_SYSTEM'
@@ -48,6 +56,16 @@ export interface RoleRuleRecord {
   updatedBy?: string;
 }
 
+export interface DepartmentRuleRecord {
+  id?: string;
+  tenantId: string;
+  departamento: string;
+  itemId: string;
+  override: OverrideValue;
+  updatedAt?: Date;
+  updatedBy?: string;
+}
+
 export interface UserRuleRecord {
   id?: string;
   tenantId: string;
@@ -61,6 +79,7 @@ export interface UserRuleRecord {
 export interface ItemEffectiveState {
   item: NavCatalogItem;
   roleRule: boolean | null; // true = ALLOW, false = DENY, null = sem regra (usa legado)
+  departmentOverride?: OverrideValue | null; // 'ALLOW' | 'DENY' | null (herdar do perfil)
   userOverride: OverrideValue | null; // 'ALLOW' | 'DENY' | null (herdar)
   effectiveStatus: EffectiveAccessStatus;
   effectiveAllowed: boolean;
@@ -88,6 +107,15 @@ export interface TenantContextItem {
   plano?: string | null;
   cidade?: string;
   estado?: string;
+}
+
+export interface DepartmentContextItem {
+  id: string;
+  nome: string;
+  sigla?: string | null;
+  cor: string;
+  ativo: boolean;
+  totalColaboradores: number;
 }
 
 export interface EligibleUserItem {

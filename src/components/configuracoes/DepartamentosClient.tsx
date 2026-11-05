@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import {
   Building2,
@@ -17,6 +17,9 @@ import {
   GripVertical,
   ToggleLeft,
   ToggleRight,
+  ArrowUp,
+  ArrowDown,
+  Shield,
 } from 'lucide-react';
 import {
   DepartamentoItem,
@@ -27,6 +30,7 @@ import {
 
 interface DepartamentosClientProps {
   initialData: DepartamentoItem[];
+  isMaster?: boolean;
 }
 
 const CORES_PRESET = [
@@ -35,9 +39,17 @@ const CORES_PRESET = [
   '#a855f7', '#6366f1', '#84cc16', '#e11d48', '#0ea5e9',
 ];
 
-export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
-  const [deptos, setDeptos] = useState<DepartamentoItem[]>(initialData);
+export function DepartamentosClient({ initialData, isMaster = false }: DepartamentosClientProps) {
+  const [deptos] = useState<DepartamentoItem[]>(initialData);
+  const [ordemAlfabetica, setOrdemAlfabetica] = useState<'asc' | 'desc'>('asc');
   const [isPending, startTransition] = useTransition();
+
+  const deptosOrdenados = useMemo(() => {
+    const fator = ordemAlfabetica === 'asc' ? 1 : -1;
+    return [...deptos].sort(
+      (a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }) * fator
+    );
+  }, [deptos, ordemAlfabetica]);
 
   // Modal criar
   const [showCreate, setShowCreate] = useState(false);
@@ -175,10 +187,20 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isMaster && (
+              <Link
+                href="/configuracoes/permissoes-menu?modo=departamento"
+                className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs font-bold transition-colors"
+                title="Configurar permissões de menu por departamento"
+              >
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                Permissões de Menu
+              </Link>
+            )}
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white text-xs shadow-lg hover:brightness-110 transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white text-xs shadow-lg hover:brightness-110 transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Novo Departamento
@@ -240,16 +262,21 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
 
         {/* Tabela */}
         <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-indigo-300" />
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
-              Departamentos Cadastrados ({deptos.length})
-            </h2>
-            {totalInativos > 0 && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
-                {totalInativos} inativo(s)
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-indigo-300" />
+              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                Departamentos Cadastrados ({deptos.length})
+              </h2>
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold">
+                Ordem alfabética ({ordemAlfabetica === 'asc' ? 'A → Z' : 'Z → A'})
               </span>
-            )}
+              {totalInativos > 0 && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
+                  {totalInativos} inativo(s)
+                </span>
+              )}
+            </div>
           </div>
 
           {deptos.length === 0 ? (
@@ -263,7 +290,20 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
                   <tr className="border-b border-slate-200 bg-slate-100 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-600 dark:border-white/12 dark:bg-[#080811] dark:text-slate-400">
                     <th className="p-3 pl-5 w-10">#</th>
                     <th className="p-3">Cor</th>
-                    <th className="p-3">Departamento</th>
+                    <th
+                      onClick={() => setOrdemAlfabetica((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                      title="Clique para alternar a ordem alfabética (A → Z / Z → A)"
+                      className="p-3 cursor-pointer select-none text-indigo-300 font-bold bg-indigo-500/10 hover:text-white transition-colors"
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Departamento</span>
+                        {ordemAlfabetica === 'asc' ? (
+                          <ArrowUp className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        ) : (
+                          <ArrowDown className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        )}
+                      </div>
+                    </th>
                     <th className="p-3">Sigla</th>
                     <th className="p-3 text-center">Colaboradores</th>
                     <th className="p-3 text-center">ITs</th>
@@ -272,7 +312,7 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-medium text-slate-800 dark:divide-white/8 dark:text-white/80">
-                  {deptos.map((d, i) => (
+                  {deptosOrdenados.map((d, i) => (
                     <tr key={d.id} className={`hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors ${!d.ativo ? 'opacity-50' : ''}`}>
                       <td className="p-3 pl-5 text-slate-500 font-mono text-[10px]">
                         {i + 1}
@@ -328,6 +368,15 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
                       </td>
                       <td className="p-3 pr-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {isMaster && (
+                            <Link
+                              href={`/configuracoes/permissoes-menu?departamento=${encodeURIComponent(d.nome)}`}
+                              className="p-1.5 rounded-lg hover:bg-amber-500/20 text-amber-400/85 hover:text-amber-300 transition-colors"
+                              title={`Permissões de Menu do departamento ${d.nome}`}
+                            >
+                              <Shield className="w-3.5 h-3.5" />
+                            </Link>
+                          )}
                           <button
                             onClick={() => openEdit(d)}
                             className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"

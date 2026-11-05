@@ -11,8 +11,8 @@ export const metadata = {
 };
 
 export default async function DepartamentosPage() {
-  await requireRole('ADMIN', 'MASTER', 'RH');
+  const currentUser = await requireRole('ADMIN', 'MASTER', 'RH');
   const data = await getDepartamentos();
 
-  return <DepartamentosClient initialData={data} />;
+  return <DepartamentosClient initialData={data} isMaster={currentUser.role === 'MASTER'} />;
 }

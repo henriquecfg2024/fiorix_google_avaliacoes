@@ -12,14 +12,14 @@ import {
   NavCatalogItem,
   NavPermissionsTreeResponse,
   OverrideValue,
-  RoleRuleRecord,
   TargetType,
-  UserRuleRecord,
 } from './types';
 
 export const NAV_PERMISSIONS_FLAG = 'FEATURE_NAV_PERMISSIONS_V1_ENABLED';
 
-export function isNavPermissionsFeatureEnabled(env: Record<string, string | undefined> = process.env): boolean {
+export function isNavPermissionsFeatureEnabled(
+  env: Record<string, string | undefined> = process.env
+): boolean {
   return env[NAV_PERMISSIONS_FLAG] === 'true';
 }
 
@@ -40,7 +40,10 @@ export function isItemVisibleInLegacy(item: NavCatalogItem, role: string): boole
  * Lê as regras salvas para um perfil na organização selecionada.
  * Resiliente: se a tabela ainda não existir, retorna lista vazia.
  */
-export async function getRoleRulesFromDb(tenantId: string, role: string): Promise<Map<string, boolean>> {
+export async function getRoleRulesFromDb(
+  tenantId: string,
+  role: string
+): Promise<Map<string, boolean>> {
   const map = new Map<string, boolean>();
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
@@ -51,7 +54,36 @@ export async function getRoleRulesFromDb(tenantId: string, role: string): Promis
     for (const r of rows) {
       map.set(r.item_id, Boolean(r.visible));
     }
-  } catch (err: any) {
+  } catch {
+    // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
+  }
+  return map;
+}
+
+/**
+ * Lê as regras salvas para um departamento na organização selecionada.
+ * Comparação case-insensitive e sem espaços excedentes.
+ */
+export async function getDepartmentRulesFromDb(
+  tenantId: string,
+  departamento?: string | null
+): Promise<Map<string, OverrideValue>> {
+  const map = new Map<string, OverrideValue>();
+  const trimmed = (departamento || '').trim();
+  if (!trimmed) return map;
+
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT item_id, override
+       FROM public.fiorix_nav_department_rules
+       WHERE tenant_id = $1 AND LOWER(TRIM(departamento)) = LOWER(TRIM($2))`,
+      tenantId,
+      trimmed
+    );
+    for (const r of rows) {
+      map.set(r.item_id, r.override as OverrideValue);
+    }
+  } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
   return map;
@@ -61,7 +93,10 @@ export async function getRoleRulesFromDb(tenantId: string, role: string): Promis
  * Lê as regras salvas para um colaborador na organização selecionada.
  * Resiliente: se a tabela ainda não existir, retorna lista vazia.
  */
-export async function getUserRulesFromDb(tenantId: string, userId: string): Promise<Map<string, OverrideValue>> {
+export async function getUserRulesFromDb(
+  tenantId: string,
+  userId: string
+): Promise<Map<string, OverrideValue>> {
   const map = new Map<string, OverrideValue>();
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
@@ -72,59 +107,94 @@ export async function getUserRulesFromDb(tenantId: string, userId: string): Prom
     for (const r of rows) {
       map.set(r.item_id, r.override as OverrideValue);
     }
-  } catch (err: any) {
+  } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
   return map;
 }
 
 /**
- * Calcula o estado efetivo de cada item do catálogo para o alvo (ROLE/PERFIL ou USER/COLABORADOR)
+ * Calcula o estado efetivo de cada item do catálogo para o alvo:
+ * ROLE/PERFIL, DEPARTMENT/DEPARTAMENTO ou USER/COLABORADOR.
  */
 export async function computeNavPermissionsState(params: {
   tenantId: string;
   targetType: TargetType;
-  targetId: string; // role ou userId
+  targetId: string; // role, nome do departamento ou userId
   userRole?: string; // no modo USER, a role de origem do colaborador
+  userDepartamento?: string | null; // no modo USER, o departamento do colaborador
 }): Promise<NavPermissionsTreeResponse> {
-  const { tenantId, targetType, targetId, userRole } = params;
+  const { tenantId, targetType, targetId, userRole, userDepartamento } = params;
   const isFlagActive = isNavPermissionsFeatureEnabled();
 
   const isRoleMode = targetType === 'ROLE' || targetType === 'PERFIL';
-  const effectiveRole = isRoleMode ? targetId : (userRole || 'USER');
+  const isDeptMode = targetType === 'DEPARTMENT' || targetType === 'DEPARTAMENTO';
+  const isUserMode = !isRoleMode && !isDeptMode;
+
+  const effectiveRole = isRoleMode ? targetId : isDeptMode ? 'USER' : userRole || 'USER';
 
   // 1. Busca regras de perfil da role correspondente
   const roleRules = await getRoleRulesFromDb(tenantId, effectiveRole);
 
-  // 2. Se for modo USER/COLABORADOR, busca regras individuais
-  const userRules = !isRoleMode ? await getUserRulesFromDb(tenantId, targetId) : new Map();
+  // 2. Busca regras de departamento (no modo DEPARTAMENTO ou quando o colaborador possui departamento)
+  const deptRules = isDeptMode
+    ? await getDepartmentRulesFromDb(tenantId, targetId)
+    : isUserMode && userDepartamento && userDepartamento.trim()
+      ? await getDepartmentRulesFromDb(tenantId, userDepartamento)
+      : new Map<string, OverrideValue>();
+
+  // 3. Se for modo USER/COLABORADOR, busca regras individuais
+  const userRules = isUserMode
+    ? await getUserRulesFromDb(tenantId, targetId)
+    : new Map<string, OverrideValue>();
 
   const itemsState: ItemEffectiveState[] = ALL_NAV_CATALOG_ITEMS.map((item) => {
     const roleRuleVal = roleRules.has(item.id) ? roleRules.get(item.id)! : null;
+    const deptOverrideVal = deptRules.has(item.id) ? deptRules.get(item.id)! : null;
     const userOverrideVal = userRules.has(item.id) ? userRules.get(item.id)! : null;
 
     // A. Verifica guarda estrutural no servidor
-    const structuralCheck = checkStructuralRestriction(item, effectiveRole);
+    // No modo DEPARTAMENTO, um departamento pode conter colaboradores ADMIN/SUBSTITUTO/RH/VISITANTE/USER;
+    // bloqueamos apenas itens exclusivos MASTER ou protegidos, mantendo a guarda estrutural por role em runtime.
+    const structuralCheck = isDeptMode
+      ? item.isMasterOnly
+        ? { isBlocked: true, reason: 'Recurso exclusivo do MASTER da plataforma.' }
+        : item.isProtected
+          ? { isBlocked: true, reason: 'Recurso essencial do sistema; acesso protegido.' }
+          : {
+              isBlocked: false,
+              reason:
+                item.structuralRoles && item.structuralRoles.length > 0
+                  ? `Exige também perfil compatível na conta: [${item.structuralRoles.join(', ')}].`
+                  : undefined,
+            }
+      : checkStructuralRestriction(item, effectiveRole);
 
     let effectiveAllowed = false;
     let effectiveStatus: ItemEffectiveState['effectiveStatus'] = 'ALLOWED_INHERITED';
 
     if (structuralCheck.isBlocked) {
       effectiveAllowed = false;
-      effectiveStatus = item.isMasterOnly || item.isProtected ? 'PROTECTED_SYSTEM' : 'BLOCKED_BY_SYSTEM';
-    } else if (!isRoleMode && userOverrideVal === 'ALLOW') {
+      effectiveStatus =
+        item.isMasterOnly || item.isProtected ? 'PROTECTED_SYSTEM' : 'BLOCKED_BY_SYSTEM';
+    } else if (isUserMode && userOverrideVal === 'ALLOW') {
       effectiveAllowed = true;
       effectiveStatus = 'ALLOWED_INDIVIDUAL';
-    } else if (!isRoleMode && userOverrideVal === 'DENY') {
+    } else if (isUserMode && userOverrideVal === 'DENY') {
       effectiveAllowed = false;
       effectiveStatus = 'DENIED_INDIVIDUAL';
+    } else if ((isDeptMode || isUserMode) && deptOverrideVal === 'ALLOW') {
+      effectiveAllowed = true;
+      effectiveStatus = 'ALLOWED_DEPARTMENT';
+    } else if ((isDeptMode || isUserMode) && deptOverrideVal === 'DENY') {
+      effectiveAllowed = false;
+      effectiveStatus = 'DENIED_DEPARTMENT';
     } else {
       // Herança da Role ou Legado
       if (roleRuleVal !== null) {
         effectiveAllowed = roleRuleVal;
         effectiveStatus = roleRuleVal ? 'ALLOWED_INHERITED' : 'DENIED_INHERITED';
       } else {
-        // Fallback Legado
         const legacyAllowed = isItemVisibleInLegacy(item, effectiveRole);
         effectiveAllowed = legacyAllowed;
         effectiveStatus = legacyAllowed ? 'ALLOWED_INHERITED' : 'DENIED_INHERITED';
@@ -134,6 +204,7 @@ export async function computeNavPermissionsState(params: {
     return {
       item,
       roleRule: roleRuleVal,
+      departmentOverride: deptOverrideVal,
       userOverride: userOverrideVal,
       effectiveStatus,
       effectiveAllowed,
@@ -174,9 +245,15 @@ export async function saveNavPermissionsBatch(params: {
   }
 
   const isRoleMode = targetType === 'ROLE' || targetType === 'PERFIL';
+  const isDeptMode = targetType === 'DEPARTMENT' || targetType === 'DEPARTAMENTO';
+  const isUserMode = !isRoleMode && !isDeptMode;
 
-  // Não permite editar conta MASTER
-  if (!isRoleMode) {
+  if (isDeptMode && !(targetId || '').trim()) {
+    throw new Error('Departamento alvo inválido.');
+  }
+
+  // Não permite editar conta MASTER no modo colaborador
+  if (isUserMode) {
     const targetUser = await prisma.user.findUnique({
       where: { id: targetId },
       select: { role: true, tenantId: true },
@@ -198,11 +275,15 @@ export async function saveNavPermissionsBatch(params: {
     // Impede alterar itens exclusivos do MASTER ou protegidos
     if (item.isMasterOnly || item.isProtected) continue;
 
-    // Se houver restrição estrutural intransponível, não permite ativação
-    const roleForCheck = isRoleMode ? targetId : (targetRoleForUser || 'USER');
-    const restriction = checkStructuralRestriction(item, roleForCheck);
-    if (restriction.isBlocked && c.action === 'ALLOW') {
-      throw new Error(`O item "${item.label}" está bloqueado pelo sistema para o perfil ${roleForCheck}.`);
+    // Se houver restrição estrutural intransponível no modo PERFIL ou COLABORADOR, não permite ativação
+    if (!isDeptMode) {
+      const roleForCheck = isRoleMode ? targetId : targetRoleForUser || 'USER';
+      const restriction = checkStructuralRestriction(item, roleForCheck);
+      if (restriction.isBlocked && c.action === 'ALLOW') {
+        throw new Error(
+          `O item "${item.label}" está bloqueado pelo sistema para o perfil ${roleForCheck}.`
+        );
+      }
     }
 
     normalizedChangesMap.set(c.itemId, c.action);
@@ -214,6 +295,7 @@ export async function saveNavPermissionsBatch(params: {
   }
 
   let updatedCount = 0;
+  const trimmedDepto = isDeptMode ? targetId.trim() : '';
 
   // Execução atômica em transação
   await prisma.$transaction(async (tx) => {
@@ -237,10 +319,44 @@ export async function saveNavPermissionsBatch(params: {
           masterUser.id
         );
         updatedCount++;
+      } else if (isDeptMode) {
+        if (action === 'HERDAR') {
+          await tx.$executeRawUnsafe(
+            `DELETE FROM public.fiorix_nav_department_rules
+             WHERE tenant_id = $1 AND LOWER(TRIM(departamento)) = LOWER(TRIM($2)) AND item_id = $3`,
+            tenantId,
+            trimmedDepto,
+            itemId
+          );
+        } else {
+          await tx.$executeRawUnsafe(
+            `DELETE FROM public.fiorix_nav_department_rules
+             WHERE tenant_id = $1 AND LOWER(TRIM(departamento)) = LOWER(TRIM($2)) AND departamento <> $2 AND item_id = $3`,
+            tenantId,
+            trimmedDepto,
+            itemId
+          );
+          await tx.$executeRawUnsafe(
+            `INSERT INTO public.fiorix_nav_department_rules
+               (id, tenant_id, departamento, item_id, override, created_at, updated_at, updated_by)
+             VALUES
+               (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5)
+             ON CONFLICT (tenant_id, departamento, item_id)
+             DO UPDATE SET
+               override = EXCLUDED.override,
+               updated_at = NOW(),
+               updated_by = EXCLUDED.updated_by`,
+            tenantId,
+            trimmedDepto,
+            itemId,
+            action,
+            masterUser.id
+          );
+        }
+        updatedCount++;
       } else {
         // Modo USER
         if (action === 'HERDAR') {
-          // Remover exceção individual (volta para herança)
           await tx.$executeRawUnsafe(
             `DELETE FROM public.fiorix_nav_user_rules 
              WHERE tenant_id = $1 AND user_id = $2 AND item_id = $3`,
@@ -249,7 +365,6 @@ export async function saveNavPermissionsBatch(params: {
             itemId
           );
         } else {
-          // ALLOW ou DENY explícito
           await tx.$executeRawUnsafe(
             `INSERT INTO public.fiorix_nav_user_rules 
                (id, tenant_id, user_id, item_id, override, created_at, updated_at, updated_by)
@@ -282,7 +397,10 @@ export async function saveNavPermissionsBatch(params: {
       tenantId,
       targetType,
       targetId,
-      alteracoes: Array.from(normalizedChangesMap.entries()).map(([itemId, action]) => ({ itemId, action })),
+      alteracoes: Array.from(normalizedChangesMap.entries()).map(([itemId, action]) => ({
+        itemId,
+        action,
+      })),
     },
     userOverride: masterUser as any,
   });
@@ -296,31 +414,34 @@ export async function saveNavPermissionsBatch(params: {
 
 /**
  * Obtém a navegação dinâmica efetiva para o usuário logado no tenant atual.
- * Se a feature flag estiver desativada, retorna exatamente o comportamento legado.
+ * Precedência: Guarda Estrutural > Colaborador > Departamento > Perfil > Legado.
  */
 export async function getEffectiveUserNavigation(user: {
   id: string;
   role: string;
   tenantId: string;
+  departamento?: string | null;
 }): Promise<Record<string, any>> {
   if (!isNavPermissionsFeatureEnabled()) {
     return filterNavigationByRole(user.role);
   }
 
-  // Se MASTER, mantém navegação completa de MASTER
   if (user.role === 'MASTER') {
     return filterNavigationByRole('MASTER');
   }
 
   const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
   const userRules = await getUserRulesFromDb(user.tenantId, user.id);
+  const deptRules =
+    user.departamento && user.departamento.trim()
+      ? await getDepartmentRulesFromDb(user.tenantId, user.departamento)
+      : new Map<string, OverrideValue>();
 
   const filteredGroups: Record<string, any> = {};
 
   for (const group of NAV_CATALOG_GROUPS) {
     if (group.isMasterOnly) continue;
 
-    // Avalia os itens do grupo
     const visibleItems = group.items.filter((item) => {
       // 1. Guarda estrutural
       const structural = checkStructuralRestriction(item, user.role);
@@ -331,12 +452,17 @@ export async function getEffectiveUserNavigation(user: {
         return userRules.get(item.id) === 'ALLOW';
       }
 
-      // 3. Regra de perfil
+      // 3. Regra de departamento
+      if (deptRules.has(item.id)) {
+        return deptRules.get(item.id) === 'ALLOW';
+      }
+
+      // 4. Regra de perfil
       if (roleRules.has(item.id)) {
         return roleRules.get(item.id) === true;
       }
 
-      // 4. Fallback legado
+      // 5. Fallback legado
       return isItemVisibleInLegacy(item, user.role);
     });
 
@@ -345,9 +471,11 @@ export async function getEffectiveUserNavigation(user: {
         (group.items.length === 0 &&
           (userRules.has(group.id)
             ? userRules.get(group.id) === 'ALLOW'
-            : roleRules.has(group.id)
-            ? roleRules.get(group.id) === true
-            : isItemVisibleInLegacy({ id: group.id, href: group.href } as any, user.role)))
+            : deptRules.has(group.id)
+              ? deptRules.get(group.id) === 'ALLOW'
+              : roleRules.has(group.id)
+                ? roleRules.get(group.id) === true
+                : isItemVisibleInLegacy({ id: group.id, href: group.href } as any, user.role)))
       : false;
 
     if (visibleItems.length > 0 || isGroupHrefVisible) {
@@ -369,11 +497,11 @@ export async function getEffectiveUserNavigation(user: {
 
 /**
  * Avalia se o usuário tem permissão para acessar a rota dada.
- * Se a flag estiver desligada, permite o acesso (preserva legado).
+ * Precedência: Guarda Estrutural > Colaborador > Departamento > Perfil > Legado.
  */
 export async function isRouteAllowedForUser(
   pathname: string,
-  user: { id: string; role: string; tenantId: string }
+  user: { id: string; role: string; tenantId: string; departamento?: string | null }
 ): Promise<boolean> {
   if (!isNavPermissionsFeatureEnabled()) return true;
   if (user.role === 'MASTER') return true;
@@ -400,30 +528,38 @@ export async function isRouteAllowedForUser(
     return userRules.get(matchingItem.id) === 'ALLOW';
   }
 
-  // 3. Regra de perfil
+  // 3. Regra de departamento
+  if (user.departamento && user.departamento.trim()) {
+    const deptRules = await getDepartmentRulesFromDb(user.tenantId, user.departamento);
+    if (deptRules.has(matchingItem.id)) {
+      return deptRules.get(matchingItem.id) === 'ALLOW';
+    }
+  }
+
+  // 4. Regra de perfil
   const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
   if (roleRules.has(matchingItem.id)) {
     return roleRules.get(matchingItem.id) === true;
   }
 
-  // 4. Fallback legado
+  // 5. Fallback legado
   return isItemVisibleInLegacy(matchingItem, user.role);
 }
 
 /**
  * Retorna os IDs dos itens permitidos para o usuário.
- * Se a flag estiver desligada, retorna enabled: false (usar legado).
+ * Precedência: Guarda Estrutural > Colaborador > Departamento > Perfil > Legado.
  */
 export async function getAllowedNavItemsForUser(user: {
   id: string;
   role: string;
   tenantId: string;
+  departamento?: string | null;
 }): Promise<{ enabled: boolean; allowedItemIds: string[] }> {
   if (!isNavPermissionsFeatureEnabled()) {
     return { enabled: false, allowedItemIds: [] };
   }
 
-  // Se for MASTER, tem acesso a tudo
   if (user.role === 'MASTER') {
     return {
       enabled: true,
@@ -433,6 +569,10 @@ export async function getAllowedNavItemsForUser(user: {
 
   const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
   const userRules = await getUserRulesFromDb(user.tenantId, user.id);
+  const deptRules =
+    user.departamento && user.departamento.trim()
+      ? await getDepartmentRulesFromDb(user.tenantId, user.departamento)
+      : new Map<string, OverrideValue>();
 
   const allowedItemIds: string[] = [];
 
@@ -451,7 +591,15 @@ export async function getAllowedNavItemsForUser(user: {
       continue;
     }
 
-    // 3. Regra de perfil
+    // 3. Regra de departamento
+    if (deptRules.has(item.id)) {
+      if (deptRules.get(item.id) === 'ALLOW') {
+        allowedItemIds.push(item.id);
+      }
+      continue;
+    }
+
+    // 4. Regra de perfil
     if (roleRules.has(item.id)) {
       if (roleRules.get(item.id) === true) {
         allowedItemIds.push(item.id);
@@ -459,7 +607,7 @@ export async function getAllowedNavItemsForUser(user: {
       continue;
     }
 
-    // 4. Fallback legado
+    // 5. Fallback legado
     if (isItemVisibleInLegacy(item, user.role)) {
       allowedItemIds.push(item.id);
     }

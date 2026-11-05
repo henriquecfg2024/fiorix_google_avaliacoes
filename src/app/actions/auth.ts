@@ -83,6 +83,7 @@ export async function checkCredentials(email: string, password: string): Promise
         passwordHash: true,
         role: true,
         tenantId: true,
+        departamento: true,
         totpRequired: true,
         totpEnabled: true,
         totpSecret: true,
@@ -113,6 +114,7 @@ export async function checkCredentials(email: string, password: string): Promise
           id: user.id,
           role: userRole,
           tenantId: user.tenantId,
+          departamento: user.departamento,
         });
         if (!allowed) {
           redirectTo = '/dashboard';

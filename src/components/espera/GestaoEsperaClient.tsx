@@ -38,6 +38,7 @@ import {
   Clock,
   ExternalLink,
   Info,
+  Printer,
   X,
 } from 'lucide-react';
 
@@ -1376,6 +1377,72 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     return filteredPreviewList.slice(previewStartIndex, previewEndIndex);
   }, [filteredPreviewList, previewStartIndex, previewEndIndex]);
 
+  const handlePrintPreviewList = useCallback(() => {
+    if (filteredPreviewList.length === 0) return;
+    const printWin = window.open('', '_blank', 'width=1120,height=820');
+    if (!printWin) return;
+    const esc = (v: unknown) =>
+      String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const emitidoEm = new Date().toLocaleString('pt-BR');
+    const rowsHtml = filteredPreviewList
+      .map(
+        (r, i) => `<tr>
+          <td class="num">${i + 1}</td>
+          <td class="strong">${esc(r.senha)}</td>
+          <td>${esc(cleanServiceName(r.servico))}</td>
+          <td class="mono">${esc(r.emissao || '—')}</td>
+          <td class="mono">${esc(r.chamada || '—')}</td>
+          <td class="right strong ${r.tempoEsperaMin !== null && r.tempoEsperaMin > slaMinutes ? 'alert' : 'ok'}">${
+            r.tempoEsperaMin !== null ? `${r.tempoEsperaMin} min` : '—'
+          }</td>
+          <td>${esc(r.guiche || '—')}</td>
+          <td>${esc(r.atendente && r.atendente !== '—' ? r.atendente.toUpperCase() : '—')}</td>
+          <td>${esc(r.situacao || '—')}</td>
+        </tr>`
+      )
+      .join('');
+    printWin.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"/><title>FIORIX — Últimas Senhas Processadas</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; font-size: 11px; }
+        .toolbar { display:flex; justify-content:space-between; align-items:center; background:#0f172a; color:#f8fafc; padding:10px 14px; border-radius:8px; margin-bottom:14px; }
+        .btn { background:#4f46e5; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:11px; font-weight:700; cursor:pointer; }
+        .header { display:flex; justify-content:space-between; border-bottom:2px solid #0f172a; padding-bottom:10px; margin-bottom:12px; }
+        h1 { margin:2px 0 4px; font-size:17px; }
+        table { width:100%; border-collapse:collapse; font-size:10.5px; }
+        th { background:#0f172a; color:#fff; padding:7px 8px; text-align:left; font-size:9.5px; text-transform:uppercase; }
+        td { padding:6px 8px; border-bottom:1px solid #e2e8f0; }
+        tr:nth-child(even) td { background:#f8fafc; }
+        .num { width:28px; color:#64748b; font-family:monospace; }
+        .mono, .strong { font-family:Consolas, monospace; }
+        .strong { font-weight:700; }
+        .right { text-align:right; }
+        .ok { color:#047857; }
+        .alert { color:#be123c; }
+        @media print { body { padding:0; } .no-print { display:none !important; } }
+      </style></head><body>
+      <div class="toolbar no-print">
+        <span><strong>Pré-visualização Oficial FIORIX</strong> — ${filteredPreviewList.length} senhas filtradas</span>
+        <button class="btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+      </div>
+      <div class="header">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#4f46e5;text-transform:uppercase">7º Oficial de Registro de Imóveis de São Paulo • Sistema FIORIX</div>
+          <h1>Últimas Senhas Processadas — Gestão de Espera</h1>
+          <div style="color:#475569">SLA configurado: ≤ ${slaMinutes} min • Total listado: ${filteredPreviewList.length} registros</div>
+        </div>
+        <div style="text-align:right;font-size:10px;color:#334155">Emitido em: ${esc(emitidoEm)}</div>
+      </div>
+      <table><thead><tr><th class="num">#</th><th>Senha</th><th>Serviço</th><th>Emissão</th><th>Chamada</th><th class="right">Espera</th><th>Guichê</th><th>Atendente</th><th>Situação</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    </body></html>`);
+    printWin.document.close();
+    setTimeout(() => { try { printWin.focus(); printWin.print(); } catch {} }, 300);
+  }, [filteredPreviewList, slaMinutes]);
+
   // Exportar dados para CSV
   const handleExportCSV = useCallback(() => {
     if (filteredRecords.length === 0) return;
@@ -1880,14 +1947,25 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveAba('atendimentos')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer self-start sm:self-auto shadow-2xs"
-                      >
-                        <span>Ver tabela completa ({allRecords.length})</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={handlePrintPreviewList}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs"
+                          title="Imprimir listagem filtrada de senhas"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                          <span>Imprimir Listagem</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveAba('atendimentos')}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <span>Ver tabela completa ({allRecords.length})</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Barra de Filtros, Busca e Ordenação */}
@@ -2908,37 +2986,106 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                     </div>
 
                     {/* Destaques da Equipe */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
-                          🥇 Atendente Destaque #1
-                        </span>
-                        <div className="text-base font-black text-white truncate uppercase">
-                          {agenteDestaque ? agenteDestaque.atendente : '—'}
+                    {(() => {
+                      const qtdAgentes = displayPerformanceAgentes.length;
+                      const tmaEquipeBruto =
+                        qtdAgentes > 0
+                          ? Math.round(
+                              displayPerformanceAgentes.reduce((a, b) => a + b.mediaAtendimentoMin, 0) / qtdAgentes
+                            )
+                          : 0;
+                      const agentesSemOutlier = displayPerformanceAgentes.filter(
+                        (a) => a.mediaAtendimentoMin > 0 && a.mediaAtendimentoMin <= 180
+                      );
+                      const temOutlierMesa = displayPerformanceAgentes.some((a) => a.mediaAtendimentoMin > 180);
+                      const tmaSemOutlier =
+                        agentesSemOutlier.length > 0
+                          ? Math.round(
+                              agentesSemOutlier.reduce((a, b) => a + b.mediaAtendimentoMin, 0) /
+                                agentesSemOutlier.length
+                            )
+                          : tmaEquipeBruto;
+                      const slaEquipe =
+                        qtdAgentes > 0
+                          ? Math.round(
+                              displayPerformanceAgentes.reduce((a, b) => a + b.dentroSlaPerc, 0) / qtdAgentes
+                            )
+                          : 0;
+
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
+                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                                🥇 Atendente Destaque #1
+                              </span>
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                Individual
+                              </span>
+                            </div>
+                            <div
+                              className="text-sm sm:text-base font-black text-white truncate uppercase"
+                              title={agenteDestaque ? agenteDestaque.atendente : ''}
+                            >
+                              {agenteDestaque ? agenteDestaque.atendente : '—'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 leading-snug">
+                              {agenteDestaque
+                                ? `${agenteDestaque.totalAtendimentos} atend. · TMA individual: ${agenteDestaque.mediaAtendimentoMin} min · SLA: ${agenteDestaque.dentroSlaPerc}%`
+                                : 'Sem registros'}
+                            </div>
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-indigo-400">
+                                TMA Médio da Equipe (Mesa)
+                              </span>
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                Geral ({qtdAgentes})
+                              </span>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xl font-black text-indigo-300 font-mono">
+                                {qtdAgentes > 0 ? `${tmaEquipeBruto} min` : '—'}
+                              </span>
+                              {temOutlierMesa && qtdAgentes > 0 && (
+                                <span
+                                  className="text-[10px] font-mono text-amber-300/90"
+                                  title="Existe atendimento mantido aberto por mais de 3h no guichê elevando a média bruta"
+                                >
+                                  (s/ senha aberta: {tmaSemOutlier} min)
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400 leading-snug">
+                              {qtdAgentes > 0
+                                ? `Média geral de todos os ${qtdAgentes} atendentes (não individual)`
+                                : 'Sem atendimentos no período'}
+                            </div>
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-[10px] uppercase font-bold text-emerald-400">
+                                SLA Médio da Equipe
+                              </span>
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                Geral ({qtdAgentes})
+                              </span>
+                            </div>
+                            <div className="text-xl font-black text-emerald-400 font-mono">
+                              {qtdAgentes > 0 ? `${slaEquipe}%` : '—'}
+                            </div>
+                            <div className="text-[10px] text-slate-400 leading-snug">
+                              {qtdAgentes > 0
+                                ? `Conformidade geral de todos os ${qtdAgentes} atendentes`
+                                : 'conformidade de espera'}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-slate-500">
-                          {agenteDestaque ? `${agenteDestaque.totalAtendimentos} atendimentos realizados` : 'Sem registros'}
-                        </div>
-                      </div>
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-indigo-400">TMA Médio de Mesa</span>
-                        <div className="text-xl font-black text-indigo-300 font-mono">
-                          {displayPerformanceAgentes.length > 0
-                            ? `${Math.round(displayPerformanceAgentes.reduce((a, b) => a + b.mediaAtendimentoMin, 0) / displayPerformanceAgentes.length)} min`
-                            : '—'}
-                        </div>
-                        <div className="text-[10px] text-slate-500">tempo por atendimento</div>
-                      </div>
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-emerald-400">SLA Médio da Equipe</span>
-                        <div className="text-xl font-black text-emerald-400 font-mono">
-                          {displayPerformanceAgentes.length > 0
-                            ? `${Math.round(displayPerformanceAgentes.reduce((a, b) => a + b.dentroSlaPerc, 0) / displayPerformanceAgentes.length)}%`
-                            : '—'}
-                        </div>
-                        <div className="text-[10px] text-slate-500">conformidade de espera</div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

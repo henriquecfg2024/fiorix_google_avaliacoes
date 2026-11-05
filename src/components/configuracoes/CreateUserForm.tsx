@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useTransition } from 'react';
+import React, { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { UserPlus, Loader2, AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -23,6 +23,14 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(
     null
   );
+
+  const departamentosOrdenados = useMemo(() => {
+    const base =
+      departamentosDb.length > 0
+        ? departamentosDb
+        : ['Administração', 'Atendimento', 'Financeiro', 'Registro', 'RH', 'TI', 'VISITANTE'];
+    return [...base].sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+  }, [departamentosDb]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,23 +176,11 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
             defaultValue="Atendimento"
             className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-800 dark:border-white/12 dark:bg-[#0A0F1E] dark:text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
           >
-            {departamentosDb.length > 0 ? (
-              departamentosDb.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))
-            ) : (
-              <>
-                <option value="Atendimento">Atendimento</option>
-                <option value="Registro">Registro</option>
-                <option value="Financeiro">Financeiro</option>
-                <option value="RH">RH</option>
-                <option value="Administração">Administração</option>
-                <option value="TI">TI</option>
-                <option value="VISITANTE">VISITANTE</option>
-              </>
-            )}
+            {departamentosOrdenados.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
           </select>
         </div>
 

@@ -3,112 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { Prisma } from "@prisma/client";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import {
+  CAUSAS_CONFIG,
+  CATEGORIAS_OFICIAIS_SET,
+  classificarCausa,
+  isObservacaoGenerica,
+} from "@/lib/qualidade/classificarCausa";
 
 export const dynamic = "force-dynamic";
 
 const COMPETENCIA_REGEX = /^\d{4}-\d{2}$/;
-
-// Configuração das Causas dos Erros Internos
-const CAUSAS_CONFIG = [
-  {
-    id: "qualificacao",
-    nome: "Qualificação das Partes",
-    descricao: "Divergência em CPF, RG, estado civil, participantes ou adquirentes",
-    keywords: [
-      "qualificação",
-      "qualificacao",
-      "cpf",
-      "rg",
-      "estado civil",
-      "nome",
-      "sobrenome",
-      "nacionalidade",
-      "profissão",
-      "herdeiro",
-      "outorgante",
-      "adquirente",
-      "participante",
-      "transmitente",
-      "vide",
-    ],
-    cor: "#10B981",
-  },
-  {
-    id: "certidoes",
-    nome: "Certidões & Documentação",
-    descricao: "Certidões atualizadas, óbito, casamento ou documentos faltantes",
-    keywords: [
-      "certidão",
-      "certidao",
-      "casamento",
-      "óbito",
-      "obito",
-      "falta",
-      "anexo",
-      "documento",
-      "ausência",
-      "ausencia",
-      "cópia",
-      "copia",
-    ],
-    cor: "#3B82F6",
-  },
-  {
-    id: "tributos",
-    nome: "Tributos & ITBI",
-    descricao: "Guia de ITBI, recolhimento divergente ou contribuinte",
-    keywords: [
-      "itbi",
-      "tribut",
-      "guia",
-      "imposto",
-      "recolhimento",
-      "cnd",
-      "dam",
-      "fiscal",
-      "darf",
-      "contribuinte",
-    ],
-    cor: "#F59E0B",
-  },
-  {
-    id: "divergencia",
-    nome: "Divergência Registral",
-    descricao: "Divergência de confrontações, matrícula, transcrições ou planta",
-    keywords: [
-      "divergência",
-      "divergencia",
-      "matrícula",
-      "matricula",
-      "transcriç",
-      "transcric",
-      "confrontaç",
-      "planta",
-      "área",
-      "area",
-      "perimétrica",
-      "livro 2",
-    ],
-    cor: "#8B5CF6",
-  },
-  {
-    id: "firma",
-    nome: "Firma & Representação",
-    descricao: "Falta de reconhecimento de firma, procuração ou poderes",
-    keywords: ["firma", "reconhecimento", "assinatura", "procuraç", "poderes", "mandato"],
-    cor: "#EC4899",
-  },
-];
-
-function classificarCausa(obs: string): string {
-  const lower = (obs || "").toLowerCase();
-  for (const c of CAUSAS_CONFIG) {
-    if (c.keywords.some((kw) => lower.includes(kw))) {
-      return c.nome;
-    }
-  }
-  return "Outras Causas";
-}
 
 const MESES_LABELS: Record<string, string> = {
   "01": "Jan",
@@ -345,13 +249,17 @@ export async function GET(request: Request) {
       if (!limitesMap.has(key)) limitesMap.set(key, Number(l.limitePercentual));
     });
 
-    // 3. Carregar revisões manuais de causas gravadas
+    // 3. Carregar revisões manuais de causas gravadas (honrando categorias da taxonomia oficial vigente)
     const revisoesDb = await prisma.fiorixQualidadeRevisaoCausa.findMany({
       where: { tenantId: user.tenantId },
     });
     const revisoesMap = new Map<string, string>();
     revisoesDb.forEach((r) => {
-      revisoesMap.set(r.idAndamento.toString(), r.categoriaRevisada);
+      const catRev = (r.categoriaRevisada || "").trim();
+      const temJustificativa = Boolean(r.justificativa && r.justificativa.trim());
+      if (CATEGORIAS_OFICIAIS_SET.has(catRev) || (catRev === "Outras Causas" && temJustificativa)) {
+        revisoesMap.set(r.idAndamento.toString(), catRev);
+      }
     });
 
     // 4. Executar agregação real de eventos no banco
@@ -372,7 +280,8 @@ export async function GET(request: Request) {
     // Mapeamento dos eventos reais
     const eventosCompletos = dbRows.map((row) => {
       const idAndStr = row.idAndamento.toString();
-      const categoriaFinal = revisoesMap.get(idAndStr) || classificarCausa(row.observacao || "");
+      const categoriaFinal =
+        revisoesMap.get(idAndStr) || classificarCausa(row.observacao || "", row.idTipoRetorno);
 
       let slaDias = 1.5;
       if (row.dataRecepcao && row.dataRetorno) {
@@ -677,10 +586,6 @@ export async function GET(request: Request) {
       colaboradoresFiltrados = colaboradoresFiltrados.filter((c) => c.origem === "Recepção");
     }
 
-    if (causa) {
-      eventosFiltrados = eventosFiltrados.filter((e) => e.categoria.toLowerCase().includes(causa.toLowerCase()));
-    }
-
     if (colaborador) {
       eventosFiltrados = eventosFiltrados.filter((e) => e.usuarioDestino.toLowerCase().includes(colaborador.toLowerCase()));
       colaboradoresFiltrados = colaboradoresFiltrados.filter((c) => c.nome.toLowerCase().includes(colaborador.toLowerCase()));
@@ -697,6 +602,13 @@ export async function GET(request: Request) {
       colaboradoresFiltrados = colaboradoresFiltrados.filter(
         (c) => c.nome.toLowerCase().includes(s) || c.departamento.toLowerCase().includes(s)
       );
+    }
+
+    // Snapshot antes do filtro de causa para manter todos os cards de Top Causas visíveis e comparáveis
+    const eventosBaseTopCausas = [...eventosFiltrados];
+
+    if (causa) {
+      eventosFiltrados = eventosFiltrados.filter((e) => e.categoria.toLowerCase().includes(causa.toLowerCase()));
     }
 
     // 7. Ajuste quando filtrado por origem (ONR vs Recepção física)
@@ -760,31 +672,34 @@ export async function GET(request: Request) {
       colaboradoresDentroLimite: `${colabsDentroLimiteCount} / ${colaboradoresFiltrados.length}`,
     };
 
-    // 8. Top Causas calculadas a partir dos eventos reais
+    // 8. Top Causas calculadas a partir dos eventos reais (lendo integralmente as observações)
+    const totalBaseCausas = eventosBaseTopCausas.length;
     const causasMap = new Map<string, number>();
-    for (const ev of eventosFiltrados) {
+    for (const ev of eventosBaseTopCausas) {
       causasMap.set(ev.categoria, (causasMap.get(ev.categoria) || 0) + 1);
     }
 
     const topCausas = Array.from(causasMap.entries())
       .map(([catNome, qtd]) => {
         const cfg = CAUSAS_CONFIG.find((x) => x.nome === catNome);
-        const exemplos = eventosFiltrados
-          .filter((e) => e.categoria === catNome && e.observacao.length > 5)
+        const exemplosUnicos = eventosBaseTopCausas
+          .filter((e) => e.categoria === catNome && e.observacao.length > 3 && !isObservacaoGenerica(e.observacao))
+          .map((e) => e.observacao.replace(/\s+/g, " ").trim().toUpperCase())
+          .filter((obs, idx, arr) => arr.indexOf(obs) === idx)
           .slice(0, 2)
-          .map((e) => `"${e.observacao.substring(0, 45).toUpperCase()}"`)
-          .join(", ");
+          .map((obs) => `"${obs.length > 52 ? obs.substring(0, 52).trim() + "..." : obs}"`)
+          .join(" • ");
 
         return {
           id: cfg ? cfg.id : "outras",
           nome: catNome,
           quantidade: qtd,
-          percentual: qtdErros > 0 ? Number(((qtd / qtdErros) * 100).toFixed(1)) : 0,
+          percentual: totalBaseCausas > 0 ? Number(((qtd / totalBaseCausas) * 100).toFixed(1)) : 0,
           cor: cfg ? cfg.cor : "#94A3B8",
-          exemplos: (exemplos || '"OBSERVAÇÕES REGISTRADAS NO CONTRADITÓRIO"').toUpperCase(),
+          exemplos: (exemplosUnicos || (cfg ? `"${cfg.descricao.toUpperCase()}"` : '"OBSERVAÇÕES REGISTRADAS NO CONTRADITÓRIO"')).toUpperCase(),
         };
       })
-      .sort((a, b) => b.quantidade - a.quantidade);
+      .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome, "pt-BR"));
 
     // 9. Evolução Mensal Real (Últimos 6 meses)
     let evolucaoMensal: Array<{
