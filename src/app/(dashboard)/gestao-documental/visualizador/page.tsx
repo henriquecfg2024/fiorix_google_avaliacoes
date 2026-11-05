@@ -18,8 +18,10 @@ export default async function VisualizadorPage({
 }: {
   searchParams: { id?: string };
 }) {
+  const janelaId = searchParams?.id?.trim();
+
   try {
-    await requireDocumentAccess();
+    await requireDocumentAccess(janelaId ? undefined : '/gestao-documental/visualizador');
   } catch (error) {
     if (!(error instanceof DocumentAccessError)) throw error;
     return (
@@ -30,7 +32,6 @@ export default async function VisualizadorPage({
     );
   }
 
-  const janelaId = searchParams?.id?.trim();
   if (janelaId) {
     return <VisualizadorJanela id={janelaId} />;
   }

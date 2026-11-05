@@ -516,6 +516,7 @@ export async function isRouteAllowedForUser(
   const matchingItem = ALL_NAV_CATALOG_ITEMS.find((item) => {
     if (item.href === pathname) return true;
     if (item.href.includes('?') && item.href.split('?')[0] === pathname) return true;
+    if (pathname === '/gestao-documental/historico' && item.id === 'gestao_documental') return true;
     return false;
   });
 

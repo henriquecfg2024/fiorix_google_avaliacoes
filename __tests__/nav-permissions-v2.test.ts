@@ -246,6 +246,120 @@ describe('FIORIX — Exclusividade MASTER e Validações no Servidor', () => {
   });
 });
 
+describe('FIORIX — Gestão Documental liberada para todos os grupos via Permissões de Menu', () => {
+  it('não bloqueia Manifestações nem Visualizador por guarda estrutural em nenhum perfil do sistema', () => {
+    const manifestacoes = ITEM_BY_ID.get('gestao_documental')!;
+    const visualizador = ITEM_BY_ID.get('visualizador_documental')!;
+
+    for (const role of ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE', 'RH', 'USER', 'COLABORADOR']) {
+      expect(checkStructuralRestriction(manifestacoes, role).isBlocked).toBe(false);
+      expect(checkStructuralRestriction(visualizador, role).isBlocked).toBe(false);
+    }
+  });
+
+  it('permite ativar Gestão Documental para USER (ex.: Cristiane Falanga / Ligação Judicial), COLABORADOR e RH e exibe na Sidebar', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const {
+      getAllowedNavItemsForUser,
+      getFirstAllowedRouteForUser,
+      isRouteAllowedForUser,
+      saveNavPermissionsBatch,
+    } = await import('@/lib/nav-permissions/service');
+    const { filterNavigationByRole } = await import('@/lib/navigation/permissions');
+
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    // MASTER consegue salvar ALLOW para USER sem erro de bloqueio pelo sistema
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: 'user-falanga',
+      role: 'USER',
+      tenantId: 'tenant-123',
+    } as any);
+
+    const saveRes = await saveNavPermissionsBatch({
+      tenantId: 'tenant-123',
+      targetType: 'COLABORADOR',
+      targetId: 'user-falanga',
+      targetRoleForUser: 'USER',
+      changes: [
+        { itemId: 'gestao_documental', action: 'ALLOW' },
+        { itemId: 'visualizador_documental', action: 'ALLOW' },
+      ],
+      masterUser: { id: 'super-master', role: 'MASTER' },
+    });
+    expect(saveRes.success).toBe(true);
+    expect(saveRes.updatedCount).toBe(2);
+
+    // Usuário USER com todos os outros menus desativados e apenas Gestão Documental ativada
+    const falangaRules = [
+      { item_id: 'inicio', override: 'DENY' },
+      { item_id: 'gestao_documental', override: 'ALLOW' },
+      { item_id: 'visualizador_documental', override: 'ALLOW' },
+      { item_id: 'avaliacoes', override: 'DENY' },
+      { item_id: 'estatisticas', override: 'DENY' },
+      { item_id: 'relatorios', override: 'DENY' },
+      { item_id: 'recepcao', override: 'DENY' },
+      { item_id: 'prazos', override: 'DENY' },
+      { item_id: 'tarefas', override: 'DENY' },
+      { item_id: 'metas', override: 'DENY' },
+      { item_id: 'retornos', override: 'DENY' },
+      { item_id: 'qualidade', override: 'DENY' },
+      { item_id: 'impressoes', override: 'DENY' },
+      { item_id: 'rastreio', override: 'DENY' },
+      { item_id: 'mensagens', override: 'DENY' },
+      { item_id: 'comunicados', override: 'DENY' },
+      { item_id: 'minha_it', override: 'DENY' },
+      { item_id: 'ferias', override: 'DENY' },
+      { item_id: 'holerites', override: 'DENY' },
+    ];
+
+    const falanga = {
+      id: 'user-falanga',
+      role: 'USER',
+      tenantId: 'tenant-123',
+      departamento: 'LIGAÇÃO JUDICIAL',
+    };
+
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules
+      .mockResolvedValueOnce(falangaRules as any) // userRules
+      .mockResolvedValueOnce([] as any); // deptRules
+
+    const nav = await getAllowedNavItemsForUser(falanga);
+    expect(nav.allowedItemIds).toEqual(['gestao_documental', 'visualizador_documental']);
+
+    // Sidebar exibe o grupo GESTÃO DOCUMENTAL mesmo para role USER ou COLABORADOR
+    const sidebarGroups = filterNavigationByRole('USER', nav.allowedItemIds);
+    expect(Object.keys(sidebarGroups)).toEqual(['documental']);
+    expect(sidebarGroups.documental.items.map((i: any) => i.href)).toEqual([
+      '/gestao-documental',
+      '/gestao-documental/visualizador',
+    ]);
+
+    const colabSidebar = filterNavigationByRole('COLABORADOR', ['gestao_documental']);
+    expect(Object.keys(colabSidebar)).toEqual(['documental']);
+
+    // Acesso direto às rotas /gestao-documental, /gestao-documental/historico e /gestao-documental/visualizador liberado
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce(falangaRules as any);
+    expect(await isRouteAllowedForUser('/gestao-documental', falanga)).toBe(true);
+
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce(falangaRules as any);
+    expect(await isRouteAllowedForUser('/gestao-documental/historico', falanga)).toBe(true);
+
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce(falangaRules as any);
+    expect(await isRouteAllowedForUser('/gestao-documental/visualizador', falanga)).toBe(true);
+
+    // Rota inicial resolve direto para /gestao-documental
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any)
+      .mockResolvedValueOnce(falangaRules as any)
+      .mockResolvedValueOnce([] as any);
+    expect(await getFirstAllowedRouteForUser(falanga)).toBe('/gestao-documental');
+
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
+});
+
 describe('FIORIX — Integridade das Migrations Preparadas V2', () => {
   it('verifica que o arquivo de migration v2 existe e contém definições de role e user rules', () => {
     const migPath = path.resolve(

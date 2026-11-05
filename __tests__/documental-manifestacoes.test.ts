@@ -1,10 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth-helpers', () => ({ requireAuth: vi.fn() }));
-vi.mock('@/lib/nav-permissions/service', () => ({ isRouteAllowedForUser: vi.fn(async () => true) }));
+const authMocks = vi.hoisted(() => ({
+  requireAuth: vi.fn(),
+  isNavPermissionsFeatureEnabled: vi.fn(() => true),
+  isRouteAllowedForUser: vi.fn(async () => true),
+}));
+
+vi.mock('@/lib/auth-helpers', () => ({ requireAuth: authMocks.requireAuth }));
+vi.mock('@/lib/nav-permissions/service', () => ({
+  isNavPermissionsFeatureEnabled: authMocks.isNavPermissionsFeatureEnabled,
+  isRouteAllowedForUser: authMocks.isRouteAllowedForUser,
+}));
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 
-import { isSetorUsucapiao } from '../src/lib/documental/access';
+import { isSetorUsucapiao, requireDocumentAccess, requireManifestacaoAccess } from '../src/lib/documental/access';
 import { finalizarManifestacaoInput, importarFilaLocalInput, listarManifestacoesQuery, salvarFichaInput } from '../src/lib/documental/contracts';
 import { calcularHashManifestacao } from '../src/lib/documental/manifestacoes';
 import { fichaIdValido, origemParaApi } from '../src/lib/documental/manifestacoesClient';
@@ -12,10 +21,32 @@ import { fichaIdValido, origemParaApi } from '../src/lib/documental/manifestacoe
 const dados = { id_ficha: 'FICHA-1730000000000', numero_processo: '1012345-67.2024.8.26.0100' };
 const textoValido = 'PROCESSO DIGITAL nº 1012345-67.2024.8.26.0100 — texto da manifestação finalizada.';
 
-describe('manifestações: acesso do setor de Usucapião', () => {
-  it('reconhece o departamento com ou sem acento', () => {
+describe('manifestações: acesso controlado por Permissões de Menu para todos os grupos', () => {
+  it('reconhece o departamento com ou sem acento no fallback legado', () => {
     for (const d of ['Usucapião', 'USUCAPIAO', 'Setor de Usucapião', 'usucapiao ']) expect(isSetorUsucapiao(d)).toBe(true);
     for (const d of ['Registro', 'Atendimento', '', null, undefined]) expect(isSetorUsucapiao(d)).toBe(false);
+  });
+
+  it('libera acesso para USER (ex.: Ligação Judicial), COLABORADOR e RH quando permitido em Permissões de Menu e bloqueia quando negado', async () => {
+    vi.stubEnv('DOCUMENTAL_ENABLED', 'true');
+    authMocks.isNavPermissionsFeatureEnabled.mockReturnValue(true);
+
+    for (const role of ['USER', 'COLABORADOR', 'RH']) {
+      authMocks.requireAuth.mockResolvedValue({
+        id: 'u-1',
+        tenantId: 't-1',
+        role,
+        departamento: 'LIGAÇÃO JUDICIAL',
+      });
+      authMocks.isRouteAllowedForUser.mockResolvedValue(true);
+
+      await expect(requireDocumentAccess('/gestao-documental')).resolves.toMatchObject({ role });
+      await expect(requireManifestacaoAccess()).resolves.toMatchObject({ role });
+
+      authMocks.isRouteAllowedForUser.mockResolvedValue(false);
+      await expect(requireDocumentAccess('/gestao-documental')).rejects.toMatchObject({ status: 403 });
+      await expect(requireManifestacaoAccess()).rejects.toMatchObject({ status: 403 });
+    }
   });
 });
 

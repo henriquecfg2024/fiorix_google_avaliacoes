@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function DocumentalPage() {
   try {
-    await requireDocumentAccess();
+    await requireDocumentAccess('/gestao-documental');
   } catch (error) {
     if (!(error instanceof DocumentAccessError)) throw error;
     return (

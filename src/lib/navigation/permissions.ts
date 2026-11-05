@@ -16,7 +16,6 @@ export function filterNavigationByRole(
 
     for (const [key, group] of Object.entries(navigationGroups)) {
       if (key === "master" && !isMaster) continue;
-      if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
 
       const visibleItems = group.items.filter((item: any) => {
         if (!item.id) return false;

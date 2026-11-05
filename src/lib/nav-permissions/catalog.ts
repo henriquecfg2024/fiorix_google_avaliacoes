@@ -19,10 +19,28 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
       },
     ],
   },
-  { id: 'documental', label: 'GESTÃO DOCUMENTAL', items: [
-    { id: 'gestao_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Manifestações', href: '/gestao-documental', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Pesquisa de arquivos locais pelo Connector' },
-    { id: 'visualizador_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Visualizador', href: '/gestao-documental/visualizador', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Visualizador universal de documentos e matrículas digitalizadas' },
-  ] },
+  {
+    id: 'documental',
+    label: 'GESTÃO DOCUMENTAL',
+    items: [
+      {
+        id: 'gestao_documental',
+        label: 'Manifestações',
+        href: '/gestao-documental',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Pesquisa de arquivos locais pelo Connector',
+      },
+      {
+        id: 'visualizador_documental',
+        label: 'Visualizador',
+        href: '/gestao-documental/visualizador',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Visualizador universal de documentos e matrículas digitalizadas',
+      },
+    ],
+  },
   {
     id: 'gestao',
     label: 'PRESENÇA NO GOOGLE',
