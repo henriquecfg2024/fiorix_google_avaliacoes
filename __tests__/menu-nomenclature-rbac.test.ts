@@ -137,7 +137,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/trajetoria-titulo');
   });
 
-  it('valida o menu para o perfil SUBSTITUTO com acesso à Gestão de Comunicados', () => {
+  it('valida o menu para o perfil SUBSTITUTO com acesso ao item RH (antigo Gestão de Comunicados)', () => {
     const groups = filterNavigationByRole('SUBSTITUTO');
     const groupKeys = Object.keys(groups);
 
@@ -150,6 +150,8 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
       'pessoas',
     ]);
     expect(groups.trabalho.items.map((i) => i.href)).toContain('/sistema/pessoas?tab=comunicados');
+    const rhMenuItem = groups.trabalho.items.find((i) => i.id === 'gestao_comunicados');
+    expect(rhMenuItem?.label).toBe('RH');
   });
 
   it('valida o menu para o perfil ADMIN', () => {

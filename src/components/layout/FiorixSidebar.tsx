@@ -301,12 +301,16 @@ export function FiorixSidebar() {
                       {group.label}
                     </div>
                     {group.items.map((item: any) => {
-                      const active = isActive(item.href);
+                      const resolvedHref =
+                        role === "RH" && item.id === "gestao_comunicados"
+                          ? "/sistema/pessoas"
+                          : item.href;
+                      const active = isActive(resolvedHref);
                       const ItemIcon = item.icon;
                       return (
                         <Link
                           key={item.href}
-                          href={item.href}
+                          href={resolvedHref}
         
                           className="block"
                           onClick={() => {
@@ -388,16 +392,20 @@ export function FiorixSidebar() {
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-1 space-y-1">
                     {group.items.map((item: any) => {
-                      const active = isActive(item.href);
+                      const resolvedHref =
+                        role === "RH" && item.id === "gestao_comunicados"
+                          ? "/sistema/pessoas"
+                          : item.href;
+                      const active = isActive(resolvedHref);
                       const ItemIcon = item.icon;
                       return (
                         <Link
                           key={item.href}
-                          href={item.href}
+                          href={resolvedHref}
         
                           className="block"
                           onClick={() => {
-                            handleNavClick(item.href);
+                            handleNavClick(resolvedHref);
                             if (item.href === '/minha-it' && typeof window !== 'undefined') {
                               window.dispatchEvent(new CustomEvent('fiorix-minha-it-open'));
                             }
@@ -405,7 +413,7 @@ export function FiorixSidebar() {
                         >
                           <div
                             className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                              navigatingTo === item.href
+                              navigatingTo === resolvedHref
                                 ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30"
                                 : active
                                 ? "bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 shadow-sm"
@@ -414,7 +422,7 @@ export function FiorixSidebar() {
                                 : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white border border-transparent"
                             }`}
                           >
-                            {navigatingTo === item.href ? (
+                            {navigatingTo === resolvedHref ? (
                               <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400 shrink-0" />
                             ) : (
                               <ItemIcon className="w-4 h-4 opacity-80 shrink-0" />

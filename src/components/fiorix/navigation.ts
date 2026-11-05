@@ -153,10 +153,10 @@ export const navigationGroups = {
       },
       {
         id: "gestao_comunicados",
-        label: "Gestão de Comunicados",
+        label: "RH",
         href: "/sistema/pessoas?tab=comunicados",
         icon: FileCheck2,
-        description: "Criar comunicados e gerenciar ciências",
+        description: "Painel de RH, comunicados e ciências",
       },
       {
         id: "minha_it",

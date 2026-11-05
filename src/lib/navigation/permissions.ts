@@ -65,7 +65,7 @@ export function filterNavigationByRole(
     const visibleItems = group.items.filter((item) => {
       // Gestão de Comunicados em 'trabalho' oculto para RH (acesso feito pelo Painel RH / Gestão de Pessoas);
       // visível apenas para liderança (SUBSTITUTO, ADMIN, MASTER, GESTOR)
-      if (key === "trabalho" && (item.href === "/sistema/pessoas?tab=comunicados" || item.label === "Gestão de Comunicados")) {
+      if (key === "trabalho" && (item.href === "/sistema/pessoas?tab=comunicados" || item.label === "RH" || item.label === "Gestão de Comunicados")) {
         if (isRH) return false;
         return isSubstituto || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
       }
