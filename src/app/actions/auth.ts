@@ -4,7 +4,8 @@ import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { generateTotpSecret, generateTotpUri, generateQRCodeDataUrl, verifyTotpToken, roleRequires2FA } from '@/lib/totp';
+import { generateTotpSecret, generateTotpUri, generateQRCodeDataUrl, verifyTotpToken, userRequires2FA } from '@/lib/totp';
+import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 import { getHomeRouteForRole } from '@/lib/permissions';
 
 export async function authenticate(
@@ -76,7 +77,16 @@ export async function checkCredentials(email: string, password: string): Promise
   try {
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true, email: true, passwordHash: true, role: true, totpEnabled: true, totpSecret: true },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        tenantId: true,
+        totpRequired: true,
+        totpEnabled: true,
+        totpSecret: true,
+      },
     });
 
     // Mitigação de timing attack: sempre executa bcrypt.compare mesmo se usuário não existir
@@ -96,15 +106,29 @@ export async function checkCredentials(email: string, password: string): Promise
     await clearLoginAttempts(normalizedEmail);
 
     const userRole = user.role || 'USER';
-    const redirectTo = getHomeRouteForRole(userRole);
+    let redirectTo = getHomeRouteForRole(userRole);
+    if (redirectTo !== '/dashboard' && user.tenantId) {
+      try {
+        const allowed = await isRouteAllowedForUser(redirectTo, {
+          id: user.id,
+          role: userRole,
+          tenantId: user.tenantId,
+        });
+        if (!allowed) {
+          redirectTo = '/dashboard';
+        }
+      } catch {
+        redirectTo = '/dashboard';
+      }
+    }
 
-    const mustUse2FA = roleRequires2FA(user.role);
+    const mustUse2FA = userRequires2FA(user);
     if (mustUse2FA) {
       if (user.totpEnabled && user.totpSecret) {
         return { valid: true, requires2FA: true, isSetup2FA: false, role: userRole, redirectTo };
       }
 
-      // Primeiro acesso do ADMIN ou MASTER: gera segredo e QR code para ativação imediata
+      // Primeiro acesso com 2FA exigido: gera segredo e QR code para ativação imediata
       const secret = user.totpSecret || generateTotpSecret();
       const otpauthUrl = generateTotpUri(user.email, secret);
       const qrCodeDataUrl = await generateQRCodeDataUrl(otpauthUrl);
@@ -195,7 +219,6 @@ export async function setup2FA(): Promise<{
   });
 
   if (!user) return { secret: '', qrCodeDataUrl: '', error: 'Usuário não encontrado' };
-  if (!roleRequires2FA(user.role)) return { secret: '', qrCodeDataUrl: '', error: 'Seu perfil não requer 2FA' };
   if (user.totpEnabled) return { secret: '', qrCodeDataUrl: '', error: '2FA já está ativado' };
 
   const secret = generateTotpSecret();
@@ -231,7 +254,7 @@ export async function confirm2FA(code: string): Promise<{ success: boolean; erro
 
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { totpEnabled: true, totpVerifiedAt: new Date() },
+    data: { totpRequired: true, totpEnabled: true, totpVerifiedAt: new Date() },
   });
 
   return { success: true };
@@ -249,13 +272,19 @@ export async function disable2FA(password: string): Promise<{ success: boolean; 
   });
 
   if (!user) return { success: false, error: 'Usuário não encontrado' };
+  if (user.role === 'MASTER' || user.totpRequired) {
+    return {
+      success: false,
+      error: 'O duplo fator (2FA) está definido como obrigatório pela administração do cartório.',
+    };
+  }
 
   const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) return { success: false, error: 'Senha incorreta' };
 
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { totpSecret: null, totpEnabled: false, totpVerifiedAt: null },
+    data: { totpRequired: false, totpSecret: null, totpEnabled: false, totpVerifiedAt: null },
   });
 
   return { success: true };
@@ -270,14 +299,14 @@ export async function get2FAStatus(): Promise<{ enabled: boolean; required: bool
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true, totpEnabled: true, totpVerifiedAt: true },
+    select: { role: true, totpRequired: true, totpEnabled: true, totpVerifiedAt: true },
   });
 
   if (!user) return { enabled: false, required: false };
 
   return {
     enabled: user.totpEnabled,
-    required: roleRequires2FA(user.role),
+    required: userRequires2FA(user),
     verifiedAt: user.totpVerifiedAt,
   };
 }
@@ -287,6 +316,27 @@ export async function get2FAStatus(): Promise<{ enabled: boolean; required: bool
 export async function getCurrentUser() {
   const session = await auth();
   if (!session?.user) return null;
+
+  if (session.user.id) {
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true, role: true, tenantId: true },
+      });
+      if (dbUser) {
+        return {
+          id: session.user.id,
+          name: dbUser.name || session.user.name || '',
+          email: dbUser.email || session.user.email || '',
+          role: dbUser.role || session.user.role || 'USER',
+          tenantId: dbUser.tenantId || (session.user as any).tenantId || '',
+        };
+      }
+    } catch {
+      // Fallback para sessão JWT se houver indisponibilidade momentânea
+    }
+  }
+
   return {
     id: session.user.id || '',
     name: session.user.name || '',

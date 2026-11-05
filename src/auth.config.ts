@@ -31,10 +31,7 @@ export const authConfig = {
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
-
-        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'].includes(role)) {
-          return Response.redirect(new URL('/dashboard', nextUrl));
-        }
+        const navPermissionsActive = process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED === 'true';
 
         // MASTER tem acesso irrestrito
         if (role === 'MASTER') return true;
@@ -45,6 +42,25 @@ export const authConfig = {
         }
 
         if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && role !== 'MASTER') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+
+        // Rotas administrativas estruturais de sistema/configurações (exceto departamentos para RH)
+        if (
+          (nextUrl.pathname.startsWith('/configuracoes') || nextUrl.pathname.startsWith('/sistema/operacoes')) &&
+          role !== 'ADMIN' &&
+          !(nextUrl.pathname.startsWith('/configuracoes/departamentos') && role === 'RH')
+        ) {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+
+        // Quando Permissões de Menu (V1) está ativo em produção, RouteAccessGuard + banco validam
+        // as regras individuais/perfil em tempo real (inclusive quando o papel acabou de mudar no banco).
+        if (navPermissionsActive) {
+          return true;
+        }
+
+        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'].includes(role)) {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
 
@@ -118,6 +134,9 @@ export const authConfig = {
         // ADMIN tem acesso amplo à organização
         return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
+        if (process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED === 'true') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
         const role = auth.user.role || 'USER';
         if (role === 'COLABORADOR' || role === 'USER') {
           return Response.redirect(new URL('/minha-it', nextUrl));

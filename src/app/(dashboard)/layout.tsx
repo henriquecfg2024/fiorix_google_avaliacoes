@@ -11,6 +11,7 @@ import { FiorixAgent } from '@/components/agent/FiorixAgent';
 import { GlobalMessagingListener } from '@/components/mensagens/GlobalMessagingListener';
 
 import { RouteAccessGuard } from '@/components/layout/RouteAccessGuard';
+import { VisitorAccessBanner } from '@/components/layout/VisitorAccessBanner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -20,7 +21,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   if (pathname?.includes('visualizador')) {
-    return <div className="h-screen w-screen overflow-hidden bg-[#EAEAEA]">{children}</div>;
+    return (
+      <div className="h-screen w-screen overflow-hidden bg-[#EAEAEA] flex flex-col">
+        <VisitorAccessBanner variant="compact" />
+        <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+      </div>
+    );
   }
 
   return (

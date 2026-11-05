@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   resetUserPassword,
   updateUserRole,
@@ -9,11 +11,17 @@ import {
   toggleUserStatus,
   updateUserProfile,
   deleteInactiveUser,
+  toggleUser2FA,
+  resetUser2FA,
+  bulkToggleUsers2FA,
 } from '@/app/actions/admin';
 import { isValidCPF } from '@/lib/cpf-validator';
 import {
   ShieldCheck,
   ShieldAlert,
+  ShieldOff,
+  RotateCcw,
+  Loader2,
   Key,
   Edit3,
   X,
@@ -43,6 +51,9 @@ export interface UserItem {
   ramal?: string | null;
   podeSerTutor?: boolean;
   status?: string | null;
+  totpRequired?: boolean;
+  totpEnabled?: boolean;
+  totpVerifiedAt?: Date | string | null;
 }
 
 export function UserListTable({
@@ -54,10 +65,18 @@ export function UserListTable({
   currentUserRole?: string;
   departamentosDisponiveis?: string[];
 }) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepto, setSelectedDepto] = useState<string>('TODOS');
   const [selectedRole, setSelectedRole] = useState<string>('TODOS');
+  const [selected2FAFilter, setSelected2FAFilter] = useState<'TODOS' | 'ATIVO' | 'DESATIVADO'>('TODOS');
   const [revealedCpfs, setRevealedCpfs] = useState<Record<string, boolean>>({});
+  const [optimistic2FA, setOptimistic2FA] = useState<
+    Record<string, { totpRequired: boolean; totpEnabled: boolean }>
+  >({});
+  const [toggling2FAId, setToggling2FAId] = useState<string | null>(null);
+  const [bulk2FAModal, setBulk2FAModal] = useState<'enable' | 'disable' | null>(null);
+  const [bulk2FALoading, setBulk2FALoading] = useState(false);
 
   // Modais
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
@@ -70,6 +89,7 @@ export function UserListTable({
   const [editRole, setEditRole] = useState('');
   const [editCargo, setEditCargo] = useState('');
   const [editStatus, setEditStatus] = useState('');
+  const [editTotpRequired, setEditTotpRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
@@ -182,11 +202,122 @@ export function UserListTable({
     }
   };
 
+  const getEffective2FA = (user: UserItem) => {
+    if (user.role === 'MASTER' || user.email === 'admin@fiorix.com.br') {
+      return { required: true, enabled: true, isMaster: true };
+    }
+    const override = optimistic2FA[user.id];
+    const required = override
+      ? override.totpRequired
+      : Boolean(user.totpRequired || user.totpEnabled);
+    const enabled = override ? override.totpEnabled : Boolean(user.totpEnabled);
+    return { required, enabled, isMaster: false };
+  };
+
+  const handleToggleUser2FA = async (user: UserItem) => {
+    if (user.role === 'MASTER' || user.email === 'admin@fiorix.com.br') {
+      toast.error('Usuário MASTER protegido — o 2FA permanece sempre ativo.');
+      return;
+    }
+    const current = getEffective2FA(user);
+    const nextEnable = !current.required;
+
+    setToggling2FAId(user.id);
+    setOptimistic2FA((prev) => ({
+      ...prev,
+      [user.id]: {
+        totpRequired: nextEnable,
+        totpEnabled: nextEnable ? current.enabled : false,
+      },
+    }));
+
+    try {
+      const res = await toggleUser2FA(user.id, nextEnable);
+      if (res?.error) {
+        setOptimistic2FA((prev) => {
+          const copy = { ...prev };
+          delete copy[user.id];
+          return copy;
+        });
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        nextEnable
+          ? `2FA ativado para ${user.name || user.email}. No próximo login será solicitado o vínculo/código.`
+          : `2FA desativado para ${user.name || user.email}.`
+      );
+      router.refresh();
+    } catch (err: any) {
+      setOptimistic2FA((prev) => {
+        const copy = { ...prev };
+        delete copy[user.id];
+        return copy;
+      });
+      toast.error(err?.message || 'Falha ao atualizar 2FA.');
+    } finally {
+      setToggling2FAId(null);
+    }
+  };
+
+  const handleResetUser2FA = async (user: UserItem) => {
+    if (user.role === 'MASTER' || user.email === 'admin@fiorix.com.br') return;
+    const ok = window.confirm(
+      `Redefinir o QR Code do Google Authenticator de "${user.name || user.email}"?\n\nO 2FA continuará ativo, e um novo QR Code será apresentado no próximo login.`
+    );
+    if (!ok) return;
+
+    setToggling2FAId(user.id);
+    try {
+      const res = await resetUser2FA(user.id);
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+      setOptimistic2FA((prev) => ({
+        ...prev,
+        [user.id]: { totpRequired: true, totpEnabled: false },
+      }));
+      toast.success(`QR Code 2FA redefinido para ${user.name || user.email}.`);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao redefinir QR Code 2FA.');
+    } finally {
+      setToggling2FAId(null);
+    }
+  };
+
+  const handleConfirmBulk2FA = async () => {
+    if (!bulk2FAModal) return;
+    const enable = bulk2FAModal === 'enable';
+    setBulk2FALoading(true);
+    try {
+      const res = await bulkToggleUsers2FA(enable);
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+      setOptimistic2FA({});
+      setBulk2FAModal(null);
+      toast.success(
+        enable
+          ? `2FA ativado para todos os usuários ativos (${res.affectedCount ?? 0} atualizados).`
+          : `2FA desativado para os usuários do cartório (${res.affectedCount ?? 0} atualizados).`
+      );
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || 'Falha ao aplicar alteração de 2FA em massa.');
+    } finally {
+      setBulk2FALoading(false);
+    }
+  };
+
   const handleOpenEditModal = (user: UserItem) => {
     if (user.role === 'MASTER' || user.email === 'admin@fiorix.com.br') {
       alert('Usuário MASTER protegido - não pode ser alterado.');
       return;
     }
+    const effective2FA = getEffective2FA(user);
     setEditUser(user);
     setEditName(user.name || '');
     setEditEmail(user.email || '');
@@ -195,6 +326,7 @@ export function UserListTable({
     setEditRole(user.role || 'COLABORADOR');
     setEditCargo(user.cargo || '');
     setEditStatus(user.status || 'ativo');
+    setEditTotpRequired(effective2FA.required);
     setModalMessage(null);
   };
 
@@ -225,6 +357,7 @@ export function UserListTable({
         role: editRole,
         cargo: editCargo.trim(),
         status: editStatus,
+        totpRequired: editTotpRequired,
       });
 
       if (res.error) {
@@ -292,6 +425,28 @@ export function UserListTable({
     }
   };
 
+  const twoFactorStats = useMemo(() => {
+    let activeCount = 0;
+    let verifiedCount = 0;
+    for (const u of usuarios) {
+      const state =
+        u.role === 'MASTER' || u.email === 'admin@fiorix.com.br'
+          ? { required: true, enabled: true }
+          : optimistic2FA[u.id]
+          ? {
+              required: optimistic2FA[u.id].totpRequired,
+              enabled: optimistic2FA[u.id].totpEnabled,
+            }
+          : {
+              required: Boolean(u.totpRequired || u.totpEnabled),
+              enabled: Boolean(u.totpEnabled),
+            };
+      if (state.required) activeCount += 1;
+      if (state.required && state.enabled) verifiedCount += 1;
+    }
+    return { activeCount, verifiedCount, total: usuarios.length };
+  }, [usuarios, optimistic2FA]);
+
   // Filtragem dos Usuários
   const filteredUsers = useMemo(() => {
     return usuarios.filter((u) => {
@@ -305,14 +460,66 @@ export function UserListTable({
       const matchesDepto = selectedDepto === 'TODOS' || u.departamento === selectedDepto;
       const matchesRole = selectedRole === 'TODOS' || u.role === selectedRole;
 
-      return matchesSearch && matchesDepto && matchesRole;
+      const is2FAActive =
+        u.role === 'MASTER' || u.email === 'admin@fiorix.com.br'
+          ? true
+          : optimistic2FA[u.id]
+          ? optimistic2FA[u.id].totpRequired
+          : Boolean(u.totpRequired || u.totpEnabled);
+      const matches2FA =
+        selected2FAFilter === 'TODOS' ||
+        (selected2FAFilter === 'ATIVO' && is2FAActive) ||
+        (selected2FAFilter === 'DESATIVADO' && !is2FAActive);
+
+      return matchesSearch && matchesDepto && matchesRole && matches2FA;
     });
-  }, [usuarios, searchTerm, selectedDepto, selectedRole]);
+  }, [usuarios, searchTerm, selectedDepto, selectedRole, selected2FAFilter, optimistic2FA]);
 
   const departamentos = ['TODOS', ...Array.from(new Set([...departamentosDisponiveis, ...usuarios.map(u => u.departamento).filter(Boolean) as string[]])).sort()];
 
   return (
     <div className="space-y-4">
+      {/* Barra de Controle Geral 2FA (Duplo Fator para Todos os Usuários) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-2 text-emerald-300 shrink-0">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-white">
+                Duplo Fator de Autenticação (2FA — Google Authenticator)
+              </span>
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-300">
+                {twoFactorStats.activeCount} / {twoFactorStats.total} ativos ({twoFactorStats.verifiedCount} vinculados)
+              </span>
+            </div>
+            <p className="text-[11px] text-white/55 mt-0.5">
+              Ative ou desative o 2FA individualmente na coluna <strong className="text-white/80">2FA</strong> de cada usuário ou aplique para todos os usuários do cartório.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setBulk2FAModal('enable')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+            Ativar 2FA para Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulk2FAModal('disable')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/75 hover:bg-rose-500/15 hover:text-rose-200 hover:border-rose-500/30 transition-colors cursor-pointer"
+          >
+            <ShieldOff className="w-3.5 h-3.5" />
+            Desativar 2FA para Todos
+          </button>
+        </div>
+      </div>
+
       {/* Barra de Busca e Filtros */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 p-3 bg-white/[0.02] border border-white/8 rounded-2xl">
         <div className="relative flex-1">
@@ -359,6 +566,21 @@ export function UserListTable({
               <option value="COLABORADOR" className="bg-[#0A0F1E]">COLABORADOR</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs dark:bg-[#070A12] dark:border-white/10">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/80" />
+            <select
+              value={selected2FAFilter}
+              onChange={(e) =>
+                setSelected2FAFilter(e.target.value as 'TODOS' | 'ATIVO' | 'DESATIVADO')
+              }
+              className="bg-transparent text-white text-xs focus:outline-hidden cursor-pointer"
+            >
+              <option value="TODOS" className="bg-[#0A0F1E]">2FA: Todos</option>
+              <option value="ATIVO" className="bg-[#0A0F1E]">2FA: Ativo</option>
+              <option value="DESATIVADO" className="bg-[#0A0F1E]">2FA: Desativado</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -373,6 +595,7 @@ export function UserListTable({
               <th className="p-3 sm:p-4">Departamento</th>
               <th className="p-3 sm:p-4">Função</th>
               <th className="p-3 sm:p-4">Cargo</th>
+              <th className="p-3 sm:p-4">2FA (Duplo Fator)</th>
               <th className="p-3 sm:p-4">Status</th>
               <th className="p-3 pr-5 text-right sm:p-4">Ações</th>
             </tr>
@@ -381,6 +604,8 @@ export function UserListTable({
             {filteredUsers.map((u) => {
               const isMaster = u.role === 'MASTER' || u.email === 'admin@fiorix.com.br';
               const isRevealed = Boolean(revealedCpfs[u.id]);
+              const twoFactor = getEffective2FA(u);
+              const isTogglingThis = toggling2FAId === u.id;
 
               return (
                 <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
@@ -482,6 +707,74 @@ export function UserListTable({
                   {/* Cargo */}
                   <td className="p-3 sm:p-4 text-white/70 text-xs capitalize">
                     {u.cargo || 'auxiliar'}
+                  </td>
+
+                  {/* 2FA (Duplo Fator) */}
+                  <td className="p-3 sm:p-4 whitespace-nowrap">
+                    {isMaster ? (
+                      <span
+                        title="Conta MASTER protegida com 2FA obrigatório"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-300"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                        Sempre Ativo
+                      </span>
+                    ) : (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={isTogglingThis}
+                          onClick={() => handleToggleUser2FA(u)}
+                          title={
+                            twoFactor.required
+                              ? 'Clique para desativar o Duplo Fator (2FA) deste usuário'
+                              : 'Clique para ativar o Duplo Fator (2FA) deste usuário'
+                          }
+                          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50 ${
+                            twoFactor.required
+                              ? twoFactor.enabled
+                                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                                : 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                              : 'border-white/12 bg-white/[0.04] text-white/55 hover:border-emerald-500/35 hover:text-emerald-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex h-3.5 w-6 items-center rounded-full p-0.5 transition-colors ${
+                              twoFactor.required
+                                ? twoFactor.enabled
+                                  ? 'bg-emerald-500/80 justify-end'
+                                  : 'bg-amber-500/80 justify-end'
+                                : 'bg-white/20 justify-start'
+                            }`}
+                          >
+                            <span className="h-2.5 w-2.5 rounded-full bg-white shadow-xs" />
+                          </span>
+                          {isTogglingThis ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : twoFactor.required ? (
+                            twoFactor.enabled ? (
+                              <span>Ativo · Verificado</span>
+                            ) : (
+                              <span>Ativo · Pendente QR</span>
+                            )
+                          ) : (
+                            <span>Desativado</span>
+                          )}
+                        </button>
+
+                        {twoFactor.required && twoFactor.enabled && (
+                          <button
+                            type="button"
+                            disabled={isTogglingThis}
+                            onClick={() => handleResetUser2FA(u)}
+                            title="Redefinir QR Code 2FA (ex: colaborador trocou de celular)"
+                            className="rounded-lg border border-white/10 bg-white/[0.04] p-1 text-white/45 hover:text-amber-300 hover:border-amber-500/30 transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
 
                   {/* Status */}
@@ -705,6 +998,39 @@ export function UserListTable({
                 </div>
               </div>
 
+              {/* Duplo Fator de Autenticação (2FA) no Modal de Edição */}
+              <div className="rounded-2xl border border-white/10 bg-[#070A12] p-3.5 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white">
+                    <ShieldCheck className={`w-4 h-4 ${editTotpRequired ? 'text-emerald-400' : 'text-white/40'}`} />
+                    <span>Duplo Fator de Autenticação (2FA)</span>
+                  </div>
+                  <p className="text-[11px] text-white/55">
+                    {editTotpRequired
+                      ? 'Ativado: exige código de 6 dígitos do Google Authenticator (gera QR Code no 1º acesso).'
+                      : 'Desativado: login realizado apenas com e-mail e senha.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditTotpRequired((v) => !v)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold shrink-0 transition-colors cursor-pointer ${
+                    editTotpRequired
+                      ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                      : 'border-white/15 bg-white/[0.04] text-white/60'
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-4 w-7 items-center rounded-full p-0.5 transition-colors ${
+                      editTotpRequired ? 'bg-emerald-500 justify-end' : 'bg-white/20 justify-start'
+                    }`}
+                  >
+                    <span className="h-3 w-3 rounded-full bg-white" />
+                  </span>
+                  <span>{editTotpRequired ? 'Ativado' : 'Desativado'}</span>
+                </button>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -853,6 +1179,90 @@ export function UserListTable({
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md disabled:opacity-50"
               >
                 {loading ? 'Excluindo...' : 'Confirmar Exclusão'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmação 2FA em Massa */}
+      {bulk2FAModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                {bulk2FAModal === 'enable' ? (
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <ShieldOff className="w-4 h-4 text-rose-400" />
+                )}
+                {bulk2FAModal === 'enable'
+                  ? 'Ativar 2FA para Todos os Usuários'
+                  : 'Desativar 2FA para Todos os Usuários'}
+              </h3>
+              <button
+                onClick={() => setBulk2FAModal(null)}
+                className="p-1 rounded-lg text-white/50 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div
+              className={`p-4 rounded-xl border space-y-2 text-xs ${
+                bulk2FAModal === 'enable'
+                  ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-100'
+                  : 'bg-rose-500/10 border-rose-500/25 text-rose-100'
+              }`}
+            >
+              {bulk2FAModal === 'enable' ? (
+                <>
+                  <p className="font-semibold text-white">
+                    Deseja ativar o Duplo Fator de Autenticação (2FA) para todos os colaboradores e usuários ativos do cartório?
+                  </p>
+                  <p className="text-white/75">
+                    • Quem já possui o Google Authenticator vinculado mantém o vínculo atual.
+                  </p>
+                  <p className="text-white/75">
+                    • Quem ainda não configurou receberá automaticamente o QR Code na tela de login no próximo acesso.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-white">
+                    Deseja desativar o Duplo Fator de Autenticação (2FA) para todos os usuários do cartório?
+                  </p>
+                  <p className="text-white/75">
+                    • Todos os usuários (exceto a conta MASTER protegida) passarão a acessar apenas com e-mail e senha.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={bulk2FALoading}
+                onClick={() => setBulk2FAModal(null)}
+                className="px-4 py-2 rounded-xl bg-white/[0.05] text-white/70 text-xs font-semibold hover:bg-white/[0.08]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={bulk2FALoading}
+                onClick={handleConfirmBulk2FA}
+                className={`px-5 py-2 rounded-xl text-white text-xs font-bold shadow-md disabled:opacity-50 cursor-pointer ${
+                  bulk2FAModal === 'enable'
+                    ? 'bg-emerald-600 hover:bg-emerald-500'
+                    : 'bg-rose-600 hover:bg-rose-500'
+                }`}
+              >
+                {bulk2FALoading
+                  ? 'Aplicando...'
+                  : bulk2FAModal === 'enable'
+                  ? 'Confirmar Ativação em Todos'
+                  : 'Confirmar Desativação em Todos'}
               </button>
             </div>
           </div>

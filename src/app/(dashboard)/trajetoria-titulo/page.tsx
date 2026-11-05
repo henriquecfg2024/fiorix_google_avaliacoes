@@ -28,7 +28,7 @@ export default async function LocalizacaoTitulosPage({
   }
 
   const role = session.user.role ?? 'USER';
-  if (role === 'RH') {
+  if (role === 'RH' && process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED !== 'true') {
     redirect('/sistema/pessoas');
   }
   const isColaborador = role === 'COLABORADOR';

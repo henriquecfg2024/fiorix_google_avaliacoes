@@ -13,7 +13,7 @@ export interface AuthenticatedUser {
 
 import { prisma } from '@/lib/prisma';
 
-const userMetaCache = new Map<string, { departamento?: string; cargo?: string; exp: number }>();
+const userMetaCache = new Map<string, { role?: string; departamento?: string; cargo?: string; exp: number }>();
 
 export async function requireAuth(): Promise<AuthenticatedUser> {
   const session = await auth();
@@ -66,26 +66,30 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     throw new Error('Usuário sem tenant válido.');
   }
 
+  let liveRole: string | undefined = undefined;
   let departamento: string | undefined = undefined;
   let cargo: string | undefined = undefined;
 
   const cachedDept = userMetaCache.get(session.user.id);
   if (cachedDept && cachedDept.exp > Date.now()) {
+    liveRole = cachedDept.role;
     departamento = cachedDept.departamento;
     cargo = cachedDept.cargo;
   } else {
     try {
       const rawUser = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
+        `SELECT role::text as role, departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
         session.user.id
       );
       if (rawUser && rawUser.length > 0) {
+        liveRole = rawUser[0].role || undefined;
         departamento = rawUser[0].departamento || undefined;
         cargo = rawUser[0].cargo || undefined;
         userMetaCache.set(session.user.id, {
+          role: liveRole,
           departamento,
           cargo,
-          exp: Date.now() + 120_000,
+          exp: Date.now() + 15_000,
         });
       }
     } catch (err) {
@@ -114,7 +118,7 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     id: userId,
     name: session.user.name,
     email: session.user.email,
-    role: (session.user.role as Role) || 'USER',
+    role: ((liveRole || session.user.role) as Role) || 'USER',
     tenantId,
     departamento,
     cargo,

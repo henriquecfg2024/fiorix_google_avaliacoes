@@ -149,7 +149,8 @@ model User {
   acessoLogs               FiorixAcessoLog[]
   acessoLogsAlvo           FiorixAcessoLog[]               @relation("AcessoLogAlvo")
 
-  // Google Authenticator 2FA (TOTP) — somente ADMIN/MASTER
+  // Google Authenticator 2FA (TOTP) — configurável por usuário para todas as funções
+  totpRequired   Boolean   @default(false)
   totpSecret     String? // Segredo TOTP criptografado (base32)
   totpEnabled    Boolean   @default(false)
   totpVerifiedAt DateTime? // Data em que ativou 2FA

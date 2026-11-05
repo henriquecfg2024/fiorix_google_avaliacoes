@@ -3,7 +3,7 @@
 import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { UserPlus, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Loader2, AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CpfInputWithValidation } from '@/components/configuracoes/CpfInputWithValidation';
@@ -18,6 +18,8 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [isPending, startTransition] = useTransition();
   const [formResetKey, setFormResetKey] = useState(0);
+  const [selectedRole, setSelectedRole] = useState('COLABORADOR');
+  const [totpRequired, setTotpRequired] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(
     null
   );
@@ -44,6 +46,8 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
       });
       toast.success(`Usuário "${createdName}" cadastrado com sucesso!`);
       formRef.current?.reset();
+      setSelectedRole('COLABORADOR');
+      setTotpRequired(false);
       setFormResetKey((k) => k + 1);
       router.refresh();
     });
@@ -136,7 +140,14 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
           </label>
           <select
             name="role"
-            defaultValue="COLABORADOR"
+            value={selectedRole}
+            onChange={(e) => {
+              const nextRole = e.target.value;
+              setSelectedRole(nextRole);
+              if (nextRole === 'ADMIN') {
+                setTotpRequired(true);
+              }
+            }}
             className="w-full h-10 px-3 rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-800 dark:border-white/12 dark:bg-[#0A0F1E] dark:text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
           >
             <option value="COLABORADOR">Colaborador</option>
@@ -177,7 +188,7 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
           </select>
         </div>
 
-        <div className="md:col-span-3 space-y-1.5">
+        <div className="md:col-span-2 space-y-1.5">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
             Cargo *
           </label>
@@ -203,15 +214,37 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
           />
         </div>
 
-        <div className="md:col-span-2 flex items-center h-10 mt-6 gap-2">
-          <input
-            type="checkbox"
-            name="podeSerTutor"
-            id="podeSerTutor"
-            className="rounded border-white/20 bg-[#0A0F1E] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-          />
-          <label htmlFor="podeSerTutor" className="text-xs text-white/80 cursor-pointer select-none">
-            Pode ser Tutor de IT?
+        <div className="md:col-span-3 flex flex-wrap items-center gap-3 pt-5">
+          <label
+            htmlFor="totpRequired"
+            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors cursor-pointer select-none ${
+              totpRequired
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
+                : 'border-white/12 bg-white/[0.03] text-white/80 hover:border-white/25'
+            }`}
+            title="Exige código de 6 dígitos (Google Authenticator) no login. O QR Code é gerado automaticamente no 1º acesso."
+          >
+            <input
+              type="checkbox"
+              name="totpRequired"
+              id="totpRequired"
+              value="true"
+              checked={totpRequired}
+              onChange={(e) => setTotpRequired(e.target.checked)}
+              className="rounded border-white/20 bg-[#0A0F1E] text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+            />
+            <ShieldCheck className={`h-3.5 w-3.5 ${totpRequired ? 'text-emerald-400' : 'text-white/45'}`} />
+            <span>Ativar 2FA</span>
+          </label>
+
+          <label htmlFor="podeSerTutor" className="inline-flex items-center gap-2 text-xs text-white/80 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              name="podeSerTutor"
+              id="podeSerTutor"
+              className="rounded border-white/20 bg-[#0A0F1E] text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            />
+            <span>Tutor de IT?</span>
           </label>
         </div>
 

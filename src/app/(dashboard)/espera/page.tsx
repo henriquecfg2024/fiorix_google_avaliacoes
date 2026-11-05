@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function EsperaPage() {
   let user;
   try {
-    user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO', 'COLABORADOR');
+    user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE', 'USER', 'COLABORADOR');
   } catch (err) {
     if (isRedirectError(err)) throw err;
     redirect('/dashboard');

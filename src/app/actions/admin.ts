@@ -23,7 +23,10 @@ export async function getUsers() {
        cargo, 
        ramal, 
        pode_ser_tutor as "podeSerTutor", 
-       status
+       status,
+       COALESCE("totpRequired", false) as "totpRequired",
+       COALESCE("totpEnabled", false) as "totpEnabled",
+       "totpVerifiedAt"
      FROM public."User"
      WHERE "tenantId" = $1
      ORDER BY 
@@ -64,6 +67,8 @@ export async function createUserAction(
     const ramal = (formData.get('ramal') as string)?.trim() || null;
     const podeSerTutor =
       formData.get('podeSerTutor') === 'true' || formData.get('podeSerTutor') === 'on';
+    const totpRequired =
+      formData.get('totpRequired') === 'true' || formData.get('totpRequired') === 'on';
 
     if (!name || !email || !password) {
       return { error: 'Nome, e-mail e senha são obrigatórios.' };
@@ -127,12 +132,12 @@ export async function createUserAction(
       `
       INSERT INTO public."User" (
         id, name, email, "passwordHash", role, "tenantId", 
-        cpf, departamento, cargo, ramal, pode_ser_tutor, status, 
+        cpf, departamento, cargo, ramal, pode_ser_tutor, "totpRequired", status, 
         "createdAt", "updatedAt"
       )
       VALUES (
         gen_random_uuid()::text, $1, $2, $3, $4::"Role", $5, 
-        $6, $7, $8, $9, $10, 'ativo', 
+        $6, $7, $8, $9, $10, $11, 'ativo', 
         NOW(), NOW()
       );
     `,
@@ -145,14 +150,15 @@ export async function createUserAction(
       departamento,
       cargo,
       ramal,
-      podeSerTutor
+      podeSerTutor,
+      totpRequired
     );
 
     await recordAuditLog({
       modulo: 'USUARIOS',
       acao: 'INCLUSAO',
-      registroDescricao: `Colaborador/Usuário "${name}" (${email}) criado${cpf ? '' : ' (sem CPF)'}`,
-      detalhes: { name, email, role, departamento, cargo, ramal, hasCpf: Boolean(cpf) },
+      registroDescricao: `Colaborador/Usuário "${name}" (${email}) criado${cpf ? '' : ' (sem CPF)'}${totpRequired ? ' [2FA Ativo]' : ''}`,
+      detalhes: { name, email, role, departamento, cargo, ramal, hasCpf: Boolean(cpf), totpRequired },
       userOverride: currentUser,
     });
 
@@ -438,6 +444,7 @@ export async function updateUserProfile(
     cargo?: string;
     role?: string;
     status?: string;
+    totpRequired?: boolean;
   }
 ) {
   const currentUser = await requireRole('ADMIN', 'MASTER');
@@ -522,6 +529,21 @@ export async function updateUserProfile(
     sets.push(`status = $${paramIdx++}`);
     params.push(data.status);
   }
+  if (data.totpRequired !== undefined) {
+    if (data.totpRequired) {
+      sets.push(
+        `"totpRequired" = true`,
+        `"totpSecret" = CASE WHEN "totpEnabled" = true THEN "totpSecret" ELSE NULL END`
+      );
+    } else {
+      sets.push(
+        `"totpRequired" = false`,
+        `"totpEnabled" = false`,
+        `"totpSecret" = NULL`,
+        `"totpVerifiedAt" = NULL`
+      );
+    }
+  }
 
   if (sets.length === 0) {
     return { error: 'Nenhum campo para atualizar.' };
@@ -591,4 +613,177 @@ export async function deleteInactiveUser(userId: string) {
   revalidatePath('/configuracoes/usuarios');
   revalidatePath('/sistema/pessoas');
   return { success: true };
+}
+
+export async function toggleUser2FA(userId: string, enable: boolean) {
+  try {
+    const currentUser = await requireRole('ADMIN', 'MASTER');
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        tenantId: true,
+        totpEnabled: true,
+      },
+    });
+    if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+    if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+      return { error: 'Usuário MASTER protegido — o 2FA permanece obrigatoriamente ativo.' };
+    }
+
+    if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+      return { error: 'Não autorizado a alterar este usuário.' };
+    }
+
+    if (enable) {
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE public."User"
+        SET "totpRequired" = true,
+            "totpSecret" = CASE WHEN "totpEnabled" = true THEN "totpSecret" ELSE NULL END,
+            "updatedAt" = NOW()
+        WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+      `,
+        userId
+      );
+    } else {
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE public."User"
+        SET "totpRequired" = false,
+            "totpEnabled" = false,
+            "totpSecret" = NULL,
+            "totpVerifiedAt" = NULL,
+            "updatedAt" = NOW()
+        WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+      `,
+        userId
+      );
+    }
+
+    await recordAuditLog({
+      modulo: 'USUARIOS',
+      acao: 'ALTERACAO',
+      registroId: userId,
+      registroDescricao: `Duplo fator (2FA) ${enable ? 'ATIVADO' : 'DESATIVADO'} para "${targetUser.name}" (${targetUser.email})`,
+      detalhes: { enable, email: targetUser.email, role: targetUser.role },
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/configuracoes/usuarios');
+    revalidatePath('/sistema/pessoas');
+    return {
+      success: true,
+      totpRequired: enable,
+      totpEnabled: enable ? Boolean(targetUser.totpEnabled) : false,
+    };
+  } catch (err: any) {
+    console.error('Erro em toggleUser2FA:', err);
+    return { error: err?.message || 'Não foi possível atualizar o status do 2FA.' };
+  }
+}
+
+export async function resetUser2FA(userId: string) {
+  try {
+    const currentUser = await requireRole('ADMIN', 'MASTER');
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true, tenantId: true },
+    });
+    if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+    if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+      return { error: 'Usuário MASTER protegido.' };
+    }
+
+    if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+      return { error: 'Não autorizado a alterar este usuário.' };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `
+      UPDATE public."User"
+      SET "totpRequired" = true,
+          "totpEnabled" = false,
+          "totpSecret" = NULL,
+          "totpVerifiedAt" = NULL,
+          "updatedAt" = NOW()
+      WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    `,
+      userId
+    );
+
+    await recordAuditLog({
+      modulo: 'USUARIOS',
+      acao: 'ALTERACAO',
+      registroId: userId,
+      registroDescricao: `Vínculo QR Code 2FA redefinido para "${targetUser.name}" (${targetUser.email})`,
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/configuracoes/usuarios');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Erro em resetUser2FA:', err);
+    return { error: err?.message || 'Não foi possível redefinir o QR Code 2FA.' };
+  }
+}
+
+export async function bulkToggleUsers2FA(enable: boolean) {
+  try {
+    const currentUser = await requireRole('ADMIN', 'MASTER');
+
+    let affectedCount = 0;
+    if (enable) {
+      affectedCount = await prisma.$executeRawUnsafe(
+        `
+        UPDATE public."User"
+        SET "totpRequired" = true,
+            "totpSecret" = CASE WHEN "totpEnabled" = true THEN "totpSecret" ELSE NULL END,
+            "updatedAt" = NOW()
+        WHERE "tenantId" = $1
+          AND role != 'MASTER'
+          AND email != 'admin@fiorix.com.br'
+          AND COALESCE(status, 'ativo') != 'inativo';
+      `,
+        currentUser.tenantId
+      );
+    } else {
+      affectedCount = await prisma.$executeRawUnsafe(
+        `
+        UPDATE public."User"
+        SET "totpRequired" = false,
+            "totpEnabled" = false,
+            "totpSecret" = NULL,
+            "totpVerifiedAt" = NULL,
+            "updatedAt" = NOW()
+        WHERE "tenantId" = $1
+          AND role != 'MASTER'
+          AND email != 'admin@fiorix.com.br';
+      `,
+        currentUser.tenantId
+      );
+    }
+
+    await recordAuditLog({
+      modulo: 'USUARIOS',
+      acao: 'ALTERACAO',
+      registroDescricao: `Duplo fator (2FA) ${enable ? 'ATIVADO EM MASSA' : 'DESATIVADO EM MASSA'} (${affectedCount} usuários)`,
+      detalhes: { enable, affectedCount },
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/configuracoes/usuarios');
+    revalidatePath('/sistema/pessoas');
+    return { success: true, affectedCount };
+  } catch (err: any) {
+    console.error('Erro em bulkToggleUsers2FA:', err);
+    return { error: err?.message || 'Não foi possível alterar o 2FA em massa.' };
+  }
 }

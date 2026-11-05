@@ -104,8 +104,18 @@ export function FiorixTopbar() {
   };
 
   const role = (currentUser?.role as Role) || "USER";
-  const homeRoute = getHomeRouteForRole(role);
+  const isVisitor = String(role).toUpperCase() === "VISITANTE";
   const visibleGroups = filterNavigationByRole(role, allowedItemIds);
+  const defaultHomeRoute = getHomeRouteForRole(role);
+  const isDefaultHomeAllowed =
+    defaultHomeRoute === "/dashboard" ||
+    allowedItemIds === undefined ||
+    Object.values(visibleGroups).some(
+      (g: any) =>
+        g?.href === defaultHomeRoute ||
+        g?.items?.some((item: any) => item.href === defaultHomeRoute)
+    );
+  const homeRoute = isDefaultHomeAllowed ? defaultHomeRoute : "/dashboard";
   const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO", "VISITANTE"].includes(role.toUpperCase());
 
   return (
@@ -280,6 +290,22 @@ export function FiorixTopbar() {
             <Building2 className="w-3.5 h-3.5 text-[#6366f1]" />
             <span>7º RI São Paulo</span>
           </div>
+
+          {/* Selo Permanente de Topo para Perfil VISITANTE */}
+          {isVisitor && (
+            <div
+              role="status"
+              title="Credencial de Visitante com acesso provisório e monitorado"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-teal-500/15 px-3 py-1 text-[11px] font-extrabold tracking-wide text-amber-200 shadow-xs shadow-amber-500/10"
+            >
+              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>VISITANTE</span>
+              <span className="hidden sm:inline text-amber-300/60">•</span>
+              <span className="hidden sm:inline text-teal-200 font-semibold">
+                ACESSO PROVISÓRIO
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Direita: Badge Status, User Profile */}

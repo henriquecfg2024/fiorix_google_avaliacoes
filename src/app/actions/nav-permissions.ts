@@ -122,6 +122,32 @@ export async function savePermissionsBatchAction(params: {
   }
 }
 
+async function resolveSessionUserContext() {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  let role = session.user.role || 'USER';
+  let tenantId = (session.user as any).tenantId || '';
+  const id = session.user.id || '';
+
+  if (id) {
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id },
+        select: { role: true, tenantId: true },
+      });
+      if (dbUser) {
+        role = String(dbUser.role || role);
+        tenantId = dbUser.tenantId || tenantId;
+      }
+    } catch {
+      // Mantém contexto da sessão caso o banco oscile
+    }
+  }
+
+  return { id, role, tenantId };
+}
+
 /**
  * Retorna os IDs dos itens permitidos para a navegação do usuário da sessão.
  */
@@ -129,42 +155,30 @@ export async function getUserNavPermissionsAction(): Promise<{
   enabled: boolean;
   allowedItemIds: string[];
 }> {
-  const session = await auth();
-  if (!session?.user) {
+  const ctx = await resolveSessionUserContext();
+  if (!ctx) {
     return { enabled: false, allowedItemIds: [] };
   }
 
-  return getAllowedNavItemsForUser({
-    id: session.user.id || '',
-    role: session.user.role || 'USER',
-    tenantId: (session.user as any).tenantId || '',
-  });
+  return getAllowedNavItemsForUser(ctx);
 }
 
 /**
  * Retorna a navegação dinâmica efetiva para o usuário autenticado na sessão.
  */
 export async function getCurrentUserNavigationAction(): Promise<Record<string, any> | null> {
-  const session = await auth();
-  if (!session?.user) return null;
+  const ctx = await resolveSessionUserContext();
+  if (!ctx) return null;
 
-  return getEffectiveUserNavigation({
-    id: session.user.id || '',
-    role: session.user.role || 'USER',
-    tenantId: (session.user as any).tenantId || '',
-  });
+  return getEffectiveUserNavigation(ctx);
 }
 
 /**
  * Valida no servidor se a rota acessada é permitida para o usuário da sessão.
  */
 export async function checkRouteAccessAction(pathname: string): Promise<boolean> {
-  const session = await auth();
-  if (!session?.user) return true;
+  const ctx = await resolveSessionUserContext();
+  if (!ctx) return true;
 
-  return isRouteAllowedForUser(pathname, {
-    id: session.user.id || '',
-    role: session.user.role || 'USER',
-    tenantId: (session.user as any).tenantId || '',
-  });
+  return isRouteAllowedForUser(pathname, ctx);
 }

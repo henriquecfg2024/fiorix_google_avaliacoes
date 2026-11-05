@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./lib/prisma";
 import { authConfig } from "./auth.config";
-import { verifyTotpToken, roleRequires2FA } from "./lib/totp";
+import { verifyTotpToken, userRequires2FA } from "./lib/totp";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -32,8 +32,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!passwordsMatch) return null;
 
-        // Verifica se o usuário precisa de 2FA
-        if (roleRequires2FA(user.role)) {
+        // Verifica se o usuário precisa de 2FA (por usuário ou MASTER)
+        if (userRequires2FA(user)) {
           const totpCode = credentials.totpCode as string | undefined;
 
           if (!user.totpSecret) {
@@ -55,7 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!user.totpEnabled) {
             await prisma.user.update({
               where: { id: user.id },
-              data: { totpEnabled: true, totpVerifiedAt: new Date() },
+              data: { totpEnabled: true, totpRequired: true, totpVerifiedAt: new Date() },
             });
           }
         }

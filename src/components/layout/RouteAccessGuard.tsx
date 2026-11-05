@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { checkRouteAccessAction } from '@/app/actions/nav-permissions';
+import { VisitorAccessBanner } from '@/components/layout/VisitorAccessBanner';
 
 export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -74,5 +75,10 @@ export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <VisitorAccessBanner />
+      {children}
+    </>
+  );
 }

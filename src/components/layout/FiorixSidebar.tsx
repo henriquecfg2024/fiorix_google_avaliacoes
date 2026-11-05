@@ -118,8 +118,17 @@ export function FiorixSidebar() {
 
   if (!mounted) return <div className="hidden lg:flex w-64 h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5" />;
 
-  const homeRoute = getHomeRouteForRole(role);
   const visibleGroups = filterNavigationByRole(role, allowedItemIds);
+  const defaultHomeRoute = getHomeRouteForRole(role);
+  const isDefaultHomeAllowed =
+    defaultHomeRoute === "/dashboard" ||
+    allowedItemIds === undefined ||
+    Object.values(visibleGroups).some(
+      (g: any) =>
+        g?.href === defaultHomeRoute ||
+        g?.items?.some((item: any) => item.href === defaultHomeRoute)
+    );
+  const homeRoute = isDefaultHomeAllowed ? defaultHomeRoute : "/dashboard";
 
   return (
     <TooltipProvider delay={0}>

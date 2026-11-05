@@ -61,9 +61,9 @@ describe('FIORIX — Permissões de Menu V2 (Catálogo e Estrutura)', () => {
     }
   });
 
-  it('valida os 5 perfis editáveis sem inventar novos papéis', () => {
+  it('valida os 6 perfis editáveis (incluindo VISITANTE) sem expor MASTER', () => {
     const roles = EDITABLE_ROLES.map((r) => r.role);
-    expect(roles).toEqual(['ADMIN', 'SUBSTITUTO', 'RH', 'USER', 'COLABORADOR']);
+    expect(roles).toEqual(['ADMIN', 'SUBSTITUTO', 'VISITANTE', 'RH', 'USER', 'COLABORADOR']);
     expect(roles).not.toContain('MASTER');
     expect(roles).not.toContain('GESTOR');
     expect(roles).not.toContain('DIRETORIA');
@@ -272,5 +272,19 @@ describe('FIORIX — Integridade das Migrations Preparadas V2', () => {
     const sql = fs.readFileSync(rollbackPath, 'utf-8');
     expect(sql).toContain('DROP TABLE IF EXISTS public.fiorix_nav_user_rules CASCADE;');
     expect(sql).toContain('DROP TABLE IF EXISTS public.fiorix_nav_role_rules CASCADE;');
+  });
+});
+
+describe('FIORIX — Duplo Fator (2FA) por Usuário para Todas as Funções', () => {
+  it('permite ativar e desativar 2FA em qualquer função não-MASTER e preserva MASTER sempre protegido', async () => {
+    const { userRequires2FA } = await import('@/lib/totp');
+
+    expect(userRequires2FA({ role: 'MASTER', totpRequired: false, totpEnabled: false })).toBe(true);
+
+    for (const role of ['ADMIN', 'SUBSTITUTO', 'VISITANTE', 'RH', 'USER', 'COLABORADOR']) {
+      expect(userRequires2FA({ role, totpRequired: false, totpEnabled: false })).toBe(false);
+      expect(userRequires2FA({ role, totpRequired: true, totpEnabled: false })).toBe(true);
+      expect(userRequires2FA({ role, totpRequired: false, totpEnabled: true })).toBe(true);
+    }
   });
 });

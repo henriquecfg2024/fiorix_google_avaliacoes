@@ -51,8 +51,23 @@ export function verifyTotpToken(token: string, secret: string): boolean {
 }
 
 /**
- * Verifica se o role requer 2FA
+ * Verifica se o role sugere 2FA por padrão
  */
 export function roleRequires2FA(role: string): boolean {
   return role === 'ADMIN' || role === 'MASTER';
+}
+
+/**
+ * Verifica se um usuário específico deve autenticar com 2FA (TOTP).
+ * - MASTER sempre exige 2FA por política de segurança da plataforma.
+ * - Demais funções (ADMIN, SUBSTITUTO, RH, USER, COLABORADOR, VISITANTE)
+ *   respeitam a configuração individual no cadastro (`totpRequired` / `totpEnabled`).
+ */
+export function userRequires2FA(user: {
+  role?: string | null;
+  totpRequired?: boolean | null;
+  totpEnabled?: boolean | null;
+}): boolean {
+  if (user.role === 'MASTER') return true;
+  return Boolean(user.totpRequired || user.totpEnabled);
 }
