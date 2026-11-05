@@ -380,3 +380,75 @@ describe('FIORIX — Permissões de Menu por Departamento (Precedência Colabora
     expect(sql).toContain('REVOKE ALL ON public.fiorix_nav_department_rules FROM PUBLIC');
   });
 });
+
+
+describe('FIORIX — Menu INICIAL (/dashboard) configurável em Permissões de Menu', () => {
+  it('inclui o grupo INICIAL com o item inicio (/dashboard) no topo do catálogo e oculta por padrão para COLABORADOR', () => {
+    expect(NAV_CATALOG_GROUPS[0].id).toBe('inicial');
+    expect(NAV_CATALOG_GROUPS[0].label).toBe('INICIAL');
+    const inicioItem = ITEM_BY_ID.get('inicio');
+    expect(inicioItem).toBeDefined();
+    expect(inicioItem?.href).toBe('/dashboard');
+
+    // Legado: visível por padrão para USER/ADMIN/MASTER, oculto por padrão para COLABORADOR e RH
+    expect(isItemVisibleInLegacy(inicioItem!, 'ADMIN')).toBe(true);
+    expect(isItemVisibleInLegacy(inicioItem!, 'USER')).toBe(true);
+    expect(isItemVisibleInLegacy(inicioItem!, 'COLABORADOR')).toBe(false);
+    expect(isItemVisibleInLegacy(inicioItem!, 'RH')).toBe(false);
+  });
+
+  it('quando COLABORADOR (Sara) tem apenas Qualidade ativado, inicio não aparece em allowedItemIds e a rota inicial resolve para /bi/qualidade', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const {
+      getAllowedNavItemsForUser,
+      getFirstAllowedRouteForUser,
+      isRouteAllowedForUser,
+    } = await import('@/lib/nav-permissions/service');
+
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    const saraUserRules = [
+      { item_id: 'qualidade', override: 'ALLOW' },
+      { item_id: 'espera', override: 'DENY' },
+      { item_id: 'impressoes', override: 'DENY' },
+      { item_id: 'rastreio', override: 'DENY' },
+      { item_id: 'mensagens', override: 'DENY' },
+      { item_id: 'comunicados', override: 'DENY' },
+      { item_id: 'minha_it', override: 'DENY' },
+      { item_id: 'ferias', override: 'DENY' },
+      { item_id: 'holerites', override: 'DENY' },
+    ];
+
+    const sara = {
+      id: 'user-sara',
+      role: 'COLABORADOR',
+      tenantId: 'tenant-123',
+      departamento: 'CONTRADITÓRIO / EXTRATO',
+    };
+
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules
+      .mockResolvedValueOnce(saraUserRules as any) // userRules
+      .mockResolvedValueOnce([] as any); // deptRules
+
+    const nav = await getAllowedNavItemsForUser(sara);
+    expect(nav.allowedItemIds).toEqual(['qualidade']);
+    expect(nav.allowedItemIds).not.toContain('inicio');
+
+    // Verifica que /dashboard está bloqueado para Sara
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce(saraUserRules as any) // userRules
+      .mockResolvedValueOnce([] as any) // deptRules
+      .mockResolvedValueOnce([] as any); // roleRules
+    expect(await isRouteAllowedForUser('/dashboard', sara)).toBe(false);
+
+    // Verifica que a primeira rota permitida para Sara resolve para /bi/qualidade
+    vi.mocked(prisma.$queryRawUnsafe)
+      .mockResolvedValueOnce([] as any) // roleRules
+      .mockResolvedValueOnce(saraUserRules as any) // userRules
+      .mockResolvedValueOnce([] as any); // deptRules
+    expect(await getFirstAllowedRouteForUser(sara)).toBe('/bi/qualidade');
+
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
+});

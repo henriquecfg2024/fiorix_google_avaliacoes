@@ -22,6 +22,8 @@ export function FiorixSidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState<Role>("USER");
   const [allowedItemIds, setAllowedItemIds] = useState<string[] | undefined>(undefined);
+  const [firstAllowedHref, setFirstAllowedHref] = useState<string | undefined>(undefined);
+  const [navResolved, setNavResolved] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
@@ -46,9 +48,13 @@ export function FiorixSidebar() {
       .then((res) => {
         if (res && res.enabled) {
           setAllowedItemIds(res.allowedItemIds);
+          if (res.firstAllowedHref) setFirstAllowedHref(res.firstAllowedHref);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        setNavResolved(true);
+      });
 
     loadNavigationStatsOnce()
       .then(setNavigationStats)
@@ -120,15 +126,22 @@ export function FiorixSidebar() {
 
   const visibleGroups = filterNavigationByRole(role, allowedItemIds);
   const defaultHomeRoute = getHomeRouteForRole(role);
-  const isDefaultHomeAllowed =
-    defaultHomeRoute === "/dashboard" ||
-    allowedItemIds === undefined ||
-    Object.values(visibleGroups).some(
-      (g: any) =>
-        g?.href === defaultHomeRoute ||
-        g?.items?.some((item: any) => item.href === defaultHomeRoute)
-    );
-  const homeRoute = isDefaultHomeAllowed ? defaultHomeRoute : "/dashboard";
+  const showInicioLink =
+    role === "MASTER"
+      ? true
+      : allowedItemIds !== undefined
+        ? allowedItemIds.includes("inicio")
+        : navResolved
+          ? !["COLABORADOR", "RH"].includes(String(role).toUpperCase())
+          : false;
+  const homeRoute = allowedItemIds !== undefined ? "/dashboard" : defaultHomeRoute;
+  const logoHref = showInicioLink
+    ? homeRoute
+    : firstAllowedHref ||
+      Object.values(visibleGroups)
+        .flatMap((g: any) => (g?.href ? [{ href: g.href }] : g?.items || []))
+        .map((i: any) => i.href)[0] ||
+      "/minha-conta";
 
   return (
     <TooltipProvider delay={0}>
@@ -161,8 +174,8 @@ export function FiorixSidebar() {
           ) : (
             <>
               <Link
-                href={homeRoute}
-                onClick={() => handleNavClick(homeRoute)}
+                href={logoHref}
+                onClick={() => handleNavClick(logoHref)}
                 className="flex items-center overflow-hidden group cursor-pointer min-w-0"
                 title="FIORIX - Gestão de Qualidade"
               >
@@ -187,49 +200,52 @@ export function FiorixSidebar() {
 
         {/* Navigation Section */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
-          {/* Home Link */}
-          {isCollapsed ? (
-            <Tooltip>
-              {/* @ts-expect-error Radix UI asChild type mismatch */}
-              <TooltipTrigger asChild>
+          {/* Home Link (exibido somente quando o menu INICIAL estiver ativo para o usuário) */}
+          {showInicioLink && (
+            <>
+              {isCollapsed ? (
+                <Tooltip>
+                  {/* @ts-expect-error Radix UI asChild type mismatch */}
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={homeRoute}
+                      className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors ${
+                        isActive(homeRoute)
+                          ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                          : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Home className="w-5 h-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Início</TooltipContent>
+                </Tooltip>
+              ) : (
                 <Link
-
                   href={homeRoute}
-                  className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors ${
-                    isActive(homeRoute)
+                  onClick={() => handleNavClick(homeRoute)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    navigatingTo === homeRoute
+                      ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 pointer-events-none"
+                      : isActive(homeRoute)
                       ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
-                      : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
+                      : isNavigating
+                      ? "text-slate-400 dark:text-white/40 pointer-events-none border border-transparent"
+                      : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white border border-transparent"
                   }`}
                 >
-                  <Home className="w-5 h-5" />
+                  {navigatingTo === homeRoute ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                  ) : (
+                    <Home className="w-4 h-4 opacity-75" />
+                  )}
+                  <span>Início</span>
                 </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">Início</TooltipContent>
-            </Tooltip>
-          ) : (
-            <Link
-              href={homeRoute}
-              onClick={() => handleNavClick(homeRoute)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                navigatingTo === homeRoute
-                  ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 pointer-events-none"
-                  : isActive(homeRoute)
-                  ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
-                  : isNavigating
-                  ? "text-slate-400 dark:text-white/40 pointer-events-none border border-transparent"
-                  : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white border border-transparent"
-              }`}
-            >
-              {navigatingTo === homeRoute ? (
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-              ) : (
-                <Home className="w-4 h-4 opacity-75" />
               )}
-              <span>Início</span>
-            </Link>
-          )}
 
-          {!isCollapsed && <div className="h-4" />}
+              {!isCollapsed && <div className="h-4" />}
+            </>
+          )}
 
           {/* Groups */}
           {Object.entries(visibleGroups).map(([key, group]: [string, any]) => {

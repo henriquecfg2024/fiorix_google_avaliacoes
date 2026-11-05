@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
 import { requireAuth } from '@/lib/auth-helpers';
+import { getFirstAllowedRouteForUser, isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
 import { ReputationHealth } from '@/components/dashboard/ReputationHealth';
 import { computeReputationHealth } from '@/lib/reputation-health';
@@ -32,6 +33,37 @@ export default async function Dashboard({
     redirect('/login');
   }
   const tenantId = user.tenantId;
+
+  if (user.role !== 'MASTER') {
+    let resolvedRole = String(user.role || 'USER');
+    let resolvedTenantId = tenantId;
+    let resolvedDepartamento: string | null = (user as any).departamento ?? null;
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { role: true, tenantId: true, departamento: true },
+      });
+      if (dbUser) {
+        resolvedRole = String(dbUser.role || resolvedRole);
+        resolvedTenantId = dbUser.tenantId || resolvedTenantId;
+        resolvedDepartamento = dbUser.departamento ?? resolvedDepartamento;
+      }
+    } catch {}
+
+    const ctx = {
+      id: user.id,
+      role: resolvedRole,
+      tenantId: resolvedTenantId,
+      departamento: resolvedDepartamento,
+    };
+    const canAccessInicio = await isRouteAllowedForUser('/dashboard', ctx);
+    if (!canAccessInicio) {
+      const fallbackRoute = await getFirstAllowedRouteForUser(ctx);
+      if (fallbackRoute && fallbackRoute !== '/dashboard') {
+        redirect(fallbackRoute);
+      }
+    }
+  }
 
   // Fetch real data from Prisma — queries paralelas para performance
   const [totalReviews, googleConnection, avgRatingRes, pendentes, respondidasHoje] =

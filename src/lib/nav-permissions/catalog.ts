@@ -5,6 +5,20 @@ import { NavCatalogGroup, NavCatalogItem } from './types';
  * Mantém exatamente os mesmos hrefs, labels e hierarquias da Sidebar real.
  */
 export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
+  {
+    id: 'inicial',
+    label: 'INICIAL',
+    items: [
+      {
+        id: 'inicio',
+        label: 'Início',
+        href: '/dashboard',
+        groupId: 'inicial',
+        groupLabel: 'INICIAL',
+        description: 'Painel inicial (Visão Consolidada e Saúde da Reputação)',
+      },
+    ],
+  },
   { id: 'documental', label: 'GESTÃO DOCUMENTAL', items: [
     { id: 'gestao_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Manifestações', href: '/gestao-documental', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Pesquisa de arquivos locais pelo Connector' },
     { id: 'visualizador_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'], label: 'Visualizador', href: '/gestao-documental/visualizador', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Visualizador universal de documentos e matrículas digitalizadas' },

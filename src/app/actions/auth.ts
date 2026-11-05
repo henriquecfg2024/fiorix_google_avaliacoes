@@ -5,7 +5,7 @@ import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { generateTotpSecret, generateTotpUri, generateQRCodeDataUrl, verifyTotpToken, userRequires2FA } from '@/lib/totp';
-import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
+import { getFirstAllowedRouteForUser } from '@/lib/nav-permissions/service';
 import { getHomeRouteForRole } from '@/lib/permissions';
 
 export async function authenticate(
@@ -108,19 +108,16 @@ export async function checkCredentials(email: string, password: string): Promise
 
     const userRole = user.role || 'USER';
     let redirectTo = getHomeRouteForRole(userRole);
-    if (redirectTo !== '/dashboard' && user.tenantId) {
+    if (user.tenantId) {
       try {
-        const allowed = await isRouteAllowedForUser(redirectTo, {
+        redirectTo = await getFirstAllowedRouteForUser({
           id: user.id,
           role: userRole,
           tenantId: user.tenantId,
           departamento: user.departamento,
         });
-        if (!allowed) {
-          redirectTo = '/dashboard';
-        }
       } catch {
-        redirectTo = '/dashboard';
+        redirectTo = getHomeRouteForRole(userRole);
       }
     }
 

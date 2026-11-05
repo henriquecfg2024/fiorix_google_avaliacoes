@@ -7,6 +7,7 @@ import {
   computeNavPermissionsState,
   getEffectiveUserNavigation,
   getAllowedNavItemsForUser,
+  getFirstAllowedRouteForUser,
   isRouteAllowedForUser,
   saveNavPermissionsBatch,
 } from '@/lib/nav-permissions/service';
@@ -240,13 +241,16 @@ async function resolveSessionUserContext() {
 export async function getUserNavPermissionsAction(): Promise<{
   enabled: boolean;
   allowedItemIds: string[];
+  firstAllowedHref?: string;
 }> {
   const ctx = await resolveSessionUserContext();
   if (!ctx) {
     return { enabled: false, allowedItemIds: [] };
   }
 
-  return getAllowedNavItemsForUser(ctx);
+  const perms = await getAllowedNavItemsForUser(ctx);
+  const firstAllowedHref = await getFirstAllowedRouteForUser(ctx);
+  return { ...perms, firstAllowedHref };
 }
 
 /**
@@ -267,4 +271,20 @@ export async function checkRouteAccessAction(pathname: string): Promise<boolean>
   if (!ctx) return true;
 
   return isRouteAllowedForUser(pathname, ctx);
+}
+
+export async function checkRouteAccessWithFallbackAction(pathname: string): Promise<{
+  allowed: boolean;
+  fallbackHref: string;
+}> {
+  const ctx = await resolveSessionUserContext();
+  if (!ctx) return { allowed: true, fallbackHref: '/dashboard' };
+
+  const allowed = await isRouteAllowedForUser(pathname, ctx);
+  if (allowed) {
+    return { allowed: true, fallbackHref: pathname };
+  }
+
+  const fallbackHref = await getFirstAllowedRouteForUser(ctx);
+  return { allowed: false, fallbackHref };
 }

@@ -4,47 +4,44 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { checkRouteAccessAction } from '@/app/actions/nav-permissions';
+import { checkRouteAccessWithFallbackAction } from '@/app/actions/nav-permissions';
 import { VisitorAccessBanner } from '@/components/layout/VisitorAccessBanner';
 
 export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [isAllowed, setIsAllowed] = useState<boolean>(true);
-  const [checking, setChecking] = useState<boolean>(false);
+  const [fallbackHref, setFallbackHref] = useState<string>('/dashboard');
 
   useEffect(() => {
-    // Rotas sempre livres
-    if (!pathname || pathname === '/dashboard' || pathname === '/') {
+    // Rotas estruturalmente livres para sessão autenticada
+    if (!pathname || pathname === '/' || pathname === '/minha-conta') {
       setIsAllowed(true);
       return;
     }
 
     let isMounted = true;
-    setChecking(true);
 
-    checkRouteAccessAction(pathname)
-      .then((allowed) => {
-        if (isMounted) {
-          setIsAllowed(allowed);
+    checkRouteAccessWithFallbackAction(pathname)
+      .then((res) => {
+        if (!isMounted) return;
+        setFallbackHref(res.fallbackHref || '/minha-conta');
+        if (!res.allowed && pathname === '/dashboard' && res.fallbackHref && res.fallbackHref !== '/dashboard') {
+          router.replace(res.fallbackHref);
+          return;
         }
+        setIsAllowed(res.allowed);
       })
       .catch(() => {
-        // Em caso de erro na verificação, mantém acessível para evitar travamentos
         if (isMounted) {
           setIsAllowed(true);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setChecking(false);
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, [pathname, router]);
 
   if (!isAllowed) {
     return (
@@ -63,11 +60,11 @@ export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
 
           <div className="pt-2">
             <Link
-              href="/dashboard"
+              href={fallbackHref}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-all border border-white/10"
             >
               <ArrowLeft className="w-4 h-4" />
-              Voltar ao Início
+              Ir para Módulo Autorizado
             </Link>
           </div>
         </div>

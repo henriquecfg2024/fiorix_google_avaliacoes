@@ -2973,19 +2973,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                       </div>
                     )}
 
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Award className="w-4 h-4 text-indigo-400" />
-                        <span>Resumo de Produtividade da Equipe</span>
-                      </h4>
-                      <p className="text-xs text-slate-400">
-                        {selectedDate
-                          ? `Métricas individuais de atendimento registradas na data selecionada.`
-                          : `Produtividade consolidada dos atendentes ao longo de todo o mês.`}
-                      </p>
-                    </div>
-
-                    {/* Destaques da Equipe */}
                     {(() => {
                       const qtdAgentes = displayPerformanceAgentes.length;
                       const tmaEquipeBruto =
@@ -3013,77 +3000,126 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                           : 0;
 
                       return (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
-                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
-                                🥇 Atendente Destaque #1
-                              </span>
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                Individual
-                              </span>
-                            </div>
-                            <div
-                              className="text-sm sm:text-base font-black text-white truncate uppercase"
-                              title={agenteDestaque ? agenteDestaque.atendente : ''}
-                            >
-                              {agenteDestaque ? agenteDestaque.atendente : '—'}
-                            </div>
-                            <div className="text-[10px] text-slate-400 leading-snug">
-                              {agenteDestaque
-                                ? `${agenteDestaque.totalAtendimentos} atend. · TMA individual: ${agenteDestaque.mediaAtendimentoMin} min · SLA: ${agenteDestaque.dentroSlaPerc}%`
-                                : 'Sem registros'}
-                            </div>
-                          </div>
-
-                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-indigo-400">
-                                TMA Médio da Equipe (Mesa)
-                              </span>
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                                Geral ({qtdAgentes})
-                              </span>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-xl font-black text-indigo-300 font-mono">
-                                {qtdAgentes > 0 ? `${tmaEquipeBruto} min` : '—'}
-                              </span>
-                              {temOutlierMesa && qtdAgentes > 0 && (
-                                <span
-                                  className="text-[10px] font-mono text-amber-300/90"
-                                  title="Existe atendimento mantido aberto por mais de 3h no guichê elevando a média bruta"
-                                >
-                                  (s/ senha aberta: {tmaSemOutlier} min)
+                        <>
+                          {/* Card Superior: Resumo de Produtividade da Equipe com TMA Médio e SLA Médio dentro dele */}
+                          <div className="rounded-2xl border border-indigo-500/20 bg-white/[0.02] p-4 sm:p-5 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                  <Award className="w-4 h-4 text-indigo-400" />
+                                  <span>Resumo de Produtividade da Equipe</span>
+                                </h4>
+                                <p className="text-xs text-slate-400">
+                                  {selectedDate
+                                    ? `Métricas consolidadas da equipe registradas na data selecionada.`
+                                    : `Produtividade consolidada dos atendentes ao longo de todo o mês.`}
+                                </p>
+                              </div>
+                              {qtdAgentes > 0 && (
+                                <span className="self-start sm:self-auto text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
+                                  {qtdAgentes} {qtdAgentes === 1 ? 'atendente ativo' : 'atendentes ativos'}
                                 </span>
                               )}
                             </div>
-                            <div className="text-[10px] text-slate-400 leading-snug">
-                              {qtdAgentes > 0
-                                ? `Média geral de todos os ${qtdAgentes} atendentes (não individual)`
-                                : 'Sem atendimentos no período'}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                              <div className="p-3.5 rounded-xl bg-[#0B1020]/90 border border-indigo-500/20 space-y-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="text-[10px] uppercase font-bold text-indigo-400">
+                                    TMA Médio da Equipe (Mesa)
+                                  </span>
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                                    Geral ({qtdAgentes})
+                                  </span>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-2xl font-black text-indigo-300 font-mono">
+                                    {qtdAgentes > 0 ? `${tmaEquipeBruto} min` : '—'}
+                                  </span>
+                                  {temOutlierMesa && qtdAgentes > 0 && (
+                                    <span
+                                      className="text-[10px] font-mono text-amber-300/90"
+                                      title="Existe atendimento mantido aberto por mais de 3h no guichê elevando a média bruta"
+                                    >
+                                      (s/ senha aberta: {tmaSemOutlier} min)
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-slate-400 leading-snug">
+                                  {qtdAgentes > 0
+                                    ? `Média geral de todos os ${qtdAgentes} atendentes (não individual)`
+                                    : 'Sem atendimentos no período'}
+                                </div>
+                              </div>
+
+                              <div className="p-3.5 rounded-xl bg-[#0B1020]/90 border border-emerald-500/20 space-y-1">
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="text-[10px] uppercase font-bold text-emerald-400">
+                                    SLA Médio da Equipe
+                                  </span>
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                    Geral ({qtdAgentes})
+                                  </span>
+                                </div>
+                                <div className="text-2xl font-black text-emerald-400 font-mono">
+                                  {qtdAgentes > 0 ? `${slaEquipe}%` : '—'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 leading-snug">
+                                  {qtdAgentes > 0
+                                    ? `Conformidade geral de todos os ${qtdAgentes} atendentes`
+                                    : 'conformidade de espera'}
+                                </div>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="text-[10px] uppercase font-bold text-emerald-400">
-                                SLA Médio da Equipe
-                              </span>
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                                Geral ({qtdAgentes})
-                              </span>
-                            </div>
-                            <div className="text-xl font-black text-emerald-400 font-mono">
-                              {qtdAgentes > 0 ? `${slaEquipe}%` : '—'}
-                            </div>
-                            <div className="text-[10px] text-slate-400 leading-snug">
-                              {qtdAgentes > 0
-                                ? `Conformidade geral de todos os ${qtdAgentes} atendentes`
-                                : 'conformidade de espera'}
+                          {/* Destaque Individual Separado: Atendente #1 */}
+                          <div className="pt-2 border-t border-white/8">
+                            <div className="p-4 rounded-2xl bg-amber-500/[0.04] border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                                    🥇 Atendente Destaque #1
+                                  </span>
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                    Métrica Individual
+                                  </span>
+                                </div>
+                                <div
+                                  className="text-base sm:text-lg font-black text-white truncate uppercase"
+                                  title={agenteDestaque ? agenteDestaque.atendente : ''}
+                                >
+                                  {agenteDestaque ? agenteDestaque.atendente : '—'}
+                                </div>
+                              </div>
+
+                              {agenteDestaque ? (
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                                  <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                                    <div className="text-[9px] uppercase font-mono text-slate-400">Atendimentos</div>
+                                    <div className="text-sm font-black font-mono text-indigo-300">
+                                      {agenteDestaque.totalAtendimentos}
+                                    </div>
+                                  </div>
+                                  <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                                    <div className="text-[9px] uppercase font-mono text-slate-400">TMA Individual</div>
+                                    <div className="text-sm font-black font-mono text-white">
+                                      {agenteDestaque.mediaAtendimentoMin} min
+                                    </div>
+                                  </div>
+                                  <div className="px-3 py-1.5 rounded-xl bg-[#0B1020]/90 border border-white/10 text-center">
+                                    <div className="text-[9px] uppercase font-mono text-slate-400">SLA Individual</div>
+                                    <div className="text-sm font-black font-mono text-emerald-400">
+                                      {agenteDestaque.dentroSlaPerc}%
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-500">Sem registros</span>
+                              )}
                             </div>
                           </div>
-                        </div>
+                        </>
                       );
                     })()}
                   </div>

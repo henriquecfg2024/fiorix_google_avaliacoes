@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { recordAuditLog } from '@/lib/audit';
 import { filterNavigationByRole } from '@/lib/navigation/permissions';
+import { getHomeRouteForRole } from '@/lib/permissions';
 import {
   ALL_NAV_CATALOG_ITEMS,
   ITEM_BY_ID,
@@ -28,6 +29,10 @@ export function isNavPermissionsFeatureEnabled(
  */
 export function isItemVisibleInLegacy(item: NavCatalogItem, role: string): boolean {
   if (item.isMasterOnly) return role === 'MASTER';
+  if (item.id === 'inicio' || item.href === '/dashboard') {
+    const upper = String(role || '').toUpperCase();
+    return ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE', 'USER'].includes(upper);
+  }
   const filtered = filterNavigationByRole(role);
   for (const group of Object.values(filtered)) {
     if ((group as any).href === item.href) return true;
@@ -506,7 +511,7 @@ export async function isRouteAllowedForUser(
   if (!isNavPermissionsFeatureEnabled()) return true;
   if (user.role === 'MASTER') return true;
 
-  if (pathname === '/dashboard' || pathname === '/') return true;
+  if (pathname === '/' || pathname === '/minha-conta') return true;
 
   const matchingItem = ALL_NAV_CATALOG_ITEMS.find((item) => {
     if (item.href === pathname) return true;
@@ -617,4 +622,48 @@ export async function getAllowedNavItemsForUser(user: {
     enabled: true,
     allowedItemIds,
   };
+}
+
+/**
+ * Resolve a primeira rota permitida para o usuário quando sua rota padrão (ou /dashboard) estiver desativada.
+ * Evita redirecionamento indevido para /dashboard quando o menu INICIAL está desativado.
+ */
+export async function getFirstAllowedRouteForUser(user: {
+  id: string;
+  role: string;
+  tenantId: string;
+  departamento?: string | null;
+}): Promise<string> {
+  const defaultRoleHome = getHomeRouteForRole(user.role);
+
+  if (!isNavPermissionsFeatureEnabled() || user.role === 'MASTER') {
+    return defaultRoleHome;
+  }
+
+  const { allowedItemIds } = await getAllowedNavItemsForUser(user);
+  const allowedSet = new Set(allowedItemIds);
+
+  // 1. Se a rota canônica do perfil estiver permitida, prioriza-a
+  const roleHomeItem = ALL_NAV_CATALOG_ITEMS.find(
+    (item) => item.href === defaultRoleHome || item.href.split('?')[0] === defaultRoleHome
+  );
+  if (roleHomeItem && allowedSet.has(roleHomeItem.id)) {
+    return roleHomeItem.href;
+  }
+
+  // 2. Se o menu Início (/dashboard) estiver permitido, utiliza-o
+  if (allowedSet.has('inicio')) {
+    return '/dashboard';
+  }
+
+  // 3. Caso contrário, retorna o primeiro módulo permitido na ordem do catálogo (ex: /bi/qualidade)
+  const firstAllowedItem = ALL_NAV_CATALOG_ITEMS.find(
+    (item) => !item.isMasterOnly && allowedSet.has(item.id)
+  );
+  if (firstAllowedItem) {
+    return firstAllowedItem.href;
+  }
+
+  // 4. Fallback seguro sempre acessível caso nenhum menu esteja ativo
+  return '/minha-conta';
 }

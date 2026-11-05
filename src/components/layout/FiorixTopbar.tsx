@@ -23,6 +23,7 @@ export function FiorixTopbar() {
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [allowedItemIds, setAllowedItemIds] = useState<string[] | undefined>(undefined);
+  const [firstAllowedHref, setFirstAllowedHref] = useState<string | undefined>(undefined);
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
@@ -53,6 +54,7 @@ export function FiorixTopbar() {
       .then((res) => {
         if (res && res.enabled) {
           setAllowedItemIds(res.allowedItemIds);
+          if (res.firstAllowedHref) setFirstAllowedHref(res.firstAllowedHref);
         }
       })
       .catch(() => {});
@@ -107,15 +109,14 @@ export function FiorixTopbar() {
   const isVisitor = String(role).toUpperCase() === "VISITANTE";
   const visibleGroups = filterNavigationByRole(role, allowedItemIds);
   const defaultHomeRoute = getHomeRouteForRole(role);
-  const isDefaultHomeAllowed =
-    defaultHomeRoute === "/dashboard" ||
-    allowedItemIds === undefined ||
-    Object.values(visibleGroups).some(
-      (g: any) =>
-        g?.href === defaultHomeRoute ||
-        g?.items?.some((item: any) => item.href === defaultHomeRoute)
-    );
-  const homeRoute = isDefaultHomeAllowed ? defaultHomeRoute : "/dashboard";
+  const showInicioLink =
+    role === "MASTER"
+      ? true
+      : allowedItemIds !== undefined
+        ? allowedItemIds.includes("inicio")
+        : !["COLABORADOR", "RH"].includes(String(role).toUpperCase());
+  const homeRoute = allowedItemIds !== undefined ? "/dashboard" : defaultHomeRoute;
+  const logoHref = showInicioLink ? homeRoute : firstAllowedHref || "/minha-conta";
   const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO", "VISITANTE"].includes(role.toUpperCase());
 
   return (
@@ -141,7 +142,7 @@ export function FiorixTopbar() {
                 <SheetHeader className="p-5 border-b border-slate-200 dark:border-white/10 text-left">
                   <SheetTitle className="text-slate-900 dark:text-white flex items-center justify-between">
                     <Link
-                      href={homeRoute}
+                      href={logoHref}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="flex items-center"
                     >
@@ -156,27 +157,28 @@ export function FiorixTopbar() {
                 </SheetHeader>
 
                 <div className="p-4 flex flex-col gap-2">
-                  <Link
-  
-                    href={homeRoute}
-                    onClick={() => { handleNavClick(homeRoute); setIsMobileMenuOpen(false); }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
-                      navigatingTo === homeRoute
-                        ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
-                        : isActive(homeRoute)
-                        ? "bg-white/[0.08] text-white border border-white/10"
-                        : isNavigating
-                        ? "text-white/40 pointer-events-none border border-transparent"
-                        : "text-white/70 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
-                  >
-                    {navigatingTo === homeRoute ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
-                    ) : (
-                      <Home className="w-4 h-4 opacity-75" />
-                    )}
-                    <span>Início</span>
-                  </Link>
+                  {showInicioLink && (
+                    <Link
+                      href={homeRoute}
+                      onClick={() => { handleNavClick(homeRoute); setIsMobileMenuOpen(false); }}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
+                        navigatingTo === homeRoute
+                          ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
+                          : isActive(homeRoute)
+                          ? "bg-white/[0.08] text-white border border-white/10"
+                          : isNavigating
+                          ? "text-white/40 pointer-events-none border border-transparent"
+                          : "text-white/70 hover:bg-white/5 hover:text-white border border-transparent"
+                      }`}
+                    >
+                      {navigatingTo === homeRoute ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                      ) : (
+                        <Home className="w-4 h-4 opacity-75" />
+                      )}
+                      <span>Início</span>
+                    </Link>
+                  )}
 
                   {/* @ts-expect-error Radix UI type mismatch */}
                   <Accordion type="single" collapsible className="space-y-1 mt-2">
