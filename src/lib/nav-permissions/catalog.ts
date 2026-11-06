@@ -183,31 +183,29 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
     ],
   },
   {
-    id: 'trabalho',
-    label: 'ROTINA DE TRABALHO',
+    id: 'comunicacaoInterna',
+    label: 'COMUNICAÇÃO INTERNA',
     items: [
       {
         id: 'mensagens',
         label: 'Mensagens',
         href: '/mensagens',
-        groupId: 'trabalho',
-        groupLabel: 'ROTINA DE TRABALHO',
+        groupId: 'comunicacaoInterna',
+        groupLabel: 'COMUNICAÇÃO INTERNA',
         description: 'Comunicação corporativa em tempo real',
       },
-      {
-        id: 'comunicados',
-        label: 'Comunicados',
-        href: '/pessoas/comunicados',
-        groupId: 'trabalho',
-        groupLabel: 'ROTINA DE TRABALHO',
-        description: 'Mural interno e minhas ciências',
-      },
+    ],
+  },
+  {
+    id: 'trabalho',
+    label: 'RECURSOS HUMANOS',
+    items: [
       {
         id: 'gestao_comunicados',
         label: 'RH',
         href: '/sistema/pessoas?tab=comunicados',
         groupId: 'trabalho',
-        groupLabel: 'ROTINA DE TRABALHO',
+        groupLabel: 'RECURSOS HUMANOS',
         description: 'Painel de RH, comunicados e ciências',
         structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO', 'VISITANTE'],
         sharedWithId: 'gestao_pessoas',
@@ -218,7 +216,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         label: 'Minha IT',
         href: '/minha-it',
         groupId: 'trabalho',
-        groupLabel: 'ROTINA DE TRABALHO',
+        groupLabel: 'RECURSOS HUMANOS',
         description: 'Instrução oficial do Responsável Técnico',
       },
     ],
@@ -227,6 +225,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
     id: 'pessoas',
     label: 'MEU ESPAÇO',
     items: [
+      {
+        id: 'comunicados',
+        label: 'Comunicados',
+        href: '/pessoas/comunicados',
+        groupId: 'pessoas',
+        groupLabel: 'MEU ESPAÇO',
+        description: 'Mural interno e minhas ciências',
+      },
       {
         id: 'ferias',
         label: 'Férias',

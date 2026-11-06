@@ -474,7 +474,7 @@ export function PainelRHClient({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/5">
             <div className="flex items-center gap-2 text-xs font-mono">
               <span className="text-slate-400 tracking-wider">
-                {currentTab === "comunicados" ? "ROTINA DE TRABALHO" : "GESTÃO DE PESSOAS"}
+                {currentTab === "comunicados" ? "RECURSOS HUMANOS" : "GESTÃO DE PESSOAS"}
               </span>
               <span className="text-slate-600">/</span>
               <span className="text-cyan-400 font-extrabold tracking-wider">

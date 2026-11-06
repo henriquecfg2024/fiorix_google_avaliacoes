@@ -589,7 +589,7 @@ export function MensagensClient({
       {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
       <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-white/8 shrink-0">
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+          <span className="text-slate-400 tracking-wider">COMUNICAÇÃO INTERNA</span>
           <span className="text-slate-600">/</span>
           <span className="text-cyan-400 font-extrabold tracking-wider">MENSAGENS</span>
           <h1 className="sr-only">Mensagens - Comunicação Corporativa</h1>

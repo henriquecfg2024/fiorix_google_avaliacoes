@@ -4,11 +4,13 @@ import { filterNavigationByRole } from '@/lib/navigation/permissions';
 
 describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('apresenta exatamente a nova nomenclatura padronizada em todos os grupos', () => {
+    expect(navigationGroups.documental.label).toBe('GESTÃO DOCUMENTAL');
     expect(navigationGroups.gestao.label).toBe('PRESENÇA NO GOOGLE');
     expect(navigationGroups.operacional.label).toBe('GESTÃO DE PRAZOS');
     expect(navigationGroups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(navigationGroups.governancaIts.label).toBe('INSTRUÇÕES DE TRABALHO');
-    expect(navigationGroups.trabalho.label).toBe('ROTINA DE TRABALHO');
+    expect(navigationGroups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
+    expect(navigationGroups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(navigationGroups.pessoas.label).toBe('MEU ESPAÇO');
     expect(navigationGroups.sistema.label).toBe('SISTEMA & TECNOLOGIA');
   });
@@ -20,11 +22,12 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     expect(labels).not.toContain('GESTÃO DE RH');
     expect(labels).not.toContain('GOVERNANÇA DE ITS');
     expect(labels).not.toContain('TRABALHO');
+    expect(labels).not.toContain('ROTINA DE TRABALHO');
     expect(labels).not.toContain('PESSOAL');
     expect(labels).not.toContain('SISTEMA & INFRA');
   });
 
-  it('preserva a ordem e as chaves canônicas de navegação', () => {
+  it('preserva a ordem e as chaves canônicas de navegação (COMUNICAÇÃO INTERNA acima de RECURSOS HUMANOS)', () => {
     const keys = Object.keys(navigationGroups);
     expect(keys).toEqual([
       'documental',
@@ -32,6 +35,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       'operacional',
       'rhGestao',
       'governancaIts',
+      'comunicacaoInterna',
       'trabalho',
       'pessoas',
       'sistema',
@@ -39,7 +43,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     ]);
   });
 
-  it('preserva todas as rotas originais dos itens sem qualquer alteração', () => {
+  it('move Mensagens para COMUNICAÇÃO INTERNA, Comunicados para MEU ESPAÇO, e mantém RH e Minha IT em RECURSOS HUMANOS', () => {
     expect(navigationGroups.gestao.items.map((i) => i.href)).toEqual([
       '/avaliacoes',
       '/estatisticas',
@@ -65,14 +69,17 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       '/administracao/its',
     ]);
 
-    expect(navigationGroups.trabalho.items.map((i) => i.href)).toEqual([
+    expect(navigationGroups.comunicacaoInterna.items.map((i) => i.href)).toEqual([
       '/mensagens',
-      '/pessoas/comunicados',
+    ]);
+
+    expect(navigationGroups.trabalho.items.map((i) => i.href)).toEqual([
       '/sistema/pessoas?tab=comunicados',
       '/minha-it',
     ]);
 
     expect(navigationGroups.pessoas.items.map((i) => i.href)).toEqual([
+      '/pessoas/comunicados',
       '/pessoas/ferias',
       '/pessoas/holerites',
     ]);
@@ -96,12 +103,14 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('COLABORADOR');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['operacional', 'trabalho', 'pessoas']);
-    expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
+    expect(groupKeys).toEqual(['operacional', 'comunicacaoInterna', 'trabalho', 'pessoas']);
+    expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
+    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 
-    // Itens de 'pessoas' limitados a férias e holerites
+    // Itens de 'pessoas' (MEU ESPAÇO) incluem comunicados, férias e holerites
     expect(groups.pessoas.items.map((i) => i.href)).toEqual([
+      '/pessoas/comunicados',
       '/pessoas/ferias',
       '/pessoas/holerites',
     ]);
@@ -114,10 +123,11 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('USER');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['gestao', 'operacional', 'trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['gestao', 'operacional', 'comunicacaoInterna', 'trabalho', 'pessoas']);
     expect(groups.gestao.label).toBe('PRESENÇA NO GOOGLE');
     expect(groups.operacional.label).toBe('GESTÃO DE PRAZOS');
-    expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
+    expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
+    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 
     const operHrefs = groups.operacional.items.map((i) => i.href);
@@ -129,9 +139,10 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('RH');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['rhGestao', 'trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['rhGestao', 'comunicacaoInterna', 'trabalho', 'pessoas']);
     expect(groups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
-    expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
+    expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
+    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
     expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/sistema/pessoas?tab=comunicados');
     expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/trajetoria-titulo');
@@ -146,6 +157,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
       'gestao',
       'operacional',
       'governancaIts',
+      'comunicacaoInterna',
       'trabalho',
       'pessoas',
     ]);
@@ -164,6 +176,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
       'operacional',
       'rhGestao',
       'governancaIts',
+      'comunicacaoInterna',
       'trabalho',
       'pessoas',
       'sistema',
@@ -181,6 +194,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
       'operacional',
       'rhGestao',
       'governancaIts',
+      'comunicacaoInterna',
       'trabalho',
       'pessoas',
       'sistema',

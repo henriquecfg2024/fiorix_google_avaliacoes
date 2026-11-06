@@ -49,12 +49,25 @@ export function filterNavigationByRole(
     if (key === "master" && role !== "MASTER") continue;
     if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
 
-    // COLABORADOR: vê 'pessoas' (Férias+Holerites) e 'trabalho' (Comunicados+MinhaIT+Trajetória)
-    // Colaborador vê 'pessoas', 'trabalho' e 'operacional' (filtrado para Rastreio e Impressões)
-    if (isColaborador && key !== "pessoas" && key !== "trabalho" && key !== "operacional") continue;
+    // COLABORADOR: vê 'pessoas' (Comunicados+Férias+Holerites), 'comunicacaoInterna', 'trabalho' (RECURSOS HUMANOS) e 'operacional'
+    if (
+      isColaborador &&
+      key !== "pessoas" &&
+      key !== "comunicacaoInterna" &&
+      key !== "trabalho" &&
+      key !== "operacional"
+    )
+      continue;
 
-    // RH: 'rhGestao', 'pessoas' e 'trabalho' (Opção A — Comunicados e Minha IT migrados)
-    if (isRH && key !== "rhGestao" && key !== "pessoas" && key !== "trabalho") continue;
+    // RH: 'rhGestao', 'pessoas', 'comunicacaoInterna' e 'trabalho' (RECURSOS HUMANOS)
+    if (
+      isRH &&
+      key !== "rhGestao" &&
+      key !== "pessoas" &&
+      key !== "comunicacaoInterna" &&
+      key !== "trabalho"
+    )
+      continue;
 
     // SUBSTITUTO: vê governancaIts, operacional, gestao, pessoas e trabalho; não vê rhGestao nem sistema
     if (isSubstituto && (key === "rhGestao" || key === "sistema")) continue;
@@ -86,6 +99,7 @@ export function filterNavigationByRole(
         }
         if (key === "pessoas") {
           return (
+            item.href.startsWith("/pessoas/comunicados") ||
             item.href.startsWith("/pessoas/ferias") ||
             item.href.startsWith("/pessoas/holerites")
           );

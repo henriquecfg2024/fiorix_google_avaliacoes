@@ -1150,7 +1150,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
             <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+              <span className="text-slate-400 tracking-wider">RECURSOS HUMANOS</span>
               <span className="text-slate-600">/</span>
               <span className="text-cyan-400 font-extrabold tracking-wider">
                 {isSupervisao ? 'SUPERVISÃO ITS' : 'MINHA IT'}

@@ -132,10 +132,9 @@ export const navigationGroups = {
       },
     ],
   },
-  // GRUPO TRABALHO: Operações do dia a dia do colaborador (Missão 4.3.6)
-  trabalho: {
-    label: "ROTINA DE TRABALHO",
-    icon: Briefcase,
+  comunicacaoInterna: {
+    label: "COMUNICAÇÃO INTERNA",
+    icon: MessageSquare,
     items: [
       {
         id: "mensagens",
@@ -144,13 +143,13 @@ export const navigationGroups = {
         icon: MessageSquare,
         description: "Comunicação corporativa em tempo real",
       },
-      {
-        id: "comunicados",
-        label: "Comunicados",
-        href: "/pessoas/comunicados",
-        icon: FileText,
-        description: "Mural interno e minhas ciências",
-      },
+    ],
+  },
+  // RECURSOS HUMANOS (antigo ROTINA DE TRABALHO)
+  trabalho: {
+    label: "RECURSOS HUMANOS",
+    icon: Briefcase,
+    items: [
       {
         id: "gestao_comunicados",
         label: "RH",
@@ -167,11 +166,18 @@ export const navigationGroups = {
       },
     ],
   },
-  // PESSOAL: apenas itens pessoais (Férias e Holerites)
+  // MEU ESPAÇO: Comunicados, Férias e Holerites pessoais
   pessoas: {
     label: "MEU ESPAÇO",
     icon: Target,
     items: [
+      {
+        id: "comunicados",
+        label: "Comunicados",
+        href: "/pessoas/comunicados",
+        icon: FileText,
+        description: "Mural interno e minhas ciências",
+      },
       {
         id: "ferias",
         label: "Férias",
