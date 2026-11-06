@@ -303,232 +303,294 @@ export function EscalaAnualClient({
     }
   };
 
+  const percentProgramados =
+    totalColaboradores > 0 ? Math.round((programadosCount / totalColaboradores) * 100) : 0;
+
   return (
-    <div className="space-y-6 text-slate-900 dark:text-white animate-in fade-in duration-200">
+    <div className="space-y-6 text-white animate-in fade-in duration-200">
       {/* ─────────────────────────────────────────────────────────────
-          1. CABEÇALHO & SELETOR DE ANO (IDÊNTICO AO PREVIEW)
+          1. CARDS DE INDICADORES EXECUTIVOS (PADRÃO FIORIX)
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
-        <div>
-          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-            Escala Anual de Férias
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Planejamento, controle de lotação e publicação oficial das férias dos colaboradores.
-          </p>
-        </div>
-
-        {/* Controles de Topo: Seletor de Ano + Badge Informativo */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {!hideBackButton && onVoltar && (
-            <button
-              type="button"
-              onClick={onVoltar}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/15 bg-[#0B1020]/90 hover:bg-[#111628] text-xs font-semibold text-white transition-all cursor-pointer shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4 text-cyan-400" />
-              <span>Voltar</span>
-            </button>
-          )}
-          {/* Badge Somente Leitura (para substitutos / modo consulta) */}
-          {readOnly && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-sky-500/30 bg-sky-500/10 text-sky-300 text-xs font-semibold shadow-sm">
-              <span>🔒 Somente leitura</span>
-            </span>
-          )}
-
-          {/* Seletor de Ano */}
-          <div className="flex items-center bg-white dark:bg-[#0B1020]/90 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
-            <CalendarIcon className="w-4 h-4 text-indigo-400 mr-2" />
-            <select
-              value={ano}
-              onChange={(e) => setAno(Number(e.target.value))}
-              className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer pr-1"
-            >
-              <option value={2026} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2026</option>
-              <option value={2027} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2027</option>
-              <option value={2028} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2028</option>
-            </select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* KPI 1: Colaboradores na Escala */}
+        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Colaboradores na Escala
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+                ANO {ano}
+              </span>
+            </div>
+            <div className="text-2xl font-black text-white leading-tight">
+              {`${totalColaboradores} ${totalColaboradores === 1 ? "colaborador" : "colaboradores"}`}
+            </div>
+            <p className="text-xs text-slate-400">
+              Base nominal ativa vinculada ao planejamento
+            </p>
           </div>
-
-          {/* Badge de Status — Clicável para Gestão de Publicação apenas pelo RH/Gestor */}
-          {publicacao.status === "PUBLICADA" ? (
-            <button
-              onClick={() => isManager && setPubModalOpen(true)}
-              disabled={!isManager}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-sm transition-all ${
-                isManager ? "hover:bg-emerald-500/20 cursor-pointer" : "cursor-default"
-              }`}
-              title={isManager ? "Clique para gerenciar publicação" : undefined}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Publicada</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => isManager && setPubModalOpen(true)}
-              disabled={!isManager}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold shadow-sm transition-all ${
-                isManager ? "hover:bg-amber-500/20 cursor-pointer" : "cursor-default"
-              }`}
-              title={isManager ? "Clique para gerenciar publicação" : undefined}
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span>Rascunho · não visível aos colaboradores</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          2. RESUMO COMPACTO EM FAIXA ÚNICA (3 BLOCOS BALANCEADOS)
-      ───────────────────────────────────────────────────────────── */}
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-5 backdrop-blur-xl shadow-lg grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/8">
-        {/* Total Colaboradores */}
-        <div className="flex items-center gap-4 px-4 py-2 md:py-0">
-          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.12)] shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
             <Users className="w-6 h-6" />
           </div>
-          <div>
-            <div className="text-2xl font-black text-white leading-tight">
-              {totalColaboradores}
-            </div>
-            <span className="text-xs text-slate-400">colaboradores</span>
-          </div>
         </div>
 
-        {/* Programados */}
-        <div className="flex items-center gap-4 px-4 py-2 md:py-0">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.12)] shrink-0">
+        {/* KPI 2: Férias Programadas */}
+        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Férias Programadas
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                HOMOLOGADAS
+              </span>
+            </div>
+            <div className="text-2xl font-black text-white leading-tight">
+              {`${programadosCount} ${programadosCount === 1 ? "programado" : "programados"}`}
+            </div>
+            <p className="text-xs text-emerald-400/90 font-medium">
+              {totalColaboradores > 0
+                ? `${percentProgramados}% da equipe com período definido`
+                : "Nenhuma programação ativa no ano"}
+            </p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
             <CalendarCheck className="w-6 h-6" />
           </div>
-          <div>
-            <div className="text-2xl font-black text-white leading-tight">
-              {programadosCount}
-            </div>
-            <span className="text-xs text-slate-400">programados</span>
-          </div>
         </div>
 
-        {/* Conflitos a Revisar (Interativo) */}
+        {/* KPI 3: Conflitos a Revisar (Interativo) */}
         <button
+          type="button"
           onClick={() => setStatusFilter(statusFilter === "conflito" ? null : "conflito")}
-          className={`flex items-center gap-4 px-4 py-2 md:py-0 text-left rounded-2xl transition-all cursor-pointer ${
-            statusFilter === "conflito" ? "bg-amber-500/15" : "hover:bg-white/[0.03]"
-          }`}
           title="Clique para filtrar apenas os conflitos"
+          className={`rounded-[24px] border p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer ${
+            statusFilter === "conflito"
+              ? "border-amber-500/45 bg-amber-500/10 ring-1 ring-amber-400/40"
+              : "border-white/15 bg-[#0B1020]/90 hover:border-amber-500/35"
+          }`}
         >
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.12)] shrink-0">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-black text-white leading-tight">
-              {conflitosCount}
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Conflitos de Lotação
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                  statusFilter === "conflito" || conflitosCount > 0
+                    ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
+                    : "bg-indigo-500/15 text-indigo-300 border-indigo-500/25"
+                }`}
+              >
+                {statusFilter === "conflito"
+                  ? "FILTRO ATIVO"
+                  : conflitosCount > 0
+                  ? "REVISAR"
+                  : "EM DIA"}
+              </span>
             </div>
-            <span className="text-xs text-slate-400 flex items-center gap-1">
-              conflitos a revisar
-              {statusFilter === "conflito" && (
-                <span className="text-[10px] text-amber-300 font-bold ml-1">(Filtrado)</span>
-              )}
-            </span>
+            <div className="text-2xl font-black text-white leading-tight">
+              {`${conflitosCount} ${conflitosCount === 1 ? "conflito" : "conflitos"}`}
+            </div>
+            <p
+              className={`text-xs ${
+                conflitosCount > 0 ? "text-amber-400/90 font-medium" : "text-slate-400"
+              }`}
+            >
+              {statusFilter === "conflito"
+                ? "Exibindo apenas conflitos • clique para limpar"
+                : conflitosCount > 0
+                ? "Clique para filtrar sobreposições no setor"
+                : "Nenhuma sobreposição crítica detectada"}
+            </p>
+          </div>
+          <div
+            className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-inner ${
+              conflitosCount > 0
+                ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                : "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+            }`}
+          >
+            <AlertTriangle className="w-6 h-6" />
           </div>
         </button>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          3. VISÃO ANUAL · [ANO] (12 MESES COMPACTOS E INTERATIVOS)
+          2. CARD VISÃO ANUAL DE OCUPAÇÃO (PADRÃO FIORIX)
       ───────────────────────────────────────────────────────────── */}
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 backdrop-blur-xl shadow-lg space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h3 className="text-sm font-bold text-white tracking-wide">
-              Visão anual · {ano}
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Clique em um mês para filtrar a lista.
-            </p>
+      <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+              <CalendarIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                Visão Anual de Ocupação · {ano}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Clique em um mês para filtrar os colaboradores em gozo de férias na lista nominal
+              </p>
+            </div>
           </div>
 
-          {selectedMes !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-3 py-1 rounded-xl flex items-center gap-1.5">
-                Filtrado por: {MESES[selectedMes - 1].completo}
+          <div className="flex items-center gap-3 flex-wrap">
+            {!hideBackButton && onVoltar && (
+              <button
+                type="button"
+                onClick={onVoltar}
+                className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-[#0E1528] text-xs font-semibold text-white transition-all cursor-pointer shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <span>Voltar</span>
+              </button>
+            )}
+
+            {selectedMes !== null && (
+              <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-semibold text-cyan-300 bg-cyan-500/15 border border-cyan-500/30">
+                <span>Mês: {MESES[selectedMes - 1].completo}</span>
                 <button
+                  type="button"
                   onClick={() => setSelectedMes(null)}
-                  className="hover:text-white"
-                  title="Limpar filtro"
+                  className="hover:text-white cursor-pointer"
+                  title="Limpar filtro de mês"
                 >
-                  <X className="w-3.5 h-3.5 ml-1" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </span>
+            )}
+
+            {readOnly && (
+              <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-sky-500/30 bg-sky-500/10 text-sky-300 text-xs font-semibold">
+                <span>Somente leitura</span>
+              </span>
+            )}
+
+            {/* Seletor de Ano */}
+            <div className="inline-flex items-center h-9 bg-[#080D1A] border border-white/15 rounded-xl px-3">
+              <CalendarIcon className="w-4 h-4 text-cyan-400 mr-2 shrink-0" />
+              <select
+                value={ano}
+                onChange={(e) => setAno(Number(e.target.value))}
+                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+              >
+                <option value={2026} className="bg-[#0B1020] text-white">Ano 2026</option>
+                <option value={2027} className="bg-[#0B1020] text-white">Ano 2027</option>
+                <option value={2028} className="bg-[#0B1020] text-white">Ano 2028</option>
+              </select>
             </div>
-          )}
+
+            {/* Badge de Status — Clicável para Gestão de Publicação pelo RH/Gestor */}
+            {publicacao.status === "PUBLICADA" ? (
+              <button
+                type="button"
+                onClick={() => isManager && setPubModalOpen(true)}
+                disabled={!isManager}
+                className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 text-xs font-bold transition-all ${
+                  isManager ? "hover:bg-emerald-500/25 cursor-pointer" : "cursor-default"
+                }`}
+                title={isManager ? "Clique para gerenciar publicação da escala" : undefined}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Escala Publicada</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => isManager && setPubModalOpen(true)}
+                disabled={!isManager}
+                className={`inline-flex items-center gap-2 h-9 px-3.5 rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-300 text-xs font-bold transition-all ${
+                  isManager ? "hover:bg-amber-500/25 cursor-pointer" : "cursor-default"
+                }`}
+                title={isManager ? "Clique para publicar a escala anual" : undefined}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Rascunho (Oculta)</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Grade Horizontal de 12 Meses: estilo limpo e sem caixas pesadas ao redor */}
-        <div className="grid grid-cols-6 sm:grid-cols-12 gap-1 sm:gap-2 pt-2">
-          {ocupacaoPorMes.map((m) => {
-            const isSelected = selectedMes === m.mesIndex;
-            return (
-              <button
-                key={m.mesIndex}
-                onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
-                className={`flex flex-col items-center justify-between py-2 px-1 rounded-2xl transition-all cursor-pointer ${
-                  isSelected
-                    ? "bg-indigo-500/15 ring-1 ring-indigo-400/80 shadow-[0_0_12px_rgba(99,102,241,0.25)]"
-                    : "hover:bg-white/[0.04]"
-                }`}
-                title={`${m.completo}: ${m.percentual}% de ocupação (${m.count} colaboradores em férias)`}
-              >
-                {/* Percentual */}
-                <span className="text-xs font-semibold text-slate-300">
-                  {m.percentual}%
-                </span>
-
-                {/* Barra de Cobertura em Pílula Arredondada */}
-                <div className="w-8 sm:w-11 h-2 rounded-full my-3 overflow-hidden bg-slate-800/80">
-                  <div className={`w-full h-full rounded-full ${m.cor}`} />
-                </div>
-
-                {/* Mês Label */}
-                <span
-                  className={`text-xs ${
-                    isSelected ? "text-indigo-300 font-bold" : "text-slate-400"
+        <div className="p-6">
+          <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2.5">
+            {ocupacaoPorMes.map((m) => {
+              const isSelected = selectedMes === m.mesIndex;
+              return (
+                <button
+                  type="button"
+                  key={m.mesIndex}
+                  onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
+                  className={`flex flex-col items-center justify-between py-3 px-2 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-cyan-500/15 border-cyan-400/60 ring-1 ring-cyan-400/50 shadow-sm"
+                      : "bg-[#080D1A] border-white/10 hover:border-cyan-500/35 hover:bg-[#0E1528]"
                   }`}
+                  title={`${m.completo}: ${m.percentual}% de ocupação (${m.count} colaboradores em férias)`}
                 >
-                  {m.nome}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wider ${
+                      isSelected ? "text-cyan-300" : "text-slate-300"
+                    }`}
+                  >
+                    {m.nome}
+                  </span>
+
+                  <span className="text-sm font-black text-white mt-1.5">
+                    {m.percentual}%
+                  </span>
+
+                  <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden bg-slate-800">
+                    <div
+                      className={`h-full rounded-full ${m.cor}`}
+                      style={{ width: `${Math.min(100, Math.max(18, m.percentual))}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          4. ESCALA NOMINAL (IDÊNTICA AO PREVIEW)
+          3. CARD ESCALA NOMINAL DE FÉRIAS (PADRÃO FIORIX)
       ───────────────────────────────────────────────────────────── */}
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 backdrop-blur-xl shadow-lg space-y-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/8 pb-4">
-          <h3 className="text-base font-bold text-white tracking-tight">
-            Escala nominal
-          </h3>
+      <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                Escala Nominal de Férias
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {`${filteredColaboradores.length} ${
+                  filteredColaboradores.length === 1 ? "colaborador listado" : "colaboradores listados"
+                } • controle de períodos aquisitivos e fracionamento CLT`}
+              </p>
+            </div>
+          </div>
 
-          {/* Controles: Busca, Filtro de Setor e Botão Adicionar */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Campo de Busca */}
-            <div className="relative min-w-[220px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 type="text"
-                placeholder="Buscar colaborador"
+                placeholder="Buscar colaborador..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 bg-[#070A12]/80 border-white/12 text-xs text-white rounded-2xl focus:border-indigo-500 w-full"
+                className="pl-9 pr-8 h-9 bg-[#080D1A] border border-white/15 text-xs text-white rounded-xl placeholder:text-slate-500 focus:border-cyan-500/50 w-full"
               />
               {searchTerm && (
                 <button
+                  type="button"
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -539,190 +601,203 @@ export function EscalaAnualClient({
             <select
               value={selectedSetor}
               onChange={(e) => setSelectedSetor(e.target.value)}
-              className="h-10 px-3.5 bg-[#070A12]/80 border border-white/12 text-xs text-white rounded-2xl focus:outline-none focus:border-indigo-500 cursor-pointer"
+              className="h-9 px-3.5 bg-[#080D1A] border border-white/15 text-xs font-semibold text-white rounded-xl focus:outline-none focus:border-cyan-500/50 cursor-pointer"
             >
-              <option value="TODOS">Todos os setores</option>
+              <option value="TODOS" className="bg-[#0B1020] text-white">Todos os setores</option>
               {setoresDisponiveis.map((s) => (
-                <option key={s} value={s}>
+                <option key={s} value={s} className="bg-[#0B1020] text-white">
                   {s}
                 </option>
               ))}
             </select>
 
-            {/* Botão Adicionar Colaborador (Apenas Gestão/RH) */}
+            {/* Botão Adicionar Colaborador */}
             {!readOnly && (
               <Button
                 onClick={() => {
                   setEditingItem(null);
                   setLancamentoModalOpen(true);
                 }}
-                className="h-10 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 gap-1.5 cursor-pointer"
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm shadow-indigo-500/20 gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Adicionar colaborador</span>
+                <span>Adicionar Colaborador</span>
               </Button>
             )}
           </div>
         </div>
 
-        {/* Tabela Nominal */}
-        <div className="overflow-x-auto rounded-2xl border border-white/8 bg-[#070A12]/40">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#101424] text-slate-400 uppercase font-mono text-[10px] tracking-wider border-b border-white/8">
-              <tr>
-                <th className="py-3.5 px-4 font-bold">COLABORADOR</th>
-                <th className="py-3.5 px-4 font-bold">SETOR</th>
-                <th className="py-3.5 px-4 font-bold">PERÍODO DE FÉRIAS</th>
-                <th className="py-3.5 px-4 font-bold text-center">DIAS</th>
-                <th className="py-3.5 px-4 font-bold">STATUS</th>
-                {!readOnly && (
-                  <th className="py-3.5 px-4 font-bold text-right">AÇÕES</th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 text-slate-200">
-              {filteredColaboradores.length === 0 ? (
+        <div className="p-6">
+          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#080D1A]">
+            <table className="w-full text-left text-xs min-w-[880px]">
+              <thead className="bg-[#0E1528] text-slate-400 uppercase font-mono text-[11px] tracking-wider border-b border-white/10">
                 <tr>
-                  <td colSpan={readOnly ? 5 : 6} className="py-10 text-center text-slate-400 italic">
-                    Nenhum colaborador encontrado com os filtros selecionados.
-                  </td>
+                  <th className="py-3.5 px-5 font-bold">Colaborador</th>
+                  <th className="py-3.5 px-5 font-bold">Setor</th>
+                  <th className="py-3.5 px-5 font-bold">Período de Férias</th>
+                  <th className="py-3.5 px-5 font-bold text-center">Dias</th>
+                  <th className="py-3.5 px-5 font-bold">Status</th>
+                  {!readOnly && (
+                    <th className="py-3.5 px-5 font-bold text-right">Ações</th>
+                  )}
                 </tr>
-              ) : (
-                filteredColaboradores.map((colab, idx) => {
-                  const isMenuOpen = openMenuId === colab.id;
-                  return (
-                    <tr
-                      key={colab.id}
-                      className="hover:bg-white/[0.03] transition-colors group"
-                    >
-                      {/* Colaborador: Avatar com iniciais + Nome limpo */}
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarColor(
-                              idx
-                            )}`}
-                          >
-                            {getInitials(colab.nome)}
-                          </div>
-                          <span className="font-semibold text-white">
-                            {colab.nome}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Setor */}
-                      <td className="py-3.5 px-4 text-slate-300 font-medium">
-                        {colab.setor}
-                      </td>
-
-                      {/* Período de Férias */}
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
-                        {colab.p1Inicio && colab.p1Fim ? (
-                          <div>
-                            <span>{formatPeriodo(colab.p1Inicio, colab.p1Fim)}</span>
-                            {colab.p2Inicio && colab.p2Fim && (
-                              <span className="text-[11px] text-slate-400 block mt-0.5">
-                                + {formatPeriodo(colab.p2Inicio, colab.p2Fim)}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 italic">Não programado</span>
-                        )}
-                      </td>
-
-                      {/* Dias */}
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-200">
-                        {colab.totalDias > 0 ? colab.totalDias : "—"}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-4">
-                        {colab.status === "programado" && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            Programado
-                          </span>
-                        )}
-                        {colab.status === "conflito" && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-300 font-semibold text-[11px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            Conflito a revisar
-                          </span>
-                        )}
-                        {colab.status === "pendente" && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-400 font-semibold text-[11px]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                            Pendente de definição
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Ações (3 pontinhos - apenas se não for somente leitura) */}
-                      {!readOnly && (
-                        <td className="py-3.5 px-4 text-right relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenuId(isMenuOpen ? null : colab.id);
-                            }}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                            title="Ações"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-
-                          {/* Menu Dropdown Compacto */}
-                          {isMenuOpen && (
+              </thead>
+              <tbody className="divide-y divide-white/8 text-slate-200">
+                {filteredColaboradores.length === 0 ? (
+                  <tr>
+                    <td colSpan={readOnly ? 5 : 6} className="py-12 px-5 text-center text-slate-400">
+                      <Users className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                      <p className="font-semibold text-sm text-slate-300">Nenhum colaborador encontrado</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Ajuste os filtros de busca, setor ou mês para visualizar a escala.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredColaboradores.map((colab, idx) => {
+                    const isMenuOpen = openMenuId === colab.id;
+                    return (
+                      <tr
+                        key={colab.id}
+                        className="hover:bg-white/[0.03] transition-colors group"
+                      >
+                        {/* Colaborador */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-3">
                             <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-4 top-11 z-30 w-44 rounded-2xl border border-white/12 bg-[#0c101c] p-1.5 shadow-2xl space-y-1 text-left"
+                              className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarColor(
+                                idx
+                              )}`}
                             >
-                              <button
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  setEditingItem(colab);
-                                  setLancamentoModalOpen(true);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5 text-indigo-400" />
-                                <span>Editar período</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  setHistoricoItem(colab);
-                                  setHistoricoModalOpen(true);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-                              >
-                                <History className="w-3.5 h-3.5 text-cyan-400" />
-                                <span>Visualizar histórico</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  handleDeleteLancamento(colab);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                <span>Remover período</span>
-                              </button>
+                              {getInitials(colab.nome)}
                             </div>
+                            <span className="text-sm font-bold text-white">
+                              {colab.nome}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Setor */}
+                        <td className="py-4 px-5 text-xs font-medium text-slate-300">
+                          {colab.setor}
+                        </td>
+
+                        {/* Período de Férias */}
+                        <td className="py-4 px-5 font-mono text-xs text-slate-200">
+                          {colab.p1Inicio && colab.p1Fim ? (
+                            <div>
+                              <span>{formatPeriodo(colab.p1Inicio, colab.p1Fim)}</span>
+                              {colab.p2Inicio && colab.p2Fim && (
+                                <span className="text-[11px] text-slate-400 block mt-0.5">
+                                  + {formatPeriodo(colab.p2Inicio, colab.p2Fim)}
+                                </span>
+                              )}
+                              {colab.p3Inicio && colab.p3Fim && (
+                                <span className="text-[11px] text-slate-400 block mt-0.5">
+                                  + {formatPeriodo(colab.p3Inicio, colab.p3Fim)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic font-sans">Não programado</span>
                           )}
                         </td>
-                      )}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+
+                        {/* Dias */}
+                        <td className="py-4 px-5 text-center font-mono font-bold text-xs text-white">
+                          {colab.totalDias > 0 ? `${colab.totalDias}d` : "—"}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-5">
+                          {colab.status === "programado" && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 font-bold text-[11px]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              Programado
+                            </span>
+                          )}
+                          {colab.status === "conflito" && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300 font-bold text-[11px]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              Conflito a revisar
+                            </span>
+                          )}
+                          {colab.status === "pendente" && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-500/30 bg-slate-500/15 text-slate-300 font-bold text-[11px]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                              Pendente
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Ações */}
+                        {!readOnly && (
+                          <td className="py-4 px-5 text-right relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(isMenuOpen ? null : colab.id);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+                              title="Ações"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {isMenuOpen && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-5 top-12 z-30 w-44 rounded-2xl border border-white/15 bg-[#0B1020] p-1.5 shadow-2xl space-y-1 text-left"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setEditingItem(colab);
+                                    setLancamentoModalOpen(true);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+                                >
+                                  <Pencil className="w-3.5 h-3.5 text-indigo-400" />
+                                  <span>Editar período</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setHistoricoItem(colab);
+                                    setHistoricoModalOpen(true);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+                                >
+                                  <History className="w-3.5 h-3.5 text-cyan-400" />
+                                  <span>Visualizar histórico</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleDeleteLancamento(colab);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                  <span>Remover período</span>
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

@@ -23,53 +23,69 @@ interface FeriasClientProps {
 interface MesOcupacao {
   mesNum: number;
   label: string;
+  nomeCompleto: string;
   hasVacation: boolean;
   interval?: string;
+  diasNoMes: number;
 }
 
+const MESES_NOMES = [
+  { sigla: "JAN", nome: "Janeiro" },
+  { sigla: "FEV", nome: "Fevereiro" },
+  { sigla: "MAR", nome: "Março" },
+  { sigla: "ABR", nome: "Abril" },
+  { sigla: "MAI", nome: "Maio" },
+  { sigla: "JUN", nome: "Junho" },
+  { sigla: "JUL", nome: "Julho" },
+  { sigla: "AGO", nome: "Agosto" },
+  { sigla: "SET", nome: "Setembro" },
+  { sigla: "OUT", nome: "Outubro" },
+  { sigla: "NOV", nome: "Novembro" },
+  { sigla: "DEZ", nome: "Dezembro" },
+];
+
 function getMesesCalendario(ano: number, ferias: EscalaItem | null): MesOcupacao[] {
-  const labels = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
   const periodos = [
     { inicio: ferias?.p1Inicio, fim: ferias?.p1Fim },
     { inicio: ferias?.p2Inicio, fim: ferias?.p2Fim },
     { inicio: ferias?.p3Inicio, fim: ferias?.p3Fim },
   ].filter((p): p is { inicio: string; fim: string } => !!(p.inicio && p.fim));
 
-  return labels.map((label, idx) => {
+  return MESES_NOMES.map((mesMeta, idx) => {
     const mesNum = idx + 1;
-    let hasVacation = false;
-    let interval: string | undefined;
+    const mesStr = String(mesNum).padStart(2, "0");
+    const ultimoDiaMes = new Date(Date.UTC(ano, mesNum, 0)).getUTCDate();
+    const inicioMesIso = `${ano}-${mesStr}-01`;
+    const fimMesIso = `${ano}-${mesStr}-${String(ultimoDiaMes).padStart(2, "0")}`;
+
+    const intervalosNoMes: string[] = [];
+    let diasNoMes = 0;
 
     for (const p of periodos) {
-      const [anoIni, mesIni, diaIni] = p.inicio.split("-").map(Number);
-      const [anoFim, mesFim, diaFim] = p.fim.split("-").map(Number);
+      const segInicio = p.inicio > inicioMesIso ? p.inicio : inicioMesIso;
+      const segFim = p.fim < fimMesIso ? p.fim : fimMesIso;
 
-      if (anoIni === ano || anoFim === ano) {
-        if (mesIni === mesNum && mesFim === mesNum) {
-          hasVacation = true;
-          interval = `${String(diaIni).padStart(2, "0")} – ${String(diaFim).padStart(2, "0")}`;
-          break;
-        } else if (mesIni === mesNum) {
-          hasVacation = true;
-          interval = `${String(diaIni).padStart(2, "0")} – ...`;
-          break;
-        } else if (mesFim === mesNum) {
-          hasVacation = true;
-          interval = `... – ${String(diaFim).padStart(2, "0")}`;
-          break;
-        } else if (mesNum > mesIni && mesNum < mesFim) {
-          hasVacation = true;
-          interval = "Mês todo";
-          break;
-        }
+      if (segInicio <= segFim) {
+        const [y1, m1, d1] = segInicio.split("-").map(Number);
+        const [y2, m2, d2] = segFim.split("-").map(Number);
+        const diasSeg =
+          Math.round(
+            (Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000
+          ) + 1;
+        diasNoMes += Math.max(diasSeg, 0);
+        intervalosNoMes.push(
+          `${String(d1).padStart(2, "0")}/${mesStr} a ${String(d2).padStart(2, "0")}/${mesStr}`
+        );
       }
     }
 
     return {
       mesNum,
-      label,
-      hasVacation,
-      interval,
+      label: mesMeta.sigla,
+      nomeCompleto: mesMeta.nome,
+      hasVacation: intervalosNoMes.length > 0,
+      interval: intervalosNoMes.join(" • "),
+      diasNoMes,
     };
   });
 }
@@ -333,17 +349,17 @@ export function FeriasClient({
               </div>
             ) : (
               <div className="space-y-5">
-                {/* Linha Superior: Próximas Férias + Meu Calendário */}
+                {/* Linha Superior: Próximas Férias (5 col) + Meu Calendário Ampliado (7 col) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   {/* Bloco Esquerdo: Períodos Programados */}
-                  <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-5">
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-6">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                           <CalendarCheck className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="text-base font-bold text-white">
+                          <h3 className="text-base sm:text-lg font-bold text-white">
                             Próximas férias
                           </h3>
                           <p className="text-xs text-slate-400">
@@ -354,15 +370,15 @@ export function FeriasClient({
                         </div>
                       </div>
                       {periodosAtivos.length > 0 && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
                           {periodosAtivos[0].dias || totalDiasProgramados || 15} dias
                         </span>
                       )}
                     </div>
 
                     {periodosAtivos.length > 0 ? (
-                      <div className="space-y-3">
-                        <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                      <div className="my-auto py-2 space-y-3">
+                        <div className="text-2xl xl:text-3xl font-black text-white tracking-tight">
                           {formatDateBr(periodosAtivos[0].inicio)} — {formatDateBr(periodosAtivos[0].fim)}
                         </div>
 
@@ -371,7 +387,7 @@ export function FeriasClient({
                             {periodosAtivos.slice(1).map((p) => (
                               <span
                                 key={p.ordem}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-slate-300 font-medium"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/[0.04] text-xs text-slate-200 font-medium"
                               >
                                 <span className="text-cyan-400 font-bold">{p.ordem}º período:</span>
                                 <span>
@@ -384,7 +400,7 @@ export function FeriasClient({
                         )}
                       </div>
                     ) : (
-                      <div className="py-3 space-y-1">
+                      <div className="my-auto py-3 space-y-1">
                         <div className="text-lg font-bold text-white">
                           Nenhuma férias programada em {ano}
                         </div>
@@ -394,60 +410,87 @@ export function FeriasClient({
                       </div>
                     )}
 
-                    <div className="pt-3 border-t border-white/8 flex items-center justify-between text-xs text-slate-400">
-                      <span>Aviso prévio mínimo de 30 dias garantido pelo sistema</span>
-                      <span className="font-mono text-[11px] text-cyan-400">CLT • ART. 135</span>
+                    <div className="pt-3.5 border-t border-white/8 flex items-center justify-between gap-2 text-xs text-slate-400">
+                      <span>Aviso prévio mínimo de 30 dias garantido</span>
+                      <span className="font-mono text-xs font-semibold text-cyan-400 shrink-0">CLT • ART. 135</span>
                     </div>
                   </div>
 
-                  {/* Bloco Direito: Meu Calendário Anual */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-cyan-400" />
-                        <h3 className="text-base font-bold text-white">
-                          Meu calendário {ano}
-                        </h3>
+                  {/* Bloco Direito: Meu Calendário Anual (Grade 4x3 de Alta Legibilidade) */}
+                  <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+                          <Calendar className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base sm:text-lg font-bold text-white">
+                            Meu calendário {ano}
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            Distribuição mensal dos períodos de descanso
+                          </p>
+                        </div>
                       </div>
-                      <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        Programadas
+                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-xs font-semibold text-emerald-300 self-start sm:self-auto shrink-0">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        Férias programadas
                       </span>
                     </div>
 
-                    <div className="my-auto py-2 overflow-x-auto scrollbar-none">
-                      <div className="grid grid-cols-6 sm:grid-cols-12 lg:grid-cols-6 gap-2 items-center">
-                        {mesesCalendario.map((m) => (
-                          <div key={m.mesNum} className="flex justify-center">
-                            {m.hasVacation ? (
-                              <div className="w-full flex flex-col items-center bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-2 py-2">
-                                <span className="text-[10px] font-bold text-emerald-300">
-                                  {m.label}
-                                </span>
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 my-1" />
-                                <span className="text-[10px] font-mono font-bold text-emerald-300 whitespace-nowrap">
-                                  {m.interval || "Férias"}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="w-full flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.015] px-2 py-2">
-                                <span className="text-[10px] font-semibold text-slate-400">
-                                  {m.label}
-                                </span>
-                                <span className="w-2 h-2 rounded-full border border-slate-600/70 my-1" />
-                                <span className="text-[10px] font-mono text-slate-600 select-none">
-                                  —
-                                </span>
-                              </div>
-                            )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {mesesCalendario.map((m) =>
+                        m.hasVacation ? (
+                          <div
+                            key={m.mesNum}
+                            className="rounded-xl border border-emerald-500/45 bg-emerald-500/[0.12] px-3.5 py-3 shadow-[0_0_20px_rgba(16,185,129,0.12)] flex flex-col justify-between min-h-[82px]"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-extrabold text-emerald-300 tracking-tight">
+                                {m.nomeCompleto}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-[11px] font-bold text-emerald-200 shrink-0">
+                                {m.diasNoMes > 0 ? `${m.diasNoMes}d` : "Ativo"}
+                              </span>
+                            </div>
+                            <div className="pt-2 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                              <span className="text-sm sm:text-[15px] font-extrabold text-white tracking-tight">
+                                {m.interval || "Programadas"}
+                              </span>
+                            </div>
                           </div>
-                        ))}
-                      </div>
+                        ) : (
+                          <div
+                            key={m.mesNum}
+                            className="rounded-xl border border-white/10 bg-white/[0.025] px-3.5 py-3 flex flex-col justify-between min-h-[82px]"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-slate-200">
+                                {m.nomeCompleto}
+                              </span>
+                              <span className="w-2 h-2 rounded-full border border-slate-500/80 shrink-0" />
+                            </div>
+                            <div className="pt-2">
+                              <span className="text-xs font-medium text-slate-400">
+                                Sem férias
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
 
-                    <div className="pt-3 border-t border-white/8 text-xs text-slate-400 flex items-center justify-between">
-                      <span>Visão mensal consolidada</span>
-                      <span className="font-mono text-[11px] text-slate-500">12 MESES</span>
+                    <div className="pt-3.5 border-t border-white/8 text-xs text-slate-300 flex items-center justify-between gap-2 flex-wrap">
+                      <span>
+                        {mesesCalendario.some((m) => m.hasVacation)
+                          ? `Mês programado em ${ano}: ${mesesCalendario
+                              .filter((m) => m.hasVacation)
+                              .map((m) => `${m.nomeCompleto} (${m.interval})`)
+                              .join(", ")}`
+                          : `Nenhum mês com férias programadas em ${ano}`}
+                      </span>
+                      <span className="font-mono text-xs font-semibold text-slate-400 shrink-0">12 MESES</span>
                     </div>
                   </div>
                 </div>

@@ -499,175 +499,199 @@ export function PainelRHClient({
 
         {/* 1. CARDS: FÉRIAS — Unificados na faixa métrica de EscalaAnualClient */}
 
-        {/* 2. CARDS: HOLERITES */}
+        {/* 2. CARDS: HOLERITES (PADRÃO EXECUTIVO FIORIX) */}
         {currentTab === "holerites" && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Holerites Disponibilizados</span>
-                <FileText className="w-4 h-4 text-cyan-400" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-cyan-400">{totalHolerites}</span>
-                <span className="text-xs text-slate-400 font-semibold">
-                  {totalHolerites > 0 ? "documentos em custódia" : "documentos"}
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full transition-all duration-500"
-                  style={{ width: totalHolerites > 0 ? "100%" : "0%" }}
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-2.5">
-                {totalHolerites > 0 ? "Documentos distribuídos via portal" : "Nenhum holerite processado"}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Colaboradores Atendidos</span>
-                <Users className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">
-                  {colaboradoresAtendidosHolerite}
-                  {totalColaboradores > 0 && (
-                    <span className="text-slate-500 text-2xl font-normal"> / {totalColaboradores}</span>
-                  )}
-                </span>
-                {colaboradoresAtendidosHolerite > 0 && totalColaboradores > 0 && (
-                  <span className="text-xs text-emerald-300/80 font-semibold">
-                    ({percentAtendidosHolerite}% da folha ativa)
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* KPI 1: Holerites Disponibilizados */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Holerites Disponibilizados
                   </span>
-                )}
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+                    CUSTÓDIA
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {`${totalHolerites} ${totalHolerites === 1 ? "documento" : "documentos"}`}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {totalHolerites > 0
+                    ? "Distribuídos com hash SHA-256 via portal"
+                    : "Nenhum holerite processado no momento"}
+                </p>
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">
-                {colaboradoresAtendidosHolerite > 0
-                  ? "Acesso individualizado com PIN e autenticação"
-                  : "Nenhum colaborador recebeu holerite"}
-              </p>
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
+                <FileText className="w-6 h-6" />
+              </div>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade</span>
-                <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
+            {/* KPI 2: Colaboradores Atendidos */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Colaboradores Atendidos
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                    FOLHA ATIVA
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {totalColaboradores > 0
+                    ? `${colaboradoresAtendidosHolerite} / ${totalColaboradores} atendidos`
+                    : `${colaboradoresAtendidosHolerite} atendidos`}
+                </div>
+                <p
+                  className={`text-xs ${
+                    colaboradoresAtendidosHolerite > 0
+                      ? "text-emerald-400/90 font-medium"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {colaboradoresAtendidosHolerite > 0 && totalColaboradores > 0
+                    ? `${percentAtendidosHolerite}% da folha ativa com acesso individual`
+                    : "Nenhum colaborador recebeu holerite"}
+                </p>
               </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                {totalHolerites > 0 ? (
-                  <>
-                    <span className="text-3xl font-black text-indigo-400">{percentWormHolerite}%</span>
-                    <span className="text-xs text-indigo-300/80 font-semibold">íntegro</span>
-                  </>
-                ) : (
-                  <span className="text-lg font-bold text-slate-400">Sem dados</span>
-                )}
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                <Users className="w-6 h-6" />
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">
-                {totalHolerites > 0
-                  ? "Logs de download e visualização auditáveis"
-                  : "Sem documentos para validação"}
-              </p>
+            </div>
+
+            {/* KPI 3: Rastreabilidade */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Rastreabilidade & LGPD
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                    PROV. 213/2026
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {totalHolerites > 0 ? `${percentWormHolerite}% íntegro` : "Custódia ativa"}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {totalHolerites > 0
+                    ? "Logs nominais de visualização e download auditáveis"
+                    : "Sem documentos pendentes de validação"}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
             </div>
           </div>
         )}
 
-        {/* 3. CARDS: COMUNICADOS */}
+        {/* 3. CARDS: COMUNICADOS (PADRÃO EXECUTIVO FIORIX) */}
         {currentTab === "comunicados" && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Vigentes</span>
-                <FileText className="w-4 h-4 text-indigo-400" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* KPI 1: Comunicados Vigentes */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Comunicados Vigentes
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+                    MURAL OFICIAL
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {`${comunicadosPublicados.length} ${
+                    comunicadosPublicados.length === 1 ? "comunicado ativo" : "comunicados ativos"
+                  }`}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {comunicadosPublicados.length > 0
+                    ? `Publicados no mural • ${totalVisualizacoes} ${
+                        totalVisualizacoes === 1 ? "visualização" : "visualizações"
+                      }`
+                    : "Nenhum comunicado publicado no momento"}
+                </p>
               </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-indigo-400">{comunicadosPublicados.length}</span>
-                <span className="text-xs text-slate-400 font-semibold">
-                  {comunicadosPublicados.length === 1 ? "comunicado ativo" : "comunicados ativos"}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">
-                {comunicadosPublicados.length > 0
-                  ? `Publicados no mural oficial • ${totalVisualizacoes} ${totalVisualizacoes === 1 ? "visualização" : "visualizações"}`
-                  : "Nenhum comunicado publicado no momento"}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
-                <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[#06b6d4]">{taxaGeral}%</span>
-                <span className="text-xs text-slate-400 font-semibold">
-                  {totalCiencias} / {totalEsperado} {totalEsperado === 1 ? "ciência confirmada" : "ciências confirmadas"}
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500"
-                  style={{ width: `${taxaGeral}%` }}
-                />
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
+                <FileText className="w-6 h-6" />
               </div>
             </div>
 
-            <div
-              className={`p-6 rounded-[24px] backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] ${
-                pendentesCriticos > 0
-                  ? "border border-rose-500/35 bg-[#180a10]/80"
-                  : "border border-emerald-500/25 bg-[#0B1020]/90"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    pendentesCriticos > 0 ? "text-rose-400" : "text-emerald-400"
+            {/* KPI 2: Taxa Geral de Ciência */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Taxa Geral de Ciência
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                    ADESÃO
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {`${taxaGeral}% confirmada`}
+                </div>
+                <p className="text-xs text-emerald-400/90 font-medium">
+                  {`${totalCiencias} de ${totalEsperado} ${
+                    totalEsperado === 1 ? "ciência confirmada" : "ciências confirmadas"
                   }`}
-                >
-                  Ciências Pendentes
-                </span>
-                {pendentesCriticos > 0 ? (
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                )}
+                </p>
               </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span
-                  className={`text-3xl font-black ${
-                    pendentesCriticos > 0 ? "text-[#ef4444]" : "text-emerald-400"
-                  }`}
-                >
-                  {pendentesCriticos}
-                </span>
-                <span
-                  className={`text-xs font-semibold ${
-                    pendentesCriticos > 0 ? "text-[#ef4444]/85" : "text-emerald-300/85"
-                  }`}
-                >
-                  {pendentesCriticos === 1
-                    ? "colaborador aguardando ciência"
-                    : pendentesCriticos > 1
-                    ? "aguardando confirmação"
-                    : "Tudo em dia"}
-                </span>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+                <CheckCircle2 className="w-6 h-6" />
               </div>
-              <p
-                className={`text-[11px] mt-3.5 ${
-                  pendentesCriticos > 0 ? "text-[#ef4444]/80" : "text-slate-400"
+            </div>
+
+            {/* KPI 3: Ciências Pendentes */}
+            <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Ciências Pendentes
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                      pendentesCriticos > 0
+                        ? "bg-amber-500/15 text-amber-300 border-amber-500/25"
+                        : "bg-indigo-500/15 text-indigo-300 border-indigo-500/25"
+                    }`}
+                  >
+                    {pendentesCriticos > 0 ? "ATENÇÃO" : "EM DIA"}
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-white leading-tight">
+                  {`${pendentesCriticos} ${
+                    pendentesCriticos === 1 ? "pendente" : "pendentes"
+                  }`}
+                </div>
+                <p
+                  className={`text-xs ${
+                    pendentesCriticos > 0 ? "text-amber-400/90 font-medium" : "text-slate-400"
+                  }`}
+                >
+                  {pendentesCriticos > 0
+                    ? "Aguardando leitura e confirmação no mural"
+                    : "Todos os destinatários confirmaram ciência"}
+                </p>
+              </div>
+              <div
+                className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-inner ${
+                  pendentesCriticos > 0
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                    : "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
                 }`}
               >
-                {pendentesCriticos > 0
-                  ? "Disponível para leitura e confirmação no mural"
-                  : "Todos os destinatários confirmaram ciência"}
-              </p>
+                {pendentesCriticos > 0 ? (
+                  <AlertTriangle className="w-6 h-6" />
+                ) : (
+                  <ShieldCheck className="w-6 h-6" />
+                )}
+              </div>
             </div>
           </div>
         )}
-
-
 
         {/* ══════════════════════════════════════════════════════════════
             0. PAINEL GERAL (DASHBOARD EXECUTIVO CONSOLIDADO)
@@ -841,29 +865,35 @@ export function PainelRHClient({
         )}
 
         {/* ══════════════════════════════════════════════════════════════
-            1. COMUNICADOS TAB
+            1. COMUNICADOS TAB (PADRÃO EXECUTIVO FIORIX)
         ══════════════════════════════════════════════════════════════ */}
         {currentTab === "comunicados" && (
-          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-sm space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                  Gestão de Comunicados Internos
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Monitore publicações, visualizações e ciências nominais por colaborador (Prov. 213/2026)
-                </p>
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
+            {/* Cabeçalho Padronizado FIORIX */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    Gestão de Comunicados Internos
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Monitore publicações, visualizações e ciências nominais por colaborador (Prov. 213/2026)
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
-                <div className="relative w-60">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <Input
                     value={searchComunicados}
                     onChange={(e) => setSearchComunicados(e.target.value)}
                     placeholder="Buscar comunicado..."
-                    className="bg-slate-50 dark:bg-[#05050a] border border-slate-200 dark:border-white/15 pl-9 text-xs h-9 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="bg-[#080D1A] border border-white/15 pl-9 text-xs h-9 rounded-xl text-white placeholder:text-slate-500 focus:border-cyan-500/50"
                   />
                 </div>
 
@@ -871,17 +901,17 @@ export function PainelRHClient({
                 <select
                   value={filterStatusComunicados}
                   onChange={(e) => setFilterStatusComunicados(e.target.value)}
-                  className="bg-slate-50 dark:bg-[#05050a] border border-slate-200 dark:border-white/15 text-slate-900 dark:text-white text-xs rounded-xl px-3 py-2 outline-none font-medium"
+                  className="h-9 bg-[#080D1A] border border-white/15 text-white text-xs rounded-xl px-3.5 outline-none font-semibold focus:border-cyan-500/50 cursor-pointer"
                 >
-                  <option value="TODOS">Todos os Status</option>
-                  <option value="PUBLICADO">Publicado</option>
-                  <option value="ARQUIVADO">Arquivado</option>
-                  <option value="EXCLUIDO">Excluído</option>
+                  <option value="TODOS" className="bg-[#0B1020] text-white">Todos os status</option>
+                  <option value="PUBLICADO" className="bg-[#0B1020] text-white">Publicado</option>
+                  <option value="ARQUIVADO" className="bg-[#0B1020] text-white">Arquivado</option>
+                  <option value="EXCLUIDO" className="bg-[#0B1020] text-white">Excluído</option>
                 </select>
 
                 <Button
                   onClick={() => setNovoModalOpen(true)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20 h-9"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm shadow-indigo-500/20 h-9 px-4 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Criar Novo Comunicado</span>
@@ -889,153 +919,163 @@ export function PainelRHClient({
               </div>
             </div>
 
-            <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-x-auto bg-white dark:bg-[#05050a]">
-              <table className="w-full text-left text-xs min-w-[950px]">
-                <thead className="bg-slate-50 dark:bg-[#12141F] text-slate-500 dark:text-slate-400 uppercase font-mono text-[10px] border-b border-slate-200 dark:border-white/10">
-                  <tr>
-                    <th className="px-5 py-3.5">Título</th>
-                    <th className="px-5 py-3.5">Data</th>
-                    <th className="px-5 py-3.5">Autor</th>
-                    <th className="px-5 py-3.5">Destinatários</th>
-                    <th className="px-5 py-3.5">Adesão / Ciências</th>
-                    <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5 text-slate-200">
-                  {filteredComunicados.length === 0 ? (
+            <div className="p-6">
+              <div className="border border-white/10 rounded-2xl overflow-x-auto bg-[#080D1A]">
+                <table className="w-full text-left text-xs min-w-[950px]">
+                  <thead className="bg-[#0E1528] text-slate-400 uppercase font-mono text-[11px] tracking-wider border-b border-white/10">
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                        <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                        <p className="font-semibold text-sm text-slate-300">Nenhum comunicado encontrado</p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Clique em &quot;+ Criar Novo Comunicado&quot; para publicar o primeiro comunicado oficial.
-                        </p>
-                      </td>
+                      <th className="px-5 py-3.5 font-bold">Título</th>
+                      <th className="px-5 py-3.5 font-bold">Data</th>
+                      <th className="px-5 py-3.5 font-bold">Autor</th>
+                      <th className="px-5 py-3.5 font-bold">Destinatários</th>
+                      <th className="px-5 py-3.5 font-bold">Adesão / Ciências</th>
+                      <th className="px-5 py-3.5 font-bold">Status</th>
+                      <th className="px-5 py-3.5 font-bold text-right">Ações</th>
                     </tr>
-                  ) : (
-                    filteredComunicados.map((item) => {
-                    const percent = item.total > 0 ? Math.min(100, Math.round((item.ciencias / item.total) * 100)) : 0;
-                    const isExcluido = item.status === "EXCLUIDO";
-
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`hover:bg-white/[0.03] transition-colors ${
-                          isExcluido ? "opacity-60 bg-rose-950/10" : ""
-                        }`}
-                      >
-                        <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-white">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setViewComunicadoModal(item)}
-                              title="Clique para visualizar este comunicado"
-                              className="inline-flex items-center gap-2 text-left font-bold text-slate-900 dark:text-white hover:text-cyan-400 transition-colors cursor-pointer group/comtitle"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-indigo-400 group-hover/comtitle:text-cyan-400 shrink-0 transition-colors" />
-                              <span className="group-hover/comtitle:underline">{item.titulo}</span>
-                            </button>
-                            {item.anexos && item.anexos.length > 0 && (
-                              <a
-                                href={`/api/comunicados/anexo/${item.anexos[0].id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={`Abrir PDF Oficial: ${item.anexos[0].nomeOriginal}`}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono text-rose-300 hover:bg-rose-500/25 transition-colors cursor-pointer"
-                              >
-                                <FileText className="w-3 h-3 text-rose-400" />
-                                <span>PDF Anexo</span>
-                              </a>
-                            )}
-                          </div>
-                          <div className="text-[10px] font-normal text-slate-400 font-mono mt-0.5 ml-5.5">
-                            {item.ultimaAlteracaoPor ? (
-                              <span className="text-amber-300/80">
-                                ✏️ Editado por <strong>{item.ultimaAlteracaoPor}</strong> em {item.dataUltimaAlteracao}
-                              </span>
-                            ) : (
-                              <span>
-                                ✨ Publicado por <strong>{item.autor}</strong> em {item.data}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 font-mono text-slate-400">{item.data}</td>
-                        <td className="px-5 py-3.5 text-slate-300">{item.autor}</td>
-                        <td className="px-5 py-3.5 text-slate-400">{item.destinatarios}</td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-[#06b6d4] font-bold">
-                              {item.ciencias}/{item.total}
-                            </span>
-                            <span className="text-[10px] text-slate-400">({percent}%)</span>
-                          </div>
-                          <div className="w-28 bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
-                            <div className="bg-[#06b6d4] h-full" style={{ width: `${percent}%` }} />
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
-                              item.status === "PUBLICADO"
-                                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                                : item.status === "EXCLUIDO"
-                                ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
-                                : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Eye (Ver) */}
-                            <button
-                              onClick={() => setViewComunicadoModal(item)}
-                              title="Visualizar Comunicado"
-                              className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-
-                            {/* Pencil (Editar) */}
-                            <button
-                              onClick={() => setEditComunicadoModal(item)}
-                              title="Editar Comunicado"
-                              className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-white/5 rounded-lg transition-colors"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-
-                            {/* Trilha de Auditoria Nominal Real */}
-                            <button
-                              type="button"
-                              onClick={() => setAuditComunicado(item)}
-                              title={`Trilha de Auditoria e Ciências (${item.ciencias}/${item.total})`}
-                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
-                            >
-                              <ScrollText className="w-4 h-4" />
-                            </button>
-
-                            {/* Trash2 (Excluir com Hash WORM) */}
-                            <button
-                              onClick={() => {
-                                setComunicadoToDelete(item);
-                                setDeleteComunicadoModal(true);
-                              }}
-                              title="Excluir e Arquivar"
-                              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-white/8 text-slate-200">
+                    {filteredComunicados.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                          <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                          <p className="font-semibold text-sm text-slate-300">Nenhum comunicado encontrado</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Clique em &quot;+ Criar Novo Comunicado&quot; para publicar o primeiro comunicado oficial.
+                          </p>
                         </td>
                       </tr>
-                    );
-                  }))}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredComunicados.map((item) => {
+                        const percent =
+                          item.total > 0 ? Math.min(100, Math.round((item.ciencias / item.total) * 100)) : 0;
+                        const isExcluido = item.status === "EXCLUIDO";
+
+                        return (
+                          <tr
+                            key={item.id}
+                            className={`hover:bg-white/[0.03] transition-colors ${
+                              isExcluido ? "opacity-60 bg-rose-950/10" : ""
+                            }`}
+                          >
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewComunicadoModal(item)}
+                                  title="Clique para visualizar este comunicado"
+                                  className="inline-flex items-center gap-2 text-left text-sm font-bold text-white hover:text-cyan-400 transition-colors cursor-pointer group/comtitle"
+                                >
+                                  <FileText className="w-4 h-4 text-cyan-400 shrink-0 transition-colors" />
+                                  <span className="group-hover/comtitle:underline">{item.titulo}</span>
+                                </button>
+                                {item.anexos && item.anexos.length > 0 && (
+                                  <a
+                                    href={`/api/comunicados/anexo/${item.anexos[0].id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`Abrir PDF Oficial: ${item.anexos[0].nomeOriginal}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono font-bold text-rose-300 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                  >
+                                    <FileText className="w-3 h-3 text-rose-400" />
+                                    <span>PDF Anexo</span>
+                                  </a>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-normal text-slate-400 mt-1 ml-6">
+                                {item.ultimaAlteracaoPor ? (
+                                  <span className="text-amber-300/85">
+                                    Editado por <strong>{item.ultimaAlteracaoPor}</strong> em {item.dataUltimaAlteracao}
+                                  </span>
+                                ) : (
+                                  <span>
+                                    Publicado por <strong className="text-slate-300">{item.autor}</strong> em {item.data}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 font-mono text-xs text-slate-400">{item.data}</td>
+                            <td className="px-5 py-4 text-xs font-medium text-slate-300">{item.autor}</td>
+                            <td className="px-5 py-4 text-xs text-slate-400">{item.destinatarios}</td>
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-cyan-400 font-bold text-xs">
+                                  {item.ciencias}/{item.total}
+                                </span>
+                                <span className="text-[11px] text-slate-400">({percent}%)</span>
+                              </div>
+                              <div className="w-28 bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                                <div className="bg-cyan-400 h-full" style={{ width: `${percent}%` }} />
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                                  item.status === "PUBLICADO"
+                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                    : item.status === "EXCLUIDO"
+                                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                    : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    item.status === "PUBLICADO"
+                                      ? "bg-emerald-400"
+                                      : item.status === "EXCLUIDO"
+                                      ? "bg-rose-400"
+                                      : "bg-amber-400"
+                                  }`}
+                                />
+                                {item.status === "PUBLICADO"
+                                  ? "Publicado"
+                                  : item.status === "EXCLUIDO"
+                                  ? "Excluído"
+                                  : "Arquivado"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => setViewComunicadoModal(item)}
+                                  title="Visualizar Comunicado"
+                                  className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setEditComunicadoModal(item)}
+                                  title="Editar Comunicado"
+                                  className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAuditComunicado(item)}
+                                  title={`Trilha de Auditoria e Ciências (${item.ciencias}/${item.total})`}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <ScrollText className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setComunicadoToDelete(item);
+                                    setDeleteComunicadoModal(true);
+                                  }}
+                                  title="Excluir e Arquivar"
+                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1067,7 +1107,7 @@ export function PainelRHClient({
       {/* Modal Criar Novo Comunicado */}
       {novoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-white dark:bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
+          <div className="relative w-full max-w-2xl bg-[#0B1020] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                 Publicar Novo Comunicado com Integridade SHA-256
@@ -1091,7 +1131,7 @@ export function PainelRHClient({
                   value={novoTitulo}
                   onChange={(e) => setNovoTitulo(e.target.value)}
                   placeholder="Ex: Atualização dos Procedimentos de Balcão e Qualificação"
-                  className="bg-[#05050a] border-white/15 text-white text-xs rounded-xl"
+                  className="bg-[#080D1A] border-white/15 text-white text-xs rounded-xl"
                 />
               </div>
 
@@ -1100,7 +1140,7 @@ export function PainelRHClient({
                 <select
                   value={novoPrioridade}
                   onChange={(e) => setNovoPrioridade(e.target.value)}
-                  className="w-full bg-[#05050a] border border-white/15 text-white text-xs rounded-xl p-2.5 font-medium"
+                  className="w-full bg-[#080D1A] border border-white/15 text-white text-xs rounded-xl p-2.5 font-medium"
                 >
                   <option value="NORMAL">NORMAL</option>
                   <option value="IMPORTANTE">IMPORTANTE</option>
@@ -1115,7 +1155,7 @@ export function PainelRHClient({
                   onChange={(e) => setNovoConteudo(e.target.value)}
                   rows={5}
                   placeholder="Escreva as determinações administrativas, horários ou diretrizes que exigem ciência formal dos 45 colaboradores..."
-                  className="w-full bg-[#05050a] border border-white/15 text-white text-xs rounded-xl p-3 focus:border-indigo-500 outline-none"
+                  className="w-full bg-[#080D1A] border border-white/15 text-white text-xs rounded-xl p-3 focus:border-indigo-500 outline-none"
                 />
               </div>
 
@@ -1243,7 +1283,7 @@ export function PainelRHClient({
       {/* Modal Visualizar Comunicado */}
       {viewComunicadoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-xl bg-white dark:bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
+          <div className="relative w-full max-w-xl bg-[#0B1020] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-white">{viewComunicadoModal.titulo}</h3>
@@ -1297,7 +1337,7 @@ export function PainelRHClient({
       {/* Modal Editar Comunicado */}
       {editComunicadoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-xl bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-xl bg-[#0B1020] border border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white">Editar Comunicado Institucional</h3>
               <button onClick={() => setEditComunicadoModal(null)} className="text-slate-400 hover:text-white">
@@ -1313,7 +1353,7 @@ export function PainelRHClient({
                   onChange={(e) =>
                     setEditComunicadoModal({ ...editComunicadoModal, titulo: e.target.value })
                   }
-                  className="bg-[#05050a] border-white/15 text-white text-xs rounded-xl"
+                  className="bg-[#080D1A] border-white/15 text-white text-xs rounded-xl"
                 />
               </div>
 
@@ -1325,7 +1365,7 @@ export function PainelRHClient({
                     setEditComunicadoModal({ ...editComunicadoModal, conteudo: e.target.value })
                   }
                   rows={4}
-                  className="w-full bg-[#05050a] border border-white/15 text-white text-xs rounded-xl p-3 outline-none"
+                  className="w-full bg-[#080D1A] border border-white/15 text-white text-xs rounded-xl p-3 outline-none"
                 />
               </div>
             </div>
