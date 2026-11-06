@@ -472,7 +472,7 @@ export function PainelRHClient({
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
+      <div className="relative mx-auto w-full max-w-[1880px] px-5 py-6 sm:px-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
         <div className="flex items-center justify-between gap-3 px-1 pt-1 pb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -1083,7 +1083,7 @@ export function PainelRHClient({
         {/* ══════════════════════════════════════════════════════════════
             2. HOLERITES TAB
         ══════════════════════════════════════════════════════════════ */}
-        {currentTab === "holerites" && <HoleriteUploader />}
+        {currentTab === "holerites" && <HoleriteUploader userRole={userRole} />}
 
         {/* ══════════════════════════════════════════════════════════════
             3. FÉRIAS TAB (ESCALA ANUAL DE FÉRIAS IDÊNTICA AO PREVIEW)

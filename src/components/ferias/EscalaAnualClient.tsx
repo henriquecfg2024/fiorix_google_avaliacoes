@@ -25,6 +25,10 @@ import {
   UserPlus,
   UserMinus,
   CalendarPlus,
+  RotateCcw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +93,22 @@ interface EscalaAnualClientProps {
   onVoltar?: () => void;
 }
 
+type FeriasSortField =
+  | "padrao"
+  | "nome"
+  | "registro"
+  | "cpf"
+  | "nascimento"
+  | "sexo"
+  | "naturalidade"
+  | "setor"
+  | "admissao"
+  | "periodo"
+  | "dias"
+  | "status";
+
+type SortDirection = "asc" | "desc";
+
 const MESES = [
   { id: 1, nome: "Jan", completo: "Janeiro" },
   { id: 2, nome: "Fev", completo: "Fevereiro" },
@@ -131,12 +151,14 @@ export function EscalaAnualClient({
     }>
   >([]);
 
-  // Filtros e modo de colunas Gestor
+  // Filtros, ordenação por coluna e modo de colunas Gestor
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSetor, setSelectedSetor] = useState("TODOS");
   const [selectedMes, setSelectedMes] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [detalhadoGestor, setDetalhadoGestor] = useState(false);
+  const [sortField, setSortField] = useState<FeriasSortField>("padrao");
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
   // Revelação auditada de CPF (LGPD)
   const canRevealCpf = !readOnly && ["ADMIN", "RH", "MASTER"].includes(userRole);
@@ -310,10 +332,10 @@ export function EscalaAnualClient({
     return Array.from(set).sort();
   }, [colaboradores]);
 
-  // Filtra colaboradores (nome, registro Gestor, CPF parcial, setor, cargo, naturalidade, estado civil)
+  // Filtra e ordena colaboradores (nome, registro Gestor, CPF parcial, setor, cargo, naturalidade, estado civil)
   const filteredColaboradores = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return colaboradores.filter((c) => {
+    const base = colaboradores.filter((c) => {
       const dg = c.dadosGestor;
       const matchSearch =
         !q ||
@@ -335,7 +357,107 @@ export function EscalaAnualClient({
 
       return matchSearch && matchSetor && matchStatus && matchMes;
     });
-  }, [colaboradores, searchTerm, selectedSetor, statusFilter, selectedMes, ano]);
+
+    if (sortField === "padrao") {
+      return base;
+    }
+
+    const factor = sortDir === "asc" ? 1 : -1;
+    const compareNullableIso = (isoA?: string | null, isoB?: string | null) => {
+      const valA = isoA ? isoA.slice(0, 10) : "";
+      const valB = isoB ? isoB.slice(0, 10) : "";
+      if (!valA && !valB) return 0;
+      if (!valA) return 1; // sempre mantém vazios no final
+      if (!valB) return -1;
+      return valA.localeCompare(valB) * factor;
+    };
+
+    return [...base].sort((a, b) => {
+      const dgA = a.dadosGestor;
+      const dgB = b.dadosGestor;
+
+      if (sortField === "nascimento") {
+        const res = compareNullableIso(dgA?.dataNascimento, dgB?.dataNascimento);
+        if (res !== 0) return res;
+      } else if (sortField === "admissao") {
+        const res = compareNullableIso(dgA?.dataAdmissao, dgB?.dataAdmissao);
+        if (res !== 0) return res;
+      } else if (sortField === "periodo") {
+        const res = compareNullableIso(a.p1Inicio, b.p1Inicio);
+        if (res !== 0) return res;
+      } else if (sortField === "registro") {
+        const rA = dgA?.registro;
+        const rB = dgB?.registro;
+        if (rA == null && rB != null) return 1;
+        if (rA != null && rB == null) return -1;
+        if (rA != null && rB != null && rA !== rB) return (rA - rB) * factor;
+      } else {
+        let cmp = 0;
+        switch (sortField) {
+          case "nome":
+            cmp = a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+            break;
+          case "cpf": {
+            const cA = (visibleCpfIds[a.id] && revealedCpfs[a.id] ? revealedCpfs[a.id] : dgA?.cpfMascarado || "").replace(/\D/g, "");
+            const cB = (visibleCpfIds[b.id] && revealedCpfs[b.id] ? revealedCpfs[b.id] : dgB?.cpfMascarado || "").replace(/\D/g, "");
+            cmp = cA.localeCompare(cB);
+            break;
+          }
+          case "sexo":
+            cmp = (dgA?.sexo || "zzz").localeCompare(dgB?.sexo || "zzz", "pt-BR", { sensitivity: "base" });
+            break;
+          case "naturalidade":
+            cmp = (dgA?.naturalidade || "zzz").localeCompare(dgB?.naturalidade || "zzz", "pt-BR", { sensitivity: "base" });
+            break;
+          case "setor":
+            cmp = a.setor.localeCompare(b.setor, "pt-BR", { sensitivity: "base" });
+            break;
+          case "dias":
+            cmp = (a.totalDias || 0) - (b.totalDias || 0);
+            break;
+          case "status":
+            cmp = a.status.localeCompare(b.status, "pt-BR", { sensitivity: "base" });
+            break;
+        }
+        if (cmp !== 0) return cmp * factor;
+      }
+
+      return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+    });
+  }, [
+    colaboradores,
+    searchTerm,
+    selectedSetor,
+    statusFilter,
+    selectedMes,
+    ano,
+    sortField,
+    sortDir,
+    visibleCpfIds,
+    revealedCpfs,
+  ]);
+
+  const handleToggleSort = (field: FeriasSortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "dias" ? "desc" : "asc");
+    }
+  };
+
+  const renderSortIcon = (field: FeriasSortField) => {
+    if (sortField !== field) {
+      return (
+        <ArrowUpDown className="w-3 h-3 text-slate-500 opacity-70 group-hover/th:opacity-100 group-hover/th:text-slate-300 transition-all shrink-0" />
+      );
+    }
+    return sortDir === "asc" ? (
+      <ArrowUp className="w-3 h-3 text-cyan-400 shrink-0" />
+    ) : (
+      <ArrowDown className="w-3 h-3 text-cyan-400 shrink-0" />
+    );
+  };
 
   // Formata período para exibição
   const formatPeriodo = (inicio?: string, fim?: string) => {
@@ -530,10 +652,23 @@ export function EscalaAnualClient({
   const percentProgramados =
     totalColaboradores > 0 ? Math.round((programadosCount / totalColaboradores) * 100) : 0;
 
+  const hasActiveFilter =
+    selectedMes !== null ||
+    selectedSetor !== "TODOS" ||
+    statusFilter !== null ||
+    searchTerm.trim() !== "";
+
+  const handleMostrarTodosColaboradores = () => {
+    setSelectedMes(null);
+    setSelectedSetor("TODOS");
+    setStatusFilter(null);
+    setSearchTerm("");
+  };
+
   const totalTableCols = detalhadoGestor
     ? readOnly
-      ? 12
-      : 14
+      ? 9
+      : 11
     : readOnly
     ? 6
     : 8;
@@ -544,8 +679,17 @@ export function EscalaAnualClient({
           1. CARDS DE INDICADORES EXECUTIVOS (PADRÃO FIORIX)
       ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* KPI 1: Colaboradores na Escala */}
-        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+        {/* KPI 1: Colaboradores na Escala (Interativo: Mostrar Todos) */}
+        <button
+          type="button"
+          onClick={handleMostrarTodosColaboradores}
+          title="Clique para limpar filtros e mostrar todos os colaboradores"
+          className={`rounded-[24px] border p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer ${
+            hasActiveFilter
+              ? "border-cyan-500/40 bg-[#0B1020]/90 hover:border-cyan-400/60 hover:bg-cyan-500/[0.06]"
+              : "border-white/15 bg-[#0B1020]/90 hover:border-cyan-500/30"
+          }`}
+        >
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -558,31 +702,44 @@ export function EscalaAnualClient({
             <div className="text-2xl font-black text-white leading-tight">
               {`${totalColaboradores} ${totalColaboradores === 1 ? "colaborador" : "colaboradores"}`}
             </div>
-            <p className="text-xs text-slate-400">
-              Base nominal ativa integrada ao cadastro GESTOR
+            <p className={`text-xs ${hasActiveFilter ? "text-cyan-300 font-medium" : "text-slate-400"}`}>
+              {hasActiveFilter
+                ? `Exibindo ${filteredColaboradores.length} de ${totalColaboradores} • clique para mostrar todos`
+                : "Base nominal ativa integrada ao cadastro GESTOR"}
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
             <Users className="w-6 h-6" />
           </div>
-        </div>
+        </button>
 
-        {/* KPI 2: Férias Programadas */}
-        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+        {/* KPI 2: Férias Programadas (Interativo) */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter(statusFilter === "programado" ? null : "programado")}
+          title="Clique para filtrar colaboradores com férias programadas"
+          className={`rounded-[24px] border p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4 text-left transition-all cursor-pointer ${
+            statusFilter === "programado"
+              ? "border-emerald-500/45 bg-emerald-500/10 ring-1 ring-emerald-400/40"
+              : "border-white/15 bg-[#0B1020]/90 hover:border-emerald-500/35"
+          }`}
+        >
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Férias Programadas
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                HOMOLOGADAS
+                {statusFilter === "programado" ? "FILTRO ATIVO" : "HOMOLOGADAS"}
               </span>
             </div>
             <div className="text-2xl font-black text-white leading-tight">
               {`${programadosCount} ${programadosCount === 1 ? "programado" : "programados"}`}
             </div>
             <p className="text-xs text-emerald-400/90 font-medium">
-              {totalColaboradores > 0
+              {statusFilter === "programado"
+                ? "Exibindo apenas programados • clique para mostrar todos"
+                : totalColaboradores > 0
                 ? `${percentProgramados}% da equipe com período definido`
                 : "Nenhuma programação ativa no ano"}
             </p>
@@ -590,7 +747,7 @@ export function EscalaAnualClient({
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
             <CalendarCheck className="w-6 h-6" />
           </div>
-        </div>
+        </button>
 
         {/* KPI 3: Conflitos a Revisar (Interativo) */}
         <button
@@ -692,6 +849,18 @@ export function EscalaAnualClient({
                   <X className="w-3.5 h-3.5" />
                 </button>
               </span>
+            )}
+
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={handleMostrarTodosColaboradores}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-cyan-400/50 bg-cyan-500/15 hover:bg-cyan-500/25 text-xs font-bold text-cyan-200 transition-all cursor-pointer shadow-sm"
+                title="Limpar filtros ativos e mostrar todos os colaboradores"
+              >
+                <Users className="w-3.5 h-3.5 text-cyan-300" />
+                <span>Mostrar Todos Colaboradores ({totalColaboradores})</span>
+              </button>
             )}
 
             {readOnly && (
@@ -840,9 +1009,28 @@ export function EscalaAnualClient({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Botão Mostrar Todos Colaboradores */}
+            <button
+              type="button"
+              onClick={handleMostrarTodosColaboradores}
+              className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border text-xs transition-all cursor-pointer ${
+                hasActiveFilter
+                  ? "bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/60 text-cyan-100 font-bold ring-1 ring-cyan-400/30 shadow-sm"
+                  : "bg-[#080D1A] border-cyan-500/30 text-cyan-300 font-semibold hover:bg-[#0E1528]"
+              }`}
+              title="Limpar filtros de mês, setor, status ou busca e exibir todos os colaboradores"
+            >
+              {hasActiveFilter ? (
+                <RotateCcw className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+              ) : (
+                <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              )}
+              <span>Mostrar Todos Colaboradores ({totalColaboradores})</span>
+            </button>
+
             {/* Campo de Busca Unificada */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-56">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 type="text"
@@ -866,7 +1054,7 @@ export function EscalaAnualClient({
             <select
               value={selectedSetor}
               onChange={(e) => setSelectedSetor(e.target.value)}
-              className="h-9 px-3.5 bg-[#080D1A] border border-white/15 text-xs font-semibold text-white rounded-xl focus:outline-none focus:border-cyan-500/50 cursor-pointer"
+              className="h-9 px-3 bg-[#080D1A] border border-white/15 text-xs font-semibold text-white rounded-xl focus:outline-none focus:border-cyan-500/50 cursor-pointer"
             >
               <option value="TODOS" className="bg-[#0B1020] text-white">Todos os setores</option>
               {setoresDisponiveis.map((s) => (
@@ -875,6 +1063,45 @@ export function EscalaAnualClient({
                 </option>
               ))}
             </select>
+
+            {/* Menu de Ordenação por Coluna */}
+            <div className="inline-flex items-center h-9 bg-[#080D1A] border border-white/15 rounded-xl px-3 gap-1.5">
+              <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <select
+                aria-label="Ordenar escala de férias por coluna"
+                value={`${sortField}:${sortDir}`}
+                onChange={(e) => {
+                  const [f, d] = e.target.value.split(":") as [FeriasSortField, SortDirection];
+                  setSortField(f);
+                  setSortDir(d);
+                }}
+                className="bg-transparent text-xs font-semibold text-white focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="padrao:asc" className="bg-[#0B1020] text-white">Ordenar: Padrão</option>
+                <option value="nome:asc" className="bg-[#0B1020] text-white">Ordenar: Colaborador (A–Z)</option>
+                <option value="nome:desc" className="bg-[#0B1020] text-white">Ordenar: Colaborador (Z–A)</option>
+                <option value="registro:asc" className="bg-[#0B1020] text-white">Ordenar: Registro (# Crescente)</option>
+                <option value="registro:desc" className="bg-[#0B1020] text-white">Ordenar: Registro (# Decrescente)</option>
+                <option value="setor:asc" className="bg-[#0B1020] text-white">Ordenar: Setor (A–Z)</option>
+                <option value="setor:desc" className="bg-[#0B1020] text-white">Ordenar: Setor (Z–A)</option>
+                <option value="admissao:asc" className="bg-[#0B1020] text-white">Ordenar: Admissão (Antiga)</option>
+                <option value="admissao:desc" className="bg-[#0B1020] text-white">Ordenar: Admissão (Recente)</option>
+                <option value="nascimento:asc" className="bg-[#0B1020] text-white">Ordenar: Idade (Maior)</option>
+                <option value="nascimento:desc" className="bg-[#0B1020] text-white">Ordenar: Idade (Menor)</option>
+                <option value="periodo:asc" className="bg-[#0B1020] text-white">Ordenar: Férias (Jan → Dez)</option>
+                <option value="periodo:desc" className="bg-[#0B1020] text-white">Ordenar: Férias (Dez → Jan)</option>
+                <option value="dias:desc" className="bg-[#0B1020] text-white">Ordenar: Dias (Maior)</option>
+                <option value="dias:asc" className="bg-[#0B1020] text-white">Ordenar: Dias (Menor)</option>
+                <option value="status:asc" className="bg-[#0B1020] text-white">Ordenar: Status (A–Z)</option>
+                <option value="status:desc" className="bg-[#0B1020] text-white">Ordenar: Status (Z–A)</option>
+                <option value="cpf:asc" className="bg-[#0B1020] text-white">Ordenar: CPF (Crescente)</option>
+                <option value="cpf:desc" className="bg-[#0B1020] text-white">Ordenar: CPF (Decrescente)</option>
+                <option value="sexo:asc" className="bg-[#0B1020] text-white">Ordenar: Sexo (A–Z)</option>
+                <option value="sexo:desc" className="bg-[#0B1020] text-white">Ordenar: Sexo (Z–A)</option>
+                <option value="naturalidade:asc" className="bg-[#0B1020] text-white">Ordenar: Naturalidade (A–Z)</option>
+                <option value="naturalidade:desc" className="bg-[#0B1020] text-white">Ordenar: Naturalidade (Z–A)</option>
+              </select>
+            </div>
 
             {/* Toggle: Modo Compacto vs Colunas Detalhadas (Gestor) */}
             <button
@@ -895,7 +1122,7 @@ export function EscalaAnualClient({
             <button
               type="button"
               onClick={handleExportCsv}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-[#0E1528] text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-[#0E1528] text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer"
               title="Exportar escala nominal com dados do Gestor (CPF mascarado LGPD)"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
@@ -948,17 +1175,17 @@ export function EscalaAnualClient({
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-5">
           <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#080D1A]">
             <table
               className={`w-full text-left text-xs ${
-                detalhadoGestor ? "min-w-[1460px]" : "min-w-[980px]"
+                detalhadoGestor ? "min-w-[1060px]" : "min-w-[880px]"
               }`}
             >
               <thead className="bg-[#0E1528] text-slate-400 uppercase font-mono text-[11px] tracking-wider border-b border-white/10">
                 <tr>
                   {!readOnly && (
-                    <th className="py-3.5 pl-5 pr-2 w-10">
+                    <th className="py-3.5 pl-4 pr-1.5 w-9">
                       <input
                         type="checkbox"
                         checked={allFilteredSelected}
@@ -968,26 +1195,145 @@ export function EscalaAnualClient({
                       />
                     </th>
                   )}
-                  <th className="py-3.5 px-5 font-bold">Colaborador</th>
+                  <th className={`py-3.5 ${detalhadoGestor ? "px-3" : "px-4"} font-bold whitespace-nowrap`}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort("nome")}
+                      className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                        sortField === "nome" ? "text-cyan-300" : "hover:text-white"
+                      }`}
+                      title="Clique para ordenar por Colaborador"
+                    >
+                      <span>Colaborador</span>
+                      {renderSortIcon("nome")}
+                    </button>
+                  </th>
                   {detalhadoGestor ? (
                     <>
-                      <th className="py-3.5 px-4 font-bold">CPF</th>
-                      <th className="py-3.5 px-4 font-bold">Data Nasc.</th>
-                      <th className="py-3.5 px-4 font-bold">Idade Atual</th>
-                      <th className="py-3.5 px-4 font-bold">Sexo</th>
-                      <th className="py-3.5 px-4 font-bold">Estado Civil</th>
-                      <th className="py-3.5 px-4 font-bold">Naturalidade / UF</th>
-                      <th className="py-3.5 px-4 font-bold">Nacionalidade</th>
+                      <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSort("cpf")}
+                          className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                            sortField === "cpf" ? "text-cyan-300" : "hover:text-white"
+                          }`}
+                          title="Clique para ordenar por CPF"
+                        >
+                          <span>CPF</span>
+                          {renderSortIcon("cpf")}
+                        </button>
+                      </th>
+                      <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSort("nascimento")}
+                          className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                            sortField === "nascimento" ? "text-cyan-300" : "hover:text-white"
+                          }`}
+                          title="Clique para ordenar por Data de Nascimento / Idade"
+                        >
+                          <span>Nasc. / Idade Atual</span>
+                          {renderSortIcon("nascimento")}
+                        </button>
+                      </th>
+                      <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSort("sexo")}
+                          className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                            sortField === "sexo" ? "text-cyan-300" : "hover:text-white"
+                          }`}
+                          title="Clique para ordenar por Sexo / Estado Civil"
+                        >
+                          <span>Sexo / Est. Civil</span>
+                          {renderSortIcon("sexo")}
+                        </button>
+                      </th>
+                      <th className="py-3.5 px-2.5 font-bold whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSort("naturalidade")}
+                          className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                            sortField === "naturalidade" ? "text-cyan-300" : "hover:text-white"
+                          }`}
+                          title="Clique para ordenar por Naturalidade / UF"
+                        >
+                          <span>Naturalidade / Nac.</span>
+                          {renderSortIcon("naturalidade")}
+                        </button>
+                      </th>
                     </>
                   ) : (
-                    <th className="py-3.5 px-5 font-bold">Dados Pessoais (Gestor)</th>
+                    <th className="py-3.5 px-4 font-bold whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSort("nascimento")}
+                        className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                          sortField === "nascimento" ? "text-cyan-300" : "hover:text-white"
+                        }`}
+                        title="Clique para ordenar por Dados Pessoais / Idade"
+                      >
+                        <span>Dados Pessoais (Gestor)</span>
+                        {renderSortIcon("nascimento")}
+                      </button>
+                    </th>
                   )}
-                  <th className="py-3.5 px-5 font-bold">Setor / Admissão</th>
-                  <th className="py-3.5 px-5 font-bold">Período de Férias</th>
-                  <th className="py-3.5 px-4 font-bold text-center">Dias</th>
-                  <th className="py-3.5 px-5 font-bold">Status</th>
+                  <th className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} font-bold whitespace-nowrap`}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort("setor")}
+                      className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                        sortField === "setor" ? "text-cyan-300" : "hover:text-white"
+                      }`}
+                      title="Clique para ordenar por Setor"
+                    >
+                      <span>Setor / Admissão</span>
+                      {renderSortIcon("setor")}
+                    </button>
+                  </th>
+                  <th className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} font-bold whitespace-nowrap`}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort("periodo")}
+                      className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                        sortField === "periodo" ? "text-cyan-300" : "hover:text-white"
+                      }`}
+                      title="Clique para ordenar por Período de Férias"
+                    >
+                      <span>Período de Férias</span>
+                      {renderSortIcon("periodo")}
+                    </button>
+                  </th>
+                  <th className="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort("dias")}
+                      className={`group/th inline-flex items-center justify-center gap-1 uppercase tracking-wider cursor-pointer transition-colors ${
+                        sortField === "dias" ? "text-cyan-300" : "hover:text-white"
+                      }`}
+                      title="Clique para ordenar por Dias de Férias"
+                    >
+                      <span>Dias</span>
+                      {renderSortIcon("dias")}
+                    </button>
+                  </th>
+                  <th className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} font-bold whitespace-nowrap`}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSort("status")}
+                      className={`group/th inline-flex items-center gap-1.5 uppercase tracking-wider cursor-pointer transition-colors ${
+                        sortField === "status" ? "text-cyan-300" : "hover:text-white"
+                      }`}
+                      title="Clique para ordenar por Status"
+                    >
+                      <span>Status</span>
+                      {renderSortIcon("status")}
+                    </button>
+                  </th>
                   {!readOnly && (
-                    <th className="py-3.5 px-5 font-bold text-right">Ações</th>
+                    <th className="py-3.5 pl-2 pr-4 font-bold text-right whitespace-nowrap">
+                      Ações
+                    </th>
                   )}
                 </tr>
               </thead>
@@ -1005,6 +1351,16 @@ export function EscalaAnualClient({
                       <p className="text-xs text-slate-500 mt-0.5">
                         Ajuste os filtros de busca, setor ou mês para visualizar a escala.
                       </p>
+                      {hasActiveFilter && (
+                        <button
+                          type="button"
+                          onClick={handleMostrarTodosColaboradores}
+                          className="mt-3 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl border border-cyan-400/50 bg-cyan-500/15 hover:bg-cyan-500/25 text-xs font-bold text-cyan-200 transition-all cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-cyan-300" />
+                          <span>Mostrar Todos Colaboradores ({totalColaboradores})</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -1040,7 +1396,7 @@ export function EscalaAnualClient({
                         }`}
                       >
                         {!readOnly && (
-                          <td className="py-4 pl-5 pr-2 w-10">
+                          <td className="py-3.5 pl-4 pr-1.5 w-9">
                             <input
                               type="checkbox"
                               checked={isSelectedRow}
@@ -1051,15 +1407,15 @@ export function EscalaAnualClient({
                           </td>
                         )}
                         {/* 1. Colaborador + Registro + CPF (no modo compacto) */}
-                        <td className="py-4 px-5">
-                          <div className="flex items-center gap-3">
+                        <td className={`py-3.5 ${detalhadoGestor ? "px-3 min-w-[175px]" : "px-4 min-w-[200px]"}`}>
+                          <div className="flex items-center gap-2.5">
                             <button
                               type="button"
                               onClick={() => {
                                 setFichaItem(colab);
                                 setFichaModalOpen(true);
                               }}
-                              className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer transition-transform hover:scale-105 ${getAvatarColor(
+                              className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-[11px] shrink-0 cursor-pointer transition-transform hover:scale-105 ${getAvatarColor(
                                 idx
                               )}`}
                               title="Ver ficha cadastral completa (Gestor)"
@@ -1068,33 +1424,33 @@ export function EscalaAnualClient({
                             </button>
 
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setFichaItem(colab);
                                     setFichaModalOpen(true);
                                   }}
-                                  className="text-sm font-bold text-white hover:text-cyan-300 transition-colors text-left cursor-pointer"
+                                  className="text-[13px] font-bold text-white hover:text-cyan-300 transition-colors text-left leading-snug cursor-pointer"
                                   title="Clique para abrir a ficha cadastral do Gestor"
                                 >
                                   {colab.nome}
                                 </button>
                                 {dg?.registro != null && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
                                     <Hash className="w-2.5 h-2.5" />
                                     {dg.registro}
                                   </span>
                                 )}
                                 {dg?.origemManual && (
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 shrink-0">
                                     Manual
                                   </span>
                                 )}
                               </div>
 
-                              {!detalhadoGestor && (
-                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-mono">
+                              {!detalhadoGestor ? (
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-mono whitespace-nowrap">
                                   {displayCpf ? (
                                     <>
                                       <span>CPF {displayCpf}</span>
@@ -1129,16 +1485,20 @@ export function EscalaAnualClient({
                                     </span>
                                   )}
                                 </div>
-                              )}
+                              ) : dg?.apelido ? (
+                                <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                                  {dg.apelido}
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         </td>
 
-                        {/* 2. Colunas Pessoais Gestor: Compacto vs Detalhado */}
+                        {/* 2. Colunas Pessoais Gestor: Compacto vs Visão GESTOR Estruturada */}
                         {detalhadoGestor ? (
                           <>
                             {/* CPF */}
-                            <td className="py-4 px-4 font-mono text-xs text-slate-200 whitespace-nowrap">
+                            <td className="py-3.5 px-2.5 font-mono text-xs text-slate-200 whitespace-nowrap">
                               {displayCpf ? (
                                 <div className="inline-flex items-center gap-1.5">
                                   <span>{displayCpf}</span>
@@ -1169,58 +1529,72 @@ export function EscalaAnualClient({
                               )}
                             </td>
 
-                            {/* Data Nasc. */}
-                            <td className="py-4 px-4 font-mono text-xs text-slate-200 whitespace-nowrap">
-                              {dataNascBr || <span className="text-slate-500">—</span>}
-                            </td>
-
-                            {/* Idade Atual Exata */}
-                            <td className="py-4 px-4 text-xs whitespace-nowrap">
-                              {idade ? (
-                                <span
-                                  className="inline-flex items-center px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 font-medium text-[11px]"
-                                  title="Calculada em tempo real a partir da Data de Nascimento"
-                                >
-                                  {idade.extenso}
-                                </span>
+                            {/* Data Nasc. + Idade Atual Exata (empilhados sem estourar largura) */}
+                            <td className="py-3.5 px-2.5 text-xs whitespace-nowrap">
+                              {dataNascBr || idade ? (
+                                <div>
+                                  <span className="font-mono text-xs font-semibold text-slate-200 block">
+                                    {dataNascBr || "—"}
+                                  </span>
+                                  {idade && (
+                                    <span
+                                      className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 font-medium text-[10.5px] leading-tight"
+                                      title="Calculada em tempo real a partir da Data de Nascimento"
+                                    >
+                                      {idade.extenso}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-slate-500">—</span>
                               )}
                             </td>
 
-                            {/* Sexo */}
-                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
-                              {dg?.sexo || <span className="text-slate-500">—</span>}
+                            {/* Sexo + Estado Civil */}
+                            <td className="py-3.5 px-2.5 text-xs whitespace-nowrap">
+                              {dg?.sexo || dg?.estadoCivil ? (
+                                <div>
+                                  <span className="text-xs font-medium text-slate-200 block">
+                                    {dg?.sexo || "—"}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                                    {dg?.estadoCivil || "—"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
                             </td>
 
-                            {/* Estado Civil */}
-                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
-                              {dg?.estadoCivil || <span className="text-slate-500">—</span>}
-                            </td>
-
-                            {/* Naturalidade / UF */}
-                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
-                              {natUf || <span className="text-slate-500">—</span>}
-                            </td>
-
-                            {/* Nacionalidade */}
-                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
-                              {dg?.nacionalidade || <span className="text-slate-500">—</span>}
+                            {/* Naturalidade/UF + Nacionalidade */}
+                            <td className="py-3.5 px-2.5 text-xs whitespace-nowrap">
+                              {natUf || dg?.nacionalidade ? (
+                                <div>
+                                  <span className="text-xs font-medium text-slate-200 block">
+                                    {natUf || "—"}
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                                    {dg?.nacionalidade || "—"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
                             </td>
                           </>
                         ) : (
-                          <td className="py-4 px-5">
+                          <td className="py-3.5 px-4">
                             {dataNascBr || resumoDemografico ? (
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {dataNascBr && (
-                                    <span className="font-mono text-xs font-semibold text-slate-200">
+                                    <span className="font-mono text-xs font-semibold text-slate-200 whitespace-nowrap">
                                       Nasc. {dataNascBr}
                                     </span>
                                   )}
                                   {idade && (
                                     <span
-                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 whitespace-nowrap"
                                       title={`Idade exata hoje: ${idade.extenso}`}
                                     >
                                       {idade.compacto}
@@ -1249,7 +1623,7 @@ export function EscalaAnualClient({
                         )}
 
                         {/* 3. Setor + Admissão */}
-                        <td className="py-4 px-5 text-xs">
+                        <td className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} text-xs whitespace-nowrap`}>
                           <span className="font-semibold text-slate-200 block">
                             {colab.setor}
                           </span>
@@ -1264,11 +1638,11 @@ export function EscalaAnualClient({
                           ) : null}
                         </td>
 
-                        {/* 4. Período de Férias */}
-                        <td className="py-4 px-5 font-mono text-xs text-slate-200">
+                        {/* 4. Período de Férias (sempre em linha única por período) */}
+                        <td className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} font-mono text-xs text-slate-200 whitespace-nowrap`}>
                           {colab.p1Inicio && colab.p1Fim ? (
                             <div>
-                              <span>{formatPeriodo(colab.p1Inicio, colab.p1Fim)}</span>
+                              <span className="block">{formatPeriodo(colab.p1Inicio, colab.p1Fim)}</span>
                               {colab.p2Inicio && colab.p2Fim && (
                                 <span className="text-[11px] text-slate-400 block mt-0.5">
                                   + {formatPeriodo(colab.p2Inicio, colab.p2Fim)}
@@ -1288,27 +1662,27 @@ export function EscalaAnualClient({
                         </td>
 
                         {/* 5. Dias */}
-                        <td className="py-4 px-4 text-center font-mono font-bold text-xs text-white">
+                        <td className="py-3.5 px-2.5 text-center font-mono font-bold text-xs text-white whitespace-nowrap">
                           {colab.totalDias > 0 ? `${colab.totalDias}d` : "—"}
                         </td>
 
                         {/* 6. Status */}
-                        <td className="py-4 px-5">
+                        <td className={`py-3.5 ${detalhadoGestor ? "px-2.5" : "px-4"} whitespace-nowrap`}>
                           {colab.status === "programado" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 font-bold text-[11px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 font-bold text-[11px] whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                               Programado
                             </span>
                           )}
                           {colab.status === "conflito" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300 font-bold text-[11px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/15 text-amber-300 font-bold text-[11px] whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                               Conflito a revisar
                             </span>
                           )}
                           {colab.status === "pendente" && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-500/30 bg-slate-500/15 text-slate-300 font-bold text-[11px]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-slate-500/30 bg-slate-500/15 text-slate-300 font-bold text-[11px] whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                               Pendente
                             </span>
                           )}
@@ -1316,7 +1690,7 @@ export function EscalaAnualClient({
 
                         {/* 7. Ações */}
                         {!readOnly && (
-                          <td className="py-4 px-5 text-right relative">
+                          <td className="py-3.5 pl-2 pr-4 text-right whitespace-nowrap relative">
                             <div className="inline-flex items-center justify-end gap-1">
                               <button
                                 type="button"

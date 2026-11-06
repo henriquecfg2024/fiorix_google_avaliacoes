@@ -1122,6 +1122,22 @@ export async function obterCpfCompletoColaboradorGestor(
     if (byNome?.[0]?.cpf) {
       return formatarCpfCompleto(byNome[0].cpf);
     }
+
+    // Fallback sem acentos / nomes abreviados (ex: "João Pedro Santana Silva" <-> "Joao Pedro Santana Silva")
+    const todosComCpf = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT nome, cpf, ativo FROM public.fiorix_rh_colaboradores_gestor
+       WHERE tenant_id = $1 AND cpf IS NOT NULL
+       ORDER BY ativo DESC, updated_at DESC`,
+      tenantId
+    );
+    if (Array.isArray(todosComCpf)) {
+      const compativel = todosComCpf.find(
+        (r) => r?.nome && r?.cpf && nomesColaboradorCompativeis(params.nome!, String(r.nome))
+      );
+      if (compativel?.cpf) {
+        return formatarCpfCompleto(compativel.cpf);
+      }
+    }
   }
 
   return null;

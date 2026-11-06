@@ -58,14 +58,12 @@ export async function GET(
       return NextResponse.json({ error: "Parâmetro inválido." }, { status: 400 });
     }
 
-    // ── Anti-IDOR: Verifica propriedade do holerite ─────────────────
-    // O holerite DEVE pertencer ao usuário autenticado E ao tenant da sessão.
+    // ── Anti-IDOR: Verifica propriedade ou governança RH estritamente no mesmo tenant ──
+    const isRhOrAdmin = ["ADMIN", "RH", "MASTER"].includes(user.role);
     const holerite = await prisma.fiorixHolerite.findFirst({
-      where: {
-        id,
-        tenantId,
-        usuarioId,
-      },
+      where: isRhOrAdmin
+        ? { id, tenantId }
+        : { id, tenantId, usuarioId },
       select: {
         id: true,
         mes: true,
