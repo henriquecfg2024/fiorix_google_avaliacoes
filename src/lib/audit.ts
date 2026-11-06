@@ -31,7 +31,8 @@ export type AuditAcao =
   | 'CONFIG_REMOTA'
   | 'TOKEN_PAREAMENTO'
   | 'ATUALIZACAO_REMOTA'
-  | 'FAILOVER_AUTOMATICO';
+  | 'FAILOVER_AUTOMATICO'
+  | 'CONSULTA_LGPD';
 
 export interface AuditLogParams {
   modulo: AuditModulo;

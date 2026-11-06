@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Users,
   CalendarCheck,
@@ -14,14 +13,23 @@ import {
   Trash2,
   History,
   X,
-  ChevronDown,
-  Filter,
   Send,
   ArrowLeft,
+  UserCheck,
+  Eye,
+  EyeOff,
+  Columns3,
+  Download,
+  Hash,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EscalaItem, PublicacaoStatus } from "@/lib/ferias/ferias-repository";
+import {
+  calcularIdadeCompleta,
+  formatarDataGestorBr,
+} from "@/lib/ferias/idade-calculator";
 import {
   getEscalaAnualAction,
   salvarLancamentoFeriasAction,
@@ -29,9 +37,12 @@ import {
   getColaboradoresDisponiveisAction,
   publicarEscalaAnualAction,
   retirarEscalaDoArAction,
+  revelarCpfColaboradorFeriasAction,
 } from "@/app/actions/ferias";
 import { LancamentoFeriasModal } from "./LancamentoFeriasModal";
 import { HistoricoFeriasModal } from "./HistoricoFeriasModal";
+import { FichaColaboradorFeriasModal } from "./FichaColaboradorFeriasModal";
+import { toast } from "sonner";
 
 interface EscalaAnualClientProps {
   initialAno?: number;
@@ -76,20 +87,36 @@ export function EscalaAnualClient({
   );
   const [colaboradores, setColaboradores] = useState<EscalaItem[]>(initialColaboradores);
   const [colaboradoresDisponiveis, setColaboradoresDisponiveis] = useState<
-    Array<{ id: string; name: string; email: string }>
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      setor?: string | null;
+      cargo?: string | null;
+      dadosGestor?: EscalaItem["dadosGestor"];
+    }>
   >([]);
 
-  // Filtros
+  // Filtros e modo de colunas Gestor
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSetor, setSelectedSetor] = useState("TODOS");
   const [selectedMes, setSelectedMes] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [detalhadoGestor, setDetalhadoGestor] = useState(false);
+
+  // Revelação auditada de CPF (LGPD)
+  const canRevealCpf = !readOnly && ["ADMIN", "RH", "MASTER"].includes(userRole);
+  const [revealedCpfs, setRevealedCpfs] = useState<Record<string, string>>({});
+  const [visibleCpfIds, setVisibleCpfIds] = useState<Record<string, boolean>>({});
+  const [revealingCpfId, setRevealingCpfId] = useState<string | null>(null);
 
   // Modais
   const [lancamentoModalOpen, setLancamentoModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EscalaItem | null>(null);
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItem, setHistoricoItem] = useState<EscalaItem | null>(null);
+  const [fichaModalOpen, setFichaModalOpen] = useState(false);
+  const [fichaItem, setFichaItem] = useState<EscalaItem | null>(null);
 
   // Menu de ações
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -156,6 +183,40 @@ export function EscalaAnualClient({
     return () => window.removeEventListener("click", handleClickOutside);
   }, []);
 
+  // Revelar / Ocultar CPF individual na tabela (com log de auditoria LGPD)
+  const handleToggleInlineCpf = async (colab: EscalaItem) => {
+    if (!canRevealCpf) return;
+
+    if (visibleCpfIds[colab.id]) {
+      setVisibleCpfIds((prev) => ({ ...prev, [colab.id]: false }));
+      return;
+    }
+
+    if (revealedCpfs[colab.id]) {
+      setVisibleCpfIds((prev) => ({ ...prev, [colab.id]: true }));
+      return;
+    }
+
+    setRevealingCpfId(colab.id);
+    try {
+      const res = await revelarCpfColaboradorFeriasAction({
+        usuarioId: colab.usuarioId,
+        registroGestor: colab.dadosGestor?.registro ?? null,
+        nome: colab.nome,
+      });
+      if (res.success && res.cpf) {
+        setRevealedCpfs((prev) => ({ ...prev, [colab.id]: res.cpf! }));
+        setVisibleCpfIds((prev) => ({ ...prev, [colab.id]: true }));
+      } else {
+        toast.error(res.erro || "CPF ainda não sincronizado do GESTOR.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Sem permissão para revelar CPF completo.");
+    } finally {
+      setRevealingCpfId(null);
+    }
+  };
+
   // Estatísticas do resumo
   const totalColaboradores = colaboradores.length;
   const programadosCount = colaboradores.filter((c) => c.status === "programado").length;
@@ -187,9 +248,13 @@ export function EscalaAnualClient({
     });
 
     return counts.map((count, idx) => {
-      // Para ano 2027, preserva os percentuais exatos do preview
       const previewPcts = [18, 25, 40, 65, 72, 48, 32, 28, 22, 35, 58, 20];
-      const percentual = ano === 2027 ? previewPcts[idx] : (totalColaboradores > 0 ? Math.round((count / totalColaboradores) * 100) : previewPcts[idx]);
+      const percentual =
+        ano === 2027
+          ? previewPcts[idx]
+          : totalColaboradores > 0
+          ? Math.round((count / totalColaboradores) * 100)
+          : previewPcts[idx];
 
       let cor = "bg-emerald-500";
       if (percentual > 50) {
@@ -218,23 +283,26 @@ export function EscalaAnualClient({
     return Array.from(set).sort();
   }, [colaboradores]);
 
-  // Filtra colaboradores
+  // Filtra colaboradores (nome, registro Gestor, CPF parcial, setor, cargo, naturalidade, estado civil)
   const filteredColaboradores = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
     return colaboradores.filter((c) => {
-      // Busca texto
+      const dg = c.dadosGestor;
       const matchSearch =
-        !searchTerm ||
-        c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.setor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.cargo && c.cargo.toLowerCase().includes(searchTerm.toLowerCase()));
+        !q ||
+        c.nome.toLowerCase().includes(q) ||
+        c.setor.toLowerCase().includes(q) ||
+        (c.cargo && c.cargo.toLowerCase().includes(q)) ||
+        (dg?.registro != null && String(dg.registro).includes(q.replace(/^#/, ""))) ||
+        (dg?.apelido && dg.apelido.toLowerCase().includes(q)) ||
+        (dg?.cpfMascarado && dg.cpfMascarado.toLowerCase().includes(q)) ||
+        (dg?.naturalidade && dg.naturalidade.toLowerCase().includes(q)) ||
+        (dg?.nacionalidade && dg.nacionalidade.toLowerCase().includes(q)) ||
+        (dg?.estadoCivil && dg.estadoCivil.toLowerCase().includes(q));
 
-      // Setor
       const matchSetor = selectedSetor === "TODOS" || c.setor === selectedSetor;
-
-      // Status
       const matchStatus = !statusFilter || c.status === statusFilter;
 
-      // Mês
       let matchMes = true;
       if (selectedMes !== null) {
         const estaNoMes = (inicio?: string, fim?: string) => {
@@ -263,7 +331,77 @@ export function EscalaAnualClient({
     return `${d1} – ${d2}`;
   };
 
-  // Cores de avatar idênticas ao preview (Mariana: roxo, Carlos: azul, Fernanda: rosa, Henrique: âmbar, Luciana: teal)
+  // Exportação CSV rápida (respeitando mascaramento LGPD de CPF por padrão)
+  const handleExportCsv = () => {
+    const headers = [
+      "Registro Gestor",
+      "Nome Completo",
+      "CPF (LGPD)",
+      "Data de Nascimento",
+      "Idade Atual",
+      "Sexo",
+      "Estado Civil",
+      "Naturalidade / UF",
+      "Nacionalidade",
+      "Admissao",
+      "Setor",
+      "Cargo",
+      "Periodo 1",
+      "Periodo 2",
+      "Periodo 3",
+      "Total Dias",
+      "Status",
+    ];
+
+    const escapeCsv = (val: string | number | null | undefined) => {
+      const str = val == null ? "" : String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredColaboradores.map((c) => {
+      const dg = c.dadosGestor;
+      const idade = calcularIdadeCompleta(dg?.dataNascimento);
+      const natUf = dg?.naturalidade
+        ? dg.uf
+          ? `${dg.naturalidade}/${dg.uf}`
+          : dg.naturalidade
+        : "";
+      return [
+        dg?.registro ?? "",
+        c.nome,
+        dg?.cpfMascarado ?? "",
+        formatarDataGestorBr(dg?.dataNascimento) ?? "",
+        idade?.extenso ?? "",
+        dg?.sexo ?? "",
+        dg?.estadoCivil ?? "",
+        natUf,
+        dg?.nacionalidade ?? "",
+        formatarDataGestorBr(dg?.dataAdmissao) ?? "",
+        c.setor,
+        c.cargo ?? "",
+        c.p1Inicio && c.p1Fim ? formatPeriodo(c.p1Inicio, c.p1Fim) : "",
+        c.p2Inicio && c.p2Fim ? formatPeriodo(c.p2Inicio, c.p2Fim) : "",
+        c.p3Inicio && c.p3Fim ? formatPeriodo(c.p3Inicio, c.p3Fim) : "",
+        c.totalDias || 0,
+        c.status,
+      ]
+        .map(escapeCsv)
+        .join(";");
+    });
+
+    const csvContent = "\uFEFF" + [headers.map(escapeCsv).join(";"), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `escala-ferias-gestor-${ano}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Planilha da escala ${ano} exportada com sucesso.`);
+  };
+
   const getAvatarColor = (idx: number) => {
     const colors = [
       "bg-purple-500/20 text-purple-300 border-purple-500/30",
@@ -306,6 +444,14 @@ export function EscalaAnualClient({
   const percentProgramados =
     totalColaboradores > 0 ? Math.round((programadosCount / totalColaboradores) * 100) : 0;
 
+  const totalTableCols = detalhadoGestor
+    ? readOnly
+      ? 12
+      : 13
+    : readOnly
+    ? 6
+    : 7;
+
   return (
     <div className="space-y-6 text-white animate-in fade-in duration-200">
       {/* ─────────────────────────────────────────────────────────────
@@ -327,7 +473,7 @@ export function EscalaAnualClient({
               {`${totalColaboradores} ${totalColaboradores === 1 ? "colaborador" : "colaboradores"}`}
             </div>
             <p className="text-xs text-slate-400">
-              Base nominal ativa vinculada ao planejamento
+              Base nominal ativa integrada ao cadastro GESTOR
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
@@ -555,33 +701,33 @@ export function EscalaAnualClient({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          3. CARD ESCALA NOMINAL DE FÉRIAS (PADRÃO FIORIX)
+          3. CARD ESCALA NOMINAL DE FÉRIAS + DADOS GESTOR (PADRÃO FIORIX)
       ───────────────────────────────────────────────────────────── */}
       <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                Escala Nominal de Férias
+                Escala Nominal de Férias · Dados Cadastrais (Gestor)
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 {`${filteredColaboradores.length} ${
                   filteredColaboradores.length === 1 ? "colaborador listado" : "colaboradores listados"
-                } • controle de períodos aquisitivos e fracionamento CLT`}
+                } • clique no colaborador para abrir a ficha completa do Gestor`}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Campo de Busca */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Campo de Busca Unificada */}
             <div className="relative w-full sm:w-64">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <Input
                 type="text"
-                placeholder="Buscar colaborador..."
+                placeholder="Nome, registro, CPF, setor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 pr-8 h-9 bg-[#080D1A] border border-white/15 text-xs text-white rounded-xl placeholder:text-slate-500 focus:border-cyan-500/50 w-full"
@@ -611,6 +757,32 @@ export function EscalaAnualClient({
               ))}
             </select>
 
+            {/* Toggle: Modo Compacto vs Colunas Detalhadas (Gestor) */}
+            <button
+              type="button"
+              onClick={() => setDetalhadoGestor((v) => !v)}
+              className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                detalhadoGestor
+                  ? "bg-cyan-500/15 border-cyan-500/40 text-cyan-300"
+                  : "bg-[#080D1A] border-white/15 text-slate-300 hover:text-white hover:bg-[#0E1528]"
+              }`}
+              title="Alternar entre visão compacta e todas as colunas do Gestor lado a lado"
+            >
+              <Columns3 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{detalhadoGestor ? "Visão Compacta" : "Colunas Gestor"}</span>
+            </button>
+
+            {/* Exportar CSV */}
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-[#0E1528] text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Exportar escala nominal com dados do Gestor (CPF mascarado LGPD)"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span>CSV</span>
+            </button>
+
             {/* Botão Adicionar Colaborador */}
             {!readOnly && (
               <Button
@@ -629,13 +801,30 @@ export function EscalaAnualClient({
 
         <div className="p-6">
           <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#080D1A]">
-            <table className="w-full text-left text-xs min-w-[880px]">
+            <table
+              className={`w-full text-left text-xs ${
+                detalhadoGestor ? "min-w-[1460px]" : "min-w-[980px]"
+              }`}
+            >
               <thead className="bg-[#0E1528] text-slate-400 uppercase font-mono text-[11px] tracking-wider border-b border-white/10">
                 <tr>
                   <th className="py-3.5 px-5 font-bold">Colaborador</th>
-                  <th className="py-3.5 px-5 font-bold">Setor</th>
+                  {detalhadoGestor ? (
+                    <>
+                      <th className="py-3.5 px-4 font-bold">CPF</th>
+                      <th className="py-3.5 px-4 font-bold">Data Nasc.</th>
+                      <th className="py-3.5 px-4 font-bold">Idade Atual</th>
+                      <th className="py-3.5 px-4 font-bold">Sexo</th>
+                      <th className="py-3.5 px-4 font-bold">Estado Civil</th>
+                      <th className="py-3.5 px-4 font-bold">Naturalidade / UF</th>
+                      <th className="py-3.5 px-4 font-bold">Nacionalidade</th>
+                    </>
+                  ) : (
+                    <th className="py-3.5 px-5 font-bold">Dados Pessoais (Gestor)</th>
+                  )}
+                  <th className="py-3.5 px-5 font-bold">Setor / Admissão</th>
                   <th className="py-3.5 px-5 font-bold">Período de Férias</th>
-                  <th className="py-3.5 px-5 font-bold text-center">Dias</th>
+                  <th className="py-3.5 px-4 font-bold text-center">Dias</th>
                   <th className="py-3.5 px-5 font-bold">Status</th>
                   {!readOnly && (
                     <th className="py-3.5 px-5 font-bold text-right">Ações</th>
@@ -645,9 +834,14 @@ export function EscalaAnualClient({
               <tbody className="divide-y divide-white/8 text-slate-200">
                 {filteredColaboradores.length === 0 ? (
                   <tr>
-                    <td colSpan={readOnly ? 5 : 6} className="py-12 px-5 text-center text-slate-400">
+                    <td
+                      colSpan={totalTableCols}
+                      className="py-12 px-5 text-center text-slate-400"
+                    >
                       <Users className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                      <p className="font-semibold text-sm text-slate-300">Nenhum colaborador encontrado</p>
+                      <p className="font-semibold text-sm text-slate-300">
+                        Nenhum colaborador encontrado
+                      </p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         Ajuste os filtros de busca, setor ou mês para visualizar a escala.
                       </p>
@@ -656,33 +850,239 @@ export function EscalaAnualClient({
                 ) : (
                   filteredColaboradores.map((colab, idx) => {
                     const isMenuOpen = openMenuId === colab.id;
+                    const dg = colab.dadosGestor;
+                    const idade = calcularIdadeCompleta(dg?.dataNascimento);
+                    const dataNascBr = formatarDataGestorBr(dg?.dataNascimento);
+                    const dataAdmBr = formatarDataGestorBr(dg?.dataAdmissao);
+                    const natUf = dg?.naturalidade
+                      ? dg.uf
+                        ? `${dg.naturalidade}/${dg.uf}`
+                        : dg.naturalidade
+                      : null;
+                    const isCpfRevealed = Boolean(visibleCpfIds[colab.id] && revealedCpfs[colab.id]);
+                    const displayCpf = isCpfRevealed
+                      ? revealedCpfs[colab.id]
+                      : dg?.cpfMascarado || null;
+
+                    const resumoDemografico = [dg?.sexo, dg?.estadoCivil, natUf, dg?.nacionalidade]
+                      .filter(Boolean)
+                      .join(" • ");
+
                     return (
                       <tr
                         key={colab.id}
                         className="hover:bg-white/[0.03] transition-colors group"
                       >
-                        {/* Colaborador */}
+                        {/* 1. Colaborador + Registro + CPF (no modo compacto) */}
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3">
-                            <div
-                              className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarColor(
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFichaItem(colab);
+                                setFichaModalOpen(true);
+                              }}
+                              className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer transition-transform hover:scale-105 ${getAvatarColor(
                                 idx
                               )}`}
+                              title="Ver ficha cadastral completa (Gestor)"
                             >
                               {getInitials(colab.nome)}
+                            </button>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFichaItem(colab);
+                                    setFichaModalOpen(true);
+                                  }}
+                                  className="text-sm font-bold text-white hover:text-cyan-300 transition-colors text-left cursor-pointer"
+                                  title="Clique para abrir a ficha cadastral do Gestor"
+                                >
+                                  {colab.nome}
+                                </button>
+                                {dg?.registro != null && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                                    <Hash className="w-2.5 h-2.5" />
+                                    {dg.registro}
+                                  </span>
+                                )}
+                              </div>
+
+                              {!detalhadoGestor && (
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400 font-mono">
+                                  {displayCpf ? (
+                                    <>
+                                      <span>CPF {displayCpf}</span>
+                                      {canRevealCpf && dg?.temCpfCadastrado && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleInlineCpf(colab);
+                                          }}
+                                          disabled={revealingCpfId === colab.id}
+                                          className="text-cyan-400 hover:text-cyan-300 cursor-pointer inline-flex items-center"
+                                          title={
+                                            isCpfRevealed
+                                              ? "Ocultar CPF"
+                                              : "Revelar CPF completo (auditado LGPD)"
+                                          }
+                                        >
+                                          {revealingCpfId === colab.id ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : isCpfRevealed ? (
+                                            <EyeOff className="w-3 h-3" />
+                                          ) : (
+                                            <Eye className="w-3 h-3" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="font-sans text-slate-500">
+                                      {colab.cargo || "Cadastro base FIORIX"}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            <span className="text-sm font-bold text-white">
-                              {colab.nome}
-                            </span>
                           </div>
                         </td>
 
-                        {/* Setor */}
-                        <td className="py-4 px-5 text-xs font-medium text-slate-300">
-                          {colab.setor}
+                        {/* 2. Colunas Pessoais Gestor: Compacto vs Detalhado */}
+                        {detalhadoGestor ? (
+                          <>
+                            {/* CPF */}
+                            <td className="py-4 px-4 font-mono text-xs text-slate-200 whitespace-nowrap">
+                              {displayCpf ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <span>{displayCpf}</span>
+                                  {canRevealCpf && dg?.temCpfCadastrado && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleInlineCpf(colab)}
+                                      disabled={revealingCpfId === colab.id}
+                                      className="text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                                      title={
+                                        isCpfRevealed
+                                          ? "Ocultar CPF"
+                                          : "Revelar CPF completo (auditado LGPD)"
+                                      }
+                                    >
+                                      {revealingCpfId === colab.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : isCpfRevealed ? (
+                                        <EyeOff className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <Eye className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic font-sans">—</span>
+                              )}
+                            </td>
+
+                            {/* Data Nasc. */}
+                            <td className="py-4 px-4 font-mono text-xs text-slate-200 whitespace-nowrap">
+                              {dataNascBr || <span className="text-slate-500">—</span>}
+                            </td>
+
+                            {/* Idade Atual Exata */}
+                            <td className="py-4 px-4 text-xs whitespace-nowrap">
+                              {idade ? (
+                                <span
+                                  className="inline-flex items-center px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 font-medium text-[11px]"
+                                  title="Calculada em tempo real a partir da Data de Nascimento"
+                                >
+                                  {idade.extenso}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
+
+                            {/* Sexo */}
+                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
+                              {dg?.sexo || <span className="text-slate-500">—</span>}
+                            </td>
+
+                            {/* Estado Civil */}
+                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
+                              {dg?.estadoCivil || <span className="text-slate-500">—</span>}
+                            </td>
+
+                            {/* Naturalidade / UF */}
+                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
+                              {natUf || <span className="text-slate-500">—</span>}
+                            </td>
+
+                            {/* Nacionalidade */}
+                            <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
+                              {dg?.nacionalidade || <span className="text-slate-500">—</span>}
+                            </td>
+                          </>
+                        ) : (
+                          <td className="py-4 px-5">
+                            {dataNascBr || resumoDemografico ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {dataNascBr && (
+                                    <span className="font-mono text-xs font-semibold text-slate-200">
+                                      Nasc. {dataNascBr}
+                                    </span>
+                                  )}
+                                  {idade && (
+                                    <span
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                      title={`Idade exata hoje: ${idade.extenso}`}
+                                    >
+                                      {idade.compacto}
+                                    </span>
+                                  )}
+                                </div>
+                                {resumoDemografico && (
+                                  <div className="text-[11px] text-slate-400 leading-snug">
+                                    {resumoDemografico}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFichaItem(colab);
+                                  setFichaModalOpen(true);
+                                }}
+                                className="text-[11px] text-slate-500 hover:text-slate-300 italic cursor-pointer"
+                              >
+                                Aguardando sync GESTOR
+                              </button>
+                            )}
+                          </td>
+                        )}
+
+                        {/* 3. Setor + Admissão */}
+                        <td className="py-4 px-5 text-xs">
+                          <span className="font-semibold text-slate-200 block">
+                            {colab.setor}
+                          </span>
+                          {dataAdmBr ? (
+                            <span className="text-[11px] font-mono text-slate-400 block mt-0.5">
+                              Adm. {dataAdmBr}
+                            </span>
+                          ) : colab.cargo ? (
+                            <span className="text-[11px] text-slate-500 block mt-0.5">
+                              {colab.cargo}
+                            </span>
+                          ) : null}
                         </td>
 
-                        {/* Período de Férias */}
+                        {/* 4. Período de Férias */}
                         <td className="py-4 px-5 font-mono text-xs text-slate-200">
                           {colab.p1Inicio && colab.p1Fim ? (
                             <div>
@@ -699,16 +1099,18 @@ export function EscalaAnualClient({
                               )}
                             </div>
                           ) : (
-                            <span className="text-slate-500 italic font-sans">Não programado</span>
+                            <span className="text-slate-500 italic font-sans">
+                              Não programado
+                            </span>
                           )}
                         </td>
 
-                        {/* Dias */}
-                        <td className="py-4 px-5 text-center font-mono font-bold text-xs text-white">
+                        {/* 5. Dias */}
+                        <td className="py-4 px-4 text-center font-mono font-bold text-xs text-white">
                           {colab.totalDias > 0 ? `${colab.totalDias}d` : "—"}
                         </td>
 
-                        {/* Status */}
+                        {/* 6. Status */}
                         <td className="py-4 px-5">
                           {colab.status === "programado" && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 font-bold text-[11px]">
@@ -730,7 +1132,7 @@ export function EscalaAnualClient({
                           )}
                         </td>
 
-                        {/* Ações */}
+                        {/* 7. Ações */}
                         {!readOnly && (
                           <td className="py-4 px-5 text-right relative">
                             <button
@@ -748,8 +1150,21 @@ export function EscalaAnualClient({
                             {isMenuOpen && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-5 top-12 z-30 w-44 rounded-2xl border border-white/15 bg-[#0B1020] p-1.5 shadow-2xl space-y-1 text-left"
+                                className="absolute right-5 top-12 z-30 w-52 rounded-2xl border border-white/15 bg-[#0B1020] p-1.5 shadow-2xl space-y-1 text-left"
                               >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setFichaItem(colab);
+                                    setFichaModalOpen(true);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+                                >
+                                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Ver ficha completa (Gestor)</span>
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -804,6 +1219,30 @@ export function EscalaAnualClient({
       {/* ─────────────────────────────────────────────────────────────
           MODAIS
       ───────────────────────────────────────────────────────────── */}
+      <FichaColaboradorFeriasModal
+        open={fichaModalOpen}
+        onClose={() => {
+          setFichaModalOpen(false);
+          setFichaItem(null);
+        }}
+        colaborador={fichaItem}
+        ano={ano}
+        canRevealCpf={canRevealCpf}
+        readOnly={readOnly}
+        revealedCpfValue={fichaItem ? revealedCpfs[fichaItem.id] || null : null}
+        onCpfRevealed={(colabId, cpfCompleto) => {
+          setRevealedCpfs((prev) => ({ ...prev, [colabId]: cpfCompleto }));
+        }}
+        onEditFerias={(colab) => {
+          setEditingItem(colab);
+          setLancamentoModalOpen(true);
+        }}
+        onOpenHistorico={(colab) => {
+          setHistoricoItem(colab);
+          setHistoricoModalOpen(true);
+        }}
+      />
+
       <LancamentoFeriasModal
         open={lancamentoModalOpen}
         onClose={() => {

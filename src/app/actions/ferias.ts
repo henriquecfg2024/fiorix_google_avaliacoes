@@ -10,9 +10,12 @@ import {
   setPublicacaoStatus,
   salvarOuAtualizarEscala,
   removerEscala,
+  obterCpfCompletoColaboradorGestor,
+  DadosCadastraisGestor,
   EscalaItem,
   PublicacaoStatus,
 } from '@/lib/ferias/ferias-repository';
+import { limparCpfReal, mascararCpfLgpd, normalizarDataIso } from '@/lib/ferias/idade-calculator';
 import { validarRegrasCLTFerias } from '@/lib/ferias/clt-validator';
 
 export interface BatchDeleteFeriasParams {
@@ -446,12 +449,129 @@ export async function removerLancamentoFeriasAction(params: {
 /**
  * Lista os colaboradores reais disponíveis no tenant para preenchimento de modais.
  */
-export async function getColaboradoresDisponiveisAction(): Promise<Array<{ id: string; name: string; email: string }>> {
+export async function getColaboradoresDisponiveisAction(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    email: string;
+    setor?: string | null;
+    cargo?: string | null;
+    dadosGestor?: DadosCadastraisGestor;
+  }>
+> {
   const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
   const users = await prisma.user.findMany({
     where: { tenantId: user.tenantId },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, departamento: true, cargo: true },
     orderBy: { name: 'asc' },
   });
-  return users.map((u) => ({ id: u.id, name: u.name || 'Sem nome', email: u.email }));
+
+  let gestorByUser = new Map<string, any>();
+  let gestorByName = new Map<string, any>();
+  try {
+    const gestorRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT registro_gestor, usuario_id, nome, apelido, cpf, data_nascimento,
+              sexo, estado_civil, naturalidade, uf, nacionalidade, data_admissao, ativo, synced_at
+       FROM public.fiorix_rh_colaboradores_gestor
+       WHERE tenant_id = $1 AND ativo = TRUE`,
+      user.tenantId
+    );
+    if (Array.isArray(gestorRows)) {
+      for (const gr of gestorRows) {
+        if (gr.usuario_id) gestorByUser.set(String(gr.usuario_id), gr);
+        if (gr.nome) gestorByName.set(String(gr.nome).toLowerCase().trim(), gr);
+      }
+    }
+  } catch {
+    // Tabela opcional em ambientes de teste
+  }
+
+  return users.map((u) => {
+    const nome = u.name || 'Sem nome';
+    const match = gestorByUser.get(u.id) || gestorByName.get(nome.toLowerCase().trim());
+    const cpfLimpo = match ? limparCpfReal(match.cpf) : null;
+    return {
+      id: u.id,
+      name: nome,
+      email: u.email,
+      setor: u.departamento || null,
+      cargo: u.cargo || null,
+      dadosGestor: match
+        ? {
+            registro: match.registro_gestor != null ? Number(match.registro_gestor) : null,
+            apelido: match.apelido || null,
+            cpfMascarado: mascararCpfLgpd(cpfLimpo),
+            temCpfCadastrado: Boolean(cpfLimpo),
+            dataNascimento: normalizarDataIso(match.data_nascimento),
+            sexo: match.sexo || null,
+            estadoCivil: match.estado_civil || null,
+            naturalidade: match.naturalidade || null,
+            uf: match.uf || null,
+            nacionalidade: match.nacionalidade || null,
+            dataAdmissao: normalizarDataIso(match.data_admissao),
+            ativo: match.ativo !== false,
+            syncedAt: match.synced_at ? new Date(match.synced_at).toISOString() : null,
+          }
+        : undefined,
+    };
+  });
+}
+
+/**
+ * Revela individualmente o CPF completo de um colaborador na tela de Férias,
+ * restrito estritamente a RH, ADMIN e MASTER, com registro em FiorixAcessoLog (LGPD / Prov. 213/2026).
+ */
+export async function revelarCpfColaboradorFeriasAction(params: {
+  usuarioId?: string;
+  registroGestor?: number | null;
+  nome: string;
+}): Promise<{ success: boolean; cpf?: string | null; erro?: string }> {
+  const user = await requireRole('ADMIN', 'RH', 'MASTER');
+
+  const cpfFormatado = await obterCpfCompletoColaboradorGestor(user.tenantId, {
+    usuarioId: params.usuarioId,
+    registroGestor: params.registroGestor,
+    nome: params.nome,
+  });
+
+  if (!cpfFormatado) {
+    return { success: false, erro: 'CPF ainda não sincronizado a partir do GESTOR.' };
+  }
+
+  try {
+    await prisma.fiorixAcessoLog.create({
+      data: {
+        tenantId: user.tenantId,
+        usuarioId: user.id,
+        alvoUsuarioId: params.usuarioId && !params.usuarioId.startsWith('gestor_') ? params.usuarioId : null,
+        tipo: 'ferias_cpf_reveal',
+        recursoId: params.registroGestor ? String(params.registroGestor) : params.usuarioId || null,
+        metadata: {
+          modulo: 'FERIAS_RH',
+          colaboradorNome: params.nome,
+          registroGestor: params.registroGestor ?? null,
+          operadorNome: user.name,
+          operadorRole: user.role,
+        },
+      },
+    });
+  } catch (logErr) {
+    console.warn('Aviso ao gravar FiorixAcessoLog de revelação de CPF:', logErr);
+  }
+
+  await recordAuditLog({
+    modulo: 'FERIAS',
+    acao: 'CONSULTA_LGPD',
+    registroId: params.usuarioId || String(params.registroGestor || ''),
+    registroDescricao: `Revelação auditada de CPF na Escala de Férias — ${params.nome}`,
+    detalhes: {
+      colaborador: params.nome,
+      registroGestor: params.registroGestor ?? null,
+      operador: user.name,
+      operadorEmail: user.email,
+      dataHora: new Date().toISOString(),
+    },
+  });
+
+  return { success: true, cpf: cpfFormatado };
 }

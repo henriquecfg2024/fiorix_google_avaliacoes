@@ -1,11 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Calendar, AlertTriangle, CheckCircle2, User } from "lucide-react";
+import { X, Calendar, AlertTriangle, UserCheck, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EscalaItem } from "@/lib/ferias/ferias-repository";
+import { DadosCadastraisGestor, EscalaItem } from "@/lib/ferias/ferias-repository";
 import { validarRegrasCLTFerias } from "@/lib/ferias/clt-validator";
+import {
+  calcularIdadeCompleta,
+  formatarDataGestorBr,
+} from "@/lib/ferias/idade-calculator";
+
+interface ColaboradorDisponivelOption {
+  id: string;
+  name: string;
+  email: string;
+  setor?: string | null;
+  cargo?: string | null;
+  dadosGestor?: DadosCadastraisGestor;
+}
 
 interface LancamentoFeriasModalProps {
   open: boolean;
@@ -13,7 +26,7 @@ interface LancamentoFeriasModalProps {
   onSave: (dados: any) => Promise<void>;
   itemParaEditar?: EscalaItem | null;
   anoSelecionado: number;
-  colaboradoresDisponiveis: Array<{ id: string; name: string; email: string }>;
+  colaboradoresDisponiveis: ColaboradorDisponivelOption[];
 }
 
 export function LancamentoFeriasModal({
@@ -46,7 +59,6 @@ export function LancamentoFeriasModal({
 
   const [saving, setSaving] = useState(false);
 
-  // Calcula dias automaticamente a partir das datas
   const calcDias = (ini: string, fim: string) => {
     if (!ini || !fim) return 0;
     const d1 = new Date(ini);
@@ -103,9 +115,10 @@ export function LancamentoFeriasModal({
         setP3Dias(0);
       }
     } else {
-      setUsuarioId(colaboradoresDisponiveis[0]?.id || "");
-      setNome(colaboradoresDisponiveis[0]?.name || "");
-      setSetor("Atendimento");
+      const first = colaboradoresDisponiveis[0];
+      setUsuarioId(first?.id || "");
+      setNome(first?.name || "");
+      setSetor(first?.setor || "Atendimento");
       setStatus("programado");
       setObservacao("");
       setP1Inicio(`${anoSelecionado}-01-10`);
@@ -123,6 +136,18 @@ export function LancamentoFeriasModal({
   }, [itemParaEditar, open, anoSelecionado, colaboradoresDisponiveis]);
 
   if (!open) return null;
+
+  const selectedOption = colaboradoresDisponiveis.find((c) => c.id === usuarioId);
+  const dg: DadosCadastraisGestor | undefined =
+    itemParaEditar?.dadosGestor || selectedOption?.dadosGestor;
+  const idade = calcularIdadeCompleta(dg?.dataNascimento);
+  const nascBr = formatarDataGestorBr(dg?.dataNascimento);
+  const admBr = formatarDataGestorBr(dg?.dataAdmissao);
+  const natCompleta = dg?.naturalidade
+    ? dg.uf
+      ? `${dg.naturalidade}/${dg.uf}`
+      : dg.naturalidade
+    : null;
 
   const periodosParaValidar = [
     { inicio: p1Inicio, fim: p1Fim, dias: p1Dias },
@@ -173,25 +198,26 @@ export function LancamentoFeriasModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/12 bg-white dark:bg-[#0c101c] p-6 shadow-2xl text-white space-y-5">
+      <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-[24px] border border-white/15 bg-[#0B1020] p-6 shadow-2xl text-white space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 pb-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                 {itemParaEditar ? "Editar Período de Férias" : "Adicionar Colaborador à Escala"}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Escala Anual {anoSelecionado} • Validação silenciosa de regras CLT
+                Escala Anual {anoSelecionado} • Validação de regras CLT & cadastro oficial GESTOR
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -206,7 +232,7 @@ export function LancamentoFeriasModal({
               <Input
                 disabled
                 value={nome}
-                className="bg-white/[0.04] border-slate-200 dark:border-white/10 text-white text-xs h-10 rounded-xl"
+                className="bg-[#080D1A] border-white/15 text-white text-xs font-bold h-10 rounded-xl"
               />
             ) : (
               <select
@@ -215,18 +241,74 @@ export function LancamentoFeriasModal({
                   const selId = e.target.value;
                   setUsuarioId(selId);
                   const found = colaboradoresDisponiveis.find((c) => c.id === selId);
-                  if (found) setNome(found.name);
+                  if (found) {
+                    setNome(found.name);
+                    if (found.setor) setSetor(found.setor);
+                  }
                 }}
-                className="w-full h-10 px-3 rounded-xl bg-[#070A12] border border-white/12 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full h-10 px-3 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-500/50"
               >
                 {colaboradoresDisponiveis.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} className="bg-[#0B1020] text-white">
                     {c.name} ({c.email})
                   </option>
                 ))}
               </select>
             )}
           </div>
+
+          {/* Resumo Cadastral Somente-Leitura (Gestor) */}
+          {dg && (
+            <div className="p-3.5 rounded-2xl border border-white/10 bg-[#080D1A] space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300">
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Resumo Cadastral · Gestor (Somente Leitura)
+                </span>
+                {dg.registro != null && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                    <Hash className="w-2.5 h-2.5" />
+                    Reg. {dg.registro}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
+                <div>
+                  <span className="text-slate-400">CPF: </span>
+                  <span className="font-mono text-slate-200">{dg.cpfMascarado || "—"}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400">Nasc. / Idade: </span>
+                  <span className="text-slate-200 font-medium">
+                    {nascBr || "—"}
+                    {idade ? ` (${idade.extenso})` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Sexo: </span>
+                  <span className="text-slate-200">{dg.sexo || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Est. Civil: </span>
+                  <span className="text-slate-200">{dg.estadoCivil || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Nacionalidade: </span>
+                  <span className="text-slate-200">{dg.nacionalidade || "—"}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400">Naturalidade: </span>
+                  <span className="text-slate-200">{natCompleta || "—"}</span>
+                </div>
+                {admBr && (
+                  <div>
+                    <span className="text-slate-400">Admissão: </span>
+                    <span className="font-mono text-slate-200">{admBr}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Setor & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -235,16 +317,17 @@ export function LancamentoFeriasModal({
               <select
                 value={setor}
                 onChange={(e) => setSetor(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl bg-[#070A12] border border-white/12 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full h-10 px-3 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-500/50"
               >
-                <option value="Atendimento">Atendimento / Balcão</option>
-                <option value="Registro">Registro de Imóveis</option>
-                <option value="Prenotação">Prenotação / Protocolo</option>
-                <option value="Certidões">Certidões</option>
-                <option value="Financeiro">Financeiro / Contabilidade</option>
-                <option value="Recursos Humanos">Recursos Humanos</option>
-                <option value="Administração">Administração</option>
-                <option value="TI">Tecnologia da Informação</option>
+                <option value="Atendimento" className="bg-[#0B1020]">Atendimento / Balcão</option>
+                <option value="Registro" className="bg-[#0B1020]">Registro de Imóveis</option>
+                <option value="Prenotação" className="bg-[#0B1020]">Prenotação / Protocolo</option>
+                <option value="Certidões" className="bg-[#0B1020]">Certidões</option>
+                <option value="Financeiro" className="bg-[#0B1020]">Financeiro / Contabilidade</option>
+                <option value="Recursos Humanos" className="bg-[#0B1020]">Recursos Humanos</option>
+                <option value="Administração" className="bg-[#0B1020]">Administração</option>
+                <option value="Impressão/Arquivo" className="bg-[#0B1020]">Impressão / Arquivo</option>
+                <option value="TI" className="bg-[#0B1020]">Tecnologia da Informação</option>
               </select>
             </div>
 
@@ -253,22 +336,22 @@ export function LancamentoFeriasModal({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full h-10 px-3 rounded-xl bg-[#070A12] border border-white/12 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full h-10 px-3 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-500/50"
               >
-                <option value="programado">Programado</option>
-                <option value="conflito">Conflito a revisar</option>
-                <option value="pendente">Pendente de definição</option>
+                <option value="programado" className="bg-[#0B1020]">Programado</option>
+                <option value="conflito" className="bg-[#0B1020]">Conflito a revisar</option>
+                <option value="pendente" className="bg-[#0B1020]">Pendente de definição</option>
               </select>
             </div>
           </div>
 
           {/* 1º Período */}
-          <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/8 space-y-3">
+          <div className="p-4 rounded-2xl bg-[#080D1A] border border-white/10 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white uppercase tracking-wider">
                 1º Período {temP2 ? "(Principal)" : ""}
               </span>
-              <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-lg border border-cyan-500/20">
+              <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-500/15 px-2.5 py-0.5 rounded-full border border-cyan-500/25">
                 {p1Dias} dias
               </span>
             </div>
@@ -279,7 +362,7 @@ export function LancamentoFeriasModal({
                   type="date"
                   value={p1Inicio}
                   onChange={(e) => setP1Inicio(e.target.value)}
-                  className="bg-[#070A12] border-white/12 text-xs text-white h-9 rounded-xl"
+                  className="bg-[#0B1020] border-white/15 text-xs text-white h-9 rounded-xl"
                   required
                 />
               </div>
@@ -289,7 +372,7 @@ export function LancamentoFeriasModal({
                   type="date"
                   value={p1Fim}
                   onChange={(e) => setP1Fim(e.target.value)}
-                  className="bg-[#070A12] border-white/12 text-xs text-white h-9 rounded-xl"
+                  className="bg-[#0B1020] border-white/15 text-xs text-white h-9 rounded-xl"
                   required
                 />
               </div>
@@ -307,16 +390,16 @@ export function LancamentoFeriasModal({
                 setP2Inicio(`${anoSelecionado}-07-10`);
                 setP2Fim(`${anoSelecionado}-07-24`);
               }}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1.5 transition-colors"
+              className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               + Adicionar 2º período de fracionamento (CLT Art. 134 §1)
             </button>
           ) : (
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/8 space-y-3">
+            <div className="p-4 rounded-2xl bg-[#080D1A] border border-white/10 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white uppercase tracking-wider">2º Período</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-500/20">
+                  <span className="text-xs font-mono font-bold text-indigo-300 bg-indigo-500/15 px-2.5 py-0.5 rounded-full border border-indigo-500/25">
                     {p2Dias} dias
                   </span>
                   <button
@@ -328,7 +411,7 @@ export function LancamentoFeriasModal({
                       setP2Fim("");
                       setP2Dias(0);
                     }}
-                    className="text-[11px] text-rose-400 hover:text-rose-300"
+                    className="text-[11px] text-rose-400 hover:text-rose-300 cursor-pointer"
                   >
                     Remover
                   </button>
@@ -341,7 +424,7 @@ export function LancamentoFeriasModal({
                     type="date"
                     value={p2Inicio}
                     onChange={(e) => setP2Inicio(e.target.value)}
-                    className="bg-[#070A12] border-white/12 text-xs text-white h-9 rounded-xl"
+                    className="bg-[#0B1020] border-white/15 text-xs text-white h-9 rounded-xl"
                   />
                 </div>
                 <div>
@@ -350,7 +433,7 @@ export function LancamentoFeriasModal({
                     type="date"
                     value={p2Fim}
                     onChange={(e) => setP2Fim(e.target.value)}
-                    className="bg-[#070A12] border-white/12 text-xs text-white h-9 rounded-xl"
+                    className="bg-[#0B1020] border-white/15 text-xs text-white h-9 rounded-xl"
                   />
                 </div>
               </div>
@@ -390,12 +473,12 @@ export function LancamentoFeriasModal({
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               placeholder="Ex: Acordo prévio com gestor para cobertura de licença..."
-              className="w-full p-2.5 rounded-xl bg-[#070A12] border border-white/12 text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full p-2.5 rounded-xl bg-[#080D1A] border border-white/15 text-xs text-white focus:outline-none focus:border-cyan-500/50 resize-none"
             />
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/8">
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
             <span className="text-xs font-mono text-slate-400">
               Total: <strong className="text-white">{totalDias}</strong> / 30 dias
             </span>
@@ -404,14 +487,14 @@ export function LancamentoFeriasModal({
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="h-9 px-4 rounded-xl border-slate-200 dark:border-white/10 text-slate-300 hover:bg-white/10 text-xs"
+                className="h-9 px-4 rounded-xl bg-[#080D1A] border-white/15 text-slate-300 hover:bg-white/10 text-xs cursor-pointer"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={saving || !clt.valido}
-                className="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/20"
+                className="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm shadow-indigo-500/20 cursor-pointer"
               >
                 {saving ? "Salvando..." : "Salvar Programação"}
               </Button>

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
+import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
 
 export async function unpackLiveRecords({
   tenantId,
@@ -7,7 +8,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;
@@ -400,6 +401,24 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
+    } else if (source === 'colaboradores_rh') {
+      const normalizedRecords = records.map((item: any) => ({
+        registro: item.Registro ?? item.registro ?? item.PK_Id ?? null,
+        nome: item.Nome ?? item.nome ?? item.NomeCompleto ?? '',
+        apelido: item.Apelido ?? item.apelido ?? item.ConhecidoComo ?? null,
+        cpf: item.CPF ?? item.cpf ?? null,
+        dataNascimento: item.DataNascimento ?? item.data_nascimento ?? item.DataNasc ?? null,
+        sexo: item.Sexo ?? item.sexo ?? null,
+        estadoCivil: item.EstadoCivil ?? item.estado_civil ?? null,
+        naturalidade: item.Naturalidade ?? item.naturalidade ?? item.CidadeNascimento ?? null,
+        uf: item.UF ?? item.uf ?? item.UfNascimento ?? null,
+        nacionalidade: item.Nacionalidade ?? item.nacionalidade ?? null,
+        dataAdmissao: item.DataAdmissao ?? item.data_admissao ?? null,
+        cargo: item.Cargo ?? item.cargo ?? null,
+        setor: item.Setor ?? item.setor ?? item.Departamento ?? null,
+        ativo: item.Ativo ?? item.ativo ?? true,
+      }));
+      await upsertColaboradoresGestorBatch(tenantId, normalizedRecords);
     }
   } catch (err) {
     console.error(`UNPACK_LIVE_RECORDS_ERROR [${source}]:`, err);
