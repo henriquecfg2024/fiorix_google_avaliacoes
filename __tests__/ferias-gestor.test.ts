@@ -7,7 +7,11 @@ import {
   mascararCpfLgpd,
 } from '@/lib/ferias/idade-calculator';
 import { getEscalaAnual, nomesColaboradorCompativeis } from '@/lib/ferias/ferias-repository';
-import { revelarCpfColaboradorFeriasAction } from '@/app/actions/ferias';
+import {
+  revelarCpfColaboradorFeriasAction,
+  removerColaboradoresDaTelaFeriasAction,
+  criarColaboradorManualFeriasAction,
+} from '@/app/actions/ferias';
 import { requireRole } from '@/lib/auth-helpers';
 import { recordAuditLog } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
@@ -210,7 +214,137 @@ describe('Integração GESTOR -> Escala de Férias FIORIX', () => {
       expect(nomesColaboradorCompativeis('Claudio Donizetti Ferreira da Silva', 'Claudio Donizetti')).toBe(true);
       expect(nomesColaboradorCompativeis('Francisco Caniinde Martins', 'Francisco Caninde Martins')).toBe(true);
       expect(nomesColaboradorCompativeis('Guilherme Mancio da Silva', 'Guilherme Mancio')).toBe(true);
+      expect(nomesColaboradorCompativeis('Cristiano Neves Caldeiras', 'Cristiano Vesentini Neves Caldeiras')).toBe(true);
       expect(nomesColaboradorCompativeis('Alisson Azevedo de Lima', 'Mariana Oliveira')).toBe(false);
+    });
+  });
+
+  describe('Remoção Definitiva de Ex-Colaboradores & Cadastro Manual no FIORIX', () => {
+    it('remove colaborador desligado com bloqueio persistente e auditoria WORM (DESATIVACAO)', async () => {
+      vi.mocked(requireRole).mockResolvedValue({
+        id: 'admin_henrique',
+        tenantId,
+        role: 'MASTER',
+        name: 'Henrique Gama',
+        email: 'henrique@7ri.com.br',
+      } as any);
+
+      const resRemove = await removerColaboradoresDaTelaFeriasAction({
+        itens: [
+          {
+            usuarioId: 'user_ex_1',
+            nome: 'Amanda Aparecida Gil',
+            registroGestor: 44,
+            setor: 'Registro',
+          },
+        ],
+        motivo: 'Não trabalha mais nesta Serventia',
+      });
+
+      expect(resRemove.success).toBe(true);
+      expect(resRemove.removidos).toBe(1);
+      expect(recordAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modulo: 'FERIAS',
+          acao: 'DESATIVACAO',
+        })
+      );
+
+      // Verifica que getEscalaAnual oculta colaboradores presentes em fiorix_ferias_colaboradores_excluidos
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
+        if (sql.includes('fiorix_ferias_publicacao')) {
+          return [{ ano: 2027, status: 'PUBLICADA' }];
+        }
+        if (sql.includes('fiorix_ferias_escala')) {
+          return [
+            {
+              id: 'esc_1',
+              usuario_id: 'user_ex_1',
+              ano: 2027,
+              nome: 'Amanda Aparecida Gil',
+              setor: 'Registro',
+              p1_dias: 15,
+              total_dias: 15,
+              status: 'programado',
+              historico: '[]',
+            },
+            {
+              id: 'esc_2',
+              usuario_id: 'c7ri_u_003',
+              ano: 2027,
+              nome: 'Alisson Azevedo de Lima',
+              setor: 'Atendimento',
+              p1_dias: 15,
+              total_dias: 15,
+              status: 'programado',
+              historico: '[]',
+            },
+          ];
+        }
+        if (sql.includes('fiorix_ferias_colaboradores_excluidos')) {
+          return [
+            {
+              usuario_id: 'user_ex_1',
+              registro_gestor: 44,
+              nome_normalizado: 'amanda aparecida gil',
+            },
+          ];
+        }
+        return [];
+      });
+
+      const escala = await getEscalaAnual(tenantId, 2027, 'admin_henrique', 'MASTER');
+      expect(escala.colaboradores).toHaveLength(1);
+      expect(escala.colaboradores[0].nome).toBe('Alisson Azevedo de Lima');
+    });
+
+    it('cadastra manualmente novo colaborador com validação de CPF e auditoria WORM (INCLUSAO)', async () => {
+      vi.mocked(requireRole).mockResolvedValue({
+        id: 'rh_nadia',
+        tenantId,
+        role: 'RH',
+        name: 'Nadia Najjar',
+        email: 'nadia@7ri.com.br',
+      } as any);
+
+      // CPF inválido deve ser bloqueado antes de gravar
+      const invalido = await criarColaboradorManualFeriasAction({
+        nome: 'Colaborador Teste CPF Inválido',
+        cpf: '111.111.111-11',
+        setor: 'Atendimento',
+        ano: 2027,
+      });
+      expect(invalido.success).toBe(false);
+
+      // Cadastro manual válido (pendente de férias)
+      vi.mocked(prisma.$queryRawUnsafe as any).mockResolvedValue([]);
+      const valido = await criarColaboradorManualFeriasAction({
+        nome: 'Beatriz Helena Prado',
+        registro: 140,
+        cpf: '503.588.298-52',
+        dataNascimento: '1998-04-15',
+        sexo: 'Feminino',
+        estadoCivil: 'Solteiro(a)',
+        naturalidade: 'São Paulo',
+        uf: 'SP',
+        nacionalidade: 'Brasileiro(a)',
+        dataAdmissao: '2026-10-01',
+        setor: 'Atendimento',
+        cargo: 'Escrevente',
+        ano: 2027,
+      });
+
+      expect(valido.success).toBe(true);
+      expect(valido.item?.nome).toBe('Beatriz Helena Prado');
+      expect(valido.item?.status).toBe('pendente');
+      expect(valido.item?.dadosGestor?.origemManual).toBe(true);
+      expect(valido.item?.dadosGestor?.cpfMascarado).toBe('***.588.298-**');
+      expect(recordAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modulo: 'FERIAS',
+          acao: 'INCLUSAO',
+        })
+      );
     });
   });
 });

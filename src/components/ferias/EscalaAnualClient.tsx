@@ -22,6 +22,9 @@ import {
   Download,
   Hash,
   Loader2,
+  UserPlus,
+  UserMinus,
+  CalendarPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,11 +41,42 @@ import {
   publicarEscalaAnualAction,
   retirarEscalaDoArAction,
   revelarCpfColaboradorFeriasAction,
+  removerColaboradoresDaTelaFeriasAction,
 } from "@/app/actions/ferias";
 import { LancamentoFeriasModal } from "./LancamentoFeriasModal";
 import { HistoricoFeriasModal } from "./HistoricoFeriasModal";
 import { FichaColaboradorFeriasModal } from "./FichaColaboradorFeriasModal";
+import { NovoColaboradorFeriasModal } from "./NovoColaboradorFeriasModal";
 import { toast } from "sonner";
+
+function periodoOverlapMesAno(
+  inicio: string | undefined,
+  fim: string | undefined,
+  anoAlvo: number,
+  mes1a12: number
+): boolean {
+  if (!inicio || !fim) return false;
+  const isoIni = inicio.slice(0, 10);
+  const isoFim = fim.slice(0, 10);
+  const d1 = new Date(`${isoIni}T00:00:00Z`);
+  const d2 = new Date(`${isoFim}T23:59:59Z`);
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
+  const startOfMonth = Date.UTC(anoAlvo, mes1a12 - 1, 1, 0, 0, 0);
+  const endOfMonth = Date.UTC(anoAlvo, mes1a12, 0, 23, 59, 59);
+  return d1.getTime() <= endOfMonth && d2.getTime() >= startOfMonth;
+}
+
+function colaboradorEmFeriasNoMes(
+  colab: EscalaItem,
+  anoAlvo: number,
+  mes1a12: number
+): boolean {
+  return (
+    periodoOverlapMesAno(colab.p1Inicio, colab.p1Fim, anoAlvo, mes1a12) ||
+    periodoOverlapMesAno(colab.p2Inicio, colab.p2Fim, anoAlvo, mes1a12) ||
+    periodoOverlapMesAno(colab.p3Inicio, colab.p3Fim, anoAlvo, mes1a12)
+  );
+}
 
 interface EscalaAnualClientProps {
   initialAno?: number;
@@ -110,13 +144,20 @@ export function EscalaAnualClient({
   const [visibleCpfIds, setVisibleCpfIds] = useState<Record<string, boolean>>({});
   const [revealingCpfId, setRevealingCpfId] = useState<string | null>(null);
 
-  // Modais
+  // Modais e seleção nominal
   const [lancamentoModalOpen, setLancamentoModalOpen] = useState(false);
+  const [novoColabModalOpen, setNovoColabModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EscalaItem | null>(null);
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItem, setHistoricoItem] = useState<EscalaItem | null>(null);
   const [fichaModalOpen, setFichaModalOpen] = useState(false);
   const [fichaItem, setFichaItem] = useState<EscalaItem | null>(null);
+
+  // Seleção em lote e modal de remoção definitiva de ex-colaboradores do FIORIX
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [removeModalItems, setRemoveModalItems] = useState<EscalaItem[]>([]);
+  const [removeMotivo, setRemoveMotivo] = useState("Não trabalha mais nesta Serventia");
+  const [removingColabs, setRemovingColabs] = useState(false);
 
   // Menu de ações
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -167,13 +208,17 @@ export function EscalaAnualClient({
     carregarEscala(ano);
   }, [ano]);
 
+  const recarregarColaboradoresDisponiveis = async () => {
+    if (readOnly) return;
+    try {
+      const users = await getColaboradoresDisponiveisAction();
+      setColaboradoresDisponiveis(users);
+    } catch {}
+  };
+
   // Carrega usuários reais para o modal somente se for gestor/RH
   useEffect(() => {
-    if (!readOnly) {
-      getColaboradoresDisponiveisAction()
-        .then((users) => setColaboradoresDisponiveis(users))
-        .catch(() => {});
-    }
+    recarregarColaboradoresDisponiveis();
   }, [readOnly]);
 
   // Fechar menu de 3 pontinhos ao clicar fora
@@ -222,52 +267,34 @@ export function EscalaAnualClient({
   const programadosCount = colaboradores.filter((c) => c.status === "programado").length;
   const conflitosCount = colaboradores.filter((c) => c.status === "conflito").length;
 
-  // Cálculo da ocupação por mês para a visão anual
+  // Cálculo real e deduplicado da ocupação por mês para a visão anual
   const ocupacaoPorMes = useMemo(() => {
-    const counts = new Array(12).fill(0);
-    colaboradores.forEach((c) => {
-      const checarNoMes = (inicio?: string, fim?: string) => {
-        if (!inicio || !fim) return;
-        const d1 = new Date(inicio);
-        const d2 = new Date(fim);
-        const m1 = d1.getUTCMonth();
-        const m2 = d2.getUTCMonth();
-        const y1 = d1.getUTCFullYear();
-        const y2 = d2.getUTCFullYear();
-
-        if (y1 === ano || y2 === ano) {
-          for (let m = m1; m <= (y2 > y1 ? 11 : m2); m++) {
-            if (m >= 0 && m < 12) counts[m]++;
-          }
+    return MESES.map((mesObj, idx) => {
+      const mesNumero = idx + 1;
+      let count = 0;
+      for (const c of colaboradores) {
+        if (colaboradorEmFeriasNoMes(c, ano, mesNumero)) {
+          count++;
         }
-      };
+      }
 
-      checarNoMes(c.p1Inicio, c.p1Fim);
-      checarNoMes(c.p2Inicio, c.p2Fim);
-      checarNoMes(c.p3Inicio, c.p3Fim);
-    });
-
-    return counts.map((count, idx) => {
-      const previewPcts = [18, 25, 40, 65, 72, 48, 32, 28, 22, 35, 58, 20];
       const percentual =
-        ano === 2027
-          ? previewPcts[idx]
-          : totalColaboradores > 0
-          ? Math.round((count / totalColaboradores) * 100)
-          : previewPcts[idx];
+        totalColaboradores > 0 ? Math.round((count / totalColaboradores) * 100) : 0;
 
       let cor = "bg-emerald-500";
-      if (percentual > 50) {
+      if (count === 0) {
+        cor = "bg-slate-600";
+      } else if (percentual > 50) {
         cor = "bg-orange-500";
       } else if (percentual >= 35) {
         cor = "bg-amber-400";
       }
 
       return {
-        mesIndex: idx + 1,
-        nome: MESES[idx].nome,
-        completo: MESES[idx].completo,
-        count: count || Math.round((percentual / 100) * totalColaboradores),
+        mesIndex: mesNumero,
+        nome: mesObj.nome,
+        completo: mesObj.completo,
+        count,
         percentual,
         cor,
       };
@@ -303,25 +330,12 @@ export function EscalaAnualClient({
       const matchSetor = selectedSetor === "TODOS" || c.setor === selectedSetor;
       const matchStatus = !statusFilter || c.status === statusFilter;
 
-      let matchMes = true;
-      if (selectedMes !== null) {
-        const estaNoMes = (inicio?: string, fim?: string) => {
-          if (!inicio || !fim) return false;
-          const d1 = new Date(inicio);
-          const d2 = new Date(fim);
-          const m1 = d1.getUTCMonth() + 1;
-          const m2 = d2.getUTCMonth() + 1;
-          return m1 <= selectedMes && m2 >= selectedMes;
-        };
-        matchMes =
-          estaNoMes(c.p1Inicio, c.p1Fim) ||
-          estaNoMes(c.p2Inicio, c.p2Fim) ||
-          estaNoMes(c.p3Inicio, c.p3Fim);
-      }
+      const matchMes =
+        selectedMes === null || colaboradorEmFeriasNoMes(c, ano, selectedMes);
 
       return matchSearch && matchSetor && matchStatus && matchMes;
     });
-  }, [colaboradores, searchTerm, selectedSetor, statusFilter, selectedMes]);
+  }, [colaboradores, searchTerm, selectedSetor, statusFilter, selectedMes, ano]);
 
   // Formata período para exibição
   const formatPeriodo = (inicio?: string, fim?: string) => {
@@ -429,15 +443,87 @@ export function EscalaAnualClient({
     await carregarEscala(ano);
   };
 
-  // Excluir lançamento
+  // Limpar apenas o período de férias do ano (mantendo o colaborador na lista)
   const handleDeleteLancamento = async (item: EscalaItem) => {
-    if (confirm(`Deseja remover o planejamento de férias de ${item.nome} (${ano})?`)) {
+    if (confirm(`Deseja limpar apenas o período de férias de ${item.nome} em ${ano}?`)) {
       await removerLancamentoFeriasAction({
         usuarioId: item.usuarioId,
         nome: item.nome,
         ano,
       });
+      toast.success(`Período de férias de ${item.nome} (${ano}) removido.`);
       await carregarEscala(ano);
+    }
+  };
+
+  // Seleção individual / em lote na tabela
+  const allFilteredSelected =
+    filteredColaboradores.length > 0 &&
+    filteredColaboradores.every((c) => selectedIds.has(c.id));
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filteredColaboradores.forEach((c) => next.delete(c.id));
+      } else {
+        filteredColaboradores.forEach((c) => next.add(c.id));
+      }
+      return next;
+    });
+  };
+
+  const abrirModalRemoverColaboradores = (itens: EscalaItem[]) => {
+    if (!itens.length) return;
+    setRemoveMotivo("Não trabalha mais nesta Serventia");
+    setRemoveModalItems(itens);
+  };
+
+  const handleConfirmarRemocaoColaboradores = async () => {
+    if (removeModalItems.length === 0) return;
+    setRemovingColabs(true);
+    try {
+      const res = await removerColaboradoresDaTelaFeriasAction({
+        itens: removeModalItems.map((it) => ({
+          usuarioId: it.usuarioId,
+          nome: it.nome,
+          registroGestor: it.dadosGestor?.registro ?? null,
+          setor: it.setor,
+        })),
+        motivo: removeMotivo.trim() || "Não trabalha mais nesta Serventia",
+      });
+
+      if (!res.success) {
+        toast.error(res.erro || "Não foi possível remover os colaboradores selecionados.");
+        return;
+      }
+
+      toast.success(
+        res.removidos === 1
+          ? `"${removeModalItems[0].nome}" removido definitivamente da tela do FIORIX.`
+          : `${res.removidos} colaboradores removidos definitivamente da tela do FIORIX.`
+      );
+
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        removeModalItems.forEach((it) => next.delete(it.id));
+        return next;
+      });
+      setRemoveModalItems([]);
+      await Promise.all([carregarEscala(ano), recarregarColaboradoresDisponiveis()]);
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao remover colaborador do FIORIX.");
+    } finally {
+      setRemovingColabs(false);
     }
   };
 
@@ -447,10 +533,10 @@ export function EscalaAnualClient({
   const totalTableCols = detalhadoGestor
     ? readOnly
       ? 12
-      : 13
+      : 14
     : readOnly
     ? 6
-    : 7;
+    : 8;
 
   return (
     <div className="space-y-6 text-white animate-in fade-in duration-200">
@@ -663,37 +749,70 @@ export function EscalaAnualClient({
           <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2.5">
             {ocupacaoPorMes.map((m) => {
               const isSelected = selectedMes === m.mesIndex;
+              const tooltipMes = `${m.completo}: ${m.count} ${
+                m.count === 1 ? "colaborador em férias" : "colaboradores em férias"
+              } (${m.percentual}% da equipe)`;
+
               return (
-                <button
-                  type="button"
-                  key={m.mesIndex}
-                  onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
-                  className={`flex flex-col items-center justify-between py-3 px-2 rounded-xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? "bg-cyan-500/15 border-cyan-400/60 ring-1 ring-cyan-400/50 shadow-sm"
-                      : "bg-[#080D1A] border-white/10 hover:border-cyan-500/35 hover:bg-[#0E1528]"
-                  }`}
-                  title={`${m.completo}: ${m.percentual}% de ocupação (${m.count} colaboradores em férias)`}
-                >
-                  <span
-                    className={`text-xs font-bold uppercase tracking-wider ${
-                      isSelected ? "text-cyan-300" : "text-slate-300"
+                <div key={m.mesIndex} className="flex flex-col items-stretch gap-1.5 group/mes">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
+                    className={`flex flex-col items-center justify-between py-3 px-2 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-cyan-500/15 border-cyan-400/60 ring-1 ring-cyan-400/50 shadow-sm"
+                        : "bg-[#080D1A] border-white/10 group-hover/mes:border-cyan-500/35 group-hover/mes:bg-[#0E1528]"
+                    }`}
+                    title={tooltipMes}
+                  >
+                    <span
+                      className={`text-xs font-bold uppercase tracking-wider ${
+                        isSelected ? "text-cyan-300" : "text-slate-300"
+                      }`}
+                    >
+                      {m.nome}
+                    </span>
+
+                    <span className="text-sm font-black text-white mt-1.5">
+                      {m.percentual}%
+                    </span>
+
+                    <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden bg-slate-800">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${m.cor}`}
+                        style={{
+                          width: m.count === 0 ? "0%" : `${Math.min(100, Math.max(14, m.percentual))}%`,
+                        }}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Contador elegante abaixo de cada card mensal */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
+                    title={tooltipMes}
+                    className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg border text-[11px] transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-cyan-500/15 border-cyan-400/45 text-cyan-200 font-bold"
+                        : m.count > 0
+                        ? "bg-[#080D1A]/85 border-white/10 text-slate-300 group-hover/mes:border-cyan-500/30 group-hover/mes:text-white"
+                        : "bg-[#080D1A]/40 border-white/[0.05] text-slate-500 group-hover/mes:text-slate-400"
                     }`}
                   >
-                    {m.nome}
-                  </span>
-
-                  <span className="text-sm font-black text-white mt-1.5">
-                    {m.percentual}%
-                  </span>
-
-                  <div className="w-full h-1.5 rounded-full mt-2 overflow-hidden bg-slate-800">
-                    <div
-                      className={`h-full rounded-full ${m.cor}`}
-                      style={{ width: `${Math.min(100, Math.max(18, m.percentual))}%` }}
+                    <Users
+                      className={`w-3 h-3 shrink-0 ${
+                        isSelected
+                          ? "text-cyan-300"
+                          : m.count > 0
+                          ? "text-cyan-400/85"
+                          : "text-slate-600"
+                      }`}
                     />
-                  </div>
-                </button>
+                    <span className="font-mono font-bold leading-none">{m.count}</span>
+                    <span className="text-[10px] leading-none opacity-85">colab.</span>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -783,17 +902,47 @@ export function EscalaAnualClient({
               <span>CSV</span>
             </button>
 
-            {/* Botão Adicionar Colaborador */}
+            {!readOnly && selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const selecionados = colaboradores.filter((c) => selectedIds.has(c.id));
+                  abrirModalRemoverColaboradores(selecionados);
+                }}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-rose-500/35 bg-rose-500/15 hover:bg-rose-500/25 text-xs font-bold text-rose-200 transition-all cursor-pointer"
+                title="Remover definitivamente da tela do FIORIX os colaboradores selecionados"
+              >
+                <UserMinus className="w-3.5 h-3.5 text-rose-400" />
+                <span>Remover do FIORIX ({selectedIds.size})</span>
+              </button>
+            )}
+
+            {/* Botão Novo Colaborador Manual */}
             {!readOnly && (
               <Button
+                type="button"
+                onClick={() => setNovoColabModalOpen(true)}
+                className="h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm shadow-emerald-500/20 gap-1.5 cursor-pointer"
+                title="Cadastrar manualmente um novo colaborador na tela de Férias do FIORIX"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Novo Colaborador</span>
+              </Button>
+            )}
+
+            {/* Botão Programar Férias */}
+            {!readOnly && (
+              <Button
+                type="button"
                 onClick={() => {
                   setEditingItem(null);
                   setLancamentoModalOpen(true);
                 }}
                 className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm shadow-indigo-500/20 gap-1.5 cursor-pointer"
+                title="Programar ou lançar período de férias para um colaborador"
               >
-                <Plus className="w-4 h-4" />
-                <span>Adicionar Colaborador</span>
+                <CalendarPlus className="w-4 h-4" />
+                <span>Programar Férias</span>
               </Button>
             )}
           </div>
@@ -808,6 +957,17 @@ export function EscalaAnualClient({
             >
               <thead className="bg-[#0E1528] text-slate-400 uppercase font-mono text-[11px] tracking-wider border-b border-white/10">
                 <tr>
+                  {!readOnly && (
+                    <th className="py-3.5 pl-5 pr-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAllFiltered}
+                        title="Selecionar colaboradores listados"
+                        className="w-4 h-4 rounded border-white/20 bg-[#080D1A] accent-cyan-500 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="py-3.5 px-5 font-bold">Colaborador</th>
                   {detalhadoGestor ? (
                     <>
@@ -868,11 +1028,28 @@ export function EscalaAnualClient({
                       .filter(Boolean)
                       .join(" • ");
 
+                    const isSelectedRow = selectedIds.has(colab.id);
+
                     return (
                       <tr
                         key={colab.id}
-                        className="hover:bg-white/[0.03] transition-colors group"
+                        className={`transition-colors group ${
+                          isSelectedRow
+                            ? "bg-rose-500/[0.05] hover:bg-rose-500/[0.08]"
+                            : "hover:bg-white/[0.03]"
+                        }`}
                       >
+                        {!readOnly && (
+                          <td className="py-4 pl-5 pr-2 w-10">
+                            <input
+                              type="checkbox"
+                              checked={isSelectedRow}
+                              onChange={() => toggleSelectOne(colab.id)}
+                              aria-label={`Selecionar ${colab.nome}`}
+                              className="w-4 h-4 rounded border-white/20 bg-[#080D1A] accent-cyan-500 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         {/* 1. Colaborador + Registro + CPF (no modo compacto) */}
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3">
@@ -907,6 +1084,11 @@ export function EscalaAnualClient({
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
                                     <Hash className="w-2.5 h-2.5" />
                                     {dg.registro}
+                                  </span>
+                                )}
+                                {dg?.origemManual && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                                    Manual
                                   </span>
                                 )}
                               </div>
@@ -1135,22 +1317,36 @@ export function EscalaAnualClient({
                         {/* 7. Ações */}
                         {!readOnly && (
                           <td className="py-4 px-5 text-right relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(isMenuOpen ? null : colab.id);
-                              }}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
-                              title="Ações"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="inline-flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirModalRemoverColaboradores([colab]);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                title="Remover colaborador da tela do FIORIX (ex-colaborador)"
+                              >
+                                <UserMinus className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(isMenuOpen ? null : colab.id);
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+                                title="Mais opções"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            </div>
 
                             {isMenuOpen && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute right-5 top-12 z-30 w-52 rounded-2xl border border-white/15 bg-[#0B1020] p-1.5 shadow-2xl space-y-1 text-left"
+                                className="absolute right-5 top-12 z-30 w-60 rounded-2xl border border-white/15 bg-[#0B1020] p-1.5 shadow-2xl space-y-1 text-left"
                               >
                                 <button
                                   type="button"
@@ -1175,7 +1371,7 @@ export function EscalaAnualClient({
                                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
                                 >
                                   <Pencil className="w-3.5 h-3.5 text-indigo-400" />
-                                  <span>Editar período</span>
+                                  <span>Editar período de férias</span>
                                 </button>
 
                                 <button
@@ -1191,16 +1387,32 @@ export function EscalaAnualClient({
                                   <span>Visualizar histórico</span>
                                 </button>
 
+                                {colab.p1Inicio && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      handleDeleteLancamento(colab);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Limpar período ({ano})</span>
+                                  </button>
+                                )}
+
+                                <div className="my-1 border-t border-white/10" />
+
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
-                                    handleDeleteLancamento(colab);
+                                    abrirModalRemoverColaboradores([colab]);
                                   }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                                  <span>Remover período</span>
+                                  <UserMinus className="w-3.5 h-3.5 text-rose-400" />
+                                  <span>Remover colaborador do FIORIX</span>
                                 </button>
                               </div>
                             )}
@@ -1241,6 +1453,19 @@ export function EscalaAnualClient({
           setHistoricoItem(colab);
           setHistoricoModalOpen(true);
         }}
+        onRemoveColaborador={
+          !readOnly ? (colab) => abrirModalRemoverColaboradores([colab]) : undefined
+        }
+      />
+
+      <NovoColaboradorFeriasModal
+        open={novoColabModalOpen}
+        onClose={() => setNovoColabModalOpen(false)}
+        anoSelecionado={ano}
+        setoresExistentes={setoresDisponiveis}
+        onCreated={async () => {
+          await Promise.all([carregarEscala(ano), recarregarColaboradoresDisponiveis()]);
+        }}
       />
 
       <LancamentoFeriasModal
@@ -1263,6 +1488,114 @@ export function EscalaAnualClient({
         }}
         colaborador={historicoItem}
       />
+
+      {/* Modal Executivo de Confirmação — Remoção Definitiva de Ex-Colaborador do FIORIX */}
+      {removeModalItems.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => !removingColabs && setRemoveModalItems([])}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg rounded-[24px] border border-white/15 bg-[#0B1020] p-6 shadow-2xl text-white space-y-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0">
+                  <UserMinus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {removeModalItems.length === 1
+                      ? "Remover Colaborador do FIORIX?"
+                      : `Remover ${removeModalItems.length} Colaboradores do FIORIX?`}
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    Exclusão definitiva da escala • Protegida contra reimportação do GESTOR
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={removingColabs}
+                onClick={() => setRemoveModalItems([])}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto rounded-2xl border border-white/10 bg-[#080D1A] p-3 space-y-1.5">
+              {removeModalItems.map((it) => (
+                <div
+                  key={it.id}
+                  className="flex items-center justify-between gap-2 text-xs py-1 px-2 rounded-lg bg-white/[0.02]"
+                >
+                  <span className="font-bold text-white truncate">
+                    {it.nome}
+                    {it.dadosGestor?.registro != null && (
+                      <span className="ml-1.5 font-mono text-[11px] text-indigo-300">
+                        #{it.dadosGestor.registro}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[11px] text-slate-400 shrink-0">{it.setor}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Esta ação remove o colaborador da tela de Férias do <strong>FIORIX</strong> e grava
+              bloqueio permanente para que ele <strong>não retorne</strong> nas próximas
+              sincronizações automáticas do <strong>GESTOR</strong>. O banco original no servidor
+              SQL da Serventia permanece intacto.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300">
+                Motivo para registro em auditoria (Opcional)
+              </label>
+              <Input
+                type="text"
+                value={removeMotivo}
+                onChange={(e) => setRemoveMotivo(e.target.value)}
+                placeholder="Ex: Não trabalha mais nesta Serventia"
+                className="h-9 bg-[#080D1A] border-white/15 text-xs text-white rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={removingColabs}
+                onClick={() => setRemoveModalItems([])}
+                className="h-9 px-4 rounded-xl bg-[#080D1A] border-white/15 text-slate-300 hover:bg-white/10 text-xs cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={removingColabs}
+                onClick={handleConfirmarRemocaoColaboradores}
+                className="h-9 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-sm shadow-rose-500/20 gap-1.5 cursor-pointer"
+              >
+                {removingColabs ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Removendo...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserMinus className="w-3.5 h-3.5" />
+                    <span>Confirmar Remoção do FIORIX</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Publicação da Escala (Acessível via badge de status pelo RH) */}
       {pubModalOpen && (

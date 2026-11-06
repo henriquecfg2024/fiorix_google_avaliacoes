@@ -11,6 +11,9 @@ import {
   salvarOuAtualizarEscala,
   removerEscala,
   obterCpfCompletoColaboradorGestor,
+  excluirColaboradoresDaEscalaFiorix,
+  cadastrarColaboradorManualFiorix,
+  NovoColaboradorManualInput,
   DadosCadastraisGestor,
   EscalaItem,
   PublicacaoStatus,
@@ -468,15 +471,33 @@ export async function getColaboradoresDisponiveisAction(): Promise<
 
   let gestorByUser = new Map<string, any>();
   let gestorByName = new Map<string, any>();
+  let allGestorRows: any[] = [];
+  let exclUsers = new Set<string>();
+  let exclNames = new Set<string>();
+
+  try {
+    const exclRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT usuario_id, nome_normalizado FROM public.fiorix_ferias_colaboradores_excluidos WHERE tenant_id = $1`,
+      user.tenantId
+    );
+    if (Array.isArray(exclRows)) {
+      for (const ex of exclRows) {
+        if (ex.usuario_id) exclUsers.add(String(ex.usuario_id));
+        if (ex.nome_normalizado) exclNames.add(String(ex.nome_normalizado));
+      }
+    }
+  } catch {}
+
   try {
     const gestorRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT registro_gestor, usuario_id, nome, apelido, cpf, data_nascimento,
-              sexo, estado_civil, naturalidade, uf, nacionalidade, data_admissao, ativo, synced_at
+      `SELECT id, registro_gestor, usuario_id, nome, apelido, cpf, data_nascimento,
+              sexo, estado_civil, naturalidade, uf, nacionalidade, data_admissao, cargo, setor, ativo, origem_manual, synced_at
        FROM public.fiorix_rh_colaboradores_gestor
-       WHERE tenant_id = $1 AND ativo = TRUE`,
+       WHERE tenant_id = $1 AND ativo = TRUE AND COALESCE(excluido_fiorix, FALSE) = FALSE`,
       user.tenantId
     );
     if (Array.isArray(gestorRows)) {
+      allGestorRows = gestorRows;
       for (const gr of gestorRows) {
         if (gr.usuario_id) gestorByUser.set(String(gr.usuario_id), gr);
         if (gr.nome) gestorByName.set(String(gr.nome).toLowerCase().trim(), gr);
@@ -486,35 +507,83 @@ export async function getColaboradoresDisponiveisAction(): Promise<
     // Tabela opcional em ambientes de teste
   }
 
-  return users.map((u) => {
-    const nome = u.name || 'Sem nome';
-    const match = gestorByUser.get(u.id) || gestorByName.get(nome.toLowerCase().trim());
-    const cpfLimpo = match ? limparCpfReal(match.cpf) : null;
-    return {
-      id: u.id,
-      name: nome,
-      email: u.email,
-      setor: u.departamento || null,
-      cargo: u.cargo || null,
-      dadosGestor: match
-        ? {
-            registro: match.registro_gestor != null ? Number(match.registro_gestor) : null,
-            apelido: match.apelido || null,
-            cpfMascarado: mascararCpfLgpd(cpfLimpo),
-            temCpfCadastrado: Boolean(cpfLimpo),
-            dataNascimento: normalizarDataIso(match.data_nascimento),
-            sexo: match.sexo || null,
-            estadoCivil: match.estado_civil || null,
-            naturalidade: match.naturalidade || null,
-            uf: match.uf || null,
-            nacionalidade: match.nacionalidade || null,
-            dataAdmissao: normalizarDataIso(match.data_admissao),
-            ativo: match.ativo !== false,
-            syncedAt: match.synced_at ? new Date(match.synced_at).toISOString() : null,
-          }
-        : undefined,
-    };
-  });
+  const matchedGestorIds = new Set<string>();
+  const normBasic = (s: string) =>
+    (s || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const result = users
+    .filter((u) => !exclUsers.has(u.id) && !exclNames.has(normBasic(u.name || '')))
+    .map((u) => {
+      const nome = u.name || 'Sem nome';
+      const match = gestorByUser.get(u.id) || gestorByName.get(nome.toLowerCase().trim());
+      if (match?.id) matchedGestorIds.add(String(match.id));
+      const cpfLimpo = match ? limparCpfReal(match.cpf) : null;
+      return {
+        id: u.id,
+        name: nome,
+        email: u.email,
+        setor: u.departamento || match?.setor || null,
+        cargo: u.cargo || match?.cargo || null,
+        dadosGestor: match
+          ? {
+              registro: match.registro_gestor != null ? Number(match.registro_gestor) : null,
+              apelido: match.apelido || null,
+              cpfMascarado: mascararCpfLgpd(cpfLimpo),
+              temCpfCadastrado: Boolean(cpfLimpo),
+              dataNascimento: normalizarDataIso(match.data_nascimento),
+              sexo: match.sexo || null,
+              estadoCivil: match.estado_civil || null,
+              naturalidade: match.naturalidade || null,
+              uf: match.uf || null,
+              nacionalidade: match.nacionalidade || null,
+              dataAdmissao: normalizarDataIso(match.data_admissao),
+              ativo: match.ativo !== false,
+              origemManual: Boolean(match.origem_manual),
+              syncedAt: match.synced_at ? new Date(match.synced_at).toISOString() : null,
+            }
+          : undefined,
+      };
+    });
+
+  // Inclui colaboradores ativos vindos do GESTOR ou cadastrados manualmente sem User correspondente
+  for (const gr of allGestorRows) {
+    if (gr.id && matchedGestorIds.has(String(gr.id))) continue;
+    const syntheticId = String(gr.usuario_id || `gestor_${gr.registro_gestor || gr.id}`);
+    if (exclUsers.has(syntheticId) || exclNames.has(normBasic(String(gr.nome || '')))) continue;
+    if (result.some((r) => r.id === syntheticId)) continue;
+    const cpfLimpo = limparCpfReal(gr.cpf);
+    result.push({
+      id: syntheticId,
+      name: String(gr.nome),
+      email: gr.registro_gestor ? `Reg. #${gr.registro_gestor}` : 'Cadastro RH',
+      setor: gr.setor || 'Atendimento',
+      cargo: gr.cargo || null,
+      dadosGestor: {
+        registro: gr.registro_gestor != null ? Number(gr.registro_gestor) : null,
+        apelido: gr.apelido || null,
+        cpfMascarado: mascararCpfLgpd(cpfLimpo),
+        temCpfCadastrado: Boolean(cpfLimpo),
+        dataNascimento: normalizarDataIso(gr.data_nascimento),
+        sexo: gr.sexo || null,
+        estadoCivil: gr.estado_civil || null,
+        naturalidade: gr.naturalidade || null,
+        uf: gr.uf || null,
+        nacionalidade: gr.nacionalidade || null,
+        dataAdmissao: normalizarDataIso(gr.data_admissao),
+        ativo: gr.ativo !== false,
+        origemManual: Boolean(gr.origem_manual),
+        syncedAt: gr.synced_at ? new Date(gr.synced_at).toISOString() : null,
+      },
+    });
+  }
+
+  return result.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 }
 
 /**
@@ -574,4 +643,119 @@ export async function revelarCpfColaboradorFeriasAction(params: {
   });
 
   return { success: true, cpf: cpfFormatado };
+}
+
+
+/**
+ * Remove definitivamente 1 ou vários colaboradores desligados da tela de Férias do FIORIX,
+ * impedindo que voltem nas próximas sincronizações do GESTOR, com registro na trilha WORM.
+ */
+export async function removerColaboradoresDaTelaFeriasAction(params: {
+  itens: Array<{
+    usuarioId?: string;
+    nome: string;
+    registroGestor?: number | null;
+    setor?: string;
+  }>;
+  motivo?: string;
+}): Promise<{ success: boolean; removidos: number; erro?: string }> {
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  if (!params.itens || params.itens.length === 0) {
+    return { success: false, removidos: 0, erro: 'Nenhum colaborador selecionado.' };
+  }
+
+  const { removidos } = await excluirColaboradoresDaEscalaFiorix(
+    user.tenantId,
+    params.itens,
+    user.name || 'Gestor RH',
+    params.motivo
+  );
+
+  await recordAuditLog({
+    modulo: 'FERIAS',
+    acao: 'DESATIVACAO',
+    registroDescricao:
+      params.itens.length === 1
+        ? `Remoção de colaborador desligado da Escala do FIORIX — ${params.itens[0].nome}`
+        : `Remoção em lote de ${removidos} colaboradores desligados da Escala do FIORIX`,
+    detalhes: {
+      quantidade: removidos,
+      colaboradores: params.itens.map((i) => ({
+        nome: i.nome,
+        registroGestor: i.registroGestor ?? null,
+        setor: i.setor ?? null,
+      })),
+      motivo: params.motivo || 'Colaborador desligado / não trabalha mais na Serventia',
+      operador: user.name,
+      operadorEmail: user.email,
+      dataHora: new Date().toISOString(),
+    },
+  });
+
+  revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
+  revalidatePath('/pessoas');
+  revalidatePath('/pessoas/ferias');
+
+  return { success: true, removidos };
+}
+
+/**
+ * Cadastra manualmente um novo colaborador diretamente na tela de Férias do FIORIX.
+ */
+export async function criarColaboradorManualFeriasAction(
+  params: NovoColaboradorManualInput
+): Promise<{ success: boolean; item?: EscalaItem; erro?: string }> {
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+
+  const nome = (params.nome || '').trim();
+  if (nome.length < 3) {
+    return { success: false, erro: 'Informe o nome completo do colaborador (mínimo 3 caracteres).' };
+  }
+
+  if (params.cpf && params.cpf.trim() !== '') {
+    const cpfDigits = params.cpf.replace(/\D/g, '');
+    if (cpfDigits.length !== 11 || !limparCpfReal(cpfDigits)) {
+      return { success: false, erro: 'O CPF informado é inválido (deve conter 11 dígitos válidos).' };
+    }
+  }
+
+  if (params.p1Inicio && params.p1Fim && (params.p1Dias || 0) > 0) {
+    const cltVal = validarRegrasCLTFerias([
+      { inicio: params.p1Inicio, fim: params.p1Fim, dias: Number(params.p1Dias) },
+    ]);
+    if (!cltVal.valido) {
+      return { success: false, erro: cltVal.erros.join(' ') };
+    }
+  }
+
+  const item = await cadastrarColaboradorManualFiorix(
+    user.tenantId,
+    params,
+    user.name || 'Gestor RH'
+  );
+
+  await recordAuditLog({
+    modulo: 'FERIAS',
+    acao: 'INCLUSAO',
+    registroId: item.usuarioId,
+    registroDescricao: `Inclusão manual de colaborador na Escala de Férias — ${item.nome} (${item.setor})`,
+    detalhes: {
+      nome: item.nome,
+      setor: item.setor,
+      cargo: item.cargo ?? null,
+      registroGestor: item.dadosGestor?.registro ?? null,
+      ano: params.ano,
+      operador: user.name,
+      operadorEmail: user.email,
+      dataHora: new Date().toISOString(),
+    },
+  });
+
+  revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
+  revalidatePath('/pessoas');
+  revalidatePath('/pessoas/ferias');
+
+  return { success: true, item };
 }

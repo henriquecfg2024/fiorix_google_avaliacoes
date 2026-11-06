@@ -12,6 +12,7 @@ import {
   History,
   Loader2,
   Hash,
+  UserMinus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EscalaItem } from "@/lib/ferias/ferias-repository";
@@ -33,6 +34,7 @@ interface FichaColaboradorFeriasModalProps {
   onCpfRevealed?: (colabId: string, cpfCompleto: string) => void;
   onEditFerias?: (colab: EscalaItem) => void;
   onOpenHistorico?: (colab: EscalaItem) => void;
+  onRemoveColaborador?: (colab: EscalaItem) => void;
 }
 
 export function FichaColaboradorFeriasModal({
@@ -46,6 +48,7 @@ export function FichaColaboradorFeriasModal({
   onCpfRevealed,
   onEditFerias,
   onOpenHistorico,
+  onRemoveColaborador,
 }: FichaColaboradorFeriasModalProps) {
   const [showFullCpf, setShowFullCpf] = useState(false);
   const [revealing, setRevealing] = useState(false);
@@ -156,12 +159,18 @@ export function FichaColaboradorFeriasModal({
                 )}
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
-                    hasGestorSync
+                    dg?.origemManual
+                      ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
+                      : hasGestorSync
                       ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
                       : "bg-amber-500/15 text-amber-300 border-amber-500/30"
                   }`}
                 >
-                  {hasGestorSync ? "Sincronizado GESTOR" : "Sync GESTOR Pendente"}
+                  {dg?.origemManual
+                    ? "Cadastro Manual FIORIX"
+                    : hasGestorSync
+                    ? "Sincronizado GESTOR"
+                    : "Sync GESTOR Pendente"}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -461,13 +470,30 @@ export function FichaColaboradorFeriasModal({
               Somente leitura • Protegido por LGPD & Prov. 213/2026
             </span>
           </div>
-          <Button
-            type="button"
-            onClick={onClose}
-            className="h-9 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer"
-          >
-            Fechar
-          </Button>
+          <div className="flex items-center justify-end gap-2">
+            {!readOnly && onRemoveColaborador && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  onRemoveColaborador(colaborador);
+                }}
+                className="h-9 px-3.5 rounded-xl bg-rose-500/10 border-rose-500/30 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs font-semibold gap-1.5 cursor-pointer"
+                title="Remover colaborador que não trabalha mais nesta Serventia"
+              >
+                <UserMinus className="w-3.5 h-3.5" />
+                <span>Remover do FIORIX</span>
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={onClose}
+              className="h-9 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold cursor-pointer"
+            >
+              Fechar
+            </Button>
+          </div>
         </div>
       </div>
     </div>

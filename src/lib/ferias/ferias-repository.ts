@@ -59,6 +59,29 @@ export function nomesColaboradorCompativeis(a: string, b: string): boolean {
     return true;
   }
 
+  // Todos os tokens significativos do nome menor (3+ tokens) contidos na mesma ordem no maior
+  const [shorter, longer] = tokA.length <= tokB.length ? [tokA, tokB] : [tokB, tokA];
+  if (shorter.length >= 3 && lastA === lastB) {
+    let pos = 0;
+    let matchedAll = true;
+    for (const st of shorter) {
+      const sq = squash(st);
+      let found = -1;
+      for (let j = pos; j < longer.length; j++) {
+        if (squash(longer[j]) === sq) {
+          found = j;
+          break;
+        }
+      }
+      if (found === -1) {
+        matchedAll = false;
+        break;
+      }
+      pos = found + 1;
+    }
+    if (matchedAll) return true;
+  }
+
   return false;
 }
 
@@ -78,6 +101,7 @@ export interface DadosCadastraisGestor {
   /** YYYY-MM-DD */
   dataAdmissao?: string | null;
   ativo?: boolean;
+  origemManual?: boolean;
   syncedAt?: string | null;
 }
 
@@ -210,6 +234,48 @@ export async function ensureFeriasTablesExist() {
       );
     } catch {
       // Ambientes de teste/bancos sem roles anon/authenticated ignoram silenciosamente
+    }
+
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_rh_colaboradores_gestor ADD COLUMN IF NOT EXISTS excluido_fiorix BOOLEAN NOT NULL DEFAULT FALSE`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_rh_colaboradores_gestor ADD COLUMN IF NOT EXISTS excluido_em TIMESTAMP WITH TIME ZONE`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_rh_colaboradores_gestor ADD COLUMN IF NOT EXISTS excluido_por VARCHAR(120)`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_rh_colaboradores_gestor ADD COLUMN IF NOT EXISTS motivo_exclusao TEXT`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_rh_colaboradores_gestor ADD COLUMN IF NOT EXISTS origem_manual BOOLEAN NOT NULL DEFAULT FALSE`
+    );
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS public.fiorix_ferias_colaboradores_excluidos (
+        id VARCHAR(64) PRIMARY KEY,
+        tenant_id VARCHAR(64) NOT NULL,
+        usuario_id VARCHAR(64),
+        registro_gestor INT,
+        nome_normalizado VARCHAR(255) NOT NULL,
+        nome_exibicao VARCHAR(255) NOT NULL,
+        excluido_por VARCHAR(120),
+        motivo TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        CONSTRAINT uq_ferias_colab_excl_tenant_nome UNIQUE (tenant_id, nome_normalizado)
+      )
+    `);
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE public.fiorix_ferias_colaboradores_excluidos ENABLE ROW LEVEL SECURITY`
+      );
+      await prisma.$executeRawUnsafe(
+        `REVOKE ALL ON TABLE public.fiorix_ferias_colaboradores_excluidos FROM PUBLIC, anon, authenticated`
+      );
+    } catch {
+      // Ignorado em ambientes de teste
     }
 
     tablesEnsured = true;
@@ -406,15 +472,15 @@ export async function getEscalaAnual(
       canViewFullScale
         ? `SELECT id, registro_gestor, usuario_id, nome, apelido, cpf,
                   data_nascimento, sexo, estado_civil, naturalidade, uf,
-                  nacionalidade, data_admissao, cargo, setor, ativo, synced_at
+                  nacionalidade, data_admissao, cargo, setor, ativo, origem_manual, synced_at
            FROM public.fiorix_rh_colaboradores_gestor
-           WHERE tenant_id = $1 AND ativo = TRUE
+           WHERE tenant_id = $1 AND ativo = TRUE AND COALESCE(excluido_fiorix, FALSE) = FALSE
            ORDER BY nome ASC`
         : `SELECT id, registro_gestor, usuario_id, nome, apelido, cpf,
                   data_nascimento, sexo, estado_civil, naturalidade, uf,
-                  nacionalidade, data_admissao, cargo, setor, ativo, synced_at
+                  nacionalidade, data_admissao, cargo, setor, ativo, origem_manual, synced_at
            FROM public.fiorix_rh_colaboradores_gestor
-           WHERE tenant_id = $1 AND usuario_id = $2 AND ativo = TRUE
+           WHERE tenant_id = $1 AND usuario_id = $2 AND ativo = TRUE AND COALESCE(excluido_fiorix, FALSE) = FALSE
            LIMIT 1`,
       ...(canViewFullScale ? [tenantId] : [tenantId, userId])
     );
@@ -440,7 +506,13 @@ export async function getEscalaAnual(
 
       items = items.map((item) => {
         const match =
-          byUserId.get(item.usuarioId) || byNormName.get(normalizeName(item.nome));
+          byUserId.get(item.usuarioId) ||
+          byNormName.get(normalizeName(item.nome)) ||
+          gestorRows.find(
+            (gr) =>
+              !matchedGestorIds.has(String(gr.id)) &&
+              nomesColaboradorCompativeis(item.nome, String(gr.nome || ''))
+          );
         if (!match) return item;
         matchedGestorIds.add(String(match.id));
 
@@ -462,6 +534,7 @@ export async function getEscalaAnual(
             nacionalidade: match.nacionalidade || null,
             dataAdmissao: normalizarDataIso(match.data_admissao),
             ativo: match.ativo !== false,
+            origemManual: Boolean(match.origem_manual),
             syncedAt: match.synced_at ? new Date(match.synced_at).toISOString() : null,
           },
         };
@@ -499,6 +572,7 @@ export async function getEscalaAnual(
               nacionalidade: gr.nacionalidade || null,
               dataAdmissao: normalizarDataIso(gr.data_admissao),
               ativo: gr.ativo !== false,
+              origemManual: Boolean(gr.origem_manual),
               syncedAt: gr.synced_at ? new Date(gr.synced_at).toISOString() : null,
             },
           });
@@ -507,6 +581,35 @@ export async function getEscalaAnual(
     }
   } catch (enrichErr) {
     console.warn('Aviso ao enriquecer escala com dados do GESTOR:', enrichErr);
+  }
+
+  if (canViewFullScale) {
+    try {
+      const exclRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT usuario_id, registro_gestor, nome_normalizado
+         FROM public.fiorix_ferias_colaboradores_excluidos
+         WHERE tenant_id = $1`,
+        tenantId
+      );
+      if (Array.isArray(exclRows) && exclRows.length > 0) {
+        const exclUsers = new Set<string>();
+        const exclRegs = new Set<number>();
+        const exclNames = new Set<string>();
+        for (const ex of exclRows) {
+          if (ex.usuario_id) exclUsers.add(String(ex.usuario_id));
+          if (ex.registro_gestor != null) exclRegs.add(Number(ex.registro_gestor));
+          if (ex.nome_normalizado) exclNames.add(String(ex.nome_normalizado));
+        }
+        items = items.filter((it) => {
+          if (exclUsers.has(it.usuarioId)) return false;
+          if (it.dadosGestor?.registro != null && exclRegs.has(it.dadosGestor.registro)) return false;
+          if (exclNames.has(normalizarNomeColaborador(it.nome))) return false;
+          return true;
+        });
+      }
+    } catch {
+      // Ignora em mocks unitários que não retornam a tabela de excluídos
+    }
   }
 
   return {
@@ -528,6 +631,21 @@ async function seedInitialEscalaFromUsers(tenantId: string, ano: number): Promis
 
     if (users.length === 0) return [];
 
+    let excludedUserIds = new Set<string>();
+    let excludedNormNames = new Set<string>();
+    try {
+      const excl = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT usuario_id, nome_normalizado FROM public.fiorix_ferias_colaboradores_excluidos WHERE tenant_id = $1`,
+        tenantId
+      );
+      if (Array.isArray(excl)) {
+        for (const ex of excl) {
+          if (ex.usuario_id) excludedUserIds.add(String(ex.usuario_id));
+          if (ex.nome_normalizado) excludedNormNames.add(String(ex.nome_normalizado));
+        }
+      }
+    } catch {}
+
     const mockMap = new Map<string, any>();
     for (const m of MOCK_COLABORADORES_45) {
       mockMap.set(m.nome.toLowerCase().trim(), m);
@@ -543,6 +661,9 @@ async function seedInitialEscalaFromUsers(tenantId: string, ano: number): Promis
     for (let i = 0; i < users.length; i++) {
       const u = users[i];
       const nome = u.name || `Colaborador ${i + 1}`;
+      if (excludedUserIds.has(u.id) || excludedNormNames.has(normalizarNomeColaborador(nome))) {
+        continue;
+      }
       const mockData = mockMap.get(nome.toLowerCase().trim());
 
       let setor = mockData?.setor || 'Atendimento';
@@ -871,7 +992,9 @@ export async function upsertColaboradoresGestorBatch(
         : null;
 
     const matchedUser =
-      (cpfLimpo ? userByCpf.get(cpfLimpo) : undefined) || userByName.get(normalizeName(nome));
+      (cpfLimpo ? userByCpf.get(cpfLimpo) : undefined) ||
+      userByName.get(normalizeName(nome)) ||
+      users.find((u) => u.name && nomesColaboradorCompativeis(u.name, nome));
 
     const keySuffix =
       cpfLimpo ||
@@ -897,6 +1020,8 @@ export async function upsertColaboradoresGestorBatch(
         $13, $14, $15, $16, $17, NOW(), NOW()
       )
       ON CONFLICT (id) DO UPDATE SET
+        excluido_fiorix = public.fiorix_rh_colaboradores_gestor.excluido_fiorix,
+        origem_manual = public.fiorix_rh_colaboradores_gestor.origem_manual,
         registro_gestor = COALESCE(EXCLUDED.registro_gestor, public.fiorix_rh_colaboradores_gestor.registro_gestor),
         usuario_id = COALESCE(EXCLUDED.usuario_id, public.fiorix_rh_colaboradores_gestor.usuario_id),
         nome = EXCLUDED.nome,
@@ -911,7 +1036,7 @@ export async function upsertColaboradoresGestorBatch(
         data_admissao = COALESCE(EXCLUDED.data_admissao, public.fiorix_rh_colaboradores_gestor.data_admissao),
         cargo = COALESCE(EXCLUDED.cargo, public.fiorix_rh_colaboradores_gestor.cargo),
         setor = COALESCE(EXCLUDED.setor, public.fiorix_rh_colaboradores_gestor.setor),
-        ativo = EXCLUDED.ativo,
+        ativo = CASE WHEN public.fiorix_rh_colaboradores_gestor.origem_manual THEN TRUE ELSE EXCLUDED.ativo END,
         synced_at = NOW(),
         updated_at = NOW()`,
       id,
@@ -1000,4 +1125,271 @@ export async function obterCpfCompletoColaboradorGestor(
   }
 
   return null;
+}
+
+
+export interface ExclusaoColaboradorItem {
+  usuarioId?: string;
+  nome: string;
+  registroGestor?: number | null;
+}
+
+/**
+ * Remove definitivamente colaboradores desligados da tela de Férias do FIORIX,
+ * impedindo que retornem em futuras sincronizações automáticas do GESTOR.
+ */
+export async function excluirColaboradoresDaEscalaFiorix(
+  tenantId: string,
+  itens: ExclusaoColaboradorItem[],
+  operadorNome: string,
+  motivo?: string
+): Promise<{ removidos: number }> {
+  if (!itens || itens.length === 0) return { removidos: 0 };
+  await ensureFeriasTablesExist();
+
+  let removidos = 0;
+  const motivoFinal = (motivo || 'Colaborador desligado / não trabalha mais na Serventia').trim();
+
+  for (const item of itens) {
+    const nome = String(item.nome || '').trim();
+    if (!nome) continue;
+    const nomeNorm = normalizarNomeColaborador(nome);
+    if (!nomeNorm) continue;
+
+    const regNum =
+      item.registroGestor !== undefined && item.registroGestor !== null
+        ? Number(item.registroGestor)
+        : null;
+    const exclId = `excl_${tenantId.slice(-10)}_${nomeNorm.replace(/\s+/g, '_').slice(0, 40)}`.slice(0, 64);
+
+    // 1. Grava bloqueio persistente para este tenant
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_ferias_colaboradores_excluidos (
+        id, tenant_id, usuario_id, registro_gestor, nome_normalizado, nome_exibicao, excluido_por, motivo, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      ON CONFLICT (tenant_id, nome_normalizado) DO UPDATE SET
+        usuario_id = COALESCE(EXCLUDED.usuario_id, public.fiorix_ferias_colaboradores_excluidos.usuario_id),
+        registro_gestor = COALESCE(EXCLUDED.registro_gestor, public.fiorix_ferias_colaboradores_excluidos.registro_gestor),
+        excluido_por = EXCLUDED.excluido_por,
+        motivo = EXCLUDED.motivo`,
+      exclId,
+      tenantId,
+      item.usuarioId || null,
+      regNum,
+      nomeNorm,
+      nome,
+      operadorNome,
+      motivoFinal
+    );
+
+    // 2. Marca excluido_fiorix = TRUE na tabela espelho do GESTOR (por usuario_id, registro ou nome)
+    if (regNum !== null && !isNaN(regNum)) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_rh_colaboradores_gestor
+         SET excluido_fiorix = TRUE, excluido_em = NOW(), excluido_por = $3, motivo_exclusao = $4, updated_at = NOW()
+         WHERE tenant_id = $1 AND registro_gestor = $2`,
+        tenantId,
+        regNum,
+        operadorNome,
+        motivoFinal
+      );
+    }
+    if (item.usuarioId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_rh_colaboradores_gestor
+         SET excluido_fiorix = TRUE, excluido_em = NOW(), excluido_por = $3, motivo_exclusao = $4, updated_at = NOW()
+         WHERE tenant_id = $1 AND usuario_id = $2`,
+        tenantId,
+        item.usuarioId,
+        operadorNome,
+        motivoFinal
+      );
+    }
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_rh_colaboradores_gestor
+       SET excluido_fiorix = TRUE, excluido_em = NOW(), excluido_por = $3, motivo_exclusao = $4, updated_at = NOW()
+       WHERE tenant_id = $1 AND LOWER(TRIM(nome)) = LOWER(TRIM($2))`,
+      tenantId,
+      nome,
+      operadorNome,
+      motivoFinal
+    );
+
+    // 3. Remove programações de férias em todos os anos para este colaborador
+    if (item.usuarioId) {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM public.fiorix_ferias_escala WHERE tenant_id = $1 AND usuario_id = $2`,
+        tenantId,
+        item.usuarioId
+      );
+      try {
+        await prisma.fiorixFeriasPrevista.deleteMany({
+          where: { tenantId, usuarioId: item.usuarioId },
+        });
+      } catch {}
+    }
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.fiorix_ferias_escala WHERE tenant_id = $1 AND LOWER(TRIM(nome)) = LOWER(TRIM($2))`,
+      tenantId,
+      nome
+    );
+
+    removidos++;
+  }
+
+  return { removidos };
+}
+
+export interface NovoColaboradorManualInput {
+  nome: string;
+  registro?: number | null;
+  apelido?: string | null;
+  cpf?: string | null;
+  dataNascimento?: string | null;
+  sexo?: string | null;
+  estadoCivil?: string | null;
+  naturalidade?: string | null;
+  uf?: string | null;
+  nacionalidade?: string | null;
+  dataAdmissao?: string | null;
+  setor: string;
+  cargo?: string | null;
+  ano: number;
+  p1Inicio?: string | null;
+  p1Fim?: string | null;
+  p1Dias?: number;
+  observacao?: string | null;
+}
+
+/**
+ * Cadastra manualmente um novo colaborador na tela de Férias do FIORIX,
+ * com todos os dados pessoais e (opcionalmente) período inicial de férias.
+ */
+export async function cadastrarColaboradorManualFiorix(
+  tenantId: string,
+  dados: NovoColaboradorManualInput,
+  operadorNome: string
+): Promise<EscalaItem> {
+  await ensureFeriasTablesExist();
+
+  const nome = dados.nome.trim();
+  const nomeNorm = normalizarNomeColaborador(nome);
+  const cpfLimpo = limparCpfReal(dados.cpf ?? null);
+  const regNum =
+    dados.registro !== undefined && dados.registro !== null && String(dados.registro).trim() !== ''
+      ? Number(dados.registro)
+      : null;
+
+  // Verifica se já existe User correspondente no tenant
+  const users = await prisma.user.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, cpf: true },
+  });
+  const matchedUser =
+    (cpfLimpo ? users.find((u) => limparCpfReal(u.cpf) === cpfLimpo) : undefined) ||
+    users.find((u) => u.name && normalizarNomeColaborador(u.name) === nomeNorm);
+
+  const keySuffix =
+    cpfLimpo ||
+    (regNum !== null && !isNaN(regNum) ? `reg_${regNum}` : `manual_${nomeNorm.replace(/\s+/g, '_').slice(0, 32)}`);
+  const gestorRowId = `gestor_${tenantId.slice(-12)}_${keySuffix}`.slice(0, 64);
+  const usuarioId = matchedUser?.id || `manual_${keySuffix}`.slice(0, 64);
+
+  const dataNascIso = normalizarDataIso(dados.dataNascimento ?? null);
+  const dataAdmIso = normalizarDataIso(dados.dataAdmissao ?? null);
+
+  // 1. Remove qualquer bloqueio anterior caso esteja sendo readmitido/reincluído
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM public.fiorix_ferias_colaboradores_excluidos
+     WHERE tenant_id = $1 AND (nome_normalizado = $2 OR usuario_id = $3)`,
+    tenantId,
+    nomeNorm,
+    usuarioId
+  );
+
+  // 2. Grava ficha cadastral completa como ativa e não excluída
+  await prisma.$executeRawUnsafe(
+    `INSERT INTO public.fiorix_rh_colaboradores_gestor (
+      id, tenant_id, registro_gestor, usuario_id, nome, apelido, cpf,
+      data_nascimento, sexo, estado_civil, naturalidade, uf,
+      nacionalidade, data_admissao, cargo, setor, ativo, excluido_fiorix, origem_manual, synced_at, updated_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7,
+      $8, $9, $10, $11, $12,
+      $13, $14, $15, $16, TRUE, FALSE, TRUE, NOW(), NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      registro_gestor = COALESCE(EXCLUDED.registro_gestor, public.fiorix_rh_colaboradores_gestor.registro_gestor),
+      usuario_id = EXCLUDED.usuario_id,
+      nome = EXCLUDED.nome,
+      apelido = EXCLUDED.apelido,
+      cpf = COALESCE(EXCLUDED.cpf, public.fiorix_rh_colaboradores_gestor.cpf),
+      data_nascimento = COALESCE(EXCLUDED.data_nascimento, public.fiorix_rh_colaboradores_gestor.data_nascimento),
+      sexo = COALESCE(EXCLUDED.sexo, public.fiorix_rh_colaboradores_gestor.sexo),
+      estado_civil = COALESCE(EXCLUDED.estado_civil, public.fiorix_rh_colaboradores_gestor.estado_civil),
+      naturalidade = COALESCE(EXCLUDED.naturalidade, public.fiorix_rh_colaboradores_gestor.naturalidade),
+      uf = COALESCE(EXCLUDED.uf, public.fiorix_rh_colaboradores_gestor.uf),
+      nacionalidade = COALESCE(EXCLUDED.nacionalidade, public.fiorix_rh_colaboradores_gestor.nacionalidade),
+      data_admissao = COALESCE(EXCLUDED.data_admissao, public.fiorix_rh_colaboradores_gestor.data_admissao),
+      cargo = EXCLUDED.cargo,
+      setor = EXCLUDED.setor,
+      ativo = TRUE,
+      excluido_fiorix = FALSE,
+      origem_manual = TRUE,
+      updated_at = NOW()`,
+    gestorRowId,
+    tenantId,
+    regNum !== null && !isNaN(regNum) ? regNum : null,
+    usuarioId,
+    nome,
+    dados.apelido ? dados.apelido.trim() : null,
+    cpfLimpo,
+    dataNascIso,
+    dados.sexo ? dados.sexo.trim() : null,
+    dados.estadoCivil ? dados.estadoCivil.trim() : null,
+    dados.naturalidade ? dados.naturalidade.trim() : null,
+    dados.uf ? dados.uf.trim().toUpperCase() : null,
+    dados.nacionalidade ? dados.nacionalidade.trim() : 'Brasileiro(a)',
+    dataAdmIso,
+    dados.cargo ? dados.cargo.trim() : null,
+    dados.setor.trim() || 'Atendimento'
+  );
+
+  // 3. Cria linha na escala anual solicitada (programado se tiver datas, ou pendente)
+  const temFerias = Boolean(dados.p1Inicio && dados.p1Fim && (dados.p1Dias || 0) > 0);
+  const item = await salvarOuAtualizarEscala(
+    tenantId,
+    {
+      usuarioId,
+      ano: dados.ano,
+      nome,
+      setor: dados.setor.trim() || 'Atendimento',
+      cargo: dados.cargo ? dados.cargo.trim() : undefined,
+      p1Inicio: temFerias ? dados.p1Inicio! : undefined,
+      p1Fim: temFerias ? dados.p1Fim! : undefined,
+      p1Dias: temFerias ? Number(dados.p1Dias) : 0,
+      status: temFerias ? 'programado' : 'pendente',
+      observacao: dados.observacao || undefined,
+    },
+    operadorNome
+  );
+
+  return {
+    ...item,
+    dadosGestor: {
+      registro: regNum !== null && !isNaN(regNum) ? regNum : null,
+      apelido: dados.apelido ? dados.apelido.trim() : null,
+      cpfMascarado: mascararCpfLgpd(cpfLimpo),
+      temCpfCadastrado: Boolean(cpfLimpo),
+      dataNascimento: dataNascIso,
+      sexo: dados.sexo || null,
+      estadoCivil: dados.estadoCivil || null,
+      naturalidade: dados.naturalidade || null,
+      uf: dados.uf ? dados.uf.trim().toUpperCase() : null,
+      nacionalidade: dados.nacionalidade || 'Brasileiro(a)',
+      dataAdmissao: dataAdmIso,
+      ativo: true,
+      origemManual: true,
+    },
+  };
 }
