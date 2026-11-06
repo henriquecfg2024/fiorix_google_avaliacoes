@@ -312,6 +312,7 @@ export async function deleteComunicadoRH(id: string, motivo?: string) {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/comunicados');
   revalidatePath('/pessoas/comunicados');
 
   return { success: true };
@@ -379,6 +380,7 @@ export async function criarComunicadoRH(data: {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/comunicados');
   revalidatePath('/pessoas/comunicados');
 
   return {
@@ -459,6 +461,7 @@ export async function editarComunicadoRH(
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/comunicados');
   revalidatePath('/pessoas/comunicados');
 
   return { success: true };

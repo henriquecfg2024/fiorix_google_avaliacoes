@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { Calendar, CalendarCheck } from "lucide-react";
-import { EscalaAnualClient } from "@/components/ferias/EscalaAnualClient";
+import {
+  Calendar,
+  CalendarCheck,
+  ChevronDown,
+  Loader2,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import { getMinhasFeriasAction } from "@/app/actions/ferias";
 import { EscalaItem, PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 
@@ -69,102 +74,24 @@ function getMesesCalendario(ano: number, ferias: EscalaItem | null): MesOcupacao
   });
 }
 
-function VacationIllustration() {
-  return (
-    <svg
-      viewBox="0 0 280 180"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-full select-none pointer-events-none"
-    >
-      <defs>
-        <radialGradient
-          id="sunGlow"
-          cx="0"
-          cy="0"
-          r="1"
-          gradientUnits="userSpaceOnUse"
-          gradientTransform="translate(200 65) rotate(90) scale(75)"
-        >
-          <stop stopColor="#6366F1" stopOpacity="0.4" />
-          <stop offset="0.6" stopColor="#38BDF8" stopOpacity="0.15" />
-          <stop offset="1" stopColor="#0B1020" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="calLine" x1="150" y1="90" x2="230" y2="155" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#38BDF8" stopOpacity="0.8" />
-          <stop offset="1" stopColor="#6366F1" stopOpacity="0.6" />
-        </linearGradient>
-      </defs>
+function formatDateBr(iso?: string | null): string {
+  if (!iso) return "";
+  return iso.split("-").reverse().join("/");
+}
 
-      {/* Sun/Moon glow */}
-      <circle cx="200" cy="65" r="42" fill="url(#sunGlow)" />
-      <circle cx="200" cy="65" r="24" fill="#38BDF8" fillOpacity="0.08" stroke="#38BDF8" strokeWidth="1" strokeOpacity="0.3" />
-
-      {/* Horizon / Soft Hills */}
-      <path d="M110 160 Q170 135 280 148 L280 180 L110 180 Z" fill="#0c1226" fillOpacity="0.9" />
-      <path d="M140 170 Q210 150 280 162 L280 180 L140 180 Z" fill="#080d1c" />
-
-      {/* Palm Trees Silhouette */}
-      <g stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" opacity="0.65">
-        <path d="M260 160 Q255 110 242 85" fill="none" />
-        <path d="M242 85 Q225 75 210 82" fill="none" />
-        <path d="M242 85 Q232 65 220 62" fill="none" />
-        <path d="M242 85 Q250 68 262 70" fill="none" />
-        <path d="M242 85 Q258 80 270 90" fill="none" />
-        <path d="M242 85 Q248 95 255 105" fill="none" />
-        <path d="M272 165 Q270 125 264 105" fill="none" strokeWidth="2" />
-        <path d="M264 105 Q252 95 240 100" fill="none" strokeWidth="2" />
-        <path d="M264 105 Q268 90 278 92" fill="none" strokeWidth="2" />
-      </g>
-
-      {/* 3D Tilted Desk Calendar Wireframe */}
-      <g transform="translate(148, 80) rotate(-4)">
-        {/* Shadow base */}
-        <polygon points="12,78 72,78 64,84 4,84" fill="#030712" opacity="0.8" />
-        {/* Stand / back support */}
-        <polygon points="12,18 20,8 78,8 70,18" fill="#1e1b4b" opacity="0.5" stroke="url(#calLine)" strokeWidth="1" />
-        <polygon points="12,18 70,18 68,78 10,78" fill="#0f172a" opacity="0.85" stroke="url(#calLine)" strokeWidth="1.2" />
-
-        {/* Spiral binder loops */}
-        <circle cx="22" cy="18" r="2.5" fill="#38BDF8" fillOpacity="0.8" />
-        <circle cx="34" cy="18" r="2.5" fill="#38BDF8" fillOpacity="0.8" />
-        <circle cx="46" cy="18" r="2.5" fill="#38BDF8" fillOpacity="0.8" />
-        <circle cx="58" cy="18" r="2.5" fill="#38BDF8" fillOpacity="0.8" />
-
-        {/* Calendar days grid (subtle neon cells) */}
-        <rect x="18" y="30" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="30" y="30" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="42" y="30" width="8" height="6" rx="1.5" fill="#38BDF8" fillOpacity="0.6" stroke="#38BDF8" strokeWidth="0.8" />
-        <rect x="54" y="30" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-
-        <rect x="18" y="42" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="30" y="42" width="8" height="6" rx="1.5" fill="#38BDF8" fillOpacity="0.6" stroke="#38BDF8" strokeWidth="0.8" />
-        <rect x="42" y="42" width="8" height="6" rx="1.5" fill="#38BDF8" fillOpacity="0.6" stroke="#38BDF8" strokeWidth="0.8" />
-        <rect x="54" y="42" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-
-        <rect x="18" y="54" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="30" y="54" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="42" y="54" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-        <rect x="54" y="54" width="8" height="6" rx="1.5" fill="#6366F1" fillOpacity="0.3" stroke="#818CF8" strokeWidth="0.8" />
-      </g>
-    </svg>
-  );
+function formatShortDateBr(iso?: string | null): string {
+  if (!iso) return "";
+  const [, mes, dia] = iso.split("-");
+  return mes && dia ? `${dia}/${mes}` : iso;
 }
 
 export function FeriasClient({
   userRole = "USER",
-  userName = "Colaborador",
-  userId = "",
   initialPublicacao,
   initialFerias,
 }: FeriasClientProps) {
-  const [mounted, setMounted] = useState(false);
-  const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
-  const isSubstituto = userRole === "SUBSTITUTO";
-  const canAccessEscala = isManager || isSubstituto;
-  const isReadOnly = isSubstituto;
+  const isPrivilegedViewer = ["ADMIN", "RH", "MASTER", "GESTOR", "SUBSTITUTO"].includes(userRole);
 
-  const [activeTab, setActiveTab] = useState<"minhas" | "escala">("minhas");
   const [ano, setAno] = useState(2027);
   const [loading, setLoading] = useState(!initialPublicacao);
   const [publicacao, setPublicacao] = useState<PublicacaoStatus>(
@@ -173,289 +100,342 @@ export function FeriasClient({
   const [minhasFerias, setMinhasFerias] = useState<EscalaItem | null>(initialFerias ?? null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "escala" && canAccessEscala) {
-        setActiveTab("escala");
-      } else {
-        setActiveTab("minhas");
-      }
-    }
-  }, [canAccessEscala]);
-
-  useEffect(() => {
-    setMounted(true);
-
-    // Se é a carga inicial com 2027 e já temos dados pré-carregados pelo servidor, pula refetch
     if (ano === 2027 && initialPublicacao) {
+      setPublicacao(initialPublicacao);
+      setMinhasFerias(initialFerias ?? null);
+      setLoading(false);
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
 
-    // Consulta isolada com Anti-IDOR e Zero Leakage
     getMinhasFeriasAction({ ano })
       .then((res) => {
+        if (cancelled) return;
         setPublicacao(res.publicacao);
         setMinhasFerias(res.ferias);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("Erro ao carregar férias:", err);
         setMinhasFerias(null);
       })
-      .finally(() => setLoading(false));
-  }, [ano, initialPublicacao]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white p-8">
-        <div className="mx-auto max-w-[1600px] space-y-6">
-          <div className="h-8 w-48 bg-white/5 rounded-xl animate-pulse" />
-          <div className="h-64 bg-white dark:bg-[#0B1020]/72 rounded-[28px] border border-slate-200 dark:border-white/8 animate-pulse" />
-        </div>
-      </div>
-    );
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, [ano, initialPublicacao, initialFerias]);
 
-  // 12 Meses calculados
   const mesesCalendario = getMesesCalendario(ano, minhasFerias);
-
-  // Lista de eventos da linha do tempo
   const historicoEvents = minhasFerias?.historico || [];
 
+  const periodosAtivos: Array<{ ordem: number; inicio: string; fim: string; dias: number }> = [];
+  if (minhasFerias?.p1Inicio && minhasFerias?.p1Fim) {
+    periodosAtivos.push({
+      ordem: 1,
+      inicio: minhasFerias.p1Inicio,
+      fim: minhasFerias.p1Fim,
+      dias: minhasFerias.p1Dias || 0,
+    });
+  }
+  if (minhasFerias?.p2Inicio && minhasFerias?.p2Fim) {
+    periodosAtivos.push({
+      ordem: 2,
+      inicio: minhasFerias.p2Inicio,
+      fim: minhasFerias.p2Fim,
+      dias: minhasFerias.p2Dias || 0,
+    });
+  }
+  if (minhasFerias?.p3Inicio && minhasFerias?.p3Fim) {
+    periodosAtivos.push({
+      ordem: 3,
+      inicio: minhasFerias.p3Inicio,
+      fim: minhasFerias.p3Fim,
+      dias: minhasFerias.p3Dias || 0,
+    });
+  }
+
+  const totalDiasProgramados =
+    minhasFerias?.totalDias ||
+    periodosAtivos.reduce((acc, p) => acc + (p.dias || 0), 0);
+
+  const proximoPeriodoKpi =
+    periodosAtivos.length > 0
+      ? `${formatShortDateBr(periodosAtivos[0].inicio)} a ${formatShortDateBr(periodosAtivos[0].fim)}`
+      : "Não programado";
+
+  const escalaVisivel = isPrivilegedViewer || publicacao.status === "PUBLICADA";
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-20">
+    <div className="w-full flex-1 min-h-full flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12 font-sans">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[90vw] max-w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-cyan-500/8 to-emerald-500/8 blur-3xl opacity-60" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
+      <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-slate-400 tracking-wider">MEU ESPAÇO</span>
             <span className="text-slate-600">/</span>
             <span className="text-cyan-400 font-extrabold tracking-wider">FÉRIAS</span>
-            <h1 className="sr-only">Minhas Férias e Escala Anual</h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Seletor de Ano */}
-            <div className="flex items-center bg-white dark:bg-[#0c1224] border border-slate-200 dark:border-indigo-500/30 rounded-xl px-2.5 py-1 shadow-sm text-indigo-700 dark:text-indigo-300">
-              <Calendar className="w-3.5 h-3.5 text-indigo-400 mr-1.5" />
-              <select
-                value={ano}
-                onChange={(e) => setAno(Number(e.target.value))}
-                className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer"
-              >
-                <option value={2026} className="bg-[#0c101c] text-white">2026</option>
-                <option value={2027} className="bg-[#0c101c] text-white">2027</option>
-                <option value={2028} className="bg-[#0c101c] text-white">2028</option>
-              </select>
-            </div>
-
-            {canAccessEscala && (
-              <div className="flex gap-1 p-0.5 bg-slate-100 dark:bg-white/[0.04] rounded-xl border border-slate-200 dark:border-white/8 text-xs font-bold">
-                <button
-                  onClick={() => setActiveTab("minhas")}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                    activeTab === "minhas"
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Minhas Férias
-                </button>
-                <button
-                  onClick={() => setActiveTab("escala")}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                    activeTab === "escala"
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Escala Anual
-                </button>
-              </div>
-            )}
+            <h1 className="sr-only">Minhas Férias — Programação Individual</h1>
           </div>
         </div>
 
-        {/* Se tiver acesso e estiver na aba de escala anual, exibe a escala anual */}
-        {canAccessEscala && activeTab === "escala" ? (
-          <div>
-            <EscalaAnualClient
-              initialAno={ano}
-              initialPublicacao={publicacao}
-              userRole={userRole}
-              readOnly={isReadOnly}
-            />
-          </div>
-        ) : (
-          /* ─────────────────────────────────────────────────────────────
-              TELA "MINHAS FÉRIAS" DO COLABORADOR (PREMIUM & ACOLHEDORA)
-          ───────────────────────────────────────────────────────────── */
-          <div className="space-y-6">
-
-            {/* 1. Loading State (Skeleton Shimmer) enquanto busca os dados */}
-            {loading ? (
-              <div className="space-y-6 animate-pulse">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  {/* Skeleton Card Esquerdo: Próximas Férias */}
-                  <div className="lg:col-span-7 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0c142e]/60 p-7 min-h-[340px] shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-white/5" />
-                      <div className="space-y-2">
-                        <div className="h-6 w-44 bg-white/10 rounded-lg" />
-                        <div className="h-4 w-32 bg-white/5 rounded-md" />
-                      </div>
-                    </div>
-                    <div className="space-y-3 my-6">
-                      <div className="h-10 w-72 bg-white/10 rounded-xl" />
-                      <div className="h-6 w-20 bg-white/5 rounded-full" />
-                    </div>
-                    <div className="h-4 w-48 bg-white/5 rounded-md" />
-                  </div>
-
-                  {/* Skeleton Card Direito: Calendário */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-7 min-h-[340px] shadow-sm">
-                    <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/6">
-                      <div className="h-5 w-36 bg-white/10 rounded-lg" />
-                      <div className="h-4 w-28 bg-white/5 rounded-full" />
-                    </div>
-                    <div className="grid grid-cols-6 gap-2 my-4">
-                      {Array.from({ length: 12 }).map((_, i) => (
-                        <div key={i} className="h-14 bg-white/5 rounded-xl" />
-                      ))}
-                    </div>
-                    <div className="h-3 w-40 bg-white/5 rounded mx-auto" />
-                  </div>
-                </div>
-
-                {/* Skeleton Card Histórico */}
-                <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-7 space-y-4 shadow-sm">
-                  <div className="h-5 w-40 bg-white/10 rounded-lg" />
-                  <div className="h-14 bg-white/5 rounded-2xl" />
-                </div>
+        {/* ── Cards de Indicadores / Resumo Executivo (Padrão FIORIX) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* KPI 1: Próximo Período */}
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Próximo Período
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+                  ANO {ano}
+                </span>
               </div>
-            ) : !canAccessEscala && publicacao.status !== "PUBLICADA" ? (
-              /* 2. Aviso de escala não publicada (apenas quando a consulta retornou e realmente NÃO está publicada) */
-              <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl text-center space-y-4 shadow-sm dark:shadow-xl">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                  <Calendar className="w-7 h-7" />
+              <div className="text-2xl font-black text-white truncate">
+                {loading ? "..." : escalaVisivel ? proximoPeriodoKpi : "Aguardando RH"}
+              </div>
+              <p className="text-xs text-slate-400">
+                {escalaVisivel && periodosAtivos.length > 0
+                  ? `1º período oficial de ${ano}`
+                  : "Programação individual no exercício"}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 shadow-inner">
+              <Calendar className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* KPI 2: Dias Programados */}
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Dias Programados
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  {escalaVisivel && totalDiasProgramados > 0 ? "CONFIRMADO" : "PENDENTE"}
+                </span>
+              </div>
+              <div className="text-2xl font-black text-white">
+                {loading
+                  ? "..."
+                  : escalaVisivel
+                  ? `${totalDiasProgramados} dia${totalDiasProgramados !== 1 ? "s" : ""}`
+                  : "0 dias"}
+              </div>
+              <p className="text-xs text-emerald-400/90 font-medium">
+                {escalaVisivel && periodosAtivos.length > 0
+                  ? `Distribuídos em ${periodosAtivos.length} ${periodosAtivos.length === 1 ? "período" : "períodos"}`
+                  : "Aguardando registro na escala"}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+              <CalendarCheck className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* KPI 3: Status da Escala */}
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Status da Escala
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                  ART. 135 CLT
+                </span>
+              </div>
+              <div className="text-2xl font-black text-white">
+                {loading
+                  ? "..."
+                  : publicacao.status === "PUBLICADA"
+                  ? "Publicada"
+                  : "Em Elaboração"}
+              </div>
+              <p className="text-xs text-slate-400">
+                {publicacao.status === "PUBLICADA"
+                  ? "Homologada pela gestão de RH"
+                  : "Planejamento anual em revisão"}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Card Principal (Padrão FIORIX) ─────────────────────────── */}
+        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
+          {/* Cabeçalho do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white">
+                  Férias de {ano}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {escalaVisivel && periodosAtivos.length > 0
+                    ? `${periodosAtivos.length} ${periodosAtivos.length === 1 ? "período programado" : "períodos programados"}`
+                    : "Consulta de períodos, calendário anual e histórico"}
+                </p>
+              </div>
+            </div>
+
+            {/* Seletor de Ano */}
+            <div className="relative self-start sm:self-auto">
+              <select
+                value={ano}
+                onChange={(e) => setAno(Number(e.target.value))}
+                className="appearance-none bg-[#080D1A] border border-white/15 text-white text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-500/50 cursor-pointer transition-colors hover:bg-white/[0.04]"
+              >
+                <option value={2026} className="bg-[#0B1020] text-white">Ano 2026</option>
+                <option value={2027} className="bg-[#0B1020] text-white">Ano 2027</option>
+                <option value={2028} className="bg-[#0B1020] text-white">Ano 2028</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* ── Conteúdo ─────────────────────────────────────────────── */}
+          <div className="p-6">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                <p className="text-sm text-slate-400">Carregando programação de férias...</p>
+              </div>
+            ) : !escalaVisivel ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-5 text-center">
+                <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center shadow-inner">
+                  <Calendar className="w-10 h-10 text-cyan-400/80" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    A escala anual de férias ainda não foi publicada pelo RH.
+                <div className="space-y-2 max-w-md">
+                  <h3 className="text-xl font-bold text-white tracking-tight">
+                    Escala anual ainda não publicada
                   </h3>
-                  <p className="text-sm text-slate-400 max-w-md mx-auto">
-                    Aguarde a divulgação ou entre em contato com o setor responsável.
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Quando o setor de Recursos Humanos publicar a escala oficial de {ano}, seus períodos programados aparecerão organizados aqui.
                   </p>
                 </div>
               </div>
             ) : (
-              /* Composição Visual de 3 Cards */
-              <div className="space-y-6">
-                {/* Linha Superior: 2 Cards Principais (60% / 40%) */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  {/* Card Esquerdo: Próximas férias (aprox. 58-60%) */}
-                  <div className="lg:col-span-7 flex flex-col justify-between rounded-[24px] border border-indigo-500/20 bg-gradient-to-br from-[#0c142e] via-[#0B1020] to-[#070A12] p-7 shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
-                    {/* Brilho esmeralda suave no canto superior esquerdo */}
-                    <div className="pointer-events-none absolute -top-16 -left-16 w-52 h-52 bg-emerald-500/10 rounded-full blur-3xl" />
-
-                    {/* Arte vetorial noturna no canto inferior direito */}
-                    <div className="absolute right-0 bottom-0 w-64 sm:w-80 h-44 sm:h-52 pointer-events-none opacity-60 sm:opacity-85">
-                      <VacationIllustration />
-                    </div>
-
-                    {/* Topo do Card */}
-                    <div className="relative z-10 flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)] shrink-0">
-                        <CalendarCheck className="w-7 h-7" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                          Próximas férias
-                        </h3>
-                        <p className="text-xs sm:text-sm text-indigo-300/80 font-medium mt-0.5">
-                          {minhasFerias?.p1Inicio ? "1º período programado" : "Planejamento individual"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Meio: Datas em Destaque */}
-                    <div className="relative z-10 my-6 space-y-3">
-                      {minhasFerias?.p1Inicio && minhasFerias?.p1Fim ? (
-                        <>
-                          <div className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono sm:font-sans">
-                            {minhasFerias.p1Inicio.split("-").reverse().join("/")} — {minhasFerias.p1Fim.split("-").reverse().join("/")}
-                          </div>
-                          <div>
-                            <span className="inline-flex items-center px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-semibold text-xs shadow-sm">
-                              {minhasFerias.p1Dias || minhasFerias.totalDias || 15} dias
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="space-y-1.5 py-2">
-                          <div className="text-xl font-bold text-slate-900 dark:text-white">
-                            Nenhuma férias programada
-                          </div>
+              <div className="space-y-5">
+                {/* Linha Superior: Próximas Férias + Meu Calendário */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Bloco Esquerdo: Períodos Programados */}
+                  <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                          <CalendarCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-white">
+                            Próximas férias
+                          </h3>
                           <p className="text-xs text-slate-400">
-                            Quando o RH registrar sua programação, ela aparecerá aqui.
+                            {periodosAtivos.length > 0
+                              ? `${periodosAtivos[0].ordem}º período programado`
+                              : "Planejamento individual"}
                           </p>
                         </div>
+                      </div>
+                      {periodosAtivos.length > 0 && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          {periodosAtivos[0].dias || totalDiasProgramados || 15} dias
+                        </span>
                       )}
                     </div>
 
-                    {/* Rodapé: Citação acolhedora */}
-                    <div className="relative z-10 pt-2">
-                      <p className="text-xs text-slate-400 italic">
-                        “Tempo para viver o que realmente importa.”
-                      </p>
+                    {periodosAtivos.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                          {formatDateBr(periodosAtivos[0].inicio)} — {formatDateBr(periodosAtivos[0].fim)}
+                        </div>
+
+                        {periodosAtivos.length > 1 && (
+                          <div className="pt-2 flex flex-wrap gap-2">
+                            {periodosAtivos.slice(1).map((p) => (
+                              <span
+                                key={p.ordem}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-slate-300 font-medium"
+                              >
+                                <span className="text-cyan-400 font-bold">{p.ordem}º período:</span>
+                                <span>
+                                  {formatDateBr(p.inicio)} a {formatDateBr(p.fim)}
+                                </span>
+                                {p.dias ? <span className="text-slate-400">({p.dias}d)</span> : null}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="py-3 space-y-1">
+                        <div className="text-lg font-bold text-white">
+                          Nenhuma férias programada em {ano}
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          Quando o RH registrar sua programação neste exercício, ela aparecerá aqui.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="pt-3 border-t border-white/8 flex items-center justify-between text-xs text-slate-400">
+                      <span>Aviso prévio mínimo de 30 dias garantido pelo sistema</span>
+                      <span className="font-mono text-[11px] text-cyan-400">CLT • ART. 135</span>
                     </div>
                   </div>
 
-                  {/* Card Direito: Meu calendário [Ano] (aprox. 40-42%) */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-7 shadow-sm dark:shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
-                    {/* Topo do Calendário com Ícone e Legenda */}
-                    <div className="flex items-center justify-between gap-2 pb-4">
+                  {/* Bloco Direito: Meu Calendário Anual */}
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-5">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <Calendar className="w-5 h-5 text-indigo-400" />
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                        <Calendar className="w-4 h-4 text-cyan-400" />
+                        <h3 className="text-base font-bold text-white">
                           Meu calendário {ano}
                         </h3>
                       </div>
                       <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                        Férias programadas
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        Programadas
                       </span>
                     </div>
 
-                    {/* Régua Horizontal dos 12 Meses */}
-                    <div className="my-auto py-4 overflow-x-auto scrollbar-none">
-                      <div className="grid grid-cols-12 gap-1 min-w-[340px] items-center">
+                    <div className="my-auto py-2 overflow-x-auto scrollbar-none">
+                      <div className="grid grid-cols-6 sm:grid-cols-12 lg:grid-cols-6 gap-2 items-center">
                         {mesesCalendario.map((m) => (
                           <div key={m.mesNum} className="flex justify-center">
                             {m.hasVacation ? (
-                              <div className="flex flex-col items-center bg-emerald-950/40 border border-emerald-500/40 rounded-2xl px-1.5 py-2.5 shadow-[0_0_15px_rgba(16,185,129,0.18)] min-w-[32px] sm:min-w-[36px]">
-                                <span className="text-[10px] sm:text-[11px] font-bold text-emerald-300">
+                              <div className="w-full flex flex-col items-center bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-2 py-2">
+                                <span className="text-[10px] font-bold text-emerald-300">
                                   {m.label}
                                 </span>
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.9)] my-1" />
-                                <span className="text-[9px] sm:text-[10px] font-bold text-emerald-300 whitespace-nowrap mt-0.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 my-1" />
+                                <span className="text-[10px] font-mono font-bold text-emerald-300 whitespace-nowrap">
                                   {m.interval || "Férias"}
                                 </span>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center py-2.5 min-w-[28px] sm:min-w-[32px]">
-                                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400">
+                              <div className="w-full flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.015] px-2 py-2">
+                                <span className="text-[10px] font-semibold text-slate-400">
                                   {m.label}
                                 </span>
-                                <span className="w-2.5 h-2.5 rounded-full border border-slate-600/70 my-1" />
-                                <span className="text-[9px] sm:text-[10px] text-transparent select-none mt-0.5">
+                                <span className="w-2 h-2 rounded-full border border-slate-600/70 my-1" />
+                                <span className="text-[10px] font-mono text-slate-600 select-none">
                                   —
                                 </span>
                               </div>
@@ -465,43 +445,42 @@ export function FeriasClient({
                       </div>
                     </div>
 
-                    {/* Rodapé do Calendário */}
-                    <div className="pt-2 text-center sm:text-right">
-                      <p className="text-xs text-slate-400/80 italic">
-                        Grandes momentos também fazem parte da sua jornada.
-                      </p>
+                    <div className="pt-3 border-t border-white/8 text-xs text-slate-400 flex items-center justify-between">
+                      <span>Visão mensal consolidada</span>
+                      <span className="font-mono text-[11px] text-slate-500">12 MESES</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Linha Inferior: Histórico de Férias (100% largura) */}
-                <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-7 shadow-sm dark:shadow-xl relative backdrop-blur-xl space-y-6">
-                  {/* Cabeçalho do Card */}
-                  <div className="flex items-center gap-2.5 border-b border-white/8 pb-4">
-                    <Calendar className="w-5 h-5 text-indigo-400" />
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-                      Histórico de férias
-                    </h3>
+                {/* Linha Inferior: Histórico de Férias */}
+                <div className="rounded-2xl border border-white/10 bg-[#080D1A] p-6 space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/8 pb-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <Calendar className="w-4 h-4 text-indigo-400" />
+                      <h3 className="text-base font-bold text-white">
+                        Histórico de movimentações
+                      </h3>
+                    </div>
+                    <span className="text-xs text-slate-400">
+                      {historicoEvents.length}{" "}
+                      {historicoEvents.length === 1 ? "registro" : "registros"}
+                    </span>
                   </div>
 
-                  {/* Linha do Tempo Limpa & Elegante */}
                   {historicoEvents.length > 0 ? (
-                    <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-indigo-500/20">
+                    <div className="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-indigo-500/25">
                       {historicoEvents.map((ev, i) => (
-                        <div key={i} className="relative space-y-1.5">
-                          {/* Marcador na linha do tempo */}
-                          <span className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                          <div className="text-xs text-slate-400 font-mono">
-                            {ev.data}
-                          </div>
-                          <div className="text-sm font-bold text-slate-900 dark:text-white">
+                        <div key={i} className="relative space-y-1">
+                          <span className="absolute -left-6 top-1.5 w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                          <div className="text-xs text-slate-400 font-mono">{ev.data}</div>
+                          <div className="text-sm font-bold text-white">
                             Férias de {ano} programadas
                           </div>
                           <div className="text-xs text-slate-400">
                             {ev.por || "Atualizado por RH"}
                           </div>
                           {ev.motivo && (
-                            <div className="rounded-2xl border border-slate-200 dark:border-white/6 bg-slate-50 dark:bg-[#070A12]/60 p-3.5 text-xs text-slate-700 dark:text-slate-300 font-mono mt-1 max-w-2xl">
+                            <div className="rounded-xl border border-white/10 bg-[#0B1020]/80 p-3 text-xs text-slate-300 font-mono mt-1.5 max-w-2xl">
                               {ev.motivo}
                             </div>
                           )}
@@ -509,15 +488,24 @@ export function FeriasClient({
                       ))}
                     </div>
                   ) : (
-                    <div className="py-6 text-center text-slate-400 text-xs italic">
-                      Nenhum evento registrado no histórico para este ano.
+                    <div className="py-6 text-center text-slate-400 text-xs">
+                      Nenhum evento registrado no histórico para o exercício de {ano}.
                     </div>
                   )}
                 </div>
               </div>
             )}
           </div>
-        )}
+
+          {/* ── Rodapé do Card ───────────────────────────────────────── */}
+          <div className="px-6 py-3.5 border-t border-white/10 bg-[#0B1020]/80 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Programação individual homologada pelo setor de Recursos Humanos.</span>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500">7º RI SP • SIGA/FIORIX</span>
+          </div>
+        </div>
       </div>
     </div>
   );

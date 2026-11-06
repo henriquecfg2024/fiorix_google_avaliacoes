@@ -69,12 +69,21 @@ describe('FIORIX — Permissões de Menu V2 (Catálogo e Estrutura)', () => {
     expect(roles).not.toContain('DIRETORIA');
   });
 
-  it('identifica rotas compartilhadas corretamente', () => {
-    const comunicados = ITEM_BY_ID.get('gestao_comunicados');
-    const pessoas = ITEM_BY_ID.get('gestao_pessoas');
+  it('registra Comunicados, Férias e Holerites em RECURSOS HUMANOS com IDs e rotas independentes (sem GESTÃO DE PESSOAS duplicado)', () => {
+    expect(ITEM_BY_ID.get('gestao_pessoas')).toBeUndefined();
+    expect(NAV_CATALOG_GROUPS.find((g) => g.id === 'rhGestao')).toBeUndefined();
 
-    expect(comunicados?.sharedWithId).toBe('gestao_pessoas');
-    expect(pessoas?.sharedWithId).toBe('gestao_comunicados');
+    const comunicados = ITEM_BY_ID.get('gestao_comunicados');
+    const ferias = ITEM_BY_ID.get('rh_ferias');
+    const holerites = ITEM_BY_ID.get('rh_holerites');
+
+    expect(comunicados?.href).toBe('/sistema/pessoas/comunicados');
+    expect(ferias?.href).toBe('/sistema/pessoas/ferias');
+    expect(holerites?.href).toBe('/sistema/pessoas/holerites');
+    expect(comunicados?.sharedWithId).toBeUndefined();
+    expect(ITEM_BY_HREF.get('/sistema/pessoas/comunicados')?.id).toBe('gestao_comunicados');
+    expect(ITEM_BY_HREF.get('/sistema/pessoas/ferias')?.id).toBe('rh_ferias');
+    expect(ITEM_BY_HREF.get('/sistema/pessoas/holerites')?.id).toBe('rh_holerites');
   });
 });
 
@@ -183,7 +192,7 @@ describe('FIORIX — Exclusividade MASTER e Validações no Servidor', () => {
     ).rejects.toThrow('Usuário alvo inválido ou pertencente a outra organização.');
   });
 
-  it('sincroniza itens com rota compartilhada durante o salvamento', async () => {
+  it('permite salvar individualmente cada submenu de RECURSOS HUMANOS (Comunicados, Férias e Holerites)', async () => {
     const { prisma } = await import('@/lib/prisma');
     const executeSpy = vi.fn().mockResolvedValue(1);
     vi.mocked(prisma.$transaction).mockImplementationOnce(async (cb: any) => {
@@ -193,14 +202,17 @@ describe('FIORIX — Exclusividade MASTER e Validações no Servidor', () => {
     const result = await saveNavPermissionsBatch({
       tenantId: 'tenant-123',
       targetType: 'PERFIL',
-      targetId: 'ADMIN',
-      changes: [{ itemId: 'gestao_comunicados', action: 'ALLOW' }],
+      targetId: 'RH',
+      changes: [
+        { itemId: 'gestao_comunicados', action: 'ALLOW' },
+        { itemId: 'rh_ferias', action: 'ALLOW' },
+        { itemId: 'rh_holerites', action: 'DENY' },
+      ],
       masterUser: { id: 'super-master', role: 'MASTER' },
     });
 
     expect(result.success).toBe(true);
-    // Deve ter atualizado 2 itens (gestao_comunicados e gestao_pessoas sincronizado)
-    expect(result.updatedCount).toBe(2);
+    expect(result.updatedCount).toBe(3);
   });
 
   it('quando SUBSTITUTO tem PRESENCA NO GOOGLE desativado, o grupo some da navegacao e a rota e bloqueada', async () => {

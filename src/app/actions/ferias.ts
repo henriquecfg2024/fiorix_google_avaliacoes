@@ -84,6 +84,7 @@ export async function batchDeleteFerias(params: BatchDeleteFeriasParams) {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 
@@ -135,6 +136,7 @@ export async function deleteSingleFerias(params: DeleteSingleFeriasParams) {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 
@@ -296,6 +298,7 @@ export async function publicarEscalaAnualAction(params: { ano: number }): Promis
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 
@@ -328,6 +331,7 @@ export async function retirarEscalaDoArAction(params: { ano: number; motivo?: st
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 
@@ -394,6 +398,7 @@ export async function salvarLancamentoFeriasAction(params: {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 
@@ -431,6 +436,7 @@ export async function removerLancamentoFeriasAction(params: {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/ferias');
   revalidatePath('/pessoas');
   revalidatePath('/pessoas/ferias');
 

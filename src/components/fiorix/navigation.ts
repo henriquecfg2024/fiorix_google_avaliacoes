@@ -24,6 +24,7 @@ import {
   Clock3,
   ShieldCheck,
   Eye,
+  Calendar,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -113,12 +114,6 @@ export const navigationGroups = {
       },
     ],
   },
-  rhGestao: {
-    label: "GESTÃO DE PESSOAS",
-    icon: UserCheck,
-    href: "/sistema/pessoas",
-    items: [],
-  },
   governancaIts: {
     label: "INSTRUÇÕES DE TRABALHO",
     icon: BookOpen,
@@ -145,7 +140,7 @@ export const navigationGroups = {
       },
     ],
   },
-  // RECURSOS HUMANOS (antigo ROTINA DE TRABALHO)
+  // RECURSOS HUMANOS: Comunicados, Férias e Holerites (gestão)
   trabalho: {
     label: "RECURSOS HUMANOS",
     icon: Briefcase,
@@ -153,9 +148,23 @@ export const navigationGroups = {
       {
         id: "gestao_comunicados",
         label: "Comunicados",
-        href: "/sistema/pessoas?tab=comunicados",
+        href: "/sistema/pessoas/comunicados",
         icon: FileCheck2,
-        description: "Painel de RH, comunicados e ciências",
+        description: "Mural oficial e controle de ciências",
+      },
+      {
+        id: "rh_ferias",
+        label: "Férias",
+        href: "/sistema/pessoas/ferias",
+        icon: Calendar,
+        description: "Escala anual e planejamento de férias",
+      },
+      {
+        id: "rh_holerites",
+        label: "Holerites",
+        href: "/sistema/pessoas/holerites",
+        icon: Upload,
+        description: "Upload em lote e distribuição de holerites",
       },
     ],
   },

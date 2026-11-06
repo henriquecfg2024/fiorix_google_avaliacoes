@@ -57,6 +57,7 @@ export async function deleteHoleritesRH(params: DeleteHoleriteParams) {
   });
 
   revalidatePath('/sistema/pessoas');
+  revalidatePath('/sistema/pessoas/holerites');
   revalidatePath('/pessoas/holerites');
 
   return { success: true, count };

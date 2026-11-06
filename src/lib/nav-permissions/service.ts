@@ -775,6 +775,14 @@ export async function getFirstAllowedRouteForUser(user: {
   const allowedSet = new Set(allowedItemIds);
 
   // 1. Se a rota canônica do perfil estiver permitida, prioriza-a
+  if (defaultRoleHome === '/sistema/pessoas') {
+    const rhHomeItem = ['gestao_comunicados', 'rh_ferias', 'rh_holerites']
+      .map((id) => ITEM_BY_ID.get(id))
+      .find((item) => item && allowedSet.has(item.id));
+    if (rhHomeItem) {
+      return rhHomeItem.href;
+    }
+  }
   const roleHomeItem = ALL_NAV_CATALOG_ITEMS.find(
     (item) => item.href === defaultRoleHome || item.href.split('?')[0] === defaultRoleHome
   );

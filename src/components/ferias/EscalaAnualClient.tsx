@@ -39,6 +39,7 @@ interface EscalaAnualClientProps {
   initialColaboradores?: EscalaItem[];
   userRole?: string;
   isInsideRHPanel?: boolean;
+  hideBackButton?: boolean;
   readOnly?: boolean;
   onVoltar?: () => void;
 }
@@ -64,6 +65,7 @@ export function EscalaAnualClient({
   initialColaboradores = [],
   userRole = "RH",
   isInsideRHPanel = false,
+  hideBackButton = false,
   readOnly = false,
   onVoltar,
 }: EscalaAnualClientProps) {
@@ -306,74 +308,27 @@ export function EscalaAnualClient({
       {/* ─────────────────────────────────────────────────────────────
           1. CABEÇALHO & SELETOR DE ANO (IDÊNTICO AO PREVIEW)
       ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-            <Link href="/dashboard" className="hover:text-slate-900 dark:hover:text-white transition-colors">Dashboard</Link>
-            <span className="text-slate-600">/</span>
-            {onVoltar ? (
-              <button
-                type="button"
-                onClick={onVoltar}
-                className="hover:text-amber-300 transition-colors cursor-pointer text-slate-300"
-              >
-                Painel de RH
-              </button>
-            ) : (
-              <Link href="/sistema/pessoas" className="hover:text-amber-300 transition-colors text-slate-300">
-                Painel de RH
-              </Link>
-            )}
-            <span className="text-slate-600">/</span>
-            <span className="text-amber-400 font-semibold">Lançamento de Férias</span>
-          </div>
-
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
-            ESCALA ANUAL DE FÉRIAS
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Planejamento e programação das férias dos colaboradores.
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+            Escala Anual de Férias
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Planejamento, controle de lotação e publicação oficial das férias dos colaboradores.
           </p>
         </div>
 
-        {/* Controles de Topo: Card Voltar + Seletor de Ano + Badge Informativo */}
+        {/* Controles de Topo: Seletor de Ano + Badge Informativo */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Card Voltar para Painel de RH */}
-          {onVoltar ? (
+          {!hideBackButton && onVoltar && (
             <button
               type="button"
               onClick={onVoltar}
-              className="group flex items-center gap-3.5 px-4 py-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] hover:border-amber-500/40 text-left transition-all duration-200 shadow-md hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/15 bg-[#0B1020]/90 hover:bg-[#111628] text-xs font-semibold text-white transition-all cursor-pointer shrink-0"
             >
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/25 group-hover:text-amber-300 transition-all shrink-0">
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              </div>
-              <div className="pr-1">
-                <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                  Voltar para o Painel de RH
-                </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Visão geral dos módulos
-                </p>
-              </div>
+              <ArrowLeft className="w-4 h-4 text-cyan-400" />
+              <span>Voltar</span>
             </button>
-          ) : (
-            <Link
-              href="/sistema/pessoas"
-              className="group flex items-center gap-3.5 px-4 py-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] hover:border-amber-500/40 text-left transition-all duration-200 shadow-md hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] cursor-pointer shrink-0"
-            >
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/25 group-hover:text-amber-300 transition-all shrink-0">
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              </div>
-              <div className="pr-1">
-                <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                  Voltar para o Painel de RH
-                </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Visão geral dos módulos
-                </p>
-              </div>
-            </Link>
           )}
           {/* Badge Somente Leitura (para substitutos / modo consulta) */}
           {readOnly && (

@@ -324,23 +324,15 @@ export function PermissoesMenuClient({
     setPendingTargetSwitch(null);
   };
 
-  // Alteração de um item no rascunho (com sincronização de rotas compartilhadas)
+  // Alteração de um item no rascunho
   const setItemDraftAction = (
     itemId: string,
     action: 'HERDAR' | 'ALLOW' | 'DENY'
   ) => {
-    setDraftChanges((prev) => {
-      const next = { ...prev };
-      next[itemId] = action;
-
-      if (itemId === 'gestao_comunicados') {
-        next['gestao_pessoas'] = action;
-      } else if (itemId === 'gestao_pessoas') {
-        next['gestao_comunicados'] = action;
-      }
-
-      return next;
-    });
+    setDraftChanges((prev) => ({
+      ...prev,
+      [itemId]: action,
+    }));
   };
 
   // Ações em lote para um grupo

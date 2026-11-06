@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import {
   FileText,
   Eye,
@@ -12,7 +11,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Calendar,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SecurePDFViewer } from "@/components/comunicados/SecurePDFViewer";
@@ -58,7 +56,6 @@ export default function HoleritesPage() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Colaborador");
 
-  // Carrega holerites do ano selecionado
   const fetchHolerites = useCallback(async () => {
     setLoading(true);
     try {
@@ -96,30 +93,30 @@ export default function HoleritesPage() {
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col justify-start bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-12 font-sans">
+    <div className="w-full flex-1 min-h-full flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12 font-sans">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[90vw] max-w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-teal-500/8 to-cyan-500/8 blur-3xl opacity-60" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[90vw] max-w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-cyan-500/8 to-emerald-500/8 blur-3xl opacity-60" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
       <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/8">
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2.5 border-b border-white/10">
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-slate-400 tracking-wider">MEU ESPAÇO</span>
             <span className="text-slate-600">/</span>
             <span className="text-cyan-400 font-extrabold tracking-wider">HOLERITES</span>
-            <h1 className="sr-only">Meus Holerites - Comprovantes de Pagamento</h1>
+            <h1 className="sr-only">Meus Holerites — Comprovantes de Pagamento</h1>
           </div>
         </div>
 
         {/* ── Cards de Indicadores / Resumo Executivo (Padrão FIORIX) ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* KPI 1: Total do Ano */}
-          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Disponíveis no Ano
                 </span>
@@ -138,9 +135,9 @@ export default function HoleritesPage() {
           </div>
 
           {/* KPI 2: Última Competência */}
-          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Última Competência
                 </span>
@@ -148,7 +145,7 @@ export default function HoleritesPage() {
                   LIBERADO
                 </span>
               </div>
-              <div className="text-2xl font-black text-white truncate max-w-[200px]">
+              <div className="text-2xl font-black text-white truncate">
                 {loading
                   ? "..."
                   : ultimoHolerite
@@ -165,31 +162,31 @@ export default function HoleritesPage() {
           </div>
 
           {/* KPI 3: Segurança e Privacidade */}
-          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 p-5 backdrop-blur-xl shadow-sm flex items-center justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Privacidade LGPD
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-violet-500/15 text-violet-300 border border-violet-500/25">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
                   ART. 464 CLT
                 </span>
               </div>
               <div className="text-2xl font-black text-white">Acesso Pessoal</div>
               <p className="text-xs text-slate-400">Trilha de custódia e auditoria WORM</p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-violet-500/15 border border-violet-500/30 text-violet-400 flex items-center justify-center shrink-0 shadow-inner">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
               <ShieldCheck className="w-6 h-6" />
             </div>
           </div>
         </div>
 
         {/* ── Card Principal (Padrão FIORIX) ─────────────────────────── */}
-        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
+        <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm overflow-hidden">
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 gap-4 border-b border-white/10 bg-[#0B1020]/80">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
@@ -204,11 +201,11 @@ export default function HoleritesPage() {
             </div>
 
             {/* Seletor de Ano */}
-            <div className="relative">
+            <div className="relative self-start sm:self-auto">
               <select
                 value={anoSelecionado}
                 onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-                className="appearance-none bg-[#080D1A] border border-white/15 text-white text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:border-emerald-500/50 cursor-pointer transition-colors hover:bg-white/[0.04]"
+                className="appearance-none bg-[#080D1A] border border-white/15 text-white text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:border-cyan-500/50 cursor-pointer transition-colors hover:bg-white/[0.04]"
               >
                 {anosDisponiveis.map((ano) => (
                   <option key={ano} value={ano} className="bg-[#0B1020] text-white">
@@ -216,23 +213,21 @@ export default function HoleritesPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 pointer-events-none" />
             </div>
           </div>
 
           {/* ── Conteúdo ─────────────────────────────────────────────── */}
           <div className="p-6">
             {loading ? (
-              /* Loading State */
               <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
                 <p className="text-sm text-slate-400">Carregando holerites...</p>
               </div>
             ) : holeritesFiltrados.length === 0 ? (
-              /* ── Estado Vazio ───────────────────────────────────────── */
               <div className="flex flex-col items-center justify-center py-20 gap-5 text-center">
-                <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-inner">
-                  <FileText className="w-10 h-10 text-emerald-400/80" />
+                <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center shadow-inner">
+                  <FileText className="w-10 h-10 text-cyan-400/80" />
                 </div>
                 <div className="space-y-2 max-w-md">
                   <h3 className="text-xl font-bold text-white tracking-tight">
@@ -244,20 +239,18 @@ export default function HoleritesPage() {
                 </div>
               </div>
             ) : (
-              /* ── Lista de Holerites ─────────────────────────────────── */
               <div className="space-y-3">
                 {holeritesFiltrados.map((h) => (
                   <div
                     key={h.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4.5 rounded-2xl bg-[#080D1A] border border-white/10 hover:border-white/20 hover:bg-white/[0.04] transition-all group shadow-xs"
                   >
-                    {/* Info */}
                     <div className="flex items-center gap-3.5 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                         <FileText className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors truncate">
+                        <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
                           Competência: {MESES_PT[h.mes]} de {h.ano}
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">
@@ -271,12 +264,10 @@ export default function HoleritesPage() {
                       </div>
                     </div>
 
-                    {/* Status */}
                     <span className="hidden sm:inline-flex text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 rounded-full shrink-0">
                       Disponível
                     </span>
 
-                    {/* Ações */}
                     <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
@@ -286,7 +277,7 @@ export default function HoleritesPage() {
                             id: h.id,
                           })
                         }
-                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs h-9 px-4 gap-1.5 rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs h-9 px-4 gap-1.5 rounded-xl shadow-sm transition-all cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Visualizar</span>

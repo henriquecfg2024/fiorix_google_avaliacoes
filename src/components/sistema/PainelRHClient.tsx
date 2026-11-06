@@ -52,6 +52,7 @@ import {
 import { IndicadoresRH, AvisoEmitidoItem } from "@/app/actions/rh";
 
 interface PainelRHClientProps {
+  fixedTab?: "comunicados" | "holerites" | "ferias";
   userRole?: string;
   userName?: string;
   initialComunicados?: ComunicadoItem[];
@@ -86,6 +87,7 @@ interface ComunicadoItem {
 export type AvisoEmitido = AvisoEmitidoItem;
 
 export function PainelRHClient({
+  fixedTab,
   userRole = "ADMIN",
   userName = "Administrador",
   initialComunicados = [],
@@ -97,29 +99,31 @@ export function PainelRHClient({
   const tabParam = searchParams.get("tab");
   type TabType = "geral" | "ferias" | "holerites" | "comunicados";
   const initialTab: TabType =
-    tabParam === "ferias" || tabParam === "holerites" || tabParam === "comunicados"
+    fixedTab ||
+    (tabParam === "ferias" || tabParam === "holerites" || tabParam === "comunicados"
       ? tabParam
-      : "geral";
+      : "comunicados");
 
   // Tab principal ativa
   const [currentTab, setCurrentTab] = useState<TabType>(initialTab);
 
   useEffect(() => {
+    if (fixedTab) {
+      setCurrentTab(fixedTab);
+      return;
+    }
     const tab = searchParams.get("tab");
     if (tab === "ferias" || tab === "holerites" || tab === "comunicados") {
       setCurrentTab(tab);
-    } else {
-      setCurrentTab("geral");
     }
-  }, [searchParams]);
+  }, [fixedTab, searchParams]);
 
   const handleTabChange = (tab: TabType) => {
-    setCurrentTab(tab);
-    if (tab === "geral") {
-      router.replace("/sistema/pessoas", { scroll: false });
-    } else {
-      router.replace(`/sistema/pessoas?tab=${tab}`, { scroll: false });
+    if (tab === "ferias" || tab === "holerites" || tab === "comunicados") {
+      router.push(`/sistema/pessoas/${tab}`);
+      return;
     }
+    setCurrentTab(tab);
   };
 
   // Sub-tabs da aba Férias
@@ -461,47 +465,33 @@ export function PainelRHClient({
   const percentFeriasProgramadas = totalColaboradores > 0 ? Math.round((totalFeriasProgramadas / totalColaboradores) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="w-full flex-1 min-h-full bg-[#070A12] text-white relative overflow-hidden pb-16 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[90vw] max-w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-cyan-500/8 to-emerald-500/8 blur-3xl opacity-60" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
+      <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        {currentTab !== "ferias" && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/5">
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-slate-400 tracking-wider">
-                {currentTab === "comunicados" ? "RECURSOS HUMANOS" : "GESTÃO DE PESSOAS"}
-              </span>
-              <span className="text-slate-600">/</span>
-              <span className="text-cyan-400 font-extrabold tracking-wider">
-                {currentTab === "holerites" && "HOLERITES"}
-                {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
-                {currentTab === "geral" && "PAINEL DE RH"}
-              </span>
-              <h1 className="sr-only">
-                {currentTab === "holerites" && "Gestão de Holerites"}
-                {currentTab === "comunicados" && "Gestão de Comunicados"}
-                {currentTab === "geral" && "Painel de Gestão de Pessoas e RH"}
-              </h1>
-            </div>
-
-            {/* Card Voltar para Painel de RH (quando estiver em Comunicados ou Holerites) */}
-            {currentTab !== "geral" && (
-              <button
-                type="button"
-                onClick={() => handleTabChange("geral")}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] text-xs font-semibold text-white transition-all cursor-pointer shrink-0"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Voltar ao Painel Geral</span>
-              </button>
-            )}
+        <div className="flex items-center justify-between gap-3 px-1 pt-1 pb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">RECURSOS HUMANOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">
+              {currentTab === "comunicados" && "COMUNICADOS"}
+              {currentTab === "ferias" && "FÉRIAS"}
+              {currentTab === "holerites" && "HOLERITES"}
+              {currentTab === "geral" && "PAINEL DE RH"}
+            </span>
+            <h1 className="sr-only">
+              {currentTab === "comunicados" && "Recursos Humanos — Comunicados"}
+              {currentTab === "ferias" && "Recursos Humanos — Férias"}
+              {currentTab === "holerites" && "Recursos Humanos — Holerites"}
+              {currentTab === "geral" && "Painel de Recursos Humanos"}
+            </h1>
           </div>
-        )}
+        </div>
 
         {/* ══════════════════════════════════════════════════════════════
             CARDS ESPECÍFICOS POR TELA
@@ -854,7 +844,7 @@ export function PainelRHClient({
             1. COMUNICADOS TAB
         ══════════════════════════════════════════════════════════════ */}
         {currentTab === "comunicados" && (
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#10101a] p-6 shadow-sm dark:shadow-xl space-y-6">
+          <div className="rounded-[24px] border border-white/15 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-sm space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
@@ -1064,8 +1054,8 @@ export function PainelRHClient({
             initialAno={pubAno}
             initialPublicacao={pubStatus}
             isInsideRHPanel={true}
+            hideBackButton={true}
             userRole={userRole}
-            onVoltar={() => handleTabChange("geral")}
           />
         )}
       </div>

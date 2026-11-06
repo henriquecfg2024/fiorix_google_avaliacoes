@@ -49,38 +49,40 @@ export function filterNavigationByRole(
     if (key === "master" && role !== "MASTER") continue;
     if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
 
-    // COLABORADOR: vê 'pessoas' (Comunicados+Férias+Holerites), 'comunicacaoInterna', 'trabalho' (RECURSOS HUMANOS) e 'operacional'
+    // COLABORADOR: vê 'operacional', 'comunicacaoInterna' e 'pessoas' (MEU ESPAÇO)
     if (
       isColaborador &&
       key !== "pessoas" &&
       key !== "comunicacaoInterna" &&
-      key !== "trabalho" &&
       key !== "operacional"
     )
       continue;
 
-    // RH: 'rhGestao', 'pessoas', 'comunicacaoInterna' e 'trabalho' (RECURSOS HUMANOS)
+    // RH: vê 'comunicacaoInterna', 'trabalho' (RECURSOS HUMANOS: Comunicados, Férias, Holerites) e 'pessoas' (MEU ESPAÇO)
     if (
       isRH &&
-      key !== "rhGestao" &&
       key !== "pessoas" &&
       key !== "comunicacaoInterna" &&
       key !== "trabalho"
     )
       continue;
 
-    // SUBSTITUTO: vê governancaIts, operacional, gestao, pessoas e trabalho; não vê rhGestao nem sistema
-    if (isSubstituto && (key === "rhGestao" || key === "sistema")) continue;
+    // SUBSTITUTO / VISITANTE: não vê sistema
+    if (isSubstituto && key === "sistema") continue;
 
-    // USER: não vê SISTEMA & TECNOLOGIA, PESSOAS & RH nem INSTRUÇÕES DE TRABALHO; mas vê 'trabalho' (Opção A)
-    if (isUser && (key === "sistema" || key === "rhGestao" || key === "governancaIts")) continue;
+    // USER: não vê SISTEMA & TECNOLOGIA, INSTRUÇÕES DE TRABALHO nem RECURSOS HUMANOS (gestão)
+    if (isUser && (key === "sistema" || key === "governancaIts" || key === "trabalho")) continue;
 
     const visibleItems = group.items.filter((item) => {
-      // Gestão de Comunicados em 'trabalho' oculto para RH (acesso feito pelo Painel RH / Gestão de Pessoas);
-      // visível apenas para liderança (SUBSTITUTO, ADMIN, MASTER, GESTOR)
-      if (key === "trabalho" && ((item as any).id === "gestao_comunicados" || item.href === "/sistema/pessoas?tab=comunicados")) {
-        if (isRH) return false;
-        return isSubstituto || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
+      // Itens de gestão em RECURSOS HUMANOS ('trabalho')
+      if (key === "trabalho") {
+        if (isRH || role === "ADMIN" || role === "MASTER" || role === "GESTOR") {
+          return true;
+        }
+        if (isSubstituto) {
+          return (item as any).id === "gestao_comunicados";
+        }
+        return false;
       }
 
       // Rastreio oculto para RH
@@ -88,7 +90,7 @@ export function filterNavigationByRole(
         return false;
       }
 
-      // COLABORADOR: em 'operacional' vê Rastreio, Impressões e Espera; em 'pessoas' só Férias e Holerites
+      // COLABORADOR: em 'operacional' vê Rastreio, Impressões e Espera; em 'pessoas' vê todo MEU ESPAÇO
       if (isColaborador) {
         if (key === "operacional") {
           return (
@@ -108,11 +110,9 @@ export function filterNavigationByRole(
       }
 
       if (isRH) {
-        // RH tem acesso aos itens de rhGestao, pessoas e trabalho
         return true;
       }
       if (isSubstituto) {
-        // Substituto tem acesso pleno a governancaIts, pessoas, operacional, gestao e trabalho
         return true;
       }
       // Espera oculto para perfil USER (exclusivo para liderança e colaboradores)
@@ -133,7 +133,7 @@ export function filterNavigationByRole(
         }
         return true;
       }
-      return true; // ADMIN, MASTER e COLABORADOR em 'trabalho' veem tudo
+      return true;
     });
 
     if (visibleItems.length > 0 || Boolean((group as any).href)) {

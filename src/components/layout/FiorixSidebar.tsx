@@ -301,10 +301,7 @@ export function FiorixSidebar() {
                       {group.label}
                     </div>
                     {group.items.map((item: any) => {
-                      const resolvedHref =
-                        role === "RH" && item.id === "gestao_comunicados"
-                          ? "/sistema/pessoas"
-                          : item.href;
+                      const resolvedHref = item.href;
                       const active = isActive(resolvedHref);
                       const ItemIcon = item.icon;
                       return (
@@ -385,17 +382,14 @@ export function FiorixSidebar() {
 
             return (
               // @ts-expect-error Radix UI type mismatch
-              <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined) as any}>
+              <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || (role === "RH" && key === "trabalho") ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
                   <AccordionTrigger className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white hover:no-underline [&_[data-slot=accordion-trigger-icon]]:text-slate-400 dark:[&_[data-slot=accordion-trigger-icon]]:text-white/60 [&_[data-slot=accordion-trigger-icon]]:size-3.5 group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-slate-900 dark:group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-white">
                     <span className="truncate">{group.label}</span>
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-1 space-y-1">
                     {group.items.map((item: any) => {
-                      const resolvedHref =
-                        role === "RH" && item.id === "gestao_comunicados"
-                          ? "/sistema/pessoas"
-                          : item.href;
+                      const resolvedHref = item.href;
                       const active = isActive(resolvedHref);
                       const ItemIcon = item.icon;
                       return (
