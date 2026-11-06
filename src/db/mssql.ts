@@ -413,54 +413,40 @@ export async function executeColaboradoresRhQuery(): Promise<{
     }
 
     if (row.canGestor === 1) {
-      // Caso fiorix_connector já possua leitura em GESTOR mesmo sem a procedure criada
       const directReq = pool.request();
       (directReq as any).timeout = 45000;
       const directResult = await directReq.query(`
-        DECLARE @ColRegistro SYSNAME, @ColNome SYSNAME, @ColApelido SYSNAME, @ColCpf SYSNAME,
-                @ColDataNasc SYSNAME, @ColDataAdm SYSNAME, @ColAtivo SYSNAME,
-                @ColFkSexo SYSNAME, @ColFkEstCivil SYSNAME, @ColFkCidade SYSNAME, @ColFkNac SYSNAME;
-
-        SELECT TOP 1 @ColRegistro = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
-          AND (c.name IN (N'Registro', N'PK_Colaborador', N'PK_Id', N'IdColaborador', N'ID', N'Codigo') OR c.is_identity = 1)
-        ORDER BY CASE c.name WHEN N'Registro' THEN 1 WHEN N'PK_Colaborador' THEN 2 WHEN N'PK_Id' THEN 3 ELSE 4 END;
-
-        SELECT TOP 1 @ColNome = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
-          AND c.name IN (N'NomeCompleto', N'Nome', N'Colaborador');
-
-        SELECT TOP 1 @ColApelido = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
-          AND (c.name IN (N'ConhecidoComo', N'Apelido') OR c.name LIKE N'%Conhecido%');
-
-        SELECT TOP 1 @ColCpf = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%CPF%';
-
-        SELECT TOP 1 @ColDataNasc = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'DataNasc%';
-
-        SELECT TOP 1 @ColDataAdm = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%Admiss%';
-
-        SELECT TOP 1 @ColAtivo = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name IN (N'Ativo', N'FlagAtivo');
-
-        SELECT TOP 1 @ColFkSexo = c.name FROM GESTOR.sys.columns c
-        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%Sexo%';
-
-        DECLARE @SqlQ NVARCHAR(MAX) = N'SELECT ' +
-          CASE WHEN @ColRegistro IS NOT NULL THEN N'CAST(c.' + QUOTENAME(@ColRegistro) + N' AS INT)' ELSE N'ROW_NUMBER() OVER (ORDER BY (SELECT NULL))' END + N' AS Registro, ' +
-          CASE WHEN @ColNome IS NOT NULL THEN N'LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColNome) + N' AS NVARCHAR(200))))' ELSE N'NULL' END + N' AS Nome, ' +
-          CASE WHEN @ColApelido IS NOT NULL THEN N'NULLIF(LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColApelido) + N' AS NVARCHAR(120)))), '''')' ELSE N'NULL' END + N' AS Apelido, ' +
-          CASE WHEN @ColCpf IS NOT NULL THEN N'NULLIF(LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColCpf) + N' AS VARCHAR(30)))), '''')' ELSE N'NULL' END + N' AS CPF, ' +
-          CASE WHEN @ColDataNasc IS NOT NULL THEN N'CONVERT(VARCHAR(10), TRY_CAST(c.' + QUOTENAME(@ColDataNasc) + N' AS DATE), 23)' ELSE N'NULL' END + N' AS DataNascimento, ' +
-          CASE WHEN @ColDataAdm IS NOT NULL THEN N'CONVERT(VARCHAR(10), TRY_CAST(c.' + QUOTENAME(@ColDataAdm) + N' AS DATE), 23)' ELSE N'NULL' END + N' AS DataAdmissao, ' +
-          CASE WHEN @ColFkSexo IS NOT NULL THEN N'CASE CAST(c.' + QUOTENAME(@ColFkSexo) + N' AS VARCHAR(10)) WHEN ''1'' THEN ''Masculino'' WHEN ''2'' THEN ''Feminino'' ELSE NULL END' ELSE N'NULL' END + N' AS Sexo, ' +
-          CASE WHEN @ColAtivo IS NOT NULL THEN N'CAST(CASE WHEN c.' + QUOTENAME(@ColAtivo) + N' IN (1, ''1'', ''S'', ''A'') THEN 1 ELSE 0 END AS BIT)' ELSE N'CAST(1 AS BIT)' END + N' AS Ativo ' +
-          N'FROM GESTOR.dbo.tblColaborador c WITH (NOLOCK)';
-
-        EXEC sp_executesql @SqlQ;
+        SELECT
+            c.Registro AS Registro,
+            LTRIM(RTRIM(c.Nome)) AS Nome,
+            NULLIF(LTRIM(RTRIM(c.Apelido)), '') AS Apelido,
+            NULLIF(LTRIM(RTRIM(c.CPF)), '') AS CPF,
+            CONVERT(VARCHAR(10), c.DataNascimento, 23) AS DataNascimento,
+            CONVERT(VARCHAR(10), c.DataAdmissao, 23) AS DataAdmissao,
+            LTRIM(RTRIM(sx.Sexo)) AS Sexo,
+            LTRIM(RTRIM(ec.EstadoCivil)) AS EstadoCivil,
+            LTRIM(RTRIM(cid.Cidade)) AS Naturalidade,
+            LTRIM(RTRIM(cid.FK_tblGESEstado_Id)) AS UF,
+            LTRIM(RTRIM(nac.Nacionalidade)) AS Nacionalidade,
+            LTRIM(RTRIM(cg.Cargo)) AS Cargo,
+            LTRIM(RTRIM(st.Setor)) AS Setor,
+            c.Ativo AS Ativo
+        FROM GESTOR.dbo.tblColaborador AS c WITH (NOLOCK)
+        LEFT JOIN GESTOR.dbo.tblGESSexo AS sx WITH (NOLOCK)
+            ON sx.PK_Id = c.FK_tblGESSexo_Id
+        LEFT JOIN GESTOR.dbo.tblGESEstadoCivil AS ec WITH (NOLOCK)
+            ON ec.PK_Id = c.FK_tblGESEstadoCivil_Id
+        LEFT JOIN GESTOR.dbo.tblGESCidade AS cid WITH (NOLOCK)
+            ON cid.PK_Id = c.FK_tblGESCidadeNaturalidade_Id
+        LEFT JOIN GESTOR.dbo.tblGESNacionalidade AS nac WITH (NOLOCK)
+            ON nac.PK_Id = c.FK_tblGESNacionalidade_Id
+        LEFT JOIN GESTOR.dbo.tblGESCargo AS cg WITH (NOLOCK)
+            ON cg.PK_Id = c.FK_tblGESCargo_Id
+        LEFT JOIN GESTOR.dbo.tblGESSetor AS st WITH (NOLOCK)
+            ON st.PK_Id = c.FK_tblGESSetor_Id
+        WHERE c.Nome IS NOT NULL
+          AND LTRIM(RTRIM(c.Nome)) <> ''
+        ORDER BY c.Registro ASC
       `);
       const durationMs = Date.now() - startTime;
       const records = directResult.recordset || [];
@@ -480,4 +466,3 @@ export async function executeColaboradoresRhQuery(): Promise<{
     }
   }
 }
-
