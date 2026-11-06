@@ -383,5 +383,101 @@ export async function resetSqlServerPool(): Promise<boolean> {
   }
 }
 
+export async function executeColaboradoresRhQuery(): Promise<{
+  records: any[];
+  durationMs: number;
+  skippedNoPermission?: boolean;
+}> {
+  logger.info('[MSSQL] Consultando cadastro oficial de colaboradores (GESTOR / pr_Fiorix_RH_Colaboradores)...');
+  const startTime = Date.now();
+  let pool;
+  try {
+    pool = await sql.connect(getSqlConfig());
+    const probeReq = pool.request();
+    (probeReq as any).timeout = 15000;
+    const probe = await probeReq.query(`
+      SELECT
+        OBJECT_ID('dbo.pr_Fiorix_RH_Colaboradores', 'P') AS procId,
+        HAS_DBACCESS('GESTOR') AS canGestor
+    `);
+    const row = probe.recordset?.[0] || {};
 
+    if (row.procId != null) {
+      const execReq = pool.request();
+      (execReq as any).timeout = 45000;
+      const result = await execReq.execute('dbo.pr_Fiorix_RH_Colaboradores');
+      const durationMs = Date.now() - startTime;
+      const records = result.recordset || [];
+      logger.info(`SQL_SUCCESS: colaboradores_rh via procedure processada em ${durationMs}ms. Registros: ${records.length}`);
+      return { records, durationMs };
+    }
+
+    if (row.canGestor === 1) {
+      // Caso fiorix_connector já possua leitura em GESTOR mesmo sem a procedure criada
+      const directReq = pool.request();
+      (directReq as any).timeout = 45000;
+      const directResult = await directReq.query(`
+        DECLARE @ColRegistro SYSNAME, @ColNome SYSNAME, @ColApelido SYSNAME, @ColCpf SYSNAME,
+                @ColDataNasc SYSNAME, @ColDataAdm SYSNAME, @ColAtivo SYSNAME,
+                @ColFkSexo SYSNAME, @ColFkEstCivil SYSNAME, @ColFkCidade SYSNAME, @ColFkNac SYSNAME;
+
+        SELECT TOP 1 @ColRegistro = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
+          AND (c.name IN (N'Registro', N'PK_Colaborador', N'PK_Id', N'IdColaborador', N'ID', N'Codigo') OR c.is_identity = 1)
+        ORDER BY CASE c.name WHEN N'Registro' THEN 1 WHEN N'PK_Colaborador' THEN 2 WHEN N'PK_Id' THEN 3 ELSE 4 END;
+
+        SELECT TOP 1 @ColNome = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
+          AND c.name IN (N'NomeCompleto', N'Nome', N'Colaborador');
+
+        SELECT TOP 1 @ColApelido = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador')
+          AND (c.name IN (N'ConhecidoComo', N'Apelido') OR c.name LIKE N'%Conhecido%');
+
+        SELECT TOP 1 @ColCpf = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%CPF%';
+
+        SELECT TOP 1 @ColDataNasc = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'DataNasc%';
+
+        SELECT TOP 1 @ColDataAdm = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%Admiss%';
+
+        SELECT TOP 1 @ColAtivo = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name IN (N'Ativo', N'FlagAtivo');
+
+        SELECT TOP 1 @ColFkSexo = c.name FROM GESTOR.sys.columns c
+        WHERE c.object_id = OBJECT_ID(N'GESTOR.dbo.tblColaborador') AND c.name LIKE N'%Sexo%';
+
+        DECLARE @SqlQ NVARCHAR(MAX) = N'SELECT ' +
+          CASE WHEN @ColRegistro IS NOT NULL THEN N'CAST(c.' + QUOTENAME(@ColRegistro) + N' AS INT)' ELSE N'ROW_NUMBER() OVER (ORDER BY (SELECT NULL))' END + N' AS Registro, ' +
+          CASE WHEN @ColNome IS NOT NULL THEN N'LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColNome) + N' AS NVARCHAR(200))))' ELSE N'NULL' END + N' AS Nome, ' +
+          CASE WHEN @ColApelido IS NOT NULL THEN N'NULLIF(LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColApelido) + N' AS NVARCHAR(120)))), '''')' ELSE N'NULL' END + N' AS Apelido, ' +
+          CASE WHEN @ColCpf IS NOT NULL THEN N'NULLIF(LTRIM(RTRIM(CAST(c.' + QUOTENAME(@ColCpf) + N' AS VARCHAR(30)))), '''')' ELSE N'NULL' END + N' AS CPF, ' +
+          CASE WHEN @ColDataNasc IS NOT NULL THEN N'CONVERT(VARCHAR(10), TRY_CAST(c.' + QUOTENAME(@ColDataNasc) + N' AS DATE), 23)' ELSE N'NULL' END + N' AS DataNascimento, ' +
+          CASE WHEN @ColDataAdm IS NOT NULL THEN N'CONVERT(VARCHAR(10), TRY_CAST(c.' + QUOTENAME(@ColDataAdm) + N' AS DATE), 23)' ELSE N'NULL' END + N' AS DataAdmissao, ' +
+          CASE WHEN @ColFkSexo IS NOT NULL THEN N'CASE CAST(c.' + QUOTENAME(@ColFkSexo) + N' AS VARCHAR(10)) WHEN ''1'' THEN ''Masculino'' WHEN ''2'' THEN ''Feminino'' ELSE NULL END' ELSE N'NULL' END + N' AS Sexo, ' +
+          CASE WHEN @ColAtivo IS NOT NULL THEN N'CAST(CASE WHEN c.' + QUOTENAME(@ColAtivo) + N' IN (1, ''1'', ''S'', ''A'') THEN 1 ELSE 0 END AS BIT)' ELSE N'CAST(1 AS BIT)' END + N' AS Ativo ' +
+          N'FROM GESTOR.dbo.tblColaborador c WITH (NOLOCK)';
+
+        EXEC sp_executesql @SqlQ;
+      `);
+      const durationMs = Date.now() - startTime;
+      const records = directResult.recordset || [];
+      logger.info(`SQL_SUCCESS: colaboradores_rh via leitura direta GESTOR em ${durationMs}ms. Registros: ${records.length}`);
+      return { records, durationMs };
+    }
+
+    const durationMs = Date.now() - startTime;
+    logger.info('[MSSQL] Banco GESTOR / dbo.pr_Fiorix_RH_Colaboradores aguardando GRANT SELECT no SQL Server (veja sql/pr_Fiorix_RH_Colaboradores.sql). Ciclo ignorado sem falha.');
+    return { records: [], durationMs, skippedNoPermission: true };
+  } catch (err: any) {
+    logger.error(`SQL_ERROR: Falha na consulta de colaboradores_rh: ${err.message}`);
+    throw err;
+  } finally {
+    if (pool) {
+      await pool.close();
+    }
+  }
+}
 

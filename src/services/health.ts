@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { logger } from '../utils/logger.js';
 
-export type SourceName = 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras';
+export type SourceName = 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
 
 export interface SourceHealthState {
   source: SourceName;
@@ -92,6 +92,7 @@ export class HealthManager {
     retornos: 300, // 5 minutes
     impressoes: 300, // 5 minutes
     safras: 7200, // 2 hours
+    colaboradores_rh: 86400, // 24 hours
   };
 
   private sourceHealth: Record<SourceName, SourceHealthState> = {
@@ -102,6 +103,7 @@ export class HealthManager {
     retornos: this.createInitialSourceHealth('retornos', 300),
     impressoes: this.createInitialSourceHealth('impressoes', 300),
     safras: this.createInitialSourceHealth('safras', 7200),
+    colaboradores_rh: this.createInitialSourceHealth('colaboradores_rh', 86400),
   };
 
   private sourceMetrics: Record<SourceName, SourceMetrics> = {
@@ -112,6 +114,7 @@ export class HealthManager {
     retornos: this.createInitialMetrics(),
     impressoes: this.createInitialMetrics(),
     safras: this.createInitialMetrics(),
+    colaboradores_rh: this.createInitialMetrics(),
   };
 
   private durationsHistory: Record<SourceName, number[]> = {
@@ -122,6 +125,7 @@ export class HealthManager {
     retornos: [],
     impressoes: [],
     safras: [],
+    colaboradores_rh: [],
   };
 
   constructor() {

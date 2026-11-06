@@ -10,6 +10,7 @@ import {
   executeTarefasIncrementalProcedure, 
   executeRetornosProcedure,
   executeImpressoesProcedure,
+  executeColaboradoresRhQuery,
   executeProcedure,
   resetSqlServerPool
 } from '../db/mssql.js';
@@ -37,7 +38,7 @@ import { selfUpdater } from './self-updater.js';
 
 
 export interface SourceScheduleConfig {
-  name: 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras';
+  name: 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
   mode: 'incremental' | 'reconciliation' | 'full';
   intervalSec: number;
   offsetSec: number;
@@ -236,6 +237,17 @@ export class Scheduler {
           ? Number(process.env.SAFRAS_OFFSET_SECONDS)
           : 45,
         enabled: this.isSourceActive('safras'),
+      },
+      {
+        name: 'colaboradores_rh',
+        mode: 'full',
+        intervalSec: process.env.COLABORADORES_RH_SYNC_INTERVAL_SECONDS
+          ? Number(process.env.COLABORADORES_RH_SYNC_INTERVAL_SECONDS)
+          : 3600,
+        offsetSec: process.env.COLABORADORES_RH_OFFSET_SECONDS !== undefined
+          ? Number(process.env.COLABORADORES_RH_OFFSET_SECONDS)
+          : 330,
+        enabled: this.isSourceActive('colaboradores_rh'),
       },
     ];
   }
@@ -752,6 +764,21 @@ export class Scheduler {
         const raw = await executeProcedure('safras', 'dbo.pr_Fiorix_BI_Safras_Prenotacoes');
         records = raw;
         durationMs = Date.now() - startTime;
+      } else if (config.name === 'colaboradores_rh') {
+        const res = await executeColaboradoresRhQuery();
+        durationMs = res.durationMs;
+        if (res.skippedNoPermission || res.records.length === 0) {
+          status.recordsRead = 0;
+          status.lastDurationMs = durationMs;
+          status.lastError = null;
+          if (!res.skippedNoPermission) {
+            healthManager.recordRunSuccess('colaboradores_rh', 0, 0, durationMs, null, runTime);
+          } else {
+            healthManager.recordDbQuerySuccess();
+          }
+          return;
+        }
+        records = res.records.map((r: any) => attachRecordKey('colaboradores_rh', r));
       }
 
       status.recordsRead = records.length;
