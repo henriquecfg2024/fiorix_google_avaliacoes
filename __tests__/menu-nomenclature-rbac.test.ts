@@ -43,7 +43,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     ]);
   });
 
-  it('move Mensagens para COMUNICAÇÃO INTERNA, Comunicados para MEU ESPAÇO, e mantém RH e Minha IT em RECURSOS HUMANOS', () => {
+  it('move Mensagens para COMUNICAÇÃO INTERNA, Comunicados e Minha IT para MEU ESPAÇO, e mantém Comunicados (gestão) em RECURSOS HUMANOS', () => {
     expect(navigationGroups.gestao.items.map((i) => i.href)).toEqual([
       '/avaliacoes',
       '/estatisticas',
@@ -75,11 +75,11 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
 
     expect(navigationGroups.trabalho.items.map((i) => i.href)).toEqual([
       '/sistema/pessoas?tab=comunicados',
-      '/minha-it',
     ]);
 
     expect(navigationGroups.pessoas.items.map((i) => i.href)).toEqual([
       '/pessoas/comunicados',
+      '/minha-it',
       '/pessoas/ferias',
       '/pessoas/holerites',
     ]);
@@ -103,14 +103,14 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('COLABORADOR');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['operacional', 'comunicacaoInterna', 'trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['operacional', 'comunicacaoInterna', 'pessoas']);
     expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
-    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 
-    // Itens de 'pessoas' (MEU ESPAÇO) incluem comunicados, férias e holerites
+    // Itens de 'pessoas' (MEU ESPAÇO) incluem comunicados, minha IT, férias e holerites
     expect(groups.pessoas.items.map((i) => i.href)).toEqual([
       '/pessoas/comunicados',
+      '/minha-it',
       '/pessoas/ferias',
       '/pessoas/holerites',
     ]);
@@ -123,11 +123,10 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('USER');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['gestao', 'operacional', 'comunicacaoInterna', 'trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['gestao', 'operacional', 'comunicacaoInterna', 'pessoas']);
     expect(groups.gestao.label).toBe('PRESENÇA NO GOOGLE');
     expect(groups.operacional.label).toBe('GESTÃO DE PRAZOS');
     expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
-    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 
     const operHrefs = groups.operacional.items.map((i) => i.href);
@@ -139,16 +138,14 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('RH');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['rhGestao', 'comunicacaoInterna', 'trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['rhGestao', 'comunicacaoInterna', 'pessoas']);
     expect(groups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(groups.comunicacaoInterna.label).toBe('COMUNICAÇÃO INTERNA');
-    expect(groups.trabalho.label).toBe('RECURSOS HUMANOS');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
-    expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/sistema/pessoas?tab=comunicados');
-    expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/trajetoria-titulo');
+    expect(groups.pessoas.items.map((i) => i.href)).toContain('/minha-it');
   });
 
-  it('valida o menu para o perfil SUBSTITUTO com acesso ao item RH (antigo Gestão de Comunicados)', () => {
+  it('valida o menu para o perfil SUBSTITUTO com acesso ao submenu Comunicados em RECURSOS HUMANOS', () => {
     const groups = filterNavigationByRole('SUBSTITUTO');
     const groupKeys = Object.keys(groups);
 
@@ -163,7 +160,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     ]);
     expect(groups.trabalho.items.map((i) => i.href)).toContain('/sistema/pessoas?tab=comunicados');
     const rhMenuItem = groups.trabalho.items.find((i) => i.id === 'gestao_comunicados');
-    expect(rhMenuItem?.label).toBe('RH');
+    expect(rhMenuItem?.label).toBe('Comunicados');
   });
 
   it('valida o menu para o perfil ADMIN', () => {

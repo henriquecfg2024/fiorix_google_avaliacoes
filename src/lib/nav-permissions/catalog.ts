@@ -163,7 +163,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         description: 'Quadro de colaboradores, férias e holerites',
         structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO', 'VISITANTE'],
         sharedWithId: 'gestao_comunicados',
-        sharedNote: 'Compartilha a rota base /sistema/pessoas com RH',
+        sharedNote: 'Compartilha a rota base /sistema/pessoas com Comunicados (Recursos Humanos)',
       },
     ],
   },
@@ -202,7 +202,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
     items: [
       {
         id: 'gestao_comunicados',
-        label: 'RH',
+        label: 'Comunicados',
         href: '/sistema/pessoas?tab=comunicados',
         groupId: 'trabalho',
         groupLabel: 'RECURSOS HUMANOS',
@@ -210,14 +210,6 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         structuralRoles: ['MASTER', 'ADMIN', 'RH', 'SUBSTITUTO', 'VISITANTE'],
         sharedWithId: 'gestao_pessoas',
         sharedNote: 'Compartilha a rota base /sistema/pessoas com Painel de Pessoas',
-      },
-      {
-        id: 'minha_it',
-        label: 'Minha IT',
-        href: '/minha-it',
-        groupId: 'trabalho',
-        groupLabel: 'RECURSOS HUMANOS',
-        description: 'Instrução oficial do Responsável Técnico',
       },
     ],
   },
@@ -232,6 +224,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupId: 'pessoas',
         groupLabel: 'MEU ESPAÇO',
         description: 'Mural interno e minhas ciências',
+      },
+      {
+        id: 'minha_it',
+        label: 'Minha IT',
+        href: '/minha-it',
+        groupId: 'pessoas',
+        groupLabel: 'MEU ESPAÇO',
+        description: 'Instrução oficial do Responsável Técnico',
       },
       {
         id: 'ferias',

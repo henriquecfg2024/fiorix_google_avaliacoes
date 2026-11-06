@@ -152,21 +152,14 @@ export const navigationGroups = {
     items: [
       {
         id: "gestao_comunicados",
-        label: "RH",
+        label: "Comunicados",
         href: "/sistema/pessoas?tab=comunicados",
         icon: FileCheck2,
         description: "Painel de RH, comunicados e ciências",
       },
-      {
-        id: "minha_it",
-        label: "Minha IT",
-        href: "/minha-it",
-        icon: BookOpen,
-        description: "Instrução oficial • Responsável Técnico",
-      },
     ],
   },
-  // MEU ESPAÇO: Comunicados, Férias e Holerites pessoais
+  // MEU ESPAÇO: Comunicados, Minha IT, Férias e Holerites pessoais
   pessoas: {
     label: "MEU ESPAÇO",
     icon: Target,
@@ -177,6 +170,13 @@ export const navigationGroups = {
         href: "/pessoas/comunicados",
         icon: FileText,
         description: "Mural interno e minhas ciências",
+      },
+      {
+        id: "minha_it",
+        label: "Minha IT",
+        href: "/minha-it",
+        icon: BookOpen,
+        description: "Instrução oficial • Responsável Técnico",
       },
       {
         id: "ferias",
