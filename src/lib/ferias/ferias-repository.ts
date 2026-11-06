@@ -7,6 +7,61 @@ import {
   normalizarDataIso,
 } from '@/lib/ferias/idade-calculator';
 
+
+function normalizarNomeColaborador(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const STOPWORDS_NOME = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
+
+/**
+ * Compara nomes entre User (FIORIX) e tblColaborador (GESTOR), lidando com abreviações
+ * de nome do meio ("Ander Gleiber de O Ribeiro" <-> "Ander Gleiber de Oliveira Ribeiro"),
+ * nomes curtos ("Claudio Donizetti" <-> "Claudio Donizetti Ferreira da Silva") e
+ * pequenas variações gráficas ("Caniinde" <-> "Caninde").
+ */
+export function nomesColaboradorCompativeis(a: string, b: string): boolean {
+  const na = normalizarNomeColaborador(a);
+  const nb = normalizarNomeColaborador(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+
+  // Deduplica letras repetidas (ex: caniinde -> caninde, cioconi -> ciconi parcial)
+  const squash = (s: string) => s.replace(/([a-z])\1+/g, '$1');
+  if (squash(na) === squash(nb)) return true;
+
+  const tokA = na.split(' ').filter((t) => t && !STOPWORDS_NOME.has(t));
+  const tokB = nb.split(' ').filter((t) => t && !STOPWORDS_NOME.has(t));
+  if (tokA.length < 2 || tokB.length < 2) return false;
+
+  // Primeiro nome precisa coincidir
+  if (squash(tokA[0]) !== squash(tokB[0])) return false;
+
+  // Prefixo de pelo menos 2 nomes significativos ("Claudio Donizetti", "Guilherme Mancio")
+  const minLen = Math.min(tokA.length, tokB.length);
+  let prefixMatches = 0;
+  for (let i = 0; i < minLen; i++) {
+    if (squash(tokA[i]) === squash(tokB[i])) prefixMatches++;
+    else break;
+  }
+  if (prefixMatches >= 2 && prefixMatches === minLen) return true;
+
+  // Primeiro + último sobrenome iguais e segundo token compatível (inicial ou igual)
+  const lastA = squash(tokA[tokA.length - 1]);
+  const lastB = squash(tokB[tokB.length - 1]);
+  if (lastA === lastB && (squash(tokA[1]) === squash(tokB[1]) || tokA[1][0] === tokB[1][0])) {
+    return true;
+  }
+
+  return false;
+}
+
 export interface DadosCadastraisGestor {
   registro?: number | null;
   apelido?: string | null;

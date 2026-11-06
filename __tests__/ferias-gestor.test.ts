@@ -6,7 +6,7 @@ import {
   formatarCpfCompleto,
   mascararCpfLgpd,
 } from '@/lib/ferias/idade-calculator';
-import { getEscalaAnual } from '@/lib/ferias/ferias-repository';
+import { getEscalaAnual, nomesColaboradorCompativeis } from '@/lib/ferias/ferias-repository';
 import { revelarCpfColaboradorFeriasAction } from '@/app/actions/ferias';
 import { requireRole } from '@/lib/auth-helpers';
 import { recordAuditLog } from '@/lib/audit';
@@ -201,6 +201,16 @@ describe('Integração GESTOR -> Escala de Férias FIORIX', () => {
           acao: 'CONSULTA_LGPD',
         })
       );
+    });
+  });
+
+  describe('Reconciliação Inteligente de Nomes GESTOR <-> User FIORIX', () => {
+    it('vincula variações reais de abreviação e grafia sem gerar duplicidade', () => {
+      expect(nomesColaboradorCompativeis('Ander Gleiber de O Ribeiro', 'Ander Gleiber de Oliveira Ribeiro')).toBe(true);
+      expect(nomesColaboradorCompativeis('Claudio Donizetti Ferreira da Silva', 'Claudio Donizetti')).toBe(true);
+      expect(nomesColaboradorCompativeis('Francisco Caniinde Martins', 'Francisco Caninde Martins')).toBe(true);
+      expect(nomesColaboradorCompativeis('Guilherme Mancio da Silva', 'Guilherme Mancio')).toBe(true);
+      expect(nomesColaboradorCompativeis('Alisson Azevedo de Lima', 'Mariana Oliveira')).toBe(false);
     });
   });
 });
