@@ -523,13 +523,18 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
           rec.ProtocoloEntidade AS ProtocoloMagnetico,
           rec.TipoPrenotacao AS TipoPrenotacaoCodigo,
           tp.TipoPrenotacao AS TipoPrenotacaoDescricao,
+          CAST(rec.Outorgante AS VARCHAR(300)) AS Outorgante,
+          CAST(rec.Outorgado AS VARCHAR(300)) AS Outorgado,
+          CAST(rec.Observacao AS VARCHAR(500)) AS ObservacaoRecepcao,
           tit.PK_SeqTitulo,
           tit.DtPrevisaoEntrega,
           tit.DtRetirada,
           tit.DtDevolucao,
           tit.DataUltimoRegistro,
           tit.QtdAtos,
-          tit.DescricaoComplementarDoTitulo AS NaturezaTitulo
+          CAST(tit.Processo AS VARCHAR(120)) AS Processo,
+          CAST(tit.Observacoes AS VARCHAR(500)) AS ObservacaoTitulo,
+          CAST(tit.DescricaoComplementarDoTitulo AS VARCHAR(300)) AS NaturezaTitulo
         FROM dbo.tblWRICertidaoResultadoContraditorio rc WITH (NOLOCK)
         INNER JOIN dbo.tblWRICertidao c WITH (NOLOCK)
           ON c.Pk_NrPedido = rc.FK_tblWRICertidoes_NrPedido
@@ -568,13 +573,18 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
           rec.ProtocoloEntidade AS ProtocoloMagnetico,
           rec.TipoPrenotacao AS TipoPrenotacaoCodigo,
           tp.TipoPrenotacao AS TipoPrenotacaoDescricao,
+          CAST(rec.Outorgante AS VARCHAR(300)) AS Outorgante,
+          CAST(rec.Outorgado AS VARCHAR(300)) AS Outorgado,
+          CAST(rec.Observacao AS VARCHAR(500)) AS ObservacaoRecepcao,
           tit.PK_SeqTitulo,
           tit.DtPrevisaoEntrega,
           tit.DtRetirada,
           tit.DtDevolucao,
           tit.DataUltimoRegistro,
           tit.QtdAtos,
-          tit.DescricaoComplementarDoTitulo AS NaturezaTitulo
+          CAST(tit.Processo AS VARCHAR(120)) AS Processo,
+          CAST(tit.Observacoes AS VARCHAR(500)) AS ObservacaoTitulo,
+          CAST(tit.DescricaoComplementarDoTitulo AS VARCHAR(300)) AS NaturezaTitulo
         FROM dbo.tblWRICertidaoItens i WITH (NOLOCK)
         INNER JOIN dbo.tblWRICertidao c WITH (NOLOCK)
           ON c.Pk_NrPedido = i.FK_tblWRICertidoes_NrPedido
@@ -683,6 +693,25 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
           ? matDoPedido
           : null;
 
+      const outorgante = limparTextoSql(row.Outorgante);
+      const outorgado = limparTextoSql(row.Outorgado);
+      const obsRec = limparTextoSql(row.ObservacaoRecepcao || row.ObservacaoTitulo);
+      const proc = limparTextoSql(row.Processo);
+      const natRaw = limparTextoSql(row.NaturezaTitulo);
+      const natEhHashHex = Boolean(natRaw && /^[0-9A-F]{12}$/i.test(natRaw));
+
+      const partesDetalhe: string[] = [];
+      if (natRaw && !natEhHashHex) partesDetalhe.push(natRaw);
+      if (outorgante && outorgado && outorgante !== outorgado) {
+        partesDetalhe.push(`${outorgante} → ${outorgado}`);
+      } else if (outorgante) {
+        partesDetalhe.push(`Outorgante: ${outorgante}`);
+      } else if (outorgado) {
+        partesDetalhe.push(`Outorgado: ${outorgado}`);
+      }
+      if (proc) partesDetalhe.push(`Proc.: ${proc}`);
+      if (obsRec) partesDetalhe.push(obsRec);
+
       lista.push({
         numPrenotacao: numPren,
         pkRecepcao: Number(row.PK_Recepcao || numPren),
@@ -696,7 +725,7 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         dataRecepcaoIso: normalizarDataSqlLegada(row.DtRecep || row.DtPrenotacao),
         dataPrevisaoIso: normalizarDataSqlLegada(row.DtPrevisaoEntrega || row.DtExpiraPrn),
         naturezaTitulo:
-          limparTextoSql(row.NaturezaTitulo) ||
+          partesDetalhe.join(' • ') ||
           limparTextoSql(row.TipoPrenotacaoDescricao) ||
           'Título em Contraditório',
         emProcessamentoAto:
