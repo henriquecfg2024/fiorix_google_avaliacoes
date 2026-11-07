@@ -822,15 +822,15 @@ export function CentralImpressaoClient({
 
           {/* Linha 2: Pesquisa Nº Pedido (ao lado esquerdo de IMPRIMIR) + IMPRIMIR + EM LOTE + FRENTE/VERSO + Ocultar Lateral + Tela Cheia */}
           <div className="flex flex-wrap items-center justify-center gap-1.5 shrink-0">
-            <form onSubmit={handleBuscaRapidaSubmit} className="relative shrink-0">
-              <Search className="w-4 h-4 text-cyan-300 stroke-[2.75] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <form onSubmit={handleBuscaRapidaSubmit} className="relative w-56 shrink-0">
+              <Search className="w-4 h-4 text-cyan-300 stroke-[2.5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={buscaRapidaNumero}
                 onChange={(e) => setBuscaRapidaNumero(e.target.value)}
-                placeholder="Nº Pedido..."
-                title="Digite o Nº do Pedido e pressione Enter"
-                className="w-36 h-8 pl-8 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#0B172A] border-2 border-cyan-400/75 focus:border-cyan-300 text-xs text-white font-mono font-extrabold placeholder:text-cyan-100/85 placeholder:font-bold shadow-sm shadow-cyan-500/20 focus:outline-none focus:ring-2 focus:ring-cyan-400/35 transition"
+                placeholder="Pesquisar Pedido, Prenotação, ONR..."
+                title="Digite o Nº do Pedido, Prenotação ou ONR e pressione Enter"
+                className="w-full h-8 pl-9 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#080D1A] border-2 border-cyan-400/70 focus:border-cyan-300 text-xs text-white font-semibold placeholder:text-cyan-100/80 focus:outline-none transition"
               />
             </form>
             {selecaoLoteIds.length > 0 && (
