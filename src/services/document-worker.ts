@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fsSync from 'node:fs';
 import { promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
@@ -56,6 +57,7 @@ export interface DocumentWorkerTelemetry {
     read_document_chunk: number;
     extract_petition: number;
     analyze_signatures: number;
+    inspect_matricula_acervo: number;
   };
   fileServer: EstatisticasServidorArquivos | null;
   searchEngine: DocumentSearchTelemetry | null;
@@ -80,6 +82,7 @@ const workerRuntime = {
     read_document_chunk: 0,
     extract_petition: 0,
     analyze_signatures: 0,
+    inspect_matricula_acervo: 0,
   },
 };
 
@@ -296,6 +299,51 @@ export function startDocumentWorker(): () => void {
                 pageStart: job.pageStart ?? undefined,
                 pageEnd: job.pageEnd ?? undefined,
               });
+            }
+          } else if (job.type === 'inspect_matricula_acervo') {
+            const matriculaLimpa = String(job.query || '').replace(/\D+/g, '');
+            if (!matriculaLimpa) throw new Error('Número de matrícula inválido.');
+            const raizesAcervo = activeRoots.filter(
+              (r) => r.id === 'livro2' || r.id === 'imagens',
+            );
+            const alvoRaizes = raizesAcervo.length > 0 ? raizesAcervo : activeRoots;
+            const busca = await searchDocuments(alvoRaizes, matriculaLimpa);
+            const candidato =
+              busca.files.find((f) => f.matricula === matriculaLimpa) || busca.files[0] || null;
+
+            if (!candidato) {
+              result = {
+                numeroMatricula: Number(matriculaLimpa),
+                possuiArquivoDigitalizado: false,
+                formatoArquivo: 'AUSENTE',
+                tamanhoBytes: 0,
+                ultimaDigitalizacaoIso: null,
+                sha256: null,
+              };
+            } else {
+              const absPath = await resolveAuthorizedFile(
+                alvoRaizes,
+                candidato.rootId,
+                candidato.relativePath,
+              );
+              const stat = await fs.stat(absPath);
+              const extUpper = path.extname(absPath).replace('.', '').toUpperCase();
+              let sha256: string | null = null;
+              if (stat.size <= 32 * 1024 * 1024) {
+                const fileBuf = await fs.readFile(absPath);
+                sha256 = createHash('sha256').update(fileBuf).digest('hex');
+              }
+              result = {
+                numeroMatricula: Number(matriculaLimpa),
+                possuiArquivoDigitalizado: true,
+                formatoArquivo:
+                  extUpper === 'PDF' || extUpper === 'TIF' || extUpper === 'KEN'
+                    ? extUpper
+                    : 'PDF',
+                tamanhoBytes: stat.size,
+                ultimaDigitalizacaoIso: stat.mtime.toISOString(),
+                sha256,
+              };
             }
           } else {
             result = await searchDocuments(activeRoots, job.query || '');

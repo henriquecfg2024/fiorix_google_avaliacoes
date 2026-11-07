@@ -1,7 +1,16 @@
 import { DatabaseSync } from 'node:sqlite';
 import { logger } from '../utils/logger.js';
 
-export type SourceName = 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
+export type SourceName =
+  | 'bi'
+  | 'produtividade'
+  | 'tarefas'
+  | 'metas'
+  | 'retornos'
+  | 'impressoes'
+  | 'safras'
+  | 'colaboradores_rh'
+  | 'cartorio_virtual_certidoes';
 
 export interface SourceHealthState {
   source: SourceName;
@@ -93,6 +102,7 @@ export class HealthManager {
     impressoes: 300, // 5 minutes
     safras: 7200, // 2 hours
     colaboradores_rh: 86400, // 24 hours
+    cartorio_virtual_certidoes: 3600, // 1 hour
   };
 
   private sourceHealth: Record<SourceName, SourceHealthState> = {
@@ -104,6 +114,7 @@ export class HealthManager {
     impressoes: this.createInitialSourceHealth('impressoes', 300),
     safras: this.createInitialSourceHealth('safras', 7200),
     colaboradores_rh: this.createInitialSourceHealth('colaboradores_rh', 86400),
+    cartorio_virtual_certidoes: this.createInitialSourceHealth('cartorio_virtual_certidoes', 3600),
   };
 
   private sourceMetrics: Record<SourceName, SourceMetrics> = {
@@ -115,6 +126,7 @@ export class HealthManager {
     impressoes: this.createInitialMetrics(),
     safras: this.createInitialMetrics(),
     colaboradores_rh: this.createInitialMetrics(),
+    cartorio_virtual_certidoes: this.createInitialMetrics(),
   };
 
   private durationsHistory: Record<SourceName, number[]> = {
@@ -126,6 +138,7 @@ export class HealthManager {
     impressoes: [],
     safras: [],
     colaboradores_rh: [],
+    cartorio_virtual_certidoes: [],
   };
 
   constructor() {

@@ -1,6 +1,15 @@
 import { createHash } from 'node:crypto';
 
-export type IncrementalSource = 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
+export type IncrementalSource =
+  | 'bi'
+  | 'produtividade'
+  | 'metas'
+  | 'tarefas'
+  | 'retornos'
+  | 'impressoes'
+  | 'safras'
+  | 'colaboradores_rh'
+  | 'cartorio_virtual_certidoes';
 type RecordData = Record<string, unknown>;
 
 const required = (record: RecordData, field: string): string => {
@@ -27,6 +36,8 @@ export function logicalRecordIdentity(source: IncrementalSource, record: RecordD
       return `safras:${required(record, 'mes')}`;
     case 'colaboradores_rh':
       return `colaboradores_rh:${record.Registro ?? record.registro ?? record.CPF ?? record.cpf ?? required(record, 'Nome')}`;
+    case 'cartorio_virtual_certidoes':
+      return `cartorio_virtual_certidoes:${record.numeroPedido ?? record.Pk_NrPedido ?? required(record, 'numeroPedido')}`;
   }
 }
 

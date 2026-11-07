@@ -34,11 +34,19 @@ import { isBusinessHours, getSaoPauloDateTime } from '../utils/businessHours.js'
 import { AGENT_VERSION } from '../config/version.js';
 import { runtimeDirective } from './runtime-directive.js';
 import { selfUpdater } from './self-updater.js';
-
-
+import { extrairLoteCompletoCartorioVirtualReadOnly } from '../db/certidoes-readonly.js';
 
 export interface SourceScheduleConfig {
-  name: 'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
+  name:
+    | 'bi'
+    | 'produtividade'
+    | 'tarefas'
+    | 'metas'
+    | 'retornos'
+    | 'impressoes'
+    | 'safras'
+    | 'colaboradores_rh'
+    | 'cartorio_virtual_certidoes';
   mode: 'incremental' | 'reconciliation' | 'full';
   intervalSec: number;
   offsetSec: number;
@@ -248,6 +256,17 @@ export class Scheduler {
           ? Number(process.env.COLABORADORES_RH_OFFSET_SECONDS)
           : 330,
         enabled: this.isSourceActive('colaboradores_rh'),
+      },
+      {
+        name: 'cartorio_virtual_certidoes',
+        mode: 'full',
+        intervalSec: process.env.CARTORIO_VIRTUAL_SYNC_INTERVAL_SECONDS
+          ? Number(process.env.CARTORIO_VIRTUAL_SYNC_INTERVAL_SECONDS)
+          : 300,
+        offsetSec: process.env.CARTORIO_VIRTUAL_OFFSET_SECONDS !== undefined
+          ? Number(process.env.CARTORIO_VIRTUAL_OFFSET_SECONDS)
+          : 25,
+        enabled: this.isSourceActive('cartorio_virtual_certidoes'),
       },
     ];
   }
@@ -779,6 +798,17 @@ export class Scheduler {
           return;
         }
         records = res.records.map((r: any) => attachRecordKey('colaboradores_rh', r));
+      } else if (config.name === 'cartorio_virtual_certidoes') {
+        const res = await extrairLoteCompletoCartorioVirtualReadOnly({ limiteTop: 300 });
+        durationMs = res.duracaoMs;
+        if (!res.sucesso || res.registros.length === 0) {
+          status.recordsRead = 0;
+          status.lastDurationMs = durationMs;
+          status.lastError = res.sucesso ? null : res.mensagemDiagnostico;
+          healthManager.recordDbQuerySuccess();
+          return;
+        }
+        records = res.registros.map((r: any) => attachRecordKey('cartorio_virtual_certidoes', r));
       }
 
       status.recordsRead = records.length;

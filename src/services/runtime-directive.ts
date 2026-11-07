@@ -21,8 +21,34 @@ export interface ConnectorRemoteConfig {
   sqlHost?: string | null;
   sqlDatabase?: string | null;
   documentRoots?: RemoteDocumentRoot[];
-  syncIntervals?: Partial<Record<'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh', number>>;
-  enabledModules?: Partial<Record<'bi' | 'produtividade' | 'tarefas' | 'metas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh', boolean>>;
+  syncIntervals?: Partial<
+    Record<
+      | 'bi'
+      | 'produtividade'
+      | 'tarefas'
+      | 'metas'
+      | 'retornos'
+      | 'impressoes'
+      | 'safras'
+      | 'colaboradores_rh'
+      | 'cartorio_virtual_certidoes',
+      number
+    >
+  >;
+  enabledModules?: Partial<
+    Record<
+      | 'bi'
+      | 'produtividade'
+      | 'tarefas'
+      | 'metas'
+      | 'retornos'
+      | 'impressoes'
+      | 'safras'
+      | 'colaboradores_rh'
+      | 'cartorio_virtual_certidoes',
+      boolean
+    >
+  >;
   notes?: string | null;
 }
 
