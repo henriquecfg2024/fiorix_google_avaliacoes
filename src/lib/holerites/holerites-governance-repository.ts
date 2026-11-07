@@ -469,13 +469,13 @@ export async function obterPainelGovernancaHolerites(
   const logsVisualizacao =
     holeriteIdsAno.length > 0
       ? await prisma.fiorixAcessoLog.findMany({
-          where: {
-            tenantId,
-            recursoId: { in: holeriteIdsAno },
-            tipo: 'holerite_download_authorized',
-          },
-          select: { recursoId: true },
-        })
+        where: {
+          tenantId,
+          recursoId: { in: holeriteIdsAno },
+          tipo: 'holerite_download_authorized',
+        },
+        select: { recursoId: true },
+      })
       : [];
   const holeritesVisualizadosSet = new Set(
     logsVisualizacao.map((l) => l.recursoId).filter(Boolean) as string[]
@@ -596,8 +596,8 @@ export async function obterPainelGovernancaHolerites(
         mes === 13
           ? `13-1-${ano}`
           : mes === 14
-          ? `13-2-${ano}`
-          : `${String(mes).padStart(2, '0')}-${ano}`;
+            ? `13-2-${ano}`
+            : `${String(mes).padStart(2, '0')}-${ano}`;
 
       faltantes.push({
         chaveUnica: colab.chaveUnica,
@@ -665,21 +665,20 @@ export async function obterPainelGovernancaHolerites(
         id: 'prazo_clt',
         ordem: 3,
         titulo: `Cumprimento do Prazo Legal Trabalhista (Limite: ${prazoClt.dataLimiteBr})`,
-        descricao: `${prazoClt.fundamentoLegal}.${
-          prazoClt.caiNoSabado && prazoClt.sextaBancariaRecomendadaBr
+        descricao: `${prazoClt.fundamentoLegal}.${prazoClt.caiNoSabado && prazoClt.sextaBancariaRecomendadaBr
             ? ` Atenção: o limite cai no sábado; recomenda-se antecipação bancária até sexta-feira (${prazoClt.sextaBancariaRecomendadaBr}).`
             : ''
-        }`,
+          }`,
         concluido: cobertura100 && foraDoPrazoCount === 0,
         automatico: true,
         statusTexto:
           foraDoPrazoCount > 0
             ? `${foraDoPrazoCount} enviado(s) após ${prazoClt.dataLimiteBr}`
             : avaliacao.status === 'PENDENTE_ATRASO'
-            ? `Prazo vencido em ${prazoClt.dataLimiteBr}`
-            : cobertura100
-            ? `100% no prazo CLT`
-            : `Prazo até ${prazoClt.dataLimiteBr}`,
+              ? `Prazo vencido em ${prazoClt.dataLimiteBr}`
+              : cobertura100
+                ? `100% no prazo CLT`
+                : `Prazo até ${prazoClt.dataLimiteBr}`,
         severidade: !tempestividadeOk ? 'alerta' : cobertura100 ? 'ok' : 'pendente',
       },
       {
