@@ -345,16 +345,16 @@ export function VisaoGeralDinamicaClient({
       <div className="rounded-[24px] border border-emerald-500/25 bg-gradient-to-br from-[#0B1224] via-[#090E1B] to-[#0B1020] px-3 py-2.5">
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {/* Card / Seletor DATA DO PEDIDO no lado esquerdo */}
-          <div className="h-9 px-2.5 rounded-xl border-2 border-cyan-400/60 bg-cyan-500/12 inline-flex items-center gap-1.5 shrink-0">
-            <Calendar className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-cyan-200 whitespace-nowrap">
+          <div className="h-9 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
+            <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
+            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-cyan-200 whitespace-nowrap">
               DATA DO PEDIDO:
             </span>
             <select
               aria-label="Filtrar por Data do Pedido"
               value={filtroDataPedido}
               onChange={(e) => setFiltroDataPedido(e.target.value)}
-              className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
             >
               <option value="TODAS" className="bg-[#080D1A] text-white">
                 Todas ({baseParaDatas.length})
@@ -368,9 +368,9 @@ export function VisaoGeralDinamicaClient({
           </div>
 
           {/* Card / Seletor ORIGEM DO PEDIDO (ONR ou PRESENCIAL) */}
-          <div className="h-9 px-2.5 rounded-xl border-2 border-indigo-400/60 bg-indigo-500/12 inline-flex items-center gap-1.5 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200 whitespace-nowrap">
+          <div className="h-9 px-3 rounded-xl border border-indigo-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
+            <Filter className="w-4 h-4 text-indigo-300 shrink-0" />
+            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-indigo-200 whitespace-nowrap">
               ORIGEM:
             </span>
             <select
@@ -379,7 +379,7 @@ export function VisaoGeralDinamicaClient({
               onChange={(e) =>
                 setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
               }
-              className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
             >
               <option value="TODAS" className="bg-[#080D1A] text-white">
                 ONR / PRESENCIAL ({contagensOrigem.todas})

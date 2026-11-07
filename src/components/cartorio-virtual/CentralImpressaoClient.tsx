@@ -663,9 +663,9 @@ export function CentralImpressaoClient({
               className="flex items-center gap-1.5 flex-wrap shrink-0"
             >
               {/* Seletor DATA DO PEDIDO na tela de Verificação do Escrevente */}
-              <div className="h-8 px-2.5 rounded-xl border-2 border-cyan-400/60 bg-cyan-500/12 inline-flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-200 whitespace-nowrap">
+              <div className="h-8 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-cyan-200 whitespace-nowrap">
                   DATA DO PEDIDO:
                 </span>
                 <select
@@ -694,7 +694,7 @@ export function CentralImpressaoClient({
                       setPaginaPdfFoco(1);
                     }
                   }}
-                  className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
+                  className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
                 >
                   <option value="TODAS" className="bg-[#080D1A] text-white">
                     Todas ({baseParaDatas.length})
