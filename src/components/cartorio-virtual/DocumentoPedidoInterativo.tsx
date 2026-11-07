@@ -29,6 +29,11 @@ import {
   type MarcacaoVisualDocumentoPedido,
   type PedidoCertidaoDetalheDTO,
 } from "@/lib/cartorio-virtual/types";
+import {
+  LinkMatriculaLv2,
+  LinkPrenotacaoWebri,
+  renderizarTextoComLinksMatriculaLv2,
+} from "./LinkMatriculaLv2";
 
 export const OPCOES_CORES_GRIFO: Array<{
   codigo: CorGrifoDocumento;
@@ -1121,14 +1126,11 @@ export function DocumentoPedidoInterativo({
                       },
                     ]
                   ).map((item) => {
-                    const ident = item.numeroMatricula
-                      ? `Matrícula nº ${item.numeroMatricula} (${item.livroDescricao || "Livro 2 - Registro Geral"
-                      })`
-                      : item.enderecoPesquisa
-                        ? `Endereço: ${item.enderecoPesquisa}`
-                        : item.transcricaoOuLoteamento
-                          ? `Transcrição/Loteamento: ${item.transcricaoOuLoteamento}`
-                          : `Critério: ${pedido.criterioSolicitacao}`;
+                    const identFallback = item.enderecoPesquisa
+                      ? `Endereço: ${item.enderecoPesquisa}`
+                      : item.transcricaoOuLoteamento
+                        ? `Transcrição/Loteamento: ${item.transcricaoOuLoteamento}`
+                        : `Critério: ${pedido.criterioSolicitacao}`;
                     return (
                       <div
                         key={item.id}
@@ -1138,7 +1140,20 @@ export function DocumentoPedidoInterativo({
                           {String(item.sequenciaItem).padStart(2, "0")}
                         </div>
                         <div className="col-span-5 pr-2">{item.naturezaDescricao}</div>
-                        <div className="col-span-4 font-bold pr-2">{ident}</div>
+                        <div className="col-span-4 font-bold pr-2">
+                          {item.numeroMatricula ? (
+                            <>
+                              Matrícula nº{" "}
+                              <LinkMatriculaLv2
+                                numeroMatricula={item.numeroMatricula}
+                                variante="papel"
+                              />{" "}
+                              ({item.livroDescricao || "Livro 2 - Registro Geral"})
+                            </>
+                          ) : (
+                            renderizarTextoComLinksMatriculaLv2(identFallback, "papel")
+                          )}
+                        </div>
                         <div className="col-span-2 text-[0.92em]">
                           {item.meioEntregaCodigo || "M"} -{" "}
                           {item.dataPrevisaoBr || pedido.prazoPrevistoBr || "—"}
@@ -1152,11 +1167,17 @@ export function DocumentoPedidoInterativo({
                 {prenotacoesContraditorio.length > 0 && (
                   <div className="border-2 border-[#B45309] bg-[#FFFBEB] px-2.5 py-1.5 space-y-0.5 text-[0.92em]">
                     <div className="font-black text-[#78350F] flex flex-wrap items-center justify-between gap-2">
-                      <span>
-                        PRENOTAÇÃO EM CONTRADITÓRIO Nº{" "}
-                        {prenotacoesContraditorio
-                          .map((pr) => pr.numeroPrenotacao)
-                          .join(" / ")}
+                      <span className="inline-flex flex-wrap items-baseline gap-1.5">
+                        <span>PRENOTAÇÃO EM CONTRADITÓRIO Nº</span>
+                        {prenotacoesContraditorio.map((pr, idxH) => (
+                          <React.Fragment key={`h-${pr.numeroPrenotacao}-${idxH}`}>
+                            {idxH > 0 && <span>/</span>}
+                            <LinkPrenotacaoWebri
+                              numeroPrenotacao={pr.numeroPrenotacao}
+                              variante="papel"
+                            />
+                          </React.Fragment>
+                        ))}
                       </span>
                       <span className="text-[0.78em] font-mono text-[#92400E]">
                         Fonte SQL: tblWRIRecepcao • tblWRITitulos •
@@ -1169,10 +1190,24 @@ export function DocumentoPedidoInterativo({
                         key={`${pr.numeroPrenotacao}-${idxP}`}
                         className="text-[#1F2937] font-semibold"
                       >
-                        Prenotação nº <strong>{pr.numeroPrenotacao}</strong> • Tipo:{" "}
+                        Prenotação nº{" "}
+                        <LinkPrenotacaoWebri
+                          numeroPrenotacao={pr.numeroPrenotacao}
+                          variante="papel"
+                        />{" "}
+                        • Tipo:{" "}
                         <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong> •
                         Natureza: <strong>{pr.naturezaTitulo}</strong>
-                        {pr.livroContraditorio ? ` • Livro: ${pr.livroContraditorio}` : ""}
+                        {pr.livroContraditorio ? (
+                          <>
+                            {" "}
+                            • Livro:{" "}
+                            {renderizarTextoComLinksMatriculaLv2(
+                              pr.livroContraditorio,
+                              "papel"
+                            )}
+                          </>
+                        ) : null}
                         {pr.protocoloMagnetico ? ` • Protocolo: ${pr.protocoloMagnetico}` : ""}{" "}
                         • Entrada: {pr.dataApresentacaoBr} ({pr.etapaAtual})
                       </div>
@@ -1195,9 +1230,17 @@ export function DocumentoPedidoInterativo({
 
                 {/* Bloco 4: Observações */}
                 <div className="border border-[#C7CCD6] px-2.5 py-1 text-[0.9em]">
-                  {pedido.observacoesOrigem
-                    ? `Observações: ${pedido.observacoesOrigem}`
-                    : "Observações: Sem ressalvas adicionais no ato do protocolo."}
+                  {pedido.observacoesOrigem ? (
+                    <>
+                      Observações:{" "}
+                      {renderizarTextoComLinksMatriculaLv2(
+                        pedido.observacoesOrigem,
+                        "papel"
+                      )}
+                    </>
+                  ) : (
+                    "Observações: Sem ressalvas adicionais no ato do protocolo."
+                  )}
                 </div>
 
                 {/* Bloco 5: LGPD CNJ 134/2022 */}
@@ -1274,7 +1317,11 @@ export function DocumentoPedidoInterativo({
                   <div>
                     Subtipo Confirmado:{" "}
                     {pedido.subtipoConfirmado || "Aguardando confirmação humana"} &nbsp;|&nbsp;
-                    Critério: {pedido.criterioSolicitacao}
+                    Critério:{" "}
+                    {renderizarTextoComLinksMatriculaLv2(
+                      pedido.criterioSolicitacao,
+                      "papel"
+                    )}
                   </div>
                   <div className="text-[0.85em] text-slate-600 font-mono">
                     Hash Versão dos Dados-Fonte: {pedido.versaoDadosFonteHash.slice(0, 28)}...
@@ -1306,11 +1353,26 @@ export function DocumentoPedidoInterativo({
                             key={i}
                             className={pr.emProcessamentoAtoNaMatricula ? "font-bold" : ""}
                           >
-                            <strong>Prenotação nº {pr.numeroPrenotacao}</strong> (
-                            {pr.dataApresentacaoBr}) • Tipo:{" "}
+                            <strong>
+                              Prenotação nº{" "}
+                              <LinkPrenotacaoWebri
+                                numeroPrenotacao={pr.numeroPrenotacao}
+                                variante="papel"
+                              />
+                            </strong>{" "}
+                            ({pr.dataApresentacaoBr}) • Tipo:{" "}
                             <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong> •
                             Natureza: <strong>{pr.naturezaTitulo}</strong>
-                            {pr.livroContraditorio ? ` • Livro: ${pr.livroContraditorio}` : ""}
+                            {pr.livroContraditorio ? (
+                              <>
+                                {" "}
+                                • Livro:{" "}
+                                {renderizarTextoComLinksMatriculaLv2(
+                                  pr.livroContraditorio,
+                                  "papel"
+                                )}
+                              </>
+                            ) : null}
                             {pr.protocoloMagnetico ? ` • Prot.: ${pr.protocoloMagnetico}` : ""}{" "}
                             [
                             {pr.emProcessamentoAtoNaMatricula
@@ -1326,7 +1388,6 @@ export function DocumentoPedidoInterativo({
 
                 {pedido.ultimaConferencia?.textoCertidaoSugerido && (
                   <div className="bg-[#F7FAF2] border border-[#B3C7AD] px-2.5 py-1.5 text-[0.9em]">
-                    <strong>Texto Padrão Homologado (Regra 6.2):</strong>{" "}
                     {pedido.ultimaConferencia.textoCertidaoSugerido}
                   </div>
                 )}
@@ -1357,11 +1418,6 @@ export function DocumentoPedidoInterativo({
                 </div>
               </div>
             )}
-
-            <div className="text-[0.76em] text-slate-500 pt-1 select-none">
-              Central de Impressões FIORIX • Geometria Oficial SIPLAN 595 × 842 pt • Vedada
-              emissão de certidão ou cobrança.
-            </div>
           </div>
 
           {/* ── CAMADA DE MARCAÇÕES SALVAS (GRIFOS EM CORES E TEXTOS NO DOCUMENTO) ── */}

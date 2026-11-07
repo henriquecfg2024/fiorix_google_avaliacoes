@@ -28,6 +28,11 @@ import {
   type FiltroConferenciaEscrevente,
   type PedidoCertidaoDetalheDTO,
 } from "@/lib/cartorio-virtual/types";
+import {
+  LinkMatriculaLv2,
+  LinkPrenotacaoWebri,
+  renderizarTextoComLinksMatriculaLv2,
+} from "./LinkMatriculaLv2";
 import { CardSelecaoLotePedidos } from "@/components/cartorio-virtual/CardSelecaoLotePedidos";
 
 export type FiltroKpiVisaoGeral =
@@ -469,9 +474,9 @@ export function VisaoGeralDinamicaClient({
                       type="button"
                       onClick={() => alternarOrdenacaoColuna("PEDIDO")}
                       className="inline-flex items-center gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-left"
-                      title="Ordenar por Pedido / Origem"
+                      title="Ordenar por Pedido"
                     >
-                      <span>Pedido / Origem</span>
+                      <span>Pedido</span>
                       {renderIconeOrdenacao("PEDIDO")}
                     </button>
                   </th>
@@ -586,7 +591,7 @@ export function VisaoGeralDinamicaClient({
                     <tr key={p.id} className="hover:bg-white/[0.04] transition-colors">
                       <td className="px-2.5 py-2.5">
                         <div className="font-mono font-bold text-sm text-white">
-                          #{p.numeroPedido}
+                          {p.numeroPedido}
                         </div>
                         <div className="text-[10px] text-slate-400">
                           {p.origem} {p.protocoloExterno ? `• ${p.protocoloExterno}` : ""}
@@ -640,11 +645,30 @@ export function VisaoGeralDinamicaClient({
                           {p.especieSolicitada}
                         </div>
                         <div className="text-[11px] text-cyan-300/90 font-mono">
-                          {p.itens.length > 1
-                            ? `${p.itens.length} itens (Mat. ${p.itens[0]?.numeroMatricula}...)`
-                            : p.itens[0]?.numeroMatricula
-                            ? `Matrícula nº ${p.itens[0].numeroMatricula}`
-                            : p.criterioSolicitacao}
+                          {p.itens.length > 1 ? (
+                            <span>
+                              {p.itens.length} itens (Mat.{" "}
+                              {p.itens[0]?.numeroMatricula ? (
+                                <LinkMatriculaLv2
+                                  numeroMatricula={p.itens[0].numeroMatricula}
+                                  variante="dark"
+                                />
+                              ) : (
+                                "—"
+                              )}
+                              ...)
+                            </span>
+                          ) : p.itens[0]?.numeroMatricula ? (
+                            <span>
+                              Matrícula nº{" "}
+                              <LinkMatriculaLv2
+                                numeroMatricula={p.itens[0].numeroMatricula}
+                                variante="dark"
+                              />
+                            </span>
+                          ) : (
+                            renderizarTextoComLinksMatriculaLv2(p.criterioSolicitacao, "dark")
+                          )}
                         </div>
                       </td>
                       <td className="px-2.5 py-2.5">
@@ -660,11 +684,20 @@ export function VisaoGeralDinamicaClient({
                                     : "border-amber-400/50 bg-amber-500/12 text-amber-200"
                                 }`}
                               >
-                                <div className="font-mono font-extrabold text-[10px] flex items-center gap-1 flex-wrap">
-                                  <span>Prenotação nº {pr.numeroPrenotacao}</span>
+                                <div className="font-mono font-extrabold text-[11px] flex items-center gap-1.5 flex-wrap">
+                                  <span className="inline-flex items-baseline gap-1">
+                                    <span>Prenotação nº</span>
+                                    <LinkPrenotacaoWebri
+                                      numeroPrenotacao={pr.numeroPrenotacao}
+                                      variante="dark"
+                                    />
+                                  </span>
                                   {pr.livroContraditorio && (
-                                    <span className="px-1 py-0.2 rounded bg-black/30 text-[9px] text-cyan-300">
-                                      {pr.livroContraditorio}
+                                    <span className="px-1 py-0.2 rounded bg-black/30 text-[10px] text-cyan-300">
+                                      {renderizarTextoComLinksMatriculaLv2(
+                                        pr.livroContraditorio,
+                                        "dark"
+                                      )}
                                     </span>
                                   )}
                                 </div>

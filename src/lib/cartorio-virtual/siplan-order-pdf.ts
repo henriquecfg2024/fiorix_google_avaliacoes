@@ -1141,7 +1141,7 @@ async function adicionarPaginasPedidoAoDoc(params: {
   // Texto padrão sugerido de certificação de prenotação (se houver)
   if (pedido.ultimaConferencia?.textoCertidaoSugerido) {
     const linhasSug = quebrarTextoEmLinhas(
-      `Texto Padrão Homologado (Regra 6.2): ${pedido.ultimaConferencia.textoCertidaoSugerido}`,
+      pedido.ultimaConferencia.textoCertidaoSugerido,
       fontRegular,
       8,
       larguraUtil - 16
@@ -1257,19 +1257,6 @@ async function adicionarPaginasPedidoAoDoc(params: {
       color: rgb(0.82, 0.84, 0.88),
     });
   }
-
-  pageOperacional.drawText(
-    sanitizarTextoWinAnsi(
-      "Piloto Cartório Virtual FIORIX • Apoio operacional interno sem emissão ou assinatura automática."
-    ),
-    {
-      x: margemX,
-      y: 26,
-      size: 7.5,
-      font: fontRegular,
-      color: rgb(0.38, 0.4, 0.45),
-    }
-  );
 
   const paginasDestePedido = pdfDoc.getPages().slice(indicePrimeiraPaginaNoDoc);
 

@@ -29,6 +29,11 @@ import {
   gerarLoteImpressaoAction,
   salvarMarcacoesDocumentoPedidoAction,
 } from "@/app/actions/cartorio-virtual";
+import {
+  LinkMatriculaLv2,
+  LinkPrenotacaoWebri,
+  renderizarTextoComLinksMatriculaLv2,
+} from "./LinkMatriculaLv2";
 import type {
   AnotacaoTarefaDTO,
   LoteImpressaoResumoDTO,
@@ -857,19 +862,19 @@ export function CentralImpressaoClient({
             )}
           </div>
 
-          {/* ── BARRA LATERAL DIREITA COMPACTA (~196px): CONFERIDO / DEVOLVIDO / ESTORNAR (alinhada à altura da folha do Pedido) ── */}
+          {/* ── BARRA LATERAL DIREITA ELEGANTE (256px): CONFERIDO / DEVOLVIDO / CONTRADITÓRIO ── */}
           {barraLateralDireitaAberta && (
-            <aside className="w-full lg:w-[196px] lg:mt-[90px] shrink-0 flex flex-col min-h-0">
-              <div className="rounded-2xl border border-emerald-500/30 bg-[#080D1A] p-2.5 space-y-2.5 shadow-xl">
-                <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-white/10">
-                  <div className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-300 flex items-center gap-1 truncate">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    Conferência
+            <aside className="w-full lg:w-[256px] lg:mt-[90px] shrink-0 flex flex-col min-h-0">
+              <div className="rounded-2xl border border-emerald-500/35 bg-[#080D1A] p-3 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
+                  <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5 whitespace-nowrap">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>CONFERÊNCIA</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setBarraLateralDireitaAberta(false)}
-                    className="px-1.5 py-0.5 rounded-md border border-white/12 bg-white/[0.04] hover:bg-white/[0.1] text-[10px] font-semibold text-slate-300 inline-flex items-center gap-1 cursor-pointer shrink-0"
+                    className="px-2 py-1 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/[0.1] text-[10px] font-bold text-slate-200 inline-flex items-center gap-1 cursor-pointer shrink-0"
                     title="Ocultar barra lateral direita"
                   >
                     <PanelRightClose className="w-3 h-3 text-cyan-400" />
@@ -881,62 +886,97 @@ export function CentralImpressaoClient({
                   <>
                     {/* Status Visual Atual da Conferência / Devolução */}
                     {pedidoEmFoco.conferidoPeloEscrevente ? (
-                      <div className="rounded-xl border border-emerald-400/60 bg-emerald-950/35 p-2.5 text-center space-y-1">
-                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-black tracking-wide">
+                      <div className="rounded-xl border border-emerald-400/60 bg-emerald-950/35 p-3 text-center space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-black tracking-wide">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                           CONFERIDO
                         </div>
                         {pedidoEmFoco.conferidoPorNome && (
-                          <p className="text-[9px] text-emerald-300/75 font-mono truncate">
+                          <p className="text-[10px] text-emerald-300/85 font-mono truncate">
                             {pedidoEmFoco.conferidoPorNome} • {pedidoEmFoco.conferidoEmBr}
                           </p>
                         )}
                       </div>
                     ) : pedidoEmFoco.devolvidoPeloEscrevente ? (
-                      <div className="rounded-xl border border-rose-400/60 bg-rose-950/35 p-2.5 text-center space-y-1">
-                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-400/50 text-rose-200 text-xs font-black tracking-wide">
+                      <div className="rounded-xl border border-rose-400/60 bg-rose-950/35 p-3 text-center space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-400/50 text-rose-200 text-xs font-black tracking-wide">
                           <RotateCcw className="w-3.5 h-3.5 text-rose-300" />
                           DEVOLVIDO
                         </div>
                         {pedidoEmFoco.devolvidoPorNome && (
-                          <p className="text-[9px] text-rose-300/75 font-mono truncate">
+                          <p className="text-[10px] text-rose-300/85 font-mono truncate">
                             {pedidoEmFoco.devolvidoPorNome} • {pedidoEmFoco.devolvidoEmBr}
                           </p>
                         )}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-2.5 text-center space-y-1">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-amber-200 text-[11px] font-extrabold">
-                          <Clock3 className="w-3 h-3 text-amber-300" />
+                      <div className="rounded-xl border border-amber-500/35 bg-amber-950/25 p-3 text-center space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-black tracking-wide">
+                          <Clock3 className="w-3.5 h-3.5 text-amber-300" />
                           NÃO CONFERIDO
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-tight">
-                          Pedido #{pedidoEmFoco.numeroPedido} pendente
+                        <p className="text-[11px] font-semibold text-slate-300 leading-tight">
+                          Pedido {pedidoEmFoco.numeroPedido} pendente
                         </p>
+                        {pedidoEmFoco.itens[0]?.numeroMatricula && (
+                          <div className="pt-0.5 flex items-center justify-center">
+                            <LinkMatriculaLv2
+                              numeroMatricula={pedidoEmFoco.itens[0].numeroMatricula}
+                              prefixo="Matrícula nº "
+                              variante="badge"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 
                     {/* Prenotações em Contraditório vinculadas ao Pedido */}
                     {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).length > 0 && (
-                      <div className="rounded-xl border border-amber-400/50 bg-amber-950/25 p-2 space-y-1">
-                        <div className="text-[9px] font-black uppercase tracking-wider text-amber-300">
-                          Prenotação em Contraditório
+                      <div className="rounded-xl border border-amber-400/55 bg-amber-950/30 p-2.5 space-y-2">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center justify-between">
+                          <span>Prenotação em Contraditório</span>
                         </div>
                         {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).map((pr, idxPr) => (
                           <div
                             key={`${pr.numeroPrenotacao}-${idxPr}`}
-                            className="rounded-lg bg-black/30 border border-white/10 p-1.5 text-[10px] space-y-0.5"
+                            className="rounded-xl bg-[#070B14]/90 border border-amber-400/30 p-2.5 space-y-1.5 shadow-inner"
                           >
-                            <div className="font-mono font-black text-amber-200">
-                              Nº {pr.numeroPrenotacao}
+                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                              <span className="inline-flex items-baseline gap-1 font-mono font-black text-amber-200 text-xs">
+                                <span>Nº</span>
+                                <LinkPrenotacaoWebri
+                                  numeroPrenotacao={pr.numeroPrenotacao}
+                                  variante="dark"
+                                  className="text-sm"
+                                />
+                              </span>
+                              {pr.livroContraditorio && (
+                                <span className="px-2 py-0.5 rounded-md bg-cyan-950/90 border border-cyan-400/45 text-[10px] font-mono font-extrabold text-cyan-200">
+                                  {renderizarTextoComLinksMatriculaLv2(
+                                    pr.livroContraditorio,
+                                    "dark"
+                                  )}
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[9px] text-slate-300 leading-tight">
-                              {pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"} • {pr.naturezaTitulo}
+
+                            <div className="text-[11px] font-extrabold text-white leading-snug">
+                              {pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}
                             </div>
-                            {pr.livroContraditorio && (
-                              <div className="text-[9px] font-mono text-cyan-300">
-                                Livro: {pr.livroContraditorio}
-                                {pr.protocoloMagnetico ? ` • ${pr.protocoloMagnetico}` : ""}
+
+                            {pr.naturezaTitulo &&
+                              pr.naturezaTitulo !== pr.tipoPrenotacaoDescricao && (
+                                <div className="text-[10px] font-mono text-slate-300 break-all leading-tight">
+                                  {pr.naturezaTitulo}
+                                </div>
+                              )}
+
+                            {pr.protocoloMagnetico && (
+                              <div className="pt-1 border-t border-white/10 flex items-center justify-between gap-1 text-[10px] font-mono">
+                                <span className="text-slate-400">Protocolo:</span>
+                                <span className="font-bold text-cyan-300">
+                                  {pr.protocoloMagnetico}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -1005,17 +1045,6 @@ export function CentralImpressaoClient({
               </div>
             </aside>
           )}
-        </div>
-
-        {/* Rodapé técnico de 1 linha */}
-        <div className="pt-1.5 mt-1.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400 shrink-0">
-          <span className="inline-flex items-center gap-1.5 text-emerald-300/90 font-semibold">
-            <FileCheck2 className="w-3 h-3 text-emerald-400" />
-            SIPLAN 595 × 842 pt • Grifos Coloridos & Texto no Documento • Duplex Frente e Verso
-          </span>
-          <span>
-            Central exclusiva de leitura, marcação, conferência e impressão de Pedidos • Vedada emissão de certidão ou cobrança no FIORIX
-          </span>
         </div>
       </section>
 

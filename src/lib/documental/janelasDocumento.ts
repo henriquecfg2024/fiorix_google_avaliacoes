@@ -247,3 +247,137 @@ export function abrirDocumentoEmJanela(item: DocumentoJanela, monitor?: MonitorD
   }
   return true;
 }
+
+
+export const CANAL_VISUALIZADOR_LV2 = 'fiorix-visualizador-lv2';
+
+export interface MensagemVisualizadorLv2 {
+  tipo: 'abrir_matricula_lv2';
+  matricula: string;
+  sessao?: string;
+}
+
+let janelaLv2AbertaRef: Window | null = null;
+
+/** Constrói a URL oficial do Visualizador FIORIX apontando para a matrícula no Livro 2 (LV2). */
+export function construirUrlVisualizadorMatriculaLv2(numeroMatricula: string | number): string {
+  const limpo = String(numeroMatricula).replace(/\D+/g, '');
+  return `/gestao-documental/visualizador?matricula=${encodeURIComponent(limpo)}&sessao=LV2&janela=1`;
+}
+
+/**
+ * Abre a matrícula do Livro 2 (LV2) diretamente no Visualizador do FIORIX em janela separada / outro monitor,
+ * permitindo ao escrevente conferir o Pedido lado a lado com a imagem .KEN da matrícula.
+ */
+export function abrirMatriculaLv2EmOutroMonitor(numeroMatricula: string | number): boolean {
+  const limpo = String(numeroMatricula).replace(/\D+/g, '');
+  if (!limpo || typeof window === 'undefined') return false;
+
+  const url = construirUrlVisualizadorMatriculaLv2(limpo);
+
+  // Se a janela destacada do Visualizador já estiver aberta em outro monitor, envia o comando instantâneo via BroadcastChannel
+  if (janelaLv2AbertaRef && !janelaLv2AbertaRef.closed) {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel(CANAL_VISUALIZADOR_LV2);
+        bc.postMessage({
+          tipo: 'abrir_matricula_lv2',
+          matricula: limpo,
+          sessao: 'LV2',
+        } satisfies MensagemVisualizadorLv2);
+        setTimeout(() => bc.close(), 500);
+      } else {
+        janelaLv2AbertaRef.location.href = url;
+      }
+      janelaLv2AbertaRef.focus();
+      return true;
+    } catch {
+      /* caso a referência tenha sido perdida, reabre abaixo */
+    }
+  }
+
+  const pref = lerPreferenciasJanelas();
+  let left: number;
+  let top: number;
+  let width: number;
+  let height: number;
+
+  if (pref.lembrarUltimoMonitor && pref.ultimoMonitor) {
+    ({ left, top, width, height } = pref.ultimoMonitor);
+  } else {
+    const availW = window.screen?.availWidth || window.innerWidth || 1440;
+    const availH = window.screen?.availHeight || window.innerHeight || 900;
+    width = Math.max(960, Math.min(1600, Math.round(availW * 0.85)));
+    height = Math.max(720, Math.round(availH * 0.92));
+    left = Math.max(0, Math.round((window.screenX || 0) + 40));
+    top = Math.max(0, Math.round((window.screenY || 0) + 20));
+  }
+
+  const recursos = `popup=yes,left=${left},top=${top},width=${width},height=${height},resizable=yes,scrollbars=yes`;
+  const janela = window.open(url, 'fiorix-visualizador-lv2', recursos);
+
+  if (!janela) {
+    const fallback = window.open(url, '_blank', 'noopener');
+    return !!fallback;
+  }
+
+  janelaLv2AbertaRef = janela;
+
+  // Também emite no BroadcastChannel caso a janela nomeada já estivesse aberta de outra aba
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel(CANAL_VISUALIZADOR_LV2);
+      bc.postMessage({
+        tipo: 'abrir_matricula_lv2',
+        matricula: limpo,
+        sessao: 'LV2',
+      } satisfies MensagemVisualizadorLv2);
+      setTimeout(() => bc.close(), 800);
+    }
+  } catch {
+    /* ignora */
+  }
+
+  try {
+    janela.focus();
+  } catch {
+    /* ignora */
+  }
+
+  // Se o navegador suportar detecção de múltiplos monitores e ainda não houver monitor salvo, posiciona no monitor secundário
+  if (!pref.ultimoMonitor && suportaSelecaoDeMonitor()) {
+    void listarMonitores().then((monitores) => {
+      if (monitores.length < 2 || janela.closed) return;
+      const telaAtualX = window.screenX || 0;
+      const outroMonitor =
+        monitores.find((m) => telaAtualX < m.left || telaAtualX >= m.left + m.width) ||
+        monitores.find((m) => !m.principal) ||
+        monitores[1];
+      if (!outroMonitor) return;
+      try {
+        janela.moveTo(outroMonitor.left, outroMonitor.top);
+        janela.resizeTo(outroMonitor.width, outroMonitor.height);
+        memorizarMonitorAtual({
+          left: outroMonitor.left,
+          top: outroMonitor.top,
+          width: outroMonitor.width,
+          height: outroMonitor.height,
+          rotulo: outroMonitor.rotulo,
+        });
+      } catch {
+        /* ignora restrições do navegador */
+      }
+    });
+  }
+
+  return true;
+}
+
+/** Constrói a URL oficial do sistema WEBRI (Siplan Control) para abrir os Contraditórios da Prenotação. */
+export function construirUrlWebriContraditorio(
+  numeroPrenotacao: string | number,
+  seqTitulo = 1
+): string {
+  const limpo = String(numeroPrenotacao).replace(/\D+/g, '');
+  return `http://srvsql/Siplan%20Informatica%20Ltda/Siplan%20RI/frmSelecionarContraditorios.aspx?FormPai=frmRecepcao.aspx&PK_FlagRecepcao=1&PK_Recepcao=${encodeURIComponent(limpo)}&PK_SeqTitulo=${encodeURIComponent(String(seqTitulo))}`;
+}

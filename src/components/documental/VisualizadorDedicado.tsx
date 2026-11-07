@@ -47,6 +47,8 @@ import {
   lerPreferenciasJanelas,
   memorizarMonitorAtual,
   desfazerMemorizacaoMonitor,
+  CANAL_VISUALIZADOR_LV2,
+  type MensagemVisualizadorLv2,
   type PreferenciasJanelas,
 } from '@/lib/documental/janelasDocumento';
 import {
@@ -133,7 +135,15 @@ function formatarTamanho(bytes?: number): string {
 
 
 
-export function VisualizadorDedicado() {
+export function VisualizadorDedicado({
+  initialMatricula = "",
+  initialSessao = "",
+  modoJanelaSeparada = false,
+}: {
+  initialMatricula?: string;
+  initialSessao?: string;
+  modoJanelaSeparada?: boolean;
+} = {}) {
   // Conectores e Servidor
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
   const [connectorId, setConnectorId] = useState('');
@@ -157,6 +167,7 @@ export function VisualizadorDedicado() {
   const [progressoPdf, setProgressoPdf] = useState<{ recebido: number; total: number } | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const abortDocRef = useRef<AbortController | null>(null);
+  const matriculaPendenteLv2Ref = useRef<string>('');
 
   // Controles de navegação e exibição Siplan Image
   const [currentPage, setCurrentPage] = useState(1);
@@ -511,6 +522,132 @@ export function VisualizadorDedicado() {
       }
     }
   }
+
+  // Abre diretamente uma matrícula do Livro 2 (LV2) vinda de hiperlink do Cartório Virtual
+  async function carregarMatriculaLv2Direto(rawMatricula: string) {
+    const digitos = String(rawMatricula || '').replace(/\D+/g, '');
+    const num = parseInt(digitos, 10);
+    if (!num || num <= 0) return;
+    const pad8 = String(num).padStart(8, '0');
+    const bloco = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
+    const fileName = `${pad8}.KEN`;
+    const relativePath = `${bloco}\\${fileName}`;
+    const alvo: MatchItem = { name: fileName, relativePath, rootId: 'livro2' };
+
+    setPastaAtual({ rootId: 'livro2', relativePath: bloco });
+    setFiltroPasta(String(num));
+    setResultadosBusca(null);
+    setErroPasta('');
+    setExploradorAberto(false);
+    setSidebarTab('arquivos');
+    setArquivoAtivo(alvo);
+    setIsLoadingDoc(true);
+    if (typeof document !== 'undefined') {
+      document.title = `${fileName} (Matrícula ${num}) — Visualizador LV2 FIORIX`;
+    }
+
+    if (!connectorId) {
+      matriculaPendenteLv2Ref.current = String(num);
+      try {
+        const res = await fetch(`/api/documental/ken?path=${encodeURIComponent(relativePath)}&sessao=LV2&doc=${encodeURIComponent(fileName)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.pages?.length > 0) {
+            matriculaPendenteLv2Ref.current = '';
+            setDocumentoAtivo({
+              fileName: data.fileName,
+              extension: '.KEN',
+              html: '',
+              text: data.text,
+              size: data.size,
+              pageCount: data.pages.length,
+              pages: data.pages,
+            });
+            setErrorMessage('');
+            setIsLoadingDoc(false);
+            return;
+          }
+        }
+      } catch {
+        /* aguarda connectorId */
+      }
+      return;
+    }
+
+    matriculaPendenteLv2Ref.current = '';
+
+    const chaveCache = `livro2:${normalizarCaminho(bloco)}`;
+    const cacheBloco = listagemCacheRef.current.get(chaveCache);
+    if (cacheBloco) {
+      setListagem(cacheBloco);
+    } else {
+      executarJob<DirectoryListing>(
+        { type: 'list_directory', rootId: 'livro2', relativePath: bloco },
+        'Não foi possível listar o bloco no Livro 2.',
+        30000,
+      )
+        .then((resLista) => {
+          listagemCacheRef.current.set(chaveCache, resLista);
+          setListagem(resLista);
+        })
+        .catch(() => {});
+    }
+
+    await abrirDocumento(alvo);
+  }
+
+  useEffect(() => {
+    if (initialMatricula) {
+      void carregarMatriculaLv2Direto(initialMatricula);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMatricula]);
+
+  useEffect(() => {
+    if (connectorId && matriculaPendenteLv2Ref.current) {
+      const mat = matriculaPendenteLv2Ref.current;
+      matriculaPendenteLv2Ref.current = '';
+      void carregarMatriculaLv2Direto(mat);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectorId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+    const bc = new BroadcastChannel(CANAL_VISUALIZADOR_LV2);
+    bc.onmessage = (ev: MessageEvent<MensagemVisualizadorLv2>) => {
+      if (ev.data?.tipo === 'abrir_matricula_lv2' && ev.data.matricula) {
+        void carregarMatriculaLv2Direto(ev.data.matricula);
+        try {
+          window.focus();
+        } catch {
+          /* ignora */
+        }
+      }
+    };
+    return () => bc.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectorId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || (!modoJanelaSeparada && !window.opener)) return;
+    const salvarPosicaoJanela = () => {
+      if (window.outerWidth >= 500 && window.outerHeight >= 400) {
+        memorizarMonitorAtual({
+          left: window.screenX,
+          top: window.screenY,
+          width: window.outerWidth,
+          height: window.outerHeight,
+        });
+      }
+    };
+    window.addEventListener('resize', salvarPosicaoJanela);
+    window.addEventListener('beforeunload', salvarPosicaoJanela);
+    return () => {
+      window.removeEventListener('resize', salvarPosicaoJanela);
+      window.removeEventListener('beforeunload', salvarPosicaoJanela);
+    };
+  }, [modoJanelaSeparada]);
 
   // Permite abrir qualquer arquivo local (Upload / PC / Rede)
   function handleAbrirArquivoLocal(e: React.ChangeEvent<HTMLInputElement>) {

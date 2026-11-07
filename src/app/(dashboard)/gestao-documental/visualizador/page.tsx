@@ -16,9 +16,15 @@ export const metadata: Metadata = {
 export default async function VisualizadorPage({
   searchParams,
 }: {
-  searchParams: { id?: string };
+  searchParams:
+    | Promise<{ id?: string; matricula?: string; sessao?: string; janela?: string }>
+    | { id?: string; matricula?: string; sessao?: string; janela?: string };
 }) {
-  const janelaId = searchParams?.id?.trim();
+  const sp = searchParams ? await Promise.resolve(searchParams) : {};
+  const janelaId = sp?.id?.trim();
+  const initialMatricula = sp?.matricula?.trim() || '';
+  const initialSessao = sp?.sessao?.trim() || '';
+  const modoJanelaSeparada = sp?.janela === '1';
 
   try {
     await requireDocumentAccess(janelaId ? undefined : '/gestao-documental/visualizador');
@@ -65,7 +71,11 @@ export default async function VisualizadorPage({
           </Link>
         </div>
 
-        <VisualizadorDedicado />
+        <VisualizadorDedicado
+          initialMatricula={initialMatricula}
+          initialSessao={initialSessao}
+          modoJanelaSeparada={modoJanelaSeparada}
+        />
       </div>
     </div>
   );
