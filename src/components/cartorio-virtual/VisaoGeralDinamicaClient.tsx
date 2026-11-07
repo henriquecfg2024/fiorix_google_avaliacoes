@@ -551,14 +551,6 @@ export function VisaoGeralDinamicaClient({
             <Printer className="w-3.5 h-3.5 text-cyan-300" />
             {mostrarCardLote ? "Ocultar IMPRIMIR" : "IMPRIMIR"}
           </button>
-
-          <Link
-            href={linkFilaNaCentral}
-            className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold inline-flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 whitespace-nowrap shrink-0"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            Verificação do Escrevente ({pedidosFiltrados.length})
-          </Link>
         </div>
       </div>
 
