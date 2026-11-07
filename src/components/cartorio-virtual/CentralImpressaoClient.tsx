@@ -41,9 +41,9 @@ import type {
 } from "@/lib/cartorio-virtual/repository";
 import {
   correspondeFiltroTipoCertidao,
+  extrairEspeciesDistintasPedidos,
   interpretarSelecaoPedidosLote,
   obterPrenotacoesContraditorioDoPedido,
-  OPCOES_FILTRO_TIPO_CERTIDAO,
   type EstadoOperacionalPedido,
   type FiltroConferenciaEscrevente,
   type FiltroTipoCertidaoValor,
@@ -197,15 +197,82 @@ export function CentralImpressaoClient({
     return obj;
   }, [anotacoesPorPedidoMap]);
 
+  // Base filtrada por Origem, Conferência e Tipo para harmonizar as Datas disponíveis
+  const baseParaDatas = useMemo(() => {
+    return pedidosState.filter((p) => {
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
+  }, [pedidosState, filtroOrigem, filtroTipoCertidao, filtroConferencia]);
+
   const datasPedidoDisponiveis = useMemo(() => {
     const mapa = new Map<string, number>();
-    for (const p of pedidosState) {
+    for (const p of baseParaDatas) {
       if (p.dataPedidoBr) {
         mapa.set(p.dataPedidoBr, (mapa.get(p.dataPedidoBr) || 0) + 1);
       }
     }
     return Array.from(mapa.entries()).map(([dataBr, qtd]) => ({ dataBr, qtd }));
-  }, [pedidosState]);
+  }, [baseParaDatas]);
+
+  // Base filtrada por Data, Origem e Conferência para harmonizar dinamicamente os TIPOS DE CERTIDÕES
+  const baseParaTiposCertidao = useMemo(() => {
+    return pedidosState.filter((p) => {
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
+  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroConferencia]);
+
+  const opcoesTipoCertidaoDinamicas = useMemo(() => {
+    const especiesDistintas = extrairEspeciesDistintasPedidos(baseParaTiposCertidao).sort(
+      (a, b) => b.quantidade - a.quantidade || a.especie.localeCompare(b.especie, "pt-BR")
+    );
+    return [
+      {
+        valor: "TODOS",
+        rotulo: `TIPOS DE CERTIDÕES (${baseParaTiposCertidao.length})`,
+      },
+      ...especiesDistintas.map((item) => ({
+        valor: `ESPECIE:${item.especie}`,
+        rotulo: `${item.especie} (${item.quantidade})`,
+      })),
+    ];
+  }, [baseParaTiposCertidao]);
+
+  // Garante que, ao trocar ONR/PRESENCIAL, Data ou Conferência, um Tipo ou Data inexistente no novo conjunto volte para TODOS/TODAS
+  useEffect(() => {
+    if (
+      filtroTipoCertidao !== "TODOS" &&
+      !opcoesTipoCertidaoDinamicas.some((op) => op.valor === filtroTipoCertidao)
+    ) {
+      setFiltroTipoCertidao("TODOS");
+    }
+  }, [filtroTipoCertidao, opcoesTipoCertidaoDinamicas]);
+
+  useEffect(() => {
+    if (
+      filtroDataPedido !== "TODAS" &&
+      !datasPedidoDisponiveis.some((d) => d.dataBr === filtroDataPedido)
+    ) {
+      setFiltroDataPedido("TODAS");
+    }
+  }, [filtroDataPedido, datasPedidoDisponiveis]);
 
   const contagensConferencia = useMemo(() => {
     const base = pedidosState.filter((p) => {
@@ -630,7 +697,7 @@ export function CentralImpressaoClient({
                   className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
                 >
                   <option value="TODAS" className="bg-[#080D1A] text-white">
-                    Todas ({pedidosState.length})
+                    Todas ({baseParaDatas.length})
                   </option>
                   {datasPedidoDisponiveis.map((d) => (
                     <option key={d.dataBr} value={d.dataBr} className="bg-[#080D1A] text-white">
@@ -759,7 +826,7 @@ export function CentralImpressaoClient({
                 }}
                 className="h-8 px-3 rounded-xl bg-[#080D1A] border border-cyan-400/45 text-xs sm:text-sm font-extrabold text-white cursor-pointer"
               >
-                {OPCOES_FILTRO_TIPO_CERTIDAO.map((op) => (
+                {opcoesTipoCertidaoDinamicas.map((op) => (
                   <option key={op.valor} value={op.valor}>
                     {op.rotulo}
                   </option>

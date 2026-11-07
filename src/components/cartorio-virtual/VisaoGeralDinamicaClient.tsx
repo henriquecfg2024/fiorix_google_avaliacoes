@@ -134,15 +134,30 @@ export function VisaoGeralDinamicaClient({
     [pedidos]
   );
 
+  const baseParaDatas = useMemo(() => {
+    return pedidos.filter((p) => {
+      if (!correspondeAoKpi(p, kpiAtivo)) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
+  }, [pedidos, kpiAtivo, filtroOrigem, filtroConferencia]);
+
   const datasPedidoDisponiveis = useMemo(() => {
     const mapa = new Map<string, number>();
-    for (const p of pedidos) {
+    for (const p of baseParaDatas) {
       if (p.dataPedidoBr) {
         mapa.set(p.dataPedidoBr, (mapa.get(p.dataPedidoBr) || 0) + 1);
       }
     }
     return Array.from(mapa.entries()).map(([dataBr, qtd]) => ({ dataBr, qtd }));
-  }, [pedidos]);
+  }, [baseParaDatas]);
 
   const contagensOrigem = useMemo(() => {
     const base = pedidos.filter(
@@ -342,7 +357,7 @@ export function VisaoGeralDinamicaClient({
               className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
             >
               <option value="TODAS" className="bg-[#080D1A] text-white">
-                Todas ({pedidos.length})
+                Todas ({baseParaDatas.length})
               </option>
               {datasPedidoDisponiveis.map((d) => (
                 <option key={d.dataBr} value={d.dataBr} className="bg-[#080D1A] text-white">
