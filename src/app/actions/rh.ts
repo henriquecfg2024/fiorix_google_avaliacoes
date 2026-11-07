@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
+import { obterColaboradoresAtivosUnificadosServentia } from '@/lib/holerites/holerites-governance-repository';
 
 export interface AvisoEmitidoItem {
   id: string;
@@ -32,17 +33,19 @@ export interface IndicadoresRH {
 
 /**
  * Consulta estatísticas reais e consolidadas de RH no banco de dados para o tenant autenticado.
- * Nunca retorna dados mockados ou fictícios.
+ * Usa a base ativa unificada GESTOR + FIORIX para manter 100% de paridade entre Painel Geral, Férias e Holerites.
  */
 export async function getIndicadoresRH(): Promise<IndicadoresRH> {
   const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
   const tenantId = user.tenantId;
 
   try {
-    // 1. Total de colaboradores ativos no tenant
-    const totalColaboradores = await prisma.user.count({
-      where: { tenantId },
-    });
+    // 1. Total real de colaboradores ativos na Serventia (GESTOR + FIORIX, descontados desligados/excluídos)
+    const colaboradoresUnificados = await obterColaboradoresAtivosUnificadosServentia(tenantId).catch(() => []);
+    const totalColaboradores =
+      colaboradoresUnificados.length > 0
+        ? colaboradoresUnificados.length
+        : await prisma.user.count({ where: { tenantId } });
 
     // 2. Holerites reais
     const totalProcessados = await prisma.fiorixHolerite.count({
@@ -89,7 +92,6 @@ export async function getIndicadoresRH(): Promise<IndicadoresRH> {
       status: a.status === 'CIENTE' ? 'Ciente' : a.status === 'VISUALIZADO' ? 'Visualizado' : 'Entregue',
     }));
 
-    // Se não há programações cadastradas, pendentes = 0 (conforme regra do prompt)
     const pendentesProgramacao = totalProgramadas > 0
       ? Math.max(0, totalColaboradores - totalProgramadas)
       : 0;

@@ -24,22 +24,23 @@ interface Holerite {
   dataUpload: string;
 }
 
-/** Meses em português */
-const MESES_PT = [
-  "",
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
+/** Meses e parcelas do 13º salário em português */
+const MESES_PT: Record<number, string> = {
+  1: "Janeiro",
+  2: "Fevereiro",
+  3: "Março",
+  4: "Abril",
+  5: "Maio",
+  6: "Junho",
+  7: "Julho",
+  8: "Agosto",
+  9: "Setembro",
+  10: "Outubro",
+  11: "Novembro",
+  12: "Dezembro",
+  13: "13º Salário (1ª Parcela)",
+  14: "13º Salário (2ª Parcela)",
+};
 
 /**
  * Gera uma lista de anos relevantes para o seletor (atual + 4 anteriores).
@@ -149,7 +150,7 @@ export default function HoleritesPage() {
                 {loading
                   ? "..."
                   : ultimoHolerite
-                  ? `${MESES_PT[ultimoHolerite.mes]}/${ultimoHolerite.ano}`
+                  ? `${MESES_PT[ultimoHolerite.mes] || `Mês ${ultimoHolerite.mes}`}/${ultimoHolerite.ano}`
                   : "Nenhuma"}
               </div>
               <p className="text-xs text-emerald-400/90 font-medium">
@@ -240,61 +241,69 @@ export default function HoleritesPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {holeritesFiltrados.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4.5 rounded-2xl bg-[#080D1A] border border-white/10 hover:border-white/20 hover:bg-white/[0.04] transition-all group shadow-xs"
-                  >
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5" />
+                {holeritesFiltrados.map((h) => {
+                  const labelComp =
+                    h.mes === 13
+                      ? `13º (1ª)/${h.ano}`
+                      : h.mes === 14
+                      ? `13º (2ª)/${h.ano}`
+                      : `${String(h.mes).padStart(2, "0")}/${h.ano}`;
+                  return (
+                    <div
+                      key={h.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4.5 rounded-2xl bg-[#080D1A] border border-white/10 hover:border-white/20 hover:bg-white/[0.04] transition-all group shadow-xs"
+                    >
+                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
+                            Competência: {MESES_PT[h.mes] || `Mês ${h.mes}`} de {h.ano}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Disponibilizado em{" "}
+                            {new Date(h.dataUpload).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors truncate">
-                          Competência: {MESES_PT[h.mes]} de {h.ano}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Disponibilizado em{" "}
-                          {new Date(h.dataUpload).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </p>
+
+                      <span className="hidden sm:inline-flex text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 rounded-full shrink-0">
+                        Disponível
+                      </span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setSelectedHolerite({
+                              mes: labelComp,
+                              id: h.id,
+                            })
+                          }
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs h-9 px-4 gap-1.5 rounded-xl shadow-sm transition-all cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Visualizar</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(h)}
+                          className="border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs h-9 px-3 gap-1.5 rounded-xl font-medium transition-all cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span className="sm:hidden">PDF</span>
+                          <span className="hidden sm:inline">Baixar PDF</span>
+                        </Button>
                       </div>
                     </div>
-
-                    <span className="hidden sm:inline-flex text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 rounded-full shrink-0">
-                      Disponível
-                    </span>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          setSelectedHolerite({
-                            mes: `${String(h.mes).padStart(2, "0")}/${h.ano}`,
-                            id: h.id,
-                          })
-                        }
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs h-9 px-4 gap-1.5 rounded-xl shadow-sm transition-all cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Visualizar</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(h)}
-                        className="border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs h-9 px-3 gap-1.5 rounded-xl font-medium transition-all cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span className="sm:hidden">PDF</span>
-                        <span className="hidden sm:inline">Baixar PDF</span>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

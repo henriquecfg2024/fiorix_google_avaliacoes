@@ -7,15 +7,20 @@ import { generateHash } from "@/lib/security/hash";
 import { logAuditEvent } from "@/lib/audit/log";
 import { recordAuditLog } from "@/lib/audit";
 import { getRequestIp } from "@/lib/security/requestIp";
-import {
-  ensureFeriasTablesExist,
-  nomesColaboradorCompativeis,
-} from "@/lib/ferias/ferias-repository";
+import { nomesColaboradorCompativeis } from "@/lib/ferias/ferias-repository";
 import {
   formatarCpfCompleto,
   limparCpfReal,
   mascararCpfLgpd,
 } from "@/lib/ferias/idade-calculator";
+import {
+  avaliarTempestividadeUpload,
+  calcularPrazoLegalClt,
+  extrairMetadadosNomeArquivoHolerite,
+  formatarCompetenciaCurta,
+  obterTipoFolhaPorMes,
+} from "@/lib/holerites/clt-prazo-calculator";
+import { ensureHoleritesGovernanceTablesExist } from "@/lib/holerites/holerites-governance-repository";
 
 const BUCKET_NAME = "fiorix-holerites";
 
@@ -63,12 +68,17 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
     const replaceExisting = formData.get("replace") === "true";
+    const justificativaAtrasoRaw = formData.get("justificativaAtraso");
+    const justificativaAtraso =
+      typeof justificativaAtrasoRaw === "string" && justificativaAtrasoRaw.trim().length > 0
+        ? justificativaAtrasoRaw.trim().slice(0, 500)
+        : null;
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 });
     }
 
-    await Promise.all([ensureBucketExists(), ensureFeriasTablesExist()]);
+    await Promise.all([ensureBucketExists(), ensureHoleritesGovernanceTablesExist()]);
 
     // Carrega lista de colaboradores excluídos para nunca vincular holerite a ex-colaborador removido
     const exclUsers = new Set<string>();
@@ -91,6 +101,11 @@ export async function POST(req: NextRequest) {
       cpfInformado?: string;
       colaborador?: string | null;
       competencia?: string;
+      mes?: number;
+      ano?: number;
+      prazoLegalClt?: string;
+      noPrazoClt?: boolean;
+      diasAtrasoClt?: number;
       status: string;
       motivo?: string;
       id?: string;
@@ -114,18 +129,19 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Aceita CPF_MM-AAAA.pdf (11 dígitos exatos ou XXX.XXX.XXX-XX_MM-AAAA.pdf)
-      const match = file.name.match(/^([\d.\-]{11,14})_(\d{2})-(\d{4})\.pdf$/i);
-      if (!match) {
+      // Aceita CPF_MM-AAAA.pdf, CPF_13-1-AAAA.pdf ou CPF_13-2-AAAA.pdf
+      const meta = extrairMetadadosNomeArquivoHolerite(file.name);
+      if (!meta) {
         resultados.push({
           arquivo: file.name,
           status: "NOME FORA DO PADRÃO",
-          motivo: "Use estritamente o formato CPF_MM-AAAA.pdf (ex: 12345678901_10-2026.pdf).",
+          motivo:
+            "Use estritamente CPF_MM-AAAA.pdf (ex: 12345678901_10-2026.pdf) ou CPF_13-1-AAAA.pdf / CPF_13-2-AAAA.pdf para 13º salário.",
         });
         continue;
       }
 
-      const [, rawCpfToken, mesStr, anoStr] = match;
+      const { rawCpfToken, mes, ano } = meta;
       const digitsOnly = rawCpfToken.replace(/\D/g, "");
       if (digitsOnly.length !== 11) {
         resultados.push({
@@ -148,38 +164,38 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const mes = parseInt(mesStr, 10);
-      const ano = parseInt(anoStr, 10);
-      const competencia = `${String(mes).padStart(2, "0")}/${ano}`;
+      const competencia = formatarCompetenciaCurta(mes, ano);
 
-      if (mes < 1 || mes > 12 || ano < 2000 || ano > 2100) {
+      if (mes < 1 || mes > 14 || ano < 2000 || ano > 2100) {
         resultados.push({
           arquivo: file.name,
           cpfInformado: mascararCpfLgpd(cpfValido) || undefined,
           status: "COMPETÊNCIA INVÁLIDA",
-          motivo: `Mês/ano inválido (${competencia}).`,
+          motivo: `Mês/ano inválido (${competencia}). Use 01..12 ou 13-1 / 13-2 para 13º salário.`,
         });
         continue;
       }
 
       // ── VALIDAÇÃO ESTRITA 1-PARA-1 DOS 11 DÍGITOS DO CPF ──────────────────
-      // 1) Busca exata dos 11 dígitos em User do tenant
-      let usuarioAlvo: { id: string; name: string | null } | null = null;
-      try {
-        usuarioAlvo = await prisma.user.findUnique({
-          where: { tenantId_cpf: { tenantId, cpf: cpfValido } },
-          select: { id: true, name: true },
-        });
-      } catch {
-        usuarioAlvo = await prisma.user.findFirst({
-          where: { tenantId, cpf: cpfValido },
-          select: { id: true, name: true },
-        });
-      }
+      let usuarioAlvo: {
+        id: string;
+        name: string | null;
+        departamento?: string | null;
+        cargo?: string | null;
+      } | null = null;
+      let gestorSnapshot: {
+        registroGestor: number | null;
+        setor: string | null;
+        cargo: string | null;
+      } = {
+        registroGestor: null,
+        setor: null,
+        cargo: null,
+      };
 
-      // 2) Se ainda não vinculado em User.cpf, busca exata dos 11 dígitos no cadastro oficial GESTOR / Manual FIORIX
-      if (!usuarioAlvo) {
-        const gestorMatches = await prisma.$queryRawUnsafe<any[]>(
+      // Consulta dados no GESTOR pelo CPF real de 11 dígitos para enriquecer snapshot e checar status ativo
+      const gestorMatches = await prisma
+        .$queryRawUnsafe<any[]>(
           `SELECT id, registro_gestor, usuario_id, nome, cargo, setor, ativo, excluido_fiorix
            FROM public.fiorix_rh_colaboradores_gestor
            WHERE tenant_id = $1 AND cpf = $2
@@ -187,80 +203,106 @@ export async function POST(req: NextRequest) {
            LIMIT 1`,
           tenantId,
           cpfValido
-        );
+        )
+        .catch(() => [] as any[]);
 
-        const gr = gestorMatches?.[0];
-        if (gr) {
-          if (gr.ativo === false || gr.excluido_fiorix === true) {
-            resultados.push({
-              arquivo: file.name,
-              cpfInformado: formatarCpfCompleto(cpfValido) || cpfValido,
-              colaborador: String(gr.nome),
-              competencia,
-              status: "COLABORADOR INATIVO / DESLIGADO",
-              motivo: `O CPF pertence a "${gr.nome}", que consta como inativo/desligado no cadastro da Serventia.`,
-            });
-            continue;
-          }
-
-          // Verifica se já existe User para esse colaborador (por usuario_id ou nome compatível)
-          const tenantUsers = await prisma.user.findMany({
-            where: { tenantId },
-            select: { id: true, name: true, cpf: true },
+      const gr = gestorMatches?.[0];
+      if (gr) {
+        if (gr.ativo === false || gr.excluido_fiorix === true) {
+          resultados.push({
+            arquivo: file.name,
+            cpfInformado: formatarCpfCompleto(cpfValido) || cpfValido,
+            colaborador: String(gr.nome),
+            competencia,
+            mes,
+            ano,
+            status: "COLABORADOR INATIVO / DESLIGADO",
+            motivo: `O CPF pertence a "${gr.nome}", que consta como inativo/desligado no cadastro da Serventia.`,
           });
+          continue;
+        }
+        gestorSnapshot = {
+          registroGestor: gr.registro_gestor != null ? Number(gr.registro_gestor) : null,
+          setor: gr.setor ? String(gr.setor) : null,
+          cargo: gr.cargo ? String(gr.cargo) : null,
+        };
+      }
 
-          const existingUser =
-            (gr.usuario_id && !String(gr.usuario_id).startsWith("gestor_") && !String(gr.usuario_id).startsWith("manual_")
-              ? tenantUsers.find((u) => u.id === String(gr.usuario_id))
-              : undefined) ||
-            tenantUsers.find(
-              (u) => u.name && nomesColaboradorCompativeis(u.name, String(gr.nome))
-            );
+      // 1) Busca exata dos 11 dígitos em User do tenant
+      try {
+        usuarioAlvo = await prisma.user.findUnique({
+          where: { tenantId_cpf: { tenantId, cpf: cpfValido } },
+          select: { id: true, name: true, departamento: true, cargo: true },
+        });
+      } catch {
+        usuarioAlvo = await prisma.user.findFirst({
+          where: { tenantId, cpf: cpfValido },
+          select: { id: true, name: true, departamento: true, cargo: true },
+        });
+      }
 
-          if (existingUser) {
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: { cpf: cpfValido },
-            });
-            await prisma.$executeRawUnsafe(
-              `UPDATE public.fiorix_rh_colaboradores_gestor SET usuario_id = $2 WHERE id = $1`,
-              gr.id,
-              existingUser.id
-            );
-            usuarioAlvo = { id: existingUser.id, name: existingUser.name || String(gr.nome) };
-          } else {
-            // Provisiona vínculo nominal interno em User com os 11 dígitos reais do GESTOR
-            const slug = gr.registro_gestor
-              ? `reg${gr.registro_gestor}`
-              : cpfValido.slice(-6);
-            const internalEmail = `colab.${slug}.${tenantId.slice(-6)}@7ri.fiorix.internal`.toLowerCase();
-            const createdUser = await prisma.user.upsert({
-              where: { email: internalEmail },
-              update: {
-                name: String(gr.nome),
-                cpf: cpfValido,
-                departamento: gr.setor ? String(gr.setor) : undefined,
-                cargo: gr.cargo ? String(gr.cargo) : undefined,
-              },
-              create: {
-                email: internalEmail,
-                name: String(gr.nome),
-                passwordHash: `!locked_gestor_${randomBytes(16).toString("hex")}`,
-                role: "USER",
-                tenantId,
-                cpf: cpfValido,
-                departamento: gr.setor ? String(gr.setor) : "Atendimento",
-                cargo: gr.cargo ? String(gr.cargo) : "Colaborador",
-              },
-              select: { id: true, name: true },
-            });
-            await prisma.$executeRawUnsafe(
-              `UPDATE public.fiorix_rh_colaboradores_gestor SET usuario_id = $2 WHERE id = $1`,
-              gr.id,
-              createdUser.id
-            );
-            usuarioAlvo = createdUser;
-          }
+      // 2) Se ainda não vinculado em User.cpf, provisiona/vincula a partir do cadastro GESTOR
+      if (!usuarioAlvo && gr) {
+        const tenantUsers = await prisma.user.findMany({
+          where: { tenantId },
+          select: { id: true, name: true, cpf: true, departamento: true, cargo: true },
+        });
+
+        const existingUser =
+          (gr.usuario_id &&
+          !String(gr.usuario_id).startsWith("gestor_") &&
+          !String(gr.usuario_id).startsWith("manual_")
+            ? tenantUsers.find((u) => u.id === String(gr.usuario_id))
+            : undefined) ||
+          tenantUsers.find(
+            (u) => u.name && nomesColaboradorCompativeis(u.name, String(gr.nome))
+          );
+
+        if (existingUser) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { cpf: cpfValido },
+          });
+          await prisma.$executeRawUnsafe(
+            `UPDATE public.fiorix_rh_colaboradores_gestor SET usuario_id = $2 WHERE id = $1`,
+            gr.id,
+            existingUser.id
+          );
+          usuarioAlvo = {
+            id: existingUser.id,
+            name: existingUser.name || String(gr.nome),
+            departamento: existingUser.departamento,
+            cargo: existingUser.cargo,
+          };
+        } else {
+          const slug = gr.registro_gestor ? `reg${gr.registro_gestor}` : cpfValido.slice(-6);
+          const internalEmail = `colab.${slug}.${tenantId.slice(-6)}@7ri.fiorix.internal`.toLowerCase();
+          const createdUser = await prisma.user.upsert({
+            where: { email: internalEmail },
+            update: {
+              name: String(gr.nome),
+              cpf: cpfValido,
+              departamento: gr.setor ? String(gr.setor) : undefined,
+              cargo: gr.cargo ? String(gr.cargo) : undefined,
+            },
+            create: {
+              email: internalEmail,
+              name: String(gr.nome),
+              passwordHash: `!locked_gestor_${randomBytes(16).toString("hex")}`,
+              role: "USER",
+              tenantId,
+              cpf: cpfValido,
+              departamento: gr.setor ? String(gr.setor) : "Atendimento",
+              cargo: gr.cargo ? String(gr.cargo) : "Colaborador",
+            },
+            select: { id: true, name: true, departamento: true, cargo: true },
+          });
+          await prisma.$executeRawUnsafe(
+            `UPDATE public.fiorix_rh_colaboradores_gestor SET usuario_id = $2 WHERE id = $1`,
+            gr.id,
+            createdUser.id
+          );
+          usuarioAlvo = createdUser;
         }
       }
 
@@ -274,6 +316,8 @@ export async function POST(req: NextRequest) {
           arquivo: file.name,
           cpfInformado: formatarCpfCompleto(cpfValido) || cpfValido,
           competencia,
+          mes,
+          ano,
           status: "CPF NÃO CADASTRADO NA SERVENTIA",
           motivo: `O CPF ${formatarCpfCompleto(cpfValido)} não pertence a nenhum colaborador ativo cadastrado no GESTOR / FIORIX desta Serventia.`,
         });
@@ -300,6 +344,8 @@ export async function POST(req: NextRequest) {
           cpfInformado: mascararCpfLgpd(cpfValido) || undefined,
           colaborador: usuarioAlvo.name,
           competencia,
+          mes,
+          ano,
           status: "DUPLICADO",
           motivo: `Já existe holerite armazenado para ${usuarioAlvo.name} na competência ${competencia}.`,
         });
@@ -321,11 +367,21 @@ export async function POST(req: NextRequest) {
           arquivo: file.name,
           colaborador: usuarioAlvo.name,
           competencia,
+          mes,
+          ano,
           status: "ERRO NO STORAGE",
           motivo: "Falha ao gravar arquivo criptografado no storage privado.",
         });
         continue;
       }
+
+      const dataUploadAgora = new Date();
+      const prazoClt = calcularPrazoLegalClt(ano, mes);
+      const tempestividade = avaliarTempestividadeUpload(
+        dataUploadAgora,
+        prazoClt.dataLimiteIso
+      );
+      const tipoFolha = obterTipoFolhaPorMes(mes);
 
       const saved = existente
         ? await prisma.fiorixHolerite.update({
@@ -336,7 +392,7 @@ export async function POST(req: NextRequest) {
               arquivoHash,
               tamanhoBytes: file.size,
               uploadedBy: uploaderId,
-              dataUpload: new Date(),
+              dataUpload: dataUploadAgora,
             },
           })
         : await prisma.fiorixHolerite.create({
@@ -350,15 +406,53 @@ export async function POST(req: NextRequest) {
               arquivoHash,
               tamanhoBytes: file.size,
               uploadedBy: uploaderId,
+              dataUpload: dataUploadAgora,
             },
           });
+
+      // Persiste colunas de governança trabalhista CLT + snapshot nominal imutável
+      const cpfMascSnap = mascararCpfLgpd(cpfValido);
+      const setorSnap = gestorSnapshot.setor || usuarioAlvo.departamento || null;
+      const cargoSnap = gestorSnapshot.cargo || usuarioAlvo.cargo || null;
+      await prisma
+        .$executeRawUnsafe(
+          `UPDATE public.fiorix_holerites
+           SET tipo_folha = $2,
+               prazo_legal_clt = $3::date,
+               entregue_no_prazo_clt = $4,
+               justificativa_atraso = COALESCE($5, justificativa_atraso),
+               colaborador_nome_snapshot = $6,
+               registro_gestor_snapshot = $7,
+               cpf_mascarado_snapshot = $8,
+               setor_snapshot = $9,
+               cargo_snapshot = $10
+           WHERE id = $1`,
+          saved.id,
+          tipoFolha,
+          prazoClt.dataLimiteIso,
+          tempestividade.noPrazo,
+          justificativaAtraso,
+          usuarioAlvo.name || "Colaborador",
+          gestorSnapshot.registroGestor,
+          cpfMascSnap,
+          setorSnap,
+          cargoSnap
+        )
+        .catch((err) =>
+          console.warn("[Holerite Upload] Aviso ao gravar snapshot CLT:", err)
+        );
 
       resultados.push({
         id: saved.id,
         arquivo: file.name,
-        cpfInformado: mascararCpfLgpd(cpfValido) || undefined,
+        cpfInformado: cpfMascSnap || undefined,
         colaborador: usuarioAlvo.name,
         competencia,
+        mes,
+        ano,
+        prazoLegalClt: prazoClt.dataLimiteBr,
+        noPrazoClt: tempestividade.noPrazo,
+        diasAtrasoClt: tempestividade.diasAtraso,
         status: existente ? "SUBSTITUÍDO" : "MATCH",
       });
     }
@@ -367,6 +461,8 @@ export async function POST(req: NextRequest) {
       (r) => r.status === "MATCH" || r.status === "SUBSTITUÍDO"
     );
     const rejeitados = resultados.length - aprovados.length;
+    const aprovadosNoPrazo = aprovados.filter((r) => r.noPrazoClt !== false).length;
+    const aprovadosForaDoPrazo = aprovados.length - aprovadosNoPrazo;
 
     await logAuditEvent({
       tenantId,
@@ -375,9 +471,11 @@ export async function POST(req: NextRequest) {
       ip: getRequestIp(req),
       userAgent: req.headers.get("user-agent") || "unknown",
       metadata: {
-        acao: "upload_lote_1para1",
+        acao: "upload_lote_1para1_clt",
         processados: files.length,
         aprovados: aprovados.length,
+        aprovadosNoPrazo,
+        aprovadosForaDoPrazo,
         rejeitados,
         resultados,
       },
@@ -386,15 +484,20 @@ export async function POST(req: NextRequest) {
     await recordAuditLog({
       modulo: "HOLERITES",
       acao: "INCLUSAO",
-      registroDescricao: `Processamento em lote de holerites: ${aprovados.length} aceito(s), ${rejeitados} bloqueado(s) na validação 1-para-1 de CPF`,
+      registroDescricao: `Processamento em lote de holerites: ${aprovados.length} aceito(s) (${aprovadosNoPrazo} no prazo CLT), ${rejeitados} bloqueado(s)`,
       detalhes: {
         totalArquivos: files.length,
         aprovados: aprovados.length,
+        aprovadosNoPrazo,
+        aprovadosForaDoPrazo,
         rejeitados,
+        justificativaAtraso,
         resultados: resultados.map((r) => ({
           arquivo: r.arquivo,
           colaborador: r.colaborador ?? null,
           competencia: r.competencia ?? null,
+          prazoLegalClt: r.prazoLegalClt ?? null,
+          noPrazoClt: r.noPrazoClt ?? null,
           status: r.status,
           motivo: r.motivo ?? null,
         })),
@@ -404,6 +507,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       aprovados: aprovados.length,
+      aprovadosNoPrazo,
+      aprovadosForaDoPrazo,
       rejeitados,
       resultados,
     });

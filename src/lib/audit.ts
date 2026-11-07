@@ -32,7 +32,10 @@ export type AuditAcao =
   | 'TOKEN_PAREAMENTO'
   | 'ATUALIZACAO_REMOTA'
   | 'FAILOVER_AUTOMATICO'
-  | 'CONSULTA_LGPD';
+  | 'CONSULTA_LGPD'
+  | 'HOMOLOGACAO'
+  | 'AUDITORIA_INTEGRIDADE'
+  | 'EMISSAO_DOSSIE';
 
 export interface AuditLogParams {
   modulo: AuditModulo;

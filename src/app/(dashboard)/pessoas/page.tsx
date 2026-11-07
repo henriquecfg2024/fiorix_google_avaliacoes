@@ -87,7 +87,8 @@ export default async function PessoasDashboard() {
         const ult = holeritesDb[0];
         const mesNomes = [
           "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+          "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+          "13º Salário (1ª Parc.)", "13º Salário (2ª Parc.)"
         ];
         const nomeMes = mesNomes[ult.mes - 1] || `${ult.mes}`;
         ultimoHolerite = {
@@ -135,7 +136,7 @@ export default async function PessoasDashboard() {
 
         {/* Painel de Gestão & Lançamentos de RH (Condicional: ADMIN / MASTER / RH) */}
         {isAdmin && (
-          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400 shrink-0">
                 <ShieldCheck className="w-5 h-5" />

@@ -21,13 +21,6 @@ function sanitizeFilename(input: string): string {
   return input.replace(/[^a-zA-Z0-9\-_.]/g, "_");
 }
 
-/**
- * Valida o formato de competência (MM/YYYY).
- */
-function isValidCompetencia(value: string): boolean {
-  return /^\d{2}\/\d{4}$/.test(value);
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -66,6 +59,7 @@ export async function GET(
         : { id, tenantId, usuarioId },
       select: {
         id: true,
+        usuarioId: true,
         mes: true,
         ano: true,
         storagePath: true,
@@ -99,8 +93,19 @@ export async function GET(
       },
     });
 
+    // Registra carimbo de primeira ciência/abertura pelo titular do holerite (Art. 464 CLT)
+    if (holerite.usuarioId === usuarioId) {
+      prisma
+        .$executeRawUnsafe(
+          `UPDATE public.fiorix_holerites
+           SET primeira_visualizacao_em = COALESCE(primeira_visualizacao_em, NOW())
+           WHERE id = $1`,
+          holerite.id
+        )
+        .catch(() => {});
+    }
+
     // ── Gera URL assinada temporária via Supabase Storage ───────────
-    // A URL expira em 5 minutos (300 segundos) e não expõe o caminho interno.
     const { data: signedData, error: signError } = await supabaseAdmin.storage
       .from(BUCKET_NAME)
       .createSignedUrl(holerite.storagePath, 300, {
@@ -116,7 +121,12 @@ export async function GET(
     }
 
     // ── Resposta ────────────────────────────────────────────────────
-    const competencia = `${String(holerite.mes).padStart(2, "0")}-${holerite.ano}`;
+    const competencia =
+      holerite.mes === 13
+        ? `13-1-${holerite.ano}`
+        : holerite.mes === 14
+        ? `13-2-${holerite.ano}`
+        : `${String(holerite.mes).padStart(2, "0")}-${holerite.ano}`;
     const safeFilename = sanitizeFilename(`Holerite-Competencia-${competencia}.pdf`);
 
     const accept = req.headers.get("accept") || "";
@@ -129,10 +139,8 @@ export async function GET(
       });
     }
 
-    // Redirect para URL assinada (o browser inicia o download)
     return NextResponse.redirect(signedData.signedUrl);
   } catch (error: any) {
-    // Auditoria estrita falhou — bloquear a operação
     if (error?.message?.includes("Auditoria obrigatória falhou")) {
       console.error("[Holerite Download] Auditoria falhou — operação bloqueada:", error);
       return NextResponse.json(
