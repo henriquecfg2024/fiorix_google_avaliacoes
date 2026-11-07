@@ -111,6 +111,11 @@ export function FiorixSidebar() {
       return true;
     }
 
+    // Evita que rotas-raiz de módulo ativem simultaneamente seus submenus
+    if (href === "/cartorio-virtual" || href === "/gestao-documental") {
+      return pathname === href;
+    }
+
     if (href !== "/dashboard" && pathname?.startsWith(href)) return true;
     return false;
   };

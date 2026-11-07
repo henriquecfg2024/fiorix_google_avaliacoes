@@ -11,7 +11,8 @@ export type AuditModulo =
   | 'HOLERITES'
   | 'BI_IMPORTACOES'
   | 'PERMISSOES_MENU'
-  | 'OPERACOES_CONNECTOR';
+  | 'OPERACOES_CONNECTOR'
+  | 'CARTORIO_VIRTUAL';
 
 export type AuditAcao =
   | 'INCLUSAO'

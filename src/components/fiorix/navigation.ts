@@ -11,7 +11,6 @@ import {
   Upload,
   Settings2,
   Activity,
-  UserCheck,
   BookOpen,
   Crown,
   Building2,
@@ -25,9 +24,39 @@ import {
   ShieldCheck,
   Eye,
   Calendar,
+  Landmark,
+  LayoutDashboard,
+  History,
 } from "lucide-react";
 
 export const navigationGroups = {
+  cartorioVirtual: {
+    label: "Cartório Virtual",
+    icon: Landmark,
+    items: [
+      {
+        id: "cv_visao_geral",
+        label: "Pedidos",
+        href: "/cartorio-virtual",
+        icon: LayoutDashboard,
+        description: "Resumo operacional dinâmico, filtro CONFERIDO/NÃO CONFERIDO e listagem de pedidos",
+      },
+      {
+        id: "cv_impressao",
+        label: "Verificação do Escrevente",
+        href: "/cartorio-virtual/impressao",
+        icon: Printer,
+        description: "Leitura em tela cheia 595x842 pt, grifos, textos, conferência e impressão",
+      },
+      {
+        id: "cv_historico",
+        label: "Andamentos",
+        href: "/cartorio-virtual/historico",
+        icon: History,
+        description: "Trilha auditável de andamentos, ações humanas, lotes e anotações",
+      },
+    ],
+  },
   documental: {
     label: "GESTÃO DOCUMENTAL",
     icon: FileText,

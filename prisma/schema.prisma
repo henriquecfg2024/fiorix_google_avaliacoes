@@ -114,6 +114,19 @@ model Tenant {
   // INTEGRAÇÕES EXTERNAS
   integrationConfigs   IntegrationConfig[]
   integrationAuditLogs IntegrationAuditLog[]
+
+  // CARTÓRIO VIRTUAL (PILOTO 7º RI-SP • MULTI-SERVENTIA)
+  cvAutorizacoes       FiorixCvAutorizacao[]
+  cvRegrasVersoes      FiorixCvRegraVersao[]
+  cvPedidos            FiorixCvPedido[]
+  cvPedidoItens        FiorixCvPedidoItem[]
+  cvConferencias       FiorixCvConferencia[]
+  cvPendencias         FiorixCvPendencia[]
+  cvAnotacoes          FiorixCvAnotacao[]
+  cvRevisoesDecisoes   FiorixCvRevisaoDecisao[]
+  cvLotesImpressao     FiorixCvLoteImpressao[]
+  cvFilaJobs           FiorixCvFilaJob[]
+  cvHistoricoOperacoes FiorixCvHistoricoOperacao[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -1147,4 +1160,370 @@ model IntegrationAuditLog {
   @@index([integrationId])
   @@index([createdAt])
   @@map("fiorix_integration_audit_logs")
+}
+
+
+// ── CARTÓRIO VIRTUAL (PILOTO DE CERTIDÕES • ISOLAMENTO POR SERVENTIA) ────
+
+model FiorixCvAutorizacao {
+  id                     String   @id @default(cuid())
+  tenantId               String   @map("tenant_id")
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId              String   @map("usuario_id")
+  usuarioNome            String   @map("usuario_nome")
+  papelRegistral         String   @map("papel_registral") // OFICIAL, OFICIAL_SUBSTITUTO, ESCREVENTE_AUTORIZADO, CONFERENTE, AUXILIAR
+  ativo                  Boolean  @default(true)
+  podeConsultar          Boolean  @default(true) @map("pode_consultar")
+  podeConferir           Boolean  @default(false) @map("pode_conferir")
+  podeAnotar             Boolean  @default(true) @map("pode_anotar")
+  podeSolicitarAtualiz   Boolean  @default(false) @map("pode_solicitar_atualizacao")
+  podeAprovarRevisao     Boolean  @default(false) @map("pode_aprovar_revisao")
+  podeImprimir           Boolean  @default(false) @map("pode_imprimir")
+  podeSolicitarAssin     Boolean  @default(false) @map("pode_solicitar_assinatura")
+  podeConfigurarRegras   Boolean  @default(false) @map("pode_configurar_regras")
+  podeAuditarHistorico   Boolean  @default(false) @map("pode_auditar_historico")
+  observacoes            String?  @db.Text
+  atribuidoPorId         String?  @map("atribuido_por_id")
+  atribuidoPorNome       String?  @map("atribuido_por_nome")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, usuarioId])
+  @@index([tenantId])
+  @@map("fiorix_cv_autorizacoes")
+}
+
+model FiorixCvRegraVersao {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  codigoRegra     String    @map("codigo_regra") // ex: PILOTO_INTEIRO_TEOR_MATRICULA, TEXTO_PRENOTACAO_TRAMITACAO
+  versao          Int       @default(1)
+  titulo          String
+  especieAlvo     String    @default("INTEIRO_TEOR_MATRICULA") @map("especie_alvo")
+  ativa           Boolean   @default(true)
+  validadaJurid   Boolean   @default(false) @map("validada_juridicamente")
+  textoModelo     String?   @map("texto_modelo") @db.Text
+  parametrosJson  Json      @map("parametros_json")
+  aprovadoPorId   String?   @map("aprovado_por_id")
+  aprovadoPorNome String?   @map("aprovado_por_nome")
+  aprovadoEm      DateTime? @map("aprovado_em")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@unique([tenantId, codigoRegra, versao])
+  @@index([tenantId, codigoRegra, ativa])
+  @@map("fiorix_cv_regras_versoes")
+}
+
+model FiorixCvPedido {
+  id                        String    @id @default(cuid())
+  tenantId                  String    @map("tenant_id")
+  tenant                    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  numeroPedido              String    @map("numero_pedido")
+  protocoloExterno          String?   @map("protocolo_externo")
+  origem                    String    // ONR | BALCAO
+  canalRecebimento          String    @map("canal_recebimento") // EREG_ONR | RECEPCAO_WEBRI
+  especieSolicitada         String    @map("especie_solicitada")
+  subtipoConfirmado         String?   @map("subtipo_confirmado") // INTEIRO_TEOR_MATRICULA | NAO_CONFIRMADO | OUTRA_ESPECIE
+  criterioSolicitacao       String    @map("criterio_solicitacao") // MATRICULA | ENDERECO | TRANSCRICAO | LOTEAMENTO | CPF_CNPJ
+  estadoOperacional         String    @map("estado_operacional")
+  prioridade                String    @default("NORMAL") // NORMAL | URGENTE | CRITICA
+  dataPedido                DateTime  @map("data_pedido")
+  prazoPrevisto             DateTime? @map("prazo_previsto")
+  versaoDadosFonteHash      String    @map("versao_dados_fonte_hash")
+  dadosInvalidadosMudanca   Boolean   @default(false) @map("dados_invalidados_mudanca")
+  pausadoPorAtoProcessam    Boolean   @default(false) @map("pausado_por_ato_processamento")
+  prenotacaoVinculada       String?   @map("prenotacao_vinculada")
+  requerenteJson            Json      @map("requerente_json")
+  apresentanteJson          Json?     @map("apresentante_json")
+  destinatarioNotaJson      Json?     @map("destinatario_nota_json")
+  valoresJson               Json?     @map("valores_json")
+  observacoesOrigem         String?   @map("observacoes_origem") @db.Text
+  pdfOriginalWebriPath      String?   @map("pdf_original_webri_path")
+  modoComparacaoAtivo       Boolean   @default(true) @map("modo_comparacao_ativo")
+  resultadoPropostoFiorix   String?   @map("resultado_proposto_fiorix")
+  procedimentoRealEquipe    String?   @map("procedimento_real_equipe")
+  statusComparacao          String    @default("AGUARDANDO_EQUIPE") @map("status_comparacao") // CONVERGENTE | DIVERGENTE | AGUARDANDO_EQUIPE
+  divergenciaClassificacao  String?   @map("divergencia_classificacao")
+  ambienteSintetico         Boolean   @default(false) @map("ambiente_sintetico")
+  ultimoSincronismoEm       DateTime  @default(now()) @map("ultimo_sincronismo_em")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  itens        FiorixCvPedidoItem[]
+  conferencias FiorixCvConferencia[]
+  pendencias   FiorixCvPendencia[]
+  anotacoes    FiorixCvAnotacao[]
+  revisoes     FiorixCvRevisaoDecisao[]
+  historico    FiorixCvHistoricoOperacao[]
+
+  @@unique([tenantId, numeroPedido])
+  @@index([tenantId, estadoOperacional])
+  @@index([tenantId, dataPedido(sort: Desc)])
+  @@index([tenantId, origem])
+  @@map("fiorix_cv_pedidos")
+}
+
+model FiorixCvPedidoItem {
+  id                          String    @id @default(cuid())
+  tenantId                    String    @map("tenant_id")
+  tenant                      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId                    String    @map("pedido_id")
+  pedido                      FiorixCvPedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  sequenciaItem               Int       @map("sequencia_item")
+  naturezaCodigo              Int?      @map("natureza_codigo")
+  naturezaDescricao           String    @map("natureza_descricao")
+  livroCodigo                 Int?      @map("livro_codigo")
+  livroDescricao              String?   @map("livro_descricao")
+  numeroMatricula             Int?      @map("numero_matricula")
+  transcricaoOuLoteamento     String?   @map("transcricao_ou_loteamento")
+  enderecoPesquisa            String?   @map("endereco_pesquisa")
+  tipoDocumentoCodigo         Int?      @map("tipo_documento_codigo")
+  documentoPesquisadoMascarado String?  @map("documento_pesquisado_mascarado")
+  meioEntregaCodigo           String?   @map("meio_entrega_codigo")
+  meioEntregaDescricao        String?   @map("meio_entrega_descricao")
+  dataPrevisao                DateTime? @map("data_previsao")
+  elegivelPiloto              Boolean   @default(false) @map("elegivel_piloto")
+  motivoEncaminhamentoHumano  String?   @map("motivo_encaminhamento_humano")
+  statusItem                  String    @default("AGUARDANDO_CONFERENCIA") @map("status_item")
+  acervoSnapshotJson          Json?     @map("acervo_snapshot_json")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  conferencias FiorixCvConferencia[]
+  pendencias   FiorixCvPendencia[]
+  anotacoes    FiorixCvAnotacao[]
+
+  @@unique([pedidoId, sequenciaItem])
+  @@index([tenantId, numeroMatricula])
+  @@map("fiorix_cv_pedido_itens")
+}
+
+model FiorixCvConferencia {
+  id                        String         @id @default(cuid())
+  tenantId                  String         @map("tenant_id")
+  tenant                    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId                  String         @map("pedido_id")
+  pedido                    FiorixCvPedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  itemId                    String?        @map("item_id")
+  item                      FiorixCvPedidoItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  versaoRegraAplicada       String         @map("versao_regra_aplicada")
+  versaoDadosFonteHash      String         @map("versao_dados_fonte_hash")
+  identificacaoStatus       String         @map("identificacao_status") // CONFIRMADA | INEXISTENTE | AMBIGUA | INCOMPLETA | ENCAMINHADA_HUMANO
+  vinculoServentia          Boolean        @default(false) @map("vinculo_serventia")
+  contraditorioStatus       String         @map("contraditorio_status") // NADA_CONSTA | PRENOTACAO_EM_TRAMITACAO | ATO_EM_PROCESSAMENTO | INDISPONIVEL | INCONCLUSIVO
+  prenotacoesEncontradasJson Json          @map("prenotacoes_encontradas_json")
+  textoCertidaoSugerido     String?        @map("texto_certidao_sugerido") @db.Text
+  atualidadeMatriculaStatus String         @map("atualidade_matricula_status") // INTEGRA_ATUALIZADA | PENDENTE_ATUALIZACAO | PENDENTE_DIGITALIZACAO | VERIFICACAO_MANUAL
+  decisaoProposta           String         @map("decisao_proposta")
+  invalidadaPorMudanca      Boolean        @default(false) @map("invalidada_por_mudanca")
+  executadoPorTipo          String         @map("executado_por_tipo") // AGENTE_CONFERENCIA | HUMANO
+  executadoPorNome          String         @map("executado_por_nome")
+  createdAt                 DateTime       @default(now()) @map("created_at")
+
+  @@index([tenantId, pedidoId])
+  @@map("fiorix_cv_conferencias")
+}
+
+model FiorixCvPendencia {
+  id                  String         @id @default(cuid())
+  tenantId            String         @map("tenant_id")
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId            String         @map("pedido_id")
+  pedido              FiorixCvPedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  itemId              String?        @map("item_id")
+  item                FiorixCvPedidoItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  tipoPendencia       String         @map("tipo_pendencia") // ATO_EM_PROCESSAMENTO | ATUALIZACAO_MATRICULA | DIGITALIZACAO_ACERVO | PESQUISA_ENDERECO | TRANSCRICAO_LOTEAMENTO | DIVERGENCIA_CADASTRO
+  titulo              String
+  descricao           String         @db.Text
+  status              String         @default("ABERTA") // ABERTA | EM_TRATAMENTO | AGUARDANDO_RECONFERENCIA | CONCLUIDA | CANCELADA
+  prenotacaoRef       String?        @map("prenotacao_ref")
+  numeroMatricula     Int?           @map("numero_matricula")
+  responsavelId       String?        @map("responsavel_id")
+  responsavelNome     String?        @map("responsavel_nome")
+  prazoLimite         DateTime?      @map("prazo_limite")
+  evidenciaConclusao  String?        @map("evidencia_conclusao") @db.Text
+  resolvidaPorId      String?        @map("resolvida_por_id")
+  resolvidaPorNome    String?        @map("resolvida_por_nome")
+  resolvidaEm         DateTime?      @map("resolvida_em")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@index([tenantId, pedidoId])
+  @@map("fiorix_cv_pendencias")
+}
+
+model FiorixCvAnotacao {
+  id                String              @id @default(cuid())
+  tenantId          String              @map("tenant_id")
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId          String?             @map("pedido_id")
+  pedido            FiorixCvPedido?     @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  itemId            String?             @map("item_id")
+  item              FiorixCvPedidoItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  numeroMatricula   Int?                @map("numero_matricula")
+  parentId          String?             @map("parent_id")
+  tipoRegistro      String              @map("tipo_registro") // ANOTACAO | TAREFA | DIVERGENCIA | ORIENTACAO
+  categoria         String              @default("CONFERENCIA")
+  prioridade        String              @default("NORMAL") // BAIXA | NORMAL | ALTA | URGENTE
+  visibilidade      String              @default("EQUIPE_INTERNA") // EQUIPE_INTERNA | REVISORES | GESTAO
+  status            String              @default("ABERTA") // ABERTA | EM_ANDAMENTO | AGUARDANDO_RETORNO | RESOLVIDA | ARQUIVADA
+  titulo            String
+  conteudoAtual     String              @map("conteudo_atual") @db.Text
+  versaoAtual       Int                 @default(1) @map("versao_atual")
+  autorId           String              @map("autor_id")
+  autorNome         String              @map("autor_nome")
+  autorPapel        String              @map("autor_papel")
+  atribuidoParaId   String?             @map("atribuido_para_id")
+  atribuidoParaNome String?             @map("atribuido_para_nome")
+  setorDestino      String?             @map("setor_destino")
+  prazoEm           DateTime?           @map("prazo_em")
+  concluidaEm       DateTime?           @map("concluida_em")
+  concluidaPorNome  String?             @map("concluida_por_nome")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  versoes FiorixCvAnotacaoVersao[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, pedidoId])
+  @@index([tenantId, numeroMatricula])
+  @@map("fiorix_cv_anotacoes")
+}
+
+model FiorixCvAnotacaoVersao {
+  id               String           @id @default(cuid())
+  anotacaoId       String           @map("anotacao_id")
+  anotacao         FiorixCvAnotacao @relation(fields: [anotacaoId], references: [id], onDelete: Cascade)
+  versao           Int
+  conteudo         String           @db.Text
+  motivoEdicao     String?          @map("motivo_edicao")
+  editadoPorId     String           @map("editado_por_id")
+  editadoPorNome   String           @map("editado_por_nome")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@unique([anotacaoId, versao])
+  @@map("fiorix_cv_anotacoes_versoes")
+}
+
+model FiorixCvRevisaoDecisao {
+  id                   String         @id @default(cuid())
+  tenantId             String         @map("tenant_id")
+  tenant               Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId             String         @map("pedido_id")
+  pedido               FiorixCvPedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  motivoRevisao        String         @map("motivo_revisao")
+  evidenciasJson       Json           @map("evidencias_json")
+  statusRevisao        String         @default("PENDENTE") @map("status_revisao") // PENDENTE | APROVADA | REPROVADA | DEVOLVIDA_ATUALIZACAO | INVALIDADA_POR_MUDANCA
+  decisaoHumana        String?        @map("decisao_humana")
+  justificativa        String?        @db.Text
+  limitesAprovacao     String?        @map("limites_aprovacao")
+  versaoDadosFonteHash String         @map("versao_dados_fonte_hash")
+  decididoPorId        String?        @map("decidido_por_id")
+  decididoPorNome      String?        @map("decidido_por_nome")
+  papelRegistralNoAto  String?        @map("papel_registral_no_ato")
+  decididoEm           DateTime?      @map("decidido_em")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  @@index([tenantId, statusRevisao])
+  @@index([tenantId, pedidoId])
+  @@map("fiorix_cv_revisoes_decisoes")
+}
+
+model FiorixCvLoteImpressao {
+  id                      String   @id @default(cuid())
+  tenantId                String   @map("tenant_id")
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  codigoLote              String   @map("codigo_lote")
+  modoSelecao             String   @map("modo_selecao") // INDIVIDUAL | SELECIONADOS | FILTRADOS | TOTAL_DISPONIVEL
+  modoDadosImpressao      String   @default("ORIGINAL_CONGELADO") @map("modo_dados_impressao") // ORIGINAL_CONGELADO | ATUAL_RECONSTRUIDO
+  duplexFrenteNovaFolha   Boolean  @default(true) @map("duplex_frente_nova_folha")
+  incluirAnexoPesquisa    Boolean  @default(true) @map("incluir_anexo_pesquisa")
+  criterioOrdenacao       String   @default("NUMERO_PEDIDO_ASC") @map("criterio_ordenacao")
+  filtrosAplicadosJson    Json?    @map("filtros_aplicados_json")
+  pedidosIdsJson          Json     @map("pedidos_ids_json")
+  snapshotPedidosJson     Json     @map("snapshot_pedidos_json")
+  totalPedidos            Int      @map("total_pedidos")
+  totalPaginas            Int      @map("total_paginas")
+  paginasBrancoDuplex     Int      @default(0) @map("paginas_branco_duplex")
+  arquivoHashSha256       String   @map("arquivo_hash_sha256")
+  statusLote              String   @default("GERADO") @map("status_lote") // PREPARADO | GERADO | ENVIADO_IMPRESSAO | CONCLUIDO | CANCELADO | FALHA
+  loteOrigemReimpressaoId String?  @map("lote_origem_reimpressao_id")
+  motivoReimpressao       String?  @map("motivo_reimpressao")
+  criadoPorId             String   @map("criado_por_id")
+  criadoPorNome           String   @map("criado_por_nome")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  eventos FiorixCvLoteImpressaoEvento[]
+
+  @@unique([tenantId, codigoLote])
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@map("fiorix_cv_lotes_impressao")
+}
+
+model FiorixCvLoteImpressaoEvento {
+  id           String                @id @default(cuid())
+  loteId       String                @map("lote_id")
+  lote         FiorixCvLoteImpressao @relation(fields: [loteId], references: [id], onDelete: Cascade)
+  evento       String                // GERACAO_PDF | DOWNLOAD_PDF | CONFIRMACAO_IMPRESSAO | REIMPRESSAO | CANCELAMENTO | FALHA
+  observacao   String?               @db.Text
+  operadorId   String                @map("operador_id")
+  operadorNome String                @map("operador_nome")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  @@index([loteId])
+  @@map("fiorix_cv_lotes_impressao_eventos")
+}
+
+model FiorixCvFilaJob {
+  id                 String    @id @default(cuid())
+  tenantId           String    @map("tenant_id")
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chaveIdempotencia  String    @map("chave_idempotencia")
+  agenteVirtual      String    @map("agente_virtual") // AGENTE_TRIAGEM | AGENTE_CONTRADITORIO | AGENTE_ACERVO | AGENTE_IMPRESSAO | AGENTE_ORQUESTRADOR
+  tipoJob            String    @map("tipo_job")
+  pedidoId           String?   @map("pedido_id")
+  statusJob          String    @default("PENDENTE") @map("status_job") // PENDENTE | PROCESSANDO | PAUSADO | CONCLUIDO | FALHA_RETENTAVEL | RESULTADO_EXTERNO_DESCONHECIDO | CANCELADO
+  tentativas         Int       @default(0)
+  maxTentativas      Int       @default(4) @map("max_tentativas")
+  proximaExecucaoEm  DateTime  @default(now()) @map("proxima_execucao_em")
+  bloqueadoAte       DateTime? @map("bloqueado_ate")
+  workerId           String?   @map("worker_id")
+  ultimoErro         String?   @map("ultimo_erro") @db.Text
+  payloadJson        Json      @map("payload_json")
+  resultadoJson      Json?     @map("resultado_json")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, chaveIdempotencia])
+  @@index([tenantId, statusJob, proximaExecucaoEm])
+  @@map("fiorix_cv_fila_jobs")
+}
+
+model FiorixCvHistoricoOperacao {
+  id              String          @id @default(cuid())
+  tenantId        String          @map("tenant_id")
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pedidoId        String?         @map("pedido_id")
+  pedido          FiorixCvPedido? @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+  itemId          String?         @map("item_id")
+  loteId          String?         @map("lote_id")
+  atorTipo        String          @map("ator_tipo") // HUMANO | AGENTE_VIRTUAL | SISTEMA | CONNECTOR
+  atorId          String          @map("ator_id")
+  atorNome        String          @map("ator_nome")
+  papelRegistral  String?         @map("papel_registral")
+  evento          String
+  estadoAnterior  String?         @map("estado_anterior")
+  estadoNovo      String?         @map("estado_novo")
+  resumo          String          @db.Text
+  detalhesJson    Json?           @map("detalhes_json")
+  hashIntegridade String          @map("hash_integridade")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, pedidoId])
+  @@map("fiorix_cv_historico_operacoes")
 }

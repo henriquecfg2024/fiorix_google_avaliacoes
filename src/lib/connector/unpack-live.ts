@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
+import { sincronizarPedidosOficiaisWebriBatch } from '@/lib/cartorio-virtual/connector-sync';
 
 export async function unpackLiveRecords({
   tenantId,
@@ -8,7 +9,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh' | 'cartorio_virtual_certidoes';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;
@@ -419,6 +420,8 @@ export async function unpackLiveRecords({
         ativo: item.Ativo ?? item.ativo ?? true,
       }));
       await upsertColaboradoresGestorBatch(tenantId, normalizedRecords);
+    } else if (source === 'cartorio_virtual_certidoes') {
+      await sincronizarPedidosOficiaisWebriBatch(tenantId, records);
     }
   } catch (err) {
     console.error(`UNPACK_LIVE_RECORDS_ERROR [${source}]:`, err);

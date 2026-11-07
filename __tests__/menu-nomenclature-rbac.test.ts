@@ -4,6 +4,7 @@ import { filterNavigationByRole } from '@/lib/navigation/permissions';
 
 describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('apresenta exatamente a nova nomenclatura padronizada em todos os grupos (sem GESTÃO DE PESSOAS duplicado)', () => {
+    expect(navigationGroups.cartorioVirtual.label).toBe('Cartório Virtual');
     expect(navigationGroups.documental.label).toBe('GESTÃO DOCUMENTAL');
     expect(navigationGroups.gestao.label).toBe('PRESENÇA NO GOOGLE');
     expect(navigationGroups.operacional.label).toBe('GESTÃO DE PRAZOS');
@@ -31,6 +32,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('preserva a ordem e as chaves canônicas de navegação (COMUNICAÇÃO INTERNA acima de RECURSOS HUMANOS)', () => {
     const keys = Object.keys(navigationGroups);
     expect(keys).toEqual([
+      'cartorioVirtual',
       'documental',
       'gestao',
       'operacional',
@@ -152,6 +154,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'cartorioVirtual',
       'documental',
       'gestao',
       'operacional',
@@ -170,6 +173,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'cartorioVirtual',
       'documental',
       'gestao',
       'operacional',
@@ -192,6 +196,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'cartorioVirtual',
       'documental',
       'gestao',
       'operacional',

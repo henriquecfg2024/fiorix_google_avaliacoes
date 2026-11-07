@@ -647,6 +647,7 @@ export async function isRouteAllowedForUser(
     if (item.href === pathname) return true;
     if (item.href.includes('?') && item.href.split('?')[0] === pathname) return true;
     if (pathname === '/gestao-documental/historico' && item.id === 'gestao_documental') return true;
+    if (pathname.startsWith('/cartorio-virtual/certidoes/') && item.id === 'cv_certidoes') return true;
     return false;
   });
 

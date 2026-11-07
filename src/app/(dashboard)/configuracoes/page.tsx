@@ -186,6 +186,30 @@ export default async function ConfiguracoesPage({
             </section>
 
             {['MASTER', 'ADMIN'].includes(userRole || '') && (
+              <section className="rounded-[24px] border border-indigo-500/30 bg-indigo-950/20 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-indigo-300 flex items-center gap-2">
+                    🏛️ Governança Técnica do Cartório Virtual (Piloto 7º RI)
+                  </h2>
+                  <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-200">
+                    Sistema & Tecnologia
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-indigo-100/80">
+                  Configure autorizações e papéis registrais da serventia, agentes virtuais determinísticos, modelos/regras versionados e diagnóstico somente leitura das integrações WEBRI/Connector.
+                </p>
+                <div>
+                  <Link
+                    href="/configuracoes/cartorio-virtual"
+                    className="mt-2 inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-indigo-600/20"
+                  >
+                    Configurar Cartório Virtual →
+                  </Link>
+                </div>
+              </section>
+            )}
+
+            {['MASTER', 'ADMIN'].includes(userRole || '') && (
               <section className="rounded-[24px] border border-cyan-500/30 bg-cyan-950/15 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold text-cyan-300 flex items-center gap-2">

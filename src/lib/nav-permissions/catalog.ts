@@ -20,6 +20,18 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
     ],
   },
   {
+    id: 'cartorioVirtual',
+    label: 'Cartório Virtual',
+    items: [
+      { id: 'cv_visao_geral', label: 'Visão Geral', href: '/cartorio-virtual', groupId: 'cartorioVirtual', groupLabel: 'Cartório Virtual', description: 'Resumo da operação, prazos, filas e resultados do modo de comparação' },
+
+      { id: 'cv_impressao', label: 'Central de Impressão', href: '/cartorio-virtual/impressao', groupId: 'cartorioVirtual', groupLabel: 'Cartório Virtual', description: 'Preparação, pré-visualização, lotes duplex e reimpressões auditadas' },
+
+
+      { id: 'cv_historico', label: 'Histórico de Operações', href: '/cartorio-virtual/historico', groupId: 'cartorioVirtual', groupLabel: 'Cartório Virtual', description: 'Trilha imutável de ações humanas, agentes virtuais e integrações' },
+    ],
+  },
+  {
     id: 'documental',
     label: 'GESTÃO DOCUMENTAL',
     items: [

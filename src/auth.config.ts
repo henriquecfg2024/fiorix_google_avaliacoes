@@ -9,6 +9,7 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') ||
+        nextUrl.pathname.startsWith('/cartorio-virtual') ||
         nextUrl.pathname.startsWith('/gestao-documental') ||
         nextUrl.pathname.startsWith('/visualizador-documental') ||
         nextUrl.pathname.startsWith('/avaliacoes') ||
@@ -67,6 +68,7 @@ export const authConfig = {
         // Regras para perfil COLABORADOR: acesso a /pessoas, /minha-conta, /minha-it e /instrucoes-trabalho
         if (role === 'COLABORADOR') {
           if (
+            nextUrl.pathname.startsWith('/cartorio-virtual') ||
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
@@ -97,6 +99,7 @@ export const authConfig = {
         // Regras para perfil SUBSTITUTO e VISITANTE (visitante controlado via Gerenciar Permissões com mesmo teto estrutural)
         if (role === 'SUBSTITUTO' || role === 'VISITANTE') {
           if (
+            nextUrl.pathname.startsWith('/cartorio-virtual') ||
             nextUrl.pathname.startsWith('/gestao-documental') ||
             nextUrl.pathname.startsWith('/visualizador-documental') ||
             nextUrl.pathname.startsWith('/pessoas') ||
