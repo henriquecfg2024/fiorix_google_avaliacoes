@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Clock3,
+  Calendar,
 } from "lucide-react";
 import {
   alternarConferenciaPedidoAction,
@@ -55,6 +56,7 @@ import { DocumentoPedidoInterativo } from "@/components/cartorio-virtual/Documen
 interface FiltrosIniciaisImpressao {
   tipoCertidao?: FiltroTipoCertidaoValor;
   origem?: "ONR" | "BALCAO" | "TODAS";
+  dataPedido?: string;
   estadoOperacional?: EstadoOperacionalPedido | "TODOS";
   busca?: string;
   statusConferencia?: FiltroConferenciaEscrevente;
@@ -106,6 +108,12 @@ export function CentralImpressaoClient({
   );
   const [filtroTipoCertidao, setFiltroTipoCertidao] = useState<FiltroTipoCertidaoValor>(
     filtrosIniciais?.tipoCertidao || "TODOS"
+  );
+  const [filtroOrigem, setFiltroOrigem] = useState<"TODAS" | "ONR" | "BALCAO">(
+    filtrosIniciais?.origem || "TODAS"
+  );
+  const [filtroDataPedido, setFiltroDataPedido] = useState<string>(
+    filtrosIniciais?.dataPedido || "TODAS"
   );
   const [filtroConferencia, setFiltroConferencia] = useState<FiltroConferenciaEscrevente>(
     filtrosIniciais?.statusConferencia || "NAO_CONFERIDO"
@@ -189,18 +197,56 @@ export function CentralImpressaoClient({
     return obj;
   }, [anotacoesPorPedidoMap]);
 
-  const contagensConferencia = useMemo(() => {
-    const conf = pedidosState.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
-    const dev = pedidosState.filter((p) => Boolean(p.devolvidoPeloEscrevente)).length;
-    return {
-      total: pedidosState.length,
-      conferidos: conf,
-      devolvidos: dev,
-      naoConferidos: Math.max(0, pedidosState.length - conf - dev),
-    };
+  const datasPedidoDisponiveis = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const p of pedidosState) {
+      if (p.dataPedidoBr) {
+        mapa.set(p.dataPedidoBr, (mapa.get(p.dataPedidoBr) || 0) + 1);
+      }
+    }
+    return Array.from(mapa.entries()).map(([dataBr, qtd]) => ({ dataBr, qtd }));
   }, [pedidosState]);
 
-  // Fila ativa na Mesa: respeita seleção em lote ou filtros ativos (incluindo CONFERIDO / DEVOLVIDO / NÃO CONFERIDO)
+  const contagensConferencia = useMemo(() => {
+    const base = pedidosState.filter((p) => {
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      return true;
+    });
+    const conf = base.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
+    const dev = base.filter((p) => Boolean(p.devolvidoPeloEscrevente)).length;
+    return {
+      total: base.length,
+      conferidos: conf,
+      devolvidos: dev,
+      naoConferidos: Math.max(0, base.length - conf - dev),
+    };
+  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroTipoCertidao]);
+
+  const contagensOrigem = useMemo(() => {
+    const base = pedidosState.filter((p) => {
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
+    const onr = base.filter((p) => p.origem === "ONR").length;
+    const presencial = base.filter((p) => p.origem !== "ONR").length;
+    return {
+      todas: base.length,
+      onr,
+      presencial,
+    };
+  }, [pedidosState, filtroDataPedido, filtroTipoCertidao, filtroConferencia]);
+
+  // Fila ativa na Mesa: respeita seleção em lote ou filtros ativos (incluindo DATA, CONFERIDO / DEVOLVIDO / NÃO CONFERIDO e ONR / PRESENCIAL)
   const pedidosFilaAtiva = useMemo(() => {
     if (selecaoLoteIds.length > 0) {
       const posMap = new Map(selecaoLoteIds.map((id, idx) => [id, idx]));
@@ -210,6 +256,8 @@ export function CentralImpressaoClient({
     }
 
     return pedidosState.filter((p) => {
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
@@ -219,13 +267,6 @@ export function CentralImpressaoClient({
       )
         return false;
       if (
-        filtrosIniciais?.origem &&
-        filtrosIniciais.origem !== "TODAS" &&
-        p.origem !== filtrosIniciais.origem
-      ) {
-        return false;
-      }
-      if (
         filtrosIniciais?.estadoOperacional &&
         filtrosIniciais.estadoOperacional !== "TODOS" &&
         p.estadoOperacional !== filtrosIniciais.estadoOperacional
@@ -234,7 +275,15 @@ export function CentralImpressaoClient({
       }
       return true;
     });
-  }, [pedidosState, selecaoLoteIds, filtroTipoCertidao, filtroConferencia, filtrosIniciais]);
+  }, [
+    pedidosState,
+    selecaoLoteIds,
+    filtroDataPedido,
+    filtroOrigem,
+    filtroTipoCertidao,
+    filtroConferencia,
+    filtrosIniciais,
+  ]);
 
   const pedidoEmFoco = useMemo(() => {
     return (
@@ -541,11 +590,56 @@ export function CentralImpressaoClient({
               )}
             </div>
 
-            {/* Busca rápida + Filtro de Conferência + Filtro de Tipo (na mesma linha) */}
+            {/* Busca rápida + Filtro de Data + Filtro de Conferência + Origem + Tipo (na mesma linha) */}
             <form
               onSubmit={handleBuscaRapidaSubmit}
-              className="flex items-center gap-1.5 flex-nowrap shrink-0"
+              className="flex items-center gap-1.5 flex-wrap shrink-0"
             >
+              {/* Seletor DATA DO PEDIDO na tela de Verificação do Escrevente */}
+              <div className="h-8 px-2.5 rounded-xl border-2 border-cyan-400/60 bg-cyan-500/12 inline-flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-200 whitespace-nowrap">
+                  DATA DO PEDIDO:
+                </span>
+                <select
+                  aria-label="Filtrar por Data do Pedido"
+                  value={filtroDataPedido}
+                  onChange={(e) => {
+                    const novaData = e.target.value;
+                    setSelecaoLoteIds([]);
+                    setFiltroDataPedido(novaData);
+                    const primeiroDaNovaFila = pedidosState.find((p) => {
+                      if (novaData !== "TODAS" && p.dataPedidoBr !== novaData) return false;
+                      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+                      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+                      if (filtroConferencia === "CONFERIDO")
+                        return Boolean(p.conferidoPeloEscrevente);
+                      if (filtroConferencia === "DEVOLVIDO")
+                        return Boolean(p.devolvidoPeloEscrevente);
+                      if (filtroConferencia === "NAO_CONFERIDO") {
+                        return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
+                      }
+                      return true;
+                    });
+                    if (primeiroDaNovaFila) {
+                      setPedidoFocoId(primeiroDaNovaFila.id);
+                      setModoVisor("PEDIDO_EM_FOCO");
+                      setPaginaPdfFoco(1);
+                    }
+                  }}
+                  className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
+                >
+                  <option value="TODAS" className="bg-[#080D1A] text-white">
+                    Todas ({pedidosState.length})
+                  </option>
+                  {datasPedidoDisponiveis.map((d) => (
+                    <option key={d.dataBr} value={d.dataBr} className="bg-[#080D1A] text-white">
+                      {d.dataBr} ({d.qtd})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="relative">
                 <Search className="w-4 h-4 text-cyan-300 stroke-[2.75] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -566,6 +660,9 @@ export function CentralImpressaoClient({
                   setSelecaoLoteIds([]);
                   setFiltroConferencia(novoFiltro);
                   const primeiroDaNovaFila = pedidosState.find((p) => {
+                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
+                      return false;
+                    if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
                     if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
                     if (novoFiltro === "CONFERIDO") return Boolean(p.conferidoPeloEscrevente);
                     if (novoFiltro === "DEVOLVIDO") return Boolean(p.devolvidoPeloEscrevente);
@@ -595,11 +692,70 @@ export function CentralImpressaoClient({
               </select>
 
               <select
+                aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
+                value={filtroOrigem}
+                onChange={(e) => {
+                  const novaOrigem = e.target.value as "TODAS" | "ONR" | "BALCAO";
+                  setSelecaoLoteIds([]);
+                  setFiltroOrigem(novaOrigem);
+                  const primeiroDaNovaFila = pedidosState.find((p) => {
+                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
+                      return false;
+                    if (novaOrigem !== "TODAS" && p.origem !== novaOrigem) return false;
+                    if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+                    if (filtroConferencia === "CONFERIDO")
+                      return Boolean(p.conferidoPeloEscrevente);
+                    if (filtroConferencia === "DEVOLVIDO")
+                      return Boolean(p.devolvidoPeloEscrevente);
+                    if (filtroConferencia === "NAO_CONFERIDO") {
+                      return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
+                    }
+                    return true;
+                  });
+                  if (primeiroDaNovaFila) {
+                    setPedidoFocoId(primeiroDaNovaFila.id);
+                    setModoVisor("PEDIDO_EM_FOCO");
+                    setPaginaPdfFoco(1);
+                  }
+                }}
+                className="h-8 px-3 rounded-xl bg-[#080D1A] border border-indigo-400/55 text-xs sm:text-sm font-extrabold text-indigo-200 cursor-pointer"
+                title="Filtrar pedidos por origem: ONR ou Presencial"
+              >
+                <option value="TODAS">
+                  ONR / PRESENCIAL ({contagensOrigem.todas})
+                </option>
+                <option value="ONR">ONR ({contagensOrigem.onr})</option>
+                <option value="BALCAO">
+                  PRESENCIAL ({contagensOrigem.presencial})
+                </option>
+              </select>
+
+              <select
                 aria-label="Filtrar fila por Tipo de Pedido"
                 value={filtroTipoCertidao}
                 onChange={(e) => {
+                  const novoTipo = e.target.value;
                   setSelecaoLoteIds([]);
-                  setFiltroTipoCertidao(e.target.value);
+                  setFiltroTipoCertidao(novoTipo);
+                  const primeiroDaNovaFila = pedidosState.find((p) => {
+                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
+                      return false;
+                    if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+                    if (!correspondeFiltroTipoCertidao(p, novoTipo)) return false;
+                    if (filtroConferencia === "CONFERIDO")
+                      return Boolean(p.conferidoPeloEscrevente);
+                    if (filtroConferencia === "DEVOLVIDO")
+                      return Boolean(p.devolvidoPeloEscrevente);
+                    if (filtroConferencia === "NAO_CONFERIDO") {
+                      return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
+                    }
+                    return true;
+                  });
+                  if (primeiroDaNovaFila) {
+                    setPedidoFocoId(primeiroDaNovaFila.id);
+                    setModoVisor("PEDIDO_EM_FOCO");
+                    setPaginaPdfFoco(1);
+                  }
                 }}
                 className="h-8 px-3 rounded-xl bg-[#080D1A] border border-cyan-400/45 text-xs sm:text-sm font-extrabold text-white cursor-pointer"
               >
@@ -862,11 +1018,11 @@ export function CentralImpressaoClient({
             )}
           </div>
 
-          {/* ── BARRA LATERAL DIREITA ELEGANTE (256px): CONFERIDO / DEVOLVIDO / CONTRADITÓRIO ── */}
+          {/* ── BARRA LATERAL DIREITA ELEGANTE (288px): CONFERIDO / DEVOLVIDO / CONTRADITÓRIO COM ROLAGEM COMPLETA ── */}
           {barraLateralDireitaAberta && (
-            <aside className="w-full lg:w-[256px] lg:mt-[90px] shrink-0 flex flex-col min-h-0">
-              <div className="rounded-2xl border border-emerald-500/35 bg-[#080D1A] p-3 space-y-3 shadow-xl">
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
+            <aside className="w-full lg:w-[288px] shrink-0 flex flex-col min-h-0 h-full">
+              <div className="rounded-2xl border border-emerald-500/35 bg-[#080D1A] p-3 flex flex-col gap-2.5 shadow-xl h-full min-h-0 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10 shrink-0">
                   <div className="text-xs font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5 whitespace-nowrap">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>CONFERÊNCIA</span>
@@ -884,108 +1040,148 @@ export function CentralImpressaoClient({
 
                 {pedidoEmFoco ? (
                   <>
-                    {/* Status Visual Atual da Conferência / Devolução */}
-                    {pedidoEmFoco.conferidoPeloEscrevente ? (
-                      <div className="rounded-xl border border-emerald-400/60 bg-emerald-950/35 p-3 text-center space-y-1.5">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-black tracking-wide">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                          CONFERIDO
-                        </div>
-                        {pedidoEmFoco.conferidoPorNome && (
-                          <p className="text-[10px] text-emerald-300/85 font-mono truncate">
-                            {pedidoEmFoco.conferidoPorNome} • {pedidoEmFoco.conferidoEmBr}
-                          </p>
-                        )}
-                      </div>
-                    ) : pedidoEmFoco.devolvidoPeloEscrevente ? (
-                      <div className="rounded-xl border border-rose-400/60 bg-rose-950/35 p-3 text-center space-y-1.5">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-400/50 text-rose-200 text-xs font-black tracking-wide">
-                          <RotateCcw className="w-3.5 h-3.5 text-rose-300" />
-                          DEVOLVIDO
-                        </div>
-                        {pedidoEmFoco.devolvidoPorNome && (
-                          <p className="text-[10px] text-rose-300/85 font-mono truncate">
-                            {pedidoEmFoco.devolvidoPorNome} • {pedidoEmFoco.devolvidoEmBr}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-amber-500/35 bg-amber-950/25 p-3 text-center space-y-1.5">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-black tracking-wide">
-                          <Clock3 className="w-3.5 h-3.5 text-amber-300" />
-                          NÃO CONFERIDO
-                        </div>
-                        <p className="text-[11px] font-semibold text-slate-300 leading-tight">
-                          Pedido {pedidoEmFoco.numeroPedido} pendente
-                        </p>
-                        {pedidoEmFoco.itens[0]?.numeroMatricula && (
-                          <div className="pt-0.5 flex items-center justify-center">
-                            <LinkMatriculaLv2
-                              numeroMatricula={pedidoEmFoco.itens[0].numeroMatricula}
-                              prefixo="Matrícula nº "
-                              variante="badge"
-                            />
+                    {/* Status Visual Atual da Conferência / Devolução (fixo no topo) */}
+                    <div className="shrink-0">
+                      {pedidoEmFoco.conferidoPeloEscrevente ? (
+                        <div className="rounded-xl border border-emerald-400/60 bg-emerald-950/35 p-2.5 text-center space-y-1">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 text-xs font-black tracking-wide">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                            CONFERIDO
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {pedidoEmFoco.conferidoPorNome && (
+                            <p className="text-[10px] text-emerald-300/85 font-mono truncate">
+                              {pedidoEmFoco.conferidoPorNome} • {pedidoEmFoco.conferidoEmBr}
+                            </p>
+                          )}
+                        </div>
+                      ) : pedidoEmFoco.devolvidoPeloEscrevente ? (
+                        <div className="rounded-xl border border-rose-400/60 bg-rose-950/35 p-2.5 text-center space-y-1">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-rose-500/20 border border-rose-400/50 text-rose-200 text-xs font-black tracking-wide">
+                            <RotateCcw className="w-3.5 h-3.5 text-rose-300" />
+                            DEVOLVIDO
+                          </div>
+                          {pedidoEmFoco.devolvidoPorNome && (
+                            <p className="text-[10px] text-rose-300/85 font-mono truncate">
+                              {pedidoEmFoco.devolvidoPorNome} • {pedidoEmFoco.devolvidoEmBr}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-amber-500/35 bg-amber-950/25 p-2.5 text-center space-y-1">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs font-black tracking-wide">
+                            <Clock3 className="w-3.5 h-3.5 text-amber-300" />
+                            NÃO CONFERIDO
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-300 leading-tight">
+                            Pedido {pedidoEmFoco.numeroPedido} •{" "}
+                            <span className="text-indigo-300 font-bold">
+                              {pedidoEmFoco.origem === "ONR" ? "ONR" : "PRESENCIAL"}
+                            </span>
+                          </p>
+                          {pedidoEmFoco.itens[0]?.numeroMatricula && (
+                            <div className="pt-0.5 flex items-center justify-center">
+                              <LinkMatriculaLv2
+                                numeroMatricula={pedidoEmFoco.itens[0].numeroMatricula}
+                                prefixo="Matrícula nº "
+                                variante="badge"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Prenotações em Contraditório vinculadas ao Pedido */}
+                    {/* Prenotações em Contraditório vinculadas ao Pedido (área rolável para exibir 100% das prenotações e seus dados) */}
                     {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).length > 0 && (
-                      <div className="rounded-xl border border-amber-400/55 bg-amber-950/30 p-2.5 space-y-2">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center justify-between">
+                      <div className="rounded-xl border border-amber-400/55 bg-amber-950/30 p-2.5 flex flex-col gap-2 flex-1 min-h-0 overflow-hidden">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-amber-300 flex items-center justify-between shrink-0">
                           <span>Prenotação em Contraditório</span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-amber-500/25 border border-amber-400/50 text-amber-200 font-mono text-[10px]">
+                            {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).length}
+                          </span>
                         </div>
-                        {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).map((pr, idxPr) => (
-                          <div
-                            key={`${pr.numeroPrenotacao}-${idxPr}`}
-                            className="rounded-xl bg-[#070B14]/90 border border-amber-400/30 p-2.5 space-y-1.5 shadow-inner"
-                          >
-                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                              <span className="inline-flex items-baseline gap-1 font-mono font-black text-amber-200 text-xs">
-                                <span>Nº</span>
-                                <LinkPrenotacaoWebri
-                                  numeroPrenotacao={pr.numeroPrenotacao}
-                                  variante="dark"
-                                  className="text-sm"
-                                />
-                              </span>
-                              {pr.livroContraditorio && (
-                                <span className="px-2 py-0.5 rounded-md bg-cyan-950/90 border border-cyan-400/45 text-[10px] font-mono font-extrabold text-cyan-200">
-                                  {renderizarTextoComLinksMatriculaLv2(
-                                    pr.livroContraditorio,
-                                    "dark"
+                        <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
+                          {obterPrenotacoesContraditorioDoPedido(pedidoEmFoco).map(
+                            (pr, idxPr) => {
+                              const ehHashHex = /^[0-9A-F]{12}$/i.test(
+                                (pr.naturezaTitulo || "").trim()
+                              );
+                              return (
+                                <div
+                                  key={`${pr.numeroPrenotacao}-${idxPr}`}
+                                  className="rounded-xl bg-[#070B14]/95 border border-amber-400/35 p-2.5 space-y-1.5 shadow-inner"
+                                >
+                                  <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                    <span className="inline-flex items-baseline gap-1 font-mono font-black text-amber-200 text-xs">
+                                      <span>Nº</span>
+                                      <LinkPrenotacaoWebri
+                                        numeroPrenotacao={pr.numeroPrenotacao}
+                                        variante="dark"
+                                        className="text-sm"
+                                      />
+                                    </span>
+                                    {pr.livroContraditorio && (
+                                      <span className="px-2 py-0.5 rounded-md bg-cyan-950/90 border border-cyan-400/45 text-[10px] font-mono font-extrabold text-cyan-200">
+                                        {renderizarTextoComLinksMatriculaLv2(
+                                          pr.livroContraditorio,
+                                          "dark"
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-1 text-[10px] font-mono text-slate-300">
+                                    <span>Entrada:</span>
+                                    <span className="font-bold text-white">
+                                      {pr.dataApresentacaoBr || "—"}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-[11px] font-extrabold text-amber-100 leading-snug">
+                                    {pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}
+                                  </div>
+
+                                  {pr.naturezaTitulo &&
+                                    pr.naturezaTitulo !== pr.tipoPrenotacaoDescricao &&
+                                    !ehHashHex && (
+                                      <div className="text-[10px] text-slate-200 leading-snug break-words bg-white/[0.04] rounded-lg px-2 py-1 border border-white/10">
+                                        {pr.naturezaTitulo}
+                                      </div>
+                                    )}
+
+                                  {pr.protocoloMagnetico && (
+                                    <div className="pt-1 border-t border-white/10 flex items-center justify-between gap-1 text-[10px] font-mono">
+                                      <span className="text-slate-400">Protocolo:</span>
+                                      <span className="font-bold text-cyan-300">
+                                        {pr.protocoloMagnetico}
+                                      </span>
+                                    </div>
                                   )}
-                                </span>
-                              )}
-                            </div>
 
-                            <div className="text-[11px] font-extrabold text-white leading-snug">
-                              {pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}
-                            </div>
-
-                            {pr.naturezaTitulo &&
-                              pr.naturezaTitulo !== pr.tipoPrenotacaoDescricao && (
-                                <div className="text-[10px] font-mono text-slate-300 break-all leading-tight">
-                                  {pr.naturezaTitulo}
+                                  <div className="pt-1 border-t border-white/10 flex items-center justify-between gap-1 text-[10px]">
+                                    <span className="text-slate-400 font-mono">Situação:</span>
+                                    <span
+                                      className={`font-bold text-right leading-tight ${
+                                        pr.emProcessamentoAtoNaMatricula
+                                          ? "text-rose-300"
+                                          : "text-emerald-300"
+                                      }`}
+                                    >
+                                      {pr.emProcessamentoAtoNaMatricula
+                                        ? "ATO EM PROCESSAMENTO"
+                                        : pr.etapaAtual || "Em tramitação"}
+                                    </span>
+                                  </div>
                                 </div>
-                              )}
-
-                            {pr.protocoloMagnetico && (
-                              <div className="pt-1 border-t border-white/10 flex items-center justify-between gap-1 text-[10px] font-mono">
-                                <span className="text-slate-400">Protocolo:</span>
-                                <span className="font-bold text-cyan-300">
-                                  {pr.protocoloMagnetico}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                              );
+                            }
+                          )}
+                        </div>
                       </div>
                     )}
 
-                    {/* Ações: CONFERIDO, DEVOLVIDO e Estornar */}
-                    <div className="space-y-1.5">
+                    {/* Ações: CONFERIDO, DEVOLVIDO e Estornar (sempre visíveis na base do card) */}
+                    <div className="space-y-1.5 shrink-0 pt-1">
                       <button
                         type="button"
                         disabled={

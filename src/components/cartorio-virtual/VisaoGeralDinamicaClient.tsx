@@ -78,6 +78,7 @@ export function VisaoGeralDinamicaClient({
     useState<FiltroConferenciaEscrevente>(conferenciaInicial);
   const [busca, setBusca] = useState<string>(buscaInicial);
   const [filtroDataPedido, setFiltroDataPedido] = useState<string>("TODAS");
+  const [filtroOrigem, setFiltroOrigem] = useState<"TODAS" | "ONR" | "BALCAO">("TODAS");
   const [colunaOrdenacao, setColunaOrdenacao] =
     useState<ColunaOrdenacaoPedidos>("PEDIDO");
   const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<"asc" | "desc">("asc");
@@ -143,11 +144,27 @@ export function VisaoGeralDinamicaClient({
     return Array.from(mapa.entries()).map(([dataBr, qtd]) => ({ dataBr, qtd }));
   }, [pedidos]);
 
+  const contagensOrigem = useMemo(() => {
+    const base = pedidos.filter(
+      (p) =>
+        correspondeAoKpi(p, kpiAtivo) &&
+        (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido)
+    );
+    const onr = base.filter((p) => p.origem === "ONR").length;
+    const presencial = base.filter((p) => p.origem !== "ONR").length;
+    return {
+      todas: base.length,
+      onr,
+      presencial,
+    };
+  }, [pedidos, kpiAtivo, filtroDataPedido]);
+
   const contagensConferenciaNoKpi = useMemo(() => {
     const baseKpi = pedidos.filter(
       (p) =>
         correspondeAoKpi(p, kpiAtivo) &&
-        (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido)
+        (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido) &&
+        (filtroOrigem === "TODAS" || p.origem === filtroOrigem)
     );
     const conferidos = baseKpi.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
     const devolvidos = baseKpi.filter((p) => Boolean(p.devolvidoPeloEscrevente)).length;
@@ -157,7 +174,7 @@ export function VisaoGeralDinamicaClient({
       devolvidos,
       naoConferidos: Math.max(0, baseKpi.length - conferidos - devolvidos),
     };
-  }, [pedidos, kpiAtivo, filtroDataPedido]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem]);
 
   const pedidosFiltrados = useMemo(() => {
     const q = busca.trim().replace(/^#+/, "").toLowerCase();
@@ -165,6 +182,10 @@ export function VisaoGeralDinamicaClient({
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
 
       if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) {
+        return false;
+      }
+
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) {
         return false;
       }
 
@@ -258,18 +279,29 @@ export function VisaoGeralDinamicaClient({
           return 0;
       }
     });
-  }, [pedidos, kpiAtivo, filtroDataPedido, filtroConferencia, busca, colunaOrdenacao, direcaoOrdenacao]);
+  }, [
+    pedidos,
+    kpiAtivo,
+    filtroDataPedido,
+    filtroOrigem,
+    filtroConferencia,
+    busca,
+    colunaOrdenacao,
+    direcaoOrdenacao,
+  ]);
 
   const linkFilaNaCentral = useMemo(() => {
     const qs = new URLSearchParams();
     if (filtroConferencia !== "TODOS") qs.set("conferencia", filtroConferencia);
     else if (kpiAtivo === "DEVOLVIDO") qs.set("conferencia", "DEVOLVIDO");
+    if (filtroDataPedido !== "TODAS") qs.set("data", filtroDataPedido);
+    if (filtroOrigem !== "TODAS") qs.set("origem", filtroOrigem);
     if (kpiAtivo === "REVISAO") qs.set("estado", "EM_REVISAO_HUMANA");
     if (kpiAtivo === "ATUALIZACAO") qs.set("estado", "AGUARDANDO_ATUALIZACAO_MATRICULA");
     if (busca.trim()) qs.set("busca", busca.trim());
     const str = qs.toString();
     return str ? `/cartorio-virtual/impressao?${str}` : "/cartorio-virtual/impressao";
-  }, [filtroConferencia, kpiAtivo, busca]);
+  }, [filtroConferencia, filtroDataPedido, filtroOrigem, kpiAtivo, busca]);
 
   const corEstadoBadge = (est: EstadoOperacionalPedido) => {
     if (est === "APTO_EMISSAO")
@@ -317,6 +349,32 @@ export function VisaoGeralDinamicaClient({
                   {d.dataBr} ({d.qtd})
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Card / Seletor ORIGEM DO PEDIDO (ONR ou PRESENCIAL) */}
+          <div className="h-9 px-2.5 rounded-xl border-2 border-indigo-400/60 bg-indigo-500/12 inline-flex items-center gap-1.5 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-200 whitespace-nowrap">
+              ORIGEM:
+            </span>
+            <select
+              aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
+              value={filtroOrigem}
+              onChange={(e) =>
+                setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
+              }
+              className="bg-transparent text-xs font-mono font-extrabold text-white focus:outline-none cursor-pointer"
+            >
+              <option value="TODAS" className="bg-[#080D1A] text-white">
+                ONR / PRESENCIAL ({contagensOrigem.todas})
+              </option>
+              <option value="ONR" className="bg-[#080D1A] text-white">
+                ONR ({contagensOrigem.onr})
+              </option>
+              <option value="BALCAO" className="bg-[#080D1A] text-white">
+                PRESENCIAL ({contagensOrigem.presencial})
+              </option>
             </select>
           </div>
 
@@ -443,6 +501,7 @@ export function VisaoGeralDinamicaClient({
 
           {(kpiAtivo !== "TODOS" ||
             filtroDataPedido !== "TODAS" ||
+            filtroOrigem !== "TODAS" ||
             filtroConferencia !== "TODOS" ||
             busca.trim() !== "") && (
             <button
@@ -450,6 +509,7 @@ export function VisaoGeralDinamicaClient({
               onClick={() => {
                 setKpiAtivo("TODOS");
                 setFiltroDataPedido("TODAS");
+                setFiltroOrigem("TODAS");
                 setFiltroConferencia("TODOS");
                 setBusca("");
               }}
@@ -594,7 +654,8 @@ export function VisaoGeralDinamicaClient({
                           {p.numeroPedido}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {p.origem} {p.protocoloExterno ? `• ${p.protocoloExterno}` : ""}
+                          {p.origem === "ONR" ? "ONR" : "PRESENCIAL"}{" "}
+                          {p.protocoloExterno ? `• ${p.protocoloExterno}` : ""}
                         </div>
                       </td>
                       <td className="px-2.5 py-2.5">

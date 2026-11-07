@@ -22,15 +22,19 @@ export default async function CartorioVirtualImpressaoPage({
   const sp = searchParams ? await Promise.resolve(searchParams) : {};
 
   const tipoInicial = typeof sp.tipo === "string" && sp.tipo ? sp.tipo : "TODOS";
-  const origemInicial =
-    typeof sp.origem === "string" && (sp.origem === "ONR" || sp.origem === "BALCAO")
-      ? sp.origem
-      : "TODAS";
+  const origemRaw = typeof sp.origem === "string" ? sp.origem.trim().toUpperCase() : "";
+  const origemInicial: "ONR" | "BALCAO" | "TODAS" =
+    origemRaw === "ONR"
+      ? "ONR"
+      : origemRaw === "BALCAO" || origemRaw === "PRESENCIAL"
+        ? "BALCAO"
+        : "TODAS";
   const estadoInicial =
     typeof sp.estado === "string" && sp.estado
       ? (sp.estado as EstadoOperacionalPedido | "TODOS")
       : "TODOS";
   const buscaInicial = typeof sp.busca === "string" ? sp.busca : "";
+  const dataInicial = typeof sp.data === "string" && sp.data.trim() ? sp.data.trim() : "TODAS";
   const pedidoInicial = typeof sp.pedido === "string" ? sp.pedido : "";
   const selecaoInicial = typeof sp.selecao === "string" ? sp.selecao : "";
   const confRaw =
@@ -61,6 +65,7 @@ export default async function CartorioVirtualImpressaoPage({
       filtrosIniciais={{
         tipoCertidao: tipoInicial,
         origem: origemInicial,
+        dataPedido: dataInicial,
         estadoOperacional: estadoInicial,
         busca: buscaInicial,
         statusConferencia: conferenciaInicial,

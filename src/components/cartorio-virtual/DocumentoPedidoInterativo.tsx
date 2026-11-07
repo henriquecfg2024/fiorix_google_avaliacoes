@@ -1036,7 +1036,7 @@ export function DocumentoPedidoInterativo({
           )}
 
           {/* Conteúdo Oficial SIPLAN proporcional 595 x 842 */}
-          <div className="w-full h-full px-[5.7%] py-[3.3%] flex flex-col justify-between font-sans text-[clamp(9px,1.51cqi,23px)] leading-snug">
+          <div className="w-full min-h-full px-[5.7%] py-[3.3%] flex flex-col justify-between font-sans text-[clamp(9px,1.51cqi,23px)] leading-snug">
             {paginaAtiva === 1 ? (
               <div className="space-y-[1.4%]">
                 {/* Cabeçalho Oficial 7º RI-SP + Código de Barras Code 39 */}
@@ -1080,8 +1080,9 @@ export function DocumentoPedidoInterativo({
                     </span>
                   </div>
                   <div className="text-[0.94em] text-[#2E2E38]">
-                    Origem: {pedido.origem} ({pedido.canalRecebimento}) &nbsp; Forma de
-                    Entrega: {pedido.formaEntregaExibicao}
+                    Origem: {pedido.origem === "ONR" ? "ONR" : "PRESENCIAL"} (
+                    {pedido.canalRecebimento}) &nbsp; Forma de Entrega:{" "}
+                    {pedido.formaEntregaExibicao}
                   </div>
                 </div>
 
@@ -1165,10 +1166,12 @@ export function DocumentoPedidoInterativo({
 
                 {/* Bloco Contraditório: Número da Prenotação em Contraditório (quando houver) */}
                 {prenotacoesContraditorio.length > 0 && (
-                  <div className="border-2 border-[#B45309] bg-[#FFFBEB] px-2.5 py-1.5 space-y-0.5 text-[0.92em]">
-                    <div className="font-black text-[#78350F] flex flex-wrap items-center justify-between gap-2">
+                  <div className="border-2 border-[#B45309] bg-[#FFFBEB] px-2.5 py-2 space-y-1.5 text-[0.92em]">
+                    <div className="font-black text-[#78350F] flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-[#F59E0B]/40">
                       <span className="inline-flex flex-wrap items-baseline gap-1.5">
-                        <span>PRENOTAÇÃO EM CONTRADITÓRIO Nº</span>
+                        <span>
+                          PRENOTAÇÕES EM CONTRADITÓRIO ({prenotacoesContraditorio.length}):
+                        </span>
                         {prenotacoesContraditorio.map((pr, idxH) => (
                           <React.Fragment key={`h-${pr.numeroPrenotacao}-${idxH}`}>
                             {idxH > 0 && <span>/</span>}
@@ -1179,39 +1182,68 @@ export function DocumentoPedidoInterativo({
                           </React.Fragment>
                         ))}
                       </span>
-                      <span className="text-[0.78em] font-mono text-[#92400E]">
-                        Fonte SQL: tblWRIRecepcao • tblWRITitulos •
-                        tblWRICertidaoResultadoContraditorio • tblWRITipoPrenotacao •
-                        tblWRITitulosReal • tblWRIReal • tblWRIImovelBase • tblWRIImovel
-                      </span>
                     </div>
-                    {prenotacoesContraditorio.map((pr, idxP) => (
-                      <div
-                        key={`${pr.numeroPrenotacao}-${idxP}`}
-                        className="text-[#1F2937] font-semibold"
-                      >
-                        Prenotação nº{" "}
-                        <LinkPrenotacaoWebri
-                          numeroPrenotacao={pr.numeroPrenotacao}
-                          variante="papel"
-                        />{" "}
-                        • Tipo:{" "}
-                        <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong> •
-                        Natureza: <strong>{pr.naturezaTitulo}</strong>
-                        {pr.livroContraditorio ? (
-                          <>
-                            {" "}
-                            • Livro:{" "}
-                            {renderizarTextoComLinksMatriculaLv2(
-                              pr.livroContraditorio,
-                              "papel"
-                            )}
-                          </>
-                        ) : null}
-                        {pr.protocoloMagnetico ? ` • Protocolo: ${pr.protocoloMagnetico}` : ""}{" "}
-                        • Entrada: {pr.dataApresentacaoBr} ({pr.etapaAtual})
-                      </div>
-                    ))}
+                    <div className="divide-y divide-[#F59E0B]/30">
+                      {prenotacoesContraditorio.map((pr, idxP) => {
+                        const ehHashHex = /^[0-9A-F]{12}$/i.test(
+                          (pr.naturezaTitulo || "").trim()
+                        );
+                        return (
+                          <div
+                            key={`${pr.numeroPrenotacao}-${idxP}`}
+                            className="py-1 first:pt-0 last:pb-0 text-[#1F2937] font-semibold flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
+                          >
+                            <span>
+                              Prenotação nº{" "}
+                              <LinkPrenotacaoWebri
+                                numeroPrenotacao={pr.numeroPrenotacao}
+                                variante="papel"
+                              />
+                            </span>
+                            <span>• Entrada: <strong>{pr.dataApresentacaoBr || "—"}</strong></span>
+                            <span>
+                              • Tipo:{" "}
+                              <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong>
+                            </span>
+                            {pr.naturezaTitulo &&
+                              pr.naturezaTitulo !== pr.tipoPrenotacaoDescricao &&
+                              !ehHashHex && (
+                                <span>
+                                  • Detalhes: <strong>{pr.naturezaTitulo}</strong>
+                                </span>
+                              )}
+                            {pr.livroContraditorio ? (
+                              <span>
+                                • Livro:{" "}
+                                {renderizarTextoComLinksMatriculaLv2(
+                                  pr.livroContraditorio,
+                                  "papel"
+                                )}
+                              </span>
+                            ) : null}
+                            {pr.protocoloMagnetico ? (
+                              <span>
+                                • Protocolo: <strong>{pr.protocoloMagnetico}</strong>
+                              </span>
+                            ) : null}
+                            <span>
+                              • Situação:{" "}
+                              <strong
+                                className={
+                                  pr.emProcessamentoAtoNaMatricula
+                                    ? "text-red-700"
+                                    : "text-[#78350F]"
+                                }
+                              >
+                                {pr.emProcessamentoAtoNaMatricula
+                                  ? "ATO EM PROCESSAMENTO - PAUSAR"
+                                  : pr.etapaAtual || "Em tramitação no Contraditório"}
+                              </strong>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
