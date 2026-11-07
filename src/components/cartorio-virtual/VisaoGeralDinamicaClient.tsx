@@ -413,8 +413,9 @@ export function VisaoGeralDinamicaClient({
   return (
     <div className="space-y-4">
       {/* BARRA DE FILTRO CONFERIDO / NÃO CONFERIDO + BUSCA RÁPIDA E SELEÇÃO EM LOTE (CENTRALIZADA E ADAPTÁVEL AO MONITOR VERTICAL) */}
-      <div className="rounded-[24px] border border-emerald-500/25 bg-gradient-to-br from-[#0B1224] via-[#090E1B] to-[#0B1020] px-3 py-2.5">
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
+      <div className="rounded-[24px] border border-emerald-500/25 bg-gradient-to-br from-[#0B1224] via-[#090E1B] to-[#0B1020] px-3 py-2.5 space-y-2">
+        {/* Linha 1: somente os 3 primeiros filtros (Data do Pedido, ONR/Presencial e Tipos de Certidões) */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
           {/* Card / Seletor DATA DO PEDIDO no lado esquerdo */}
           <div className="h-9 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
             <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
@@ -476,7 +477,10 @@ export function VisaoGeralDinamicaClient({
               </option>
             ))}
           </select>
+        </div>
 
+        {/* Linha 2: Pesquisa + Conferência + Imprimir + Verificação do Escrevente */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
           <div className="relative w-56 shrink-0">
             <Search className="w-4 h-4 text-cyan-300 stroke-[2.5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
