@@ -71,6 +71,7 @@ export default async function CartorioVirtualHistoricoPage({
 
   const rotuloAtor = (tipo: string) => {
     if (tipo === "HUMANO") return "ESCREVENTE";
+    if (tipo === "CONNECTOR") return "AUTOMATICO";
     return tipo;
   };
 
@@ -180,7 +181,10 @@ export default async function CartorioVirtualHistoricoPage({
 
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
                   <span>
-                    Responsável: <strong className="text-slate-300">{h.atorNome}</strong>
+                    Responsável:{" "}
+                    <strong className="text-slate-300">
+                      {h.atorNome.replace(/Connector/gi, "AUTOMATICO")}
+                    </strong>
                     {h.papelRegistral ? ` (${h.papelRegistral})` : ""}
                   </span>
                 </div>

@@ -660,7 +660,7 @@ export async function sincronizarPedidosOficiaisWebriBatch(
           decisaoProposta: avaliacao.decisaoProposta,
           invalidadaPorMudanca: false,
           executadoPorTipo: "AGENTE_CONFERENCIA",
-          executadoPorNome: "FIORIX Connector • Triagem e Contraditório WEBRI",
+          executadoPorNome: "FIORIX AUTOMATICO • Triagem e Contraditório WEBRI",
         },
       }).catch(() => {});
 
@@ -684,7 +684,7 @@ export async function sincronizarPedidosOficiaisWebriBatch(
           pedidoId,
           atorTipo: "CONNECTOR",
           atorId: "fiorix-connector-webri",
-          atorNome: "FIORIX Connector (WEBRI)",
+          atorNome: "FIORIX AUTOMATICO (WEBRI)",
           evento: "TRIAGEM_CONFERENCIA_INICIAL",
           estadoAnterior: existente?.estadoOperacional ?? "RECEBIDO",
           estadoNovo: avaliacao.estadoSugerido,
