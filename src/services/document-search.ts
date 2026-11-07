@@ -1032,8 +1032,8 @@ export async function readDocumentText(
     try {
       const extractor = new WordExtractor();
       const extracted = await extractor.extract(filePath);
-      const text = extracted.getBody() || '';
-      const html = `<div style="font-family: inherit; line-height: 1.6;">${text.split('\n\n').filter(Boolean).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')}</div>`;
+      const text = String(extracted.getBody() || '');
+      const html = `<div style="font-family: inherit; line-height: 1.6;">${text.split('\n\n').filter(Boolean).map((p: string) => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')}</div>`;
       return {
         fileName,
         extension: ext,
