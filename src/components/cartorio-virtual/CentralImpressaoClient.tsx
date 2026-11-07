@@ -623,9 +623,9 @@ export function CentralImpressaoClient({
             : "w-full h-[calc(100vh-66px)] min-h-[720px] rounded-2xl border border-white/20 bg-[#0B1020]/95 p-2.5 flex flex-col overflow-hidden"
         }
       >
-        {/* Barra Superior em Linha Única Compacta e Centralizada do Card do Pedido (adaptável a monitor vertical sem cortar) */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pb-1.5 border-b border-white/10 shrink-0">
-          {/* Esquerda: Navegação < > + Busca + Filtros */}
+        {/* Barra Superior em Duas Linhas Centralizadas do Card do Pedido */}
+        <div className="flex flex-col items-center justify-center gap-1.5 pb-1.5 border-b border-white/10 shrink-0">
+          {/* Linha 1: Navegação < > + Filtro de Data + Conferência + Origem + Tipo */}
           <div className="flex flex-wrap items-center justify-center gap-1.5 shrink-0">
             <div className="flex items-center gap-1 shrink-0">
               <button
@@ -657,11 +657,8 @@ export function CentralImpressaoClient({
               )}
             </div>
 
-            {/* Busca rápida + Filtro de Data + Filtro de Conferência + Origem + Tipo (na mesma linha) */}
-            <form
-              onSubmit={handleBuscaRapidaSubmit}
-              className="flex items-center gap-1.5 flex-wrap shrink-0"
-            >
+            {/* Filtro de Data + Filtro de Conferência + Origem + Tipo (na 1ª linha) */}
+            <div className="flex items-center gap-1.5 flex-wrap shrink-0">
               {/* Seletor DATA DO PEDIDO na tela de Verificação do Escrevente */}
               <div className="h-8 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
                 <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
@@ -705,18 +702,6 @@ export function CentralImpressaoClient({
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="relative">
-                <Search className="w-4 h-4 text-cyan-300 stroke-[2.75] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={buscaRapidaNumero}
-                  onChange={(e) => setBuscaRapidaNumero(e.target.value)}
-                  placeholder="Nº Pedido..."
-                  title="Digite o Nº do Pedido e pressione Enter"
-                  className="w-36 h-8 pl-8 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#0B172A] border-2 border-cyan-400/75 focus:border-cyan-300 text-xs text-white font-mono font-extrabold placeholder:text-cyan-100/85 placeholder:font-bold shadow-sm shadow-cyan-500/20 focus:outline-none focus:ring-2 focus:ring-cyan-400/35 transition"
-                />
               </div>
 
               <select
@@ -832,11 +817,22 @@ export function CentralImpressaoClient({
                   </option>
                 ))}
               </select>
-            </form>
+            </div>
           </div>
 
-          {/* Direita: EM LOTE + Páginas 1/2 + PEDIDO + Ocultar Lateral + Tela Cheia (tudo na mesma linha) */}
-          <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+          {/* Linha 2: Pesquisa Nº Pedido (ao lado esquerdo de IMPRIMIR) + IMPRIMIR + EM LOTE + FRENTE/VERSO + Ocultar Lateral + Tela Cheia */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 shrink-0">
+            <form onSubmit={handleBuscaRapidaSubmit} className="relative shrink-0">
+              <Search className="w-4 h-4 text-cyan-300 stroke-[2.75] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={buscaRapidaNumero}
+                onChange={(e) => setBuscaRapidaNumero(e.target.value)}
+                placeholder="Nº Pedido..."
+                title="Digite o Nº do Pedido e pressione Enter"
+                className="w-36 h-8 pl-8 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#0B172A] border-2 border-cyan-400/75 focus:border-cyan-300 text-xs text-white font-mono font-extrabold placeholder:text-cyan-100/85 placeholder:font-bold shadow-sm shadow-cyan-500/20 focus:outline-none focus:ring-2 focus:ring-cyan-400/35 transition"
+              />
+            </form>
             {selecaoLoteIds.length > 0 && (
               <div className="inline-flex items-center gap-1 px-2 h-8 rounded-xl border border-emerald-500/35 bg-emerald-500/12 text-[11px] whitespace-nowrap">
                 <span className="text-emerald-200 font-bold">
