@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -23,9 +23,12 @@ import {
 } from "lucide-react";
 import type { ResumoVisaoGeralCartorioVirtual } from "@/lib/cartorio-virtual/repository";
 import {
+  correspondeFiltroTipoCertidao,
+  extrairEspeciesDistintasPedidos,
   obterPrenotacoesContraditorioDoPedido,
   type EstadoOperacionalPedido,
   type FiltroConferenciaEscrevente,
+  type FiltroTipoCertidaoValor,
   type PedidoCertidaoDetalheDTO,
 } from "@/lib/cartorio-virtual/types";
 import {
@@ -79,6 +82,8 @@ export function VisaoGeralDinamicaClient({
   const [busca, setBusca] = useState<string>(buscaInicial);
   const [filtroDataPedido, setFiltroDataPedido] = useState<string>("TODAS");
   const [filtroOrigem, setFiltroOrigem] = useState<"TODAS" | "ONR" | "BALCAO">("TODAS");
+  const [filtroTipoCertidao, setFiltroTipoCertidao] =
+    useState<FiltroTipoCertidaoValor>("TODOS");
   const [colunaOrdenacao, setColunaOrdenacao] =
     useState<ColunaOrdenacaoPedidos>("PEDIDO");
   const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<"asc" | "desc">("asc");
@@ -138,6 +143,7 @@ export function VisaoGeralDinamicaClient({
     return pedidos.filter((p) => {
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -147,7 +153,7 @@ export function VisaoGeralDinamicaClient({
         return false;
       return true;
     });
-  }, [pedidos, kpiAtivo, filtroOrigem, filtroConferencia]);
+  }, [pedidos, kpiAtivo, filtroOrigem, filtroTipoCertidao, filtroConferencia]);
 
   const datasPedidoDisponiveis = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -159,12 +165,70 @@ export function VisaoGeralDinamicaClient({
     return Array.from(mapa.entries()).map(([dataBr, qtd]) => ({ dataBr, qtd }));
   }, [baseParaDatas]);
 
-  const contagensOrigem = useMemo(() => {
-    const base = pedidos.filter(
-      (p) =>
-        correspondeAoKpi(p, kpiAtivo) &&
-        (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido)
+  const baseParaTiposCertidao = useMemo(() => {
+    return pedidos.filter((p) => {
+      if (!correspondeAoKpi(p, kpiAtivo)) return false;
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroConferencia]);
+
+  const opcoesTipoCertidaoDinamicas = useMemo(() => {
+    const especiesDistintas = extrairEspeciesDistintasPedidos(baseParaTiposCertidao).sort(
+      (a, b) => b.quantidade - a.quantidade || a.especie.localeCompare(b.especie, "pt-BR")
     );
+    return [
+      {
+        valor: "TODOS",
+        rotulo: `TIPOS DE CERTIDÕES (${baseParaTiposCertidao.length})`,
+      },
+      ...especiesDistintas.map((item) => ({
+        valor: `ESPECIE:${item.especie}`,
+        rotulo: `${item.especie} (${item.quantidade})`,
+      })),
+    ];
+  }, [baseParaTiposCertidao]);
+
+  useEffect(() => {
+    if (
+      filtroTipoCertidao !== "TODOS" &&
+      !opcoesTipoCertidaoDinamicas.some((op) => op.valor === filtroTipoCertidao)
+    ) {
+      setFiltroTipoCertidao("TODOS");
+    }
+  }, [filtroTipoCertidao, opcoesTipoCertidaoDinamicas]);
+
+  useEffect(() => {
+    if (
+      filtroDataPedido !== "TODAS" &&
+      !datasPedidoDisponiveis.some((d) => d.dataBr === filtroDataPedido)
+    ) {
+      setFiltroDataPedido("TODAS");
+    }
+  }, [filtroDataPedido, datasPedidoDisponiveis]);
+
+  const contagensOrigem = useMemo(() => {
+    const base = pedidos.filter((p) => {
+      if (!correspondeAoKpi(p, kpiAtivo)) return false;
+      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      )
+        return false;
+      return true;
+    });
     const onr = base.filter((p) => p.origem === "ONR").length;
     const presencial = base.filter((p) => p.origem !== "ONR").length;
     return {
@@ -172,14 +236,15 @@ export function VisaoGeralDinamicaClient({
       onr,
       presencial,
     };
-  }, [pedidos, kpiAtivo, filtroDataPedido]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroTipoCertidao, filtroConferencia]);
 
   const contagensConferenciaNoKpi = useMemo(() => {
     const baseKpi = pedidos.filter(
       (p) =>
         correspondeAoKpi(p, kpiAtivo) &&
         (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido) &&
-        (filtroOrigem === "TODAS" || p.origem === filtroOrigem)
+        (filtroOrigem === "TODAS" || p.origem === filtroOrigem) &&
+        correspondeFiltroTipoCertidao(p, filtroTipoCertidao)
     );
     const conferidos = baseKpi.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
     const devolvidos = baseKpi.filter((p) => Boolean(p.devolvidoPeloEscrevente)).length;
@@ -189,7 +254,7 @@ export function VisaoGeralDinamicaClient({
       devolvidos,
       naoConferidos: Math.max(0, baseKpi.length - conferidos - devolvidos),
     };
-  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroTipoCertidao]);
 
   const pedidosFiltrados = useMemo(() => {
     const q = busca.trim().replace(/^#+/, "").toLowerCase();
@@ -201,6 +266,10 @@ export function VisaoGeralDinamicaClient({
       }
 
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) {
+        return false;
+      }
+
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) {
         return false;
       }
 
@@ -299,6 +368,7 @@ export function VisaoGeralDinamicaClient({
     kpiAtivo,
     filtroDataPedido,
     filtroOrigem,
+    filtroTipoCertidao,
     filtroConferencia,
     busca,
     colunaOrdenacao,
@@ -311,12 +381,13 @@ export function VisaoGeralDinamicaClient({
     else if (kpiAtivo === "DEVOLVIDO") qs.set("conferencia", "DEVOLVIDO");
     if (filtroDataPedido !== "TODAS") qs.set("data", filtroDataPedido);
     if (filtroOrigem !== "TODAS") qs.set("origem", filtroOrigem);
+    if (filtroTipoCertidao !== "TODOS") qs.set("tipo", filtroTipoCertidao);
     if (kpiAtivo === "REVISAO") qs.set("estado", "EM_REVISAO_HUMANA");
     if (kpiAtivo === "ATUALIZACAO") qs.set("estado", "AGUARDANDO_ATUALIZACAO_MATRICULA");
     if (busca.trim()) qs.set("busca", busca.trim());
     const str = qs.toString();
     return str ? `/cartorio-virtual/impressao?${str}` : "/cartorio-virtual/impressao";
-  }, [filtroConferencia, filtroDataPedido, filtroOrigem, kpiAtivo, busca]);
+  }, [filtroConferencia, filtroDataPedido, filtroOrigem, filtroTipoCertidao, kpiAtivo, busca]);
 
   const corEstadoBadge = (est: EstadoOperacionalPedido) => {
     if (est === "APTO_EMISSAO")
@@ -367,31 +438,44 @@ export function VisaoGeralDinamicaClient({
             </select>
           </div>
 
-          {/* Card / Seletor ORIGEM DO PEDIDO (ONR ou PRESENCIAL) */}
-          <div className="h-9 px-3 rounded-xl border border-indigo-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
-            <Filter className="w-4 h-4 text-indigo-300 shrink-0" />
-            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-indigo-200 whitespace-nowrap">
-              ORIGEM:
-            </span>
-            <select
-              aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
-              value={filtroOrigem}
-              onChange={(e) =>
-                setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
-              }
-              className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
-            >
-              <option value="TODAS" className="bg-[#080D1A] text-white">
-                ONR / PRESENCIAL ({contagensOrigem.todas})
+          {/* Seletor ONR / PRESENCIAL idêntico à Verificação do Escrevente */}
+          <select
+            aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
+            value={filtroOrigem}
+            onChange={(e) =>
+              setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
+            }
+            className="h-9 px-3 rounded-xl bg-[#080D1A] border border-indigo-400/55 text-xs sm:text-sm font-extrabold text-indigo-200 cursor-pointer shrink-0"
+            title="Filtrar pedidos por origem: ONR ou Presencial"
+          >
+            <option value="TODAS" className="bg-[#080D1A] text-white">
+              ONR / PRESENCIAL ({contagensOrigem.todas})
+            </option>
+            <option value="ONR" className="bg-[#080D1A] text-white">
+              ONR ({contagensOrigem.onr})
+            </option>
+            <option value="BALCAO" className="bg-[#080D1A] text-white">
+              PRESENCIAL ({contagensOrigem.presencial})
+            </option>
+          </select>
+
+          {/* Seletor dinâmico TIPOS DE CERTIDÕES idêntico à Verificação do Escrevente */}
+          <select
+            aria-label="Filtrar por Tipo de Certidão"
+            value={filtroTipoCertidao}
+            onChange={(e) => setFiltroTipoCertidao(e.target.value)}
+            className="h-9 px-3 rounded-xl bg-[#080D1A] border border-cyan-400/45 text-xs sm:text-sm font-extrabold text-white cursor-pointer shrink-0"
+          >
+            {opcoesTipoCertidaoDinamicas.map((op) => (
+              <option
+                key={op.valor}
+                value={op.valor}
+                className="bg-[#080D1A] text-white"
+              >
+                {op.rotulo}
               </option>
-              <option value="ONR" className="bg-[#080D1A] text-white">
-                ONR ({contagensOrigem.onr})
-              </option>
-              <option value="BALCAO" className="bg-[#080D1A] text-white">
-                PRESENCIAL ({contagensOrigem.presencial})
-              </option>
-            </select>
-          </div>
+            ))}
+          </select>
 
           <div className="relative w-56 shrink-0">
             <Search className="w-4 h-4 text-cyan-300 stroke-[2.5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -461,7 +545,7 @@ export function VisaoGeralDinamicaClient({
             className="h-9 px-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Printer className="w-3.5 h-3.5 text-cyan-300" />
-            {mostrarCardLote ? "Ocultar EM LOTE" : "EM LOTE"}
+            {mostrarCardLote ? "Ocultar IMPRIMIR" : "IMPRIMIR"}
           </button>
 
           <Link
@@ -517,6 +601,7 @@ export function VisaoGeralDinamicaClient({
           {(kpiAtivo !== "TODOS" ||
             filtroDataPedido !== "TODAS" ||
             filtroOrigem !== "TODAS" ||
+            filtroTipoCertidao !== "TODOS" ||
             filtroConferencia !== "TODOS" ||
             busca.trim() !== "") && (
             <button
@@ -525,6 +610,7 @@ export function VisaoGeralDinamicaClient({
                 setKpiAtivo("TODOS");
                 setFiltroDataPedido("TODAS");
                 setFiltroOrigem("TODAS");
+                setFiltroTipoCertidao("TODOS");
                 setFiltroConferencia("TODOS");
                 setBusca("");
               }}
