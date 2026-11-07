@@ -431,3 +431,130 @@ export function extrairMetadadosNomeArquivoHolerite(fileName: string): {
 
   return null;
 }
+
+
+export type StatusCienciaHolerite = 'Ativo' | 'Visualizado' | 'Ciente';
+
+/**
+ * Gera o protocolo criptográfico SHA-256 do Comprovante Eletrônico de Recebimento e Ciência
+ * pelo colaborador titular (CLT Art. 464 + MP nº 2.200-2/2001, Art. 10, § 2º).
+ */
+export function gerarComprovanteCienciaHoleriteHash(params: {
+  tenantId: string;
+  holeriteId: string;
+  usuarioId: string;
+  ano: number;
+  mes: number;
+  arquivoHash: string;
+  cienciaConfirmadaEmIso: string;
+  ip: string;
+}): string {
+  const payload = [
+    'FIORIX_CIENCIA_HOLERITE_V1',
+    params.tenantId,
+    params.holeriteId,
+    params.usuarioId,
+    String(params.ano),
+    pad2(params.mes),
+    params.arquivoHash,
+    params.cienciaConfirmadaEmIso,
+    params.ip || 'unknown',
+  ].join('|');
+  return createHash('sha256').update(payload, 'utf8').digest('hex');
+}
+
+/**
+ * Classifica de forma determinística e auditável os eventos de acesso a um holerite,
+ * separando estritamente os acessos pessoais do colaborador titular das inspeções técnicas do RH/Admin.
+ * Garante que a conferência do RH jamais contamine o contador de ciência do colaborador.
+ */
+export function classificarAcessosHolerite(params: {
+  titularUsuarioId: string;
+  primeiraVisualizacaoColuna?: Date | string | null;
+  cienciaConfirmadaEmColuna?: Date | string | null;
+  cienciaComprovanteHashColuna?: string | null;
+  logs: Array<{
+    usuarioId: string;
+    tipo: string;
+    dataAcesso: Date | string;
+    ip?: string | null;
+  }>;
+}): {
+  acessosTitular: number;
+  inspecoesRh: number;
+  primeiraVisualizacaoTitularEm: Date | null;
+  cienciaConfirmadaEm: Date | null;
+  status: StatusCienciaHolerite;
+} {
+  let acessosTitular = 0;
+  let inspecoesRh = 0;
+  let primeiraVisLog: Date | null = null;
+  let cienciaLogDate: Date | null = null;
+
+  const sorted = [...(params.logs || [])].sort(
+    (a, b) => new Date(a.dataAcesso).getTime() - new Date(b.dataAcesso).getTime()
+  );
+
+  for (const lg of sorted) {
+    const dt = new Date(lg.dataAcesso);
+    const isTitular = lg.usuarioId === params.titularUsuarioId;
+
+    if (lg.tipo === 'holerite_ciencia_confirmada' && isTitular) {
+      if (!cienciaLogDate && !isNaN(dt.getTime())) {
+        cienciaLogDate = dt;
+      }
+      if (!primeiraVisLog && !isNaN(dt.getTime())) {
+        primeiraVisLog = dt;
+      }
+      continue;
+    }
+
+    if (
+      lg.tipo === 'holerite_download_authorized' ||
+      lg.tipo === 'holerite_view' ||
+      lg.tipo === 'holerite_rh_inspecao'
+    ) {
+      if (isTitular && lg.tipo !== 'holerite_rh_inspecao') {
+        acessosTitular++;
+        if (!primeiraVisLog && !isNaN(dt.getTime())) {
+          primeiraVisLog = dt;
+        }
+      } else {
+        inspecoesRh++;
+      }
+    }
+  }
+
+  const colVis = params.primeiraVisualizacaoColuna
+    ? new Date(params.primeiraVisualizacaoColuna)
+    : null;
+  const validColVis = colVis && !isNaN(colVis.getTime()) ? colVis : null;
+
+  const colCiencia = params.cienciaConfirmadaEmColuna
+    ? new Date(params.cienciaConfirmadaEmColuna)
+    : null;
+  const validColCiencia = colCiencia && !isNaN(colCiencia.getTime()) ? colCiencia : null;
+
+  const cienciaConfirmadaEm = validColCiencia || cienciaLogDate;
+  const primeiraVisualizacaoTitularEm =
+    validColVis || primeiraVisLog || cienciaConfirmadaEm || null;
+
+  if (acessosTitular === 0 && validColVis) {
+    acessosTitular = 1;
+  }
+
+  let status: StatusCienciaHolerite = 'Ativo';
+  if (cienciaConfirmadaEm || params.cienciaComprovanteHashColuna) {
+    status = 'Ciente';
+  } else if (acessosTitular > 0 || primeiraVisualizacaoTitularEm) {
+    status = 'Visualizado';
+  }
+
+  return {
+    acessosTitular,
+    inspecoesRh,
+    primeiraVisualizacaoTitularEm,
+    cienciaConfirmadaEm,
+    status,
+  };
+}

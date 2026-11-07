@@ -90,8 +90,18 @@ export function DossieCorregedoriaHoleritesModal({
       if (filtroMesAcervo !== "TODOS" && String(item.mes) !== filtroMesAcervo) return false;
       if (filtroTempestividade === "NO_PRAZO" && !item.entregueNoPrazoClt) return false;
       if (filtroTempestividade === "APOS_PRAZO" && item.entregueNoPrazoClt) return false;
-      if (filtroTempestividade === "VISUALIZADOS" && item.status !== "Visualizado") return false;
-      if (filtroTempestividade === "NAO_VISUALIZADOS" && item.status === "Visualizado") return false;
+      if (filtroTempestividade === "CIENTES" && item.status !== "Ciente") return false;
+      if (
+        filtroTempestividade === "VISUALIZADOS" &&
+        item.status !== "Visualizado" &&
+        item.status !== "Ciente"
+      )
+        return false;
+      if (
+        filtroTempestividade === "NAO_VISUALIZADOS" &&
+        (item.status === "Visualizado" || item.status === "Ciente")
+      )
+        return false;
 
       if (!q) return true;
       return (
@@ -135,8 +145,11 @@ export function DossieCorregedoriaHoleritesModal({
       "Tempestividade CLT",
       "Justificativa Atraso",
       "Enviado Por",
-      "Visualizacoes",
-      "Primeira Ciencia Titular",
+      "Status Ciencia Titular",
+      "Acessos Titular",
+      "1a Abertura Titular",
+      "Ciencia Confirmada Em",
+      "Protocolo Ciencia SHA-256",
       "Arquivo PDF",
       "Hash Criptografico SHA-256",
     ];
@@ -155,8 +168,11 @@ export function DossieCorregedoriaHoleritesModal({
         r.entregueNoPrazoClt ? "NO PRAZO CLT" : `APOS PRAZO (+${r.diasAtrasoClt}d)`,
         r.justificativaAtraso || "",
         r.uploadedBy,
-        r.visualizacoes,
+        r.status,
+        r.acessosTitular,
         r.primeiraVisualizacaoBr || "Pendente",
+        r.cienciaConfirmadaEmBr || "Pendente",
+        r.cienciaComprovanteHash || "",
         r.arquivoNome,
         r.hash,
       ]
@@ -194,10 +210,9 @@ export function DossieCorregedoriaHoleritesModal({
           <td style="text-align:center">${c.dispensadosCount}</td>
           <td style="text-align:center">${c.faltantesCount}</td>
           <td style="text-align:center">${c.noPrazoCount}/${c.arquivadosCount}</td>
-          <td>${
-            c.homologada
-              ? `<strong>HOMOLOGADA</strong> (${escapeHtml(c.homologadoPorNome || "RH")})`
-              : c.arquivadosCount > 0
+          <td>${c.homologada
+            ? `<strong>HOMOLOGADA</strong> (${escapeHtml(c.homologadoPorNome || "RH")})`
+            : c.arquivadosCount > 0
               ? "Em custódia ativa"
               : "Sem envios"
           }</td>
@@ -216,8 +231,18 @@ export function DossieCorregedoriaHoleritesModal({
           <td>${escapeHtml(h.prazoLegalCltBr)}</td>
           <td>${escapeHtml(h.dataUpload)}</td>
           <td>${h.entregueNoPrazoClt ? "NO PRAZO CLT" : `APÓS PRAZO (+${h.diasAtrasoClt}d)`}</td>
-          <td style="text-align:center">${h.visualizacoes}</td>
-          <td style="font-family:monospace;font-size:9px;word-break:break-all">${escapeHtml(h.hash)}</td>
+          <td><strong>${escapeHtml(h.status)}</strong> (${h.acessosTitular} acesso(s))${
+            h.cienciaConfirmadaEmBr
+              ? `<br/><span style="font-size:9px">Ciência: ${escapeHtml(h.cienciaConfirmadaEmBr)}</span>`
+              : h.primeiraVisualizacaoBr
+              ? `<br/><span style="font-size:9px">1ª Abertura: ${escapeHtml(h.primeiraVisualizacaoBr)}</span>`
+              : ""
+          }</td>
+          <td style="font-family:monospace;font-size:9px;word-break:break-all">${escapeHtml(h.hash)}${
+            h.cienciaComprovanteHash
+              ? `<br/><strong>Recibo:</strong> ${escapeHtml(h.cienciaComprovanteHash)}`
+              : ""
+          }</td>
         </tr>`
       )
       .join("");
@@ -401,11 +426,10 @@ export function DossieCorregedoriaHoleritesModal({
             <button
               type="button"
               onClick={() => setActiveTab("mapa_anual")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "mapa_anual"
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
-                  : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "mapa_anual"
+                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
+                : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
+                }`}
             >
               <Scale className="w-3.5 h-3.5" />
               <span>Mapa Anual & Plurianual (CLT)</span>
@@ -414,11 +438,10 @@ export function DossieCorregedoriaHoleritesModal({
             <button
               type="button"
               onClick={() => setActiveTab("acervo_nominal")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "acervo_nominal"
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
-                  : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "acervo_nominal"
+                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
+                : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
+                }`}
             >
               <Database className="w-3.5 h-3.5" />
               <span>
@@ -429,11 +452,10 @@ export function DossieCorregedoriaHoleritesModal({
             <button
               type="button"
               onClick={() => setActiveTab("trilha_worm")}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === "trilha_worm"
-                  ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
-                  : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
-              }`}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "trilha_worm"
+                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/35"
+                : "bg-[#080D1A] text-slate-400 border border-white/10 hover:text-white"
+                }`}
             >
               <ScrollText className="w-3.5 h-3.5" />
               <span>
@@ -471,11 +493,10 @@ export function DossieCorregedoriaHoleritesModal({
                       setAno(rp.ano);
                       carregarDossie(rp.ano);
                     }}
-                    className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
-                      rp.ano === ano
-                        ? "bg-cyan-500/10 border-cyan-500/40"
-                        : "bg-[#0B1020] border-white/10 hover:border-white/20"
-                    }`}
+                    className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${rp.ano === ano
+                      ? "bg-cyan-500/10 border-cyan-500/40"
+                      : "bg-[#0B1020] border-white/10 hover:border-white/20"
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-mono font-bold uppercase text-slate-400">
@@ -636,7 +657,8 @@ export function DossieCorregedoriaHoleritesModal({
                   <option value="TODOS">Todos os Status CLT</option>
                   <option value="NO_PRAZO">Entregues no Prazo CLT</option>
                   <option value="APOS_PRAZO">Entregues Após o Prazo</option>
-                  <option value="VISUALIZADOS">Visualizados pelo Colaborador</option>
+                  <option value="CIENTES">Ciência Confirmada pelo Colaborador</option>
+                  <option value="VISUALIZADOS">Visualizados / Cientes pelo Colaborador</option>
                   <option value="NAO_VISUALIZADOS">Pendentes de Visualização</option>
                 </select>
               </div>
@@ -707,15 +729,32 @@ export function DossieCorregedoriaHoleritesModal({
                             </div>
                           </td>
                           <td className="px-3.5 py-3 whitespace-nowrap">
-                            <span className="font-mono font-bold text-white">
-                              {h.visualizacoes}
-                            </span>{" "}
-                            <span className="text-[11px] text-slate-400">acesso(s)</span>
-                            {h.primeiraVisualizacaoBr && (
-                              <div className="text-[10px] font-mono text-emerald-400">
-                                1ª ciência: {h.primeiraVisualizacaoBr}
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                  h.status === "Ciente"
+                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                    : h.status === "Visualizado"
+                                    ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+                                    : "bg-slate-500/15 text-slate-300 border-slate-500/30"
+                                }`}
+                              >
+                                {h.status}
+                              </span>
+                              <span className="font-mono font-bold text-white">
+                                {h.acessosTitular}
+                              </span>
+                              <span className="text-[11px] text-slate-400">acesso(s)</span>
+                            </div>
+                            {h.cienciaConfirmadaEmBr ? (
+                              <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                Ciência: {h.cienciaConfirmadaEmBr}
                               </div>
-                            )}
+                            ) : h.primeiraVisualizacaoBr ? (
+                              <div className="text-[10px] font-mono text-indigo-300 mt-0.5">
+                                1ª abertura: {h.primeiraVisualizacaoBr}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="px-3.5 py-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">
                             <div className="inline-flex items-center gap-1.5">

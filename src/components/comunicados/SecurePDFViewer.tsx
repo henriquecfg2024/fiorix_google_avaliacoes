@@ -13,6 +13,8 @@ import {
   RefreshCw,
   Maximize2,
   Minimize2,
+  FileCheck2,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +25,10 @@ interface SecurePDFViewerProps {
   fileUrl: string;
   userName: string;
   allowDownload?: boolean;
+  isCiente?: boolean;
+  confirmingCiencia?: boolean;
+  onConfirmCiencia?: () => void;
+  onPrintComprovanteCiencia?: () => void;
   onClose?: () => void;
 }
 
@@ -33,6 +39,10 @@ export function SecurePDFViewer({
   fileUrl,
   userName,
   allowDownload = false,
+  isCiente = false,
+  confirmingCiencia = false,
+  onConfirmCiencia,
+  onPrintComprovanteCiencia,
   onClose,
 }: SecurePDFViewerProps) {
   const [timestamp, setTimestamp] = useState<string>("");
@@ -344,12 +354,50 @@ export function SecurePDFViewer({
           )}
         </div>
 
-        {/* Footer Security Notice */}
-        <div className="px-6 py-2.5 bg-[#080A12] border-t border-slate-200 dark:border-white/5 flex items-center text-xs text-white/50 shrink-0">
+        {/* Footer Security Notice & Confirmação de Recebimento */}
+        <div className="px-6 py-3 bg-[#080A12] border-t border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-white/60 shrink-0">
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Somente você pode visualizar seus documentos.</span>
+            <span>Somente você e o RH possuem autorização de acesso (Art. 464 CLT & LGPD).</span>
           </div>
+
+          {documentType === "holerite" && (
+            <div className="flex items-center gap-2">
+              {!isCiente && onConfirmCiencia ? (
+                <Button
+                  size="sm"
+                  disabled={confirmingCiencia}
+                  onClick={onConfirmCiencia}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-3.5 gap-1.5 rounded-xl shadow-sm cursor-pointer"
+                >
+                  {confirmingCiencia ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FileCheck2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>Confirmar Recebimento / Ciente</span>
+                </Button>
+              ) : isCiente ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold text-[11px]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Recebimento e Ciência Confirmados
+                  </span>
+                  {onPrintComprovanteCiencia && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={onPrintComprovanteCiencia}
+                      className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs h-8 px-3 gap-1.5 rounded-xl cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Comprovante A4</span>
+                    </Button>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>

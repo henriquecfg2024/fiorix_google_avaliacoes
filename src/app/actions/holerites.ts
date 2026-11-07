@@ -19,10 +19,12 @@ import {
 import {
   avaliarTempestividadeUpload,
   calcularPrazoLegalClt,
+  classificarAcessosHolerite,
   formatarCompetenciaCurta,
   formatarCompetenciaTitulo,
   gerarManifestHashCompetencia,
   obterTipoFolhaPorMes,
+  StatusCienciaHolerite,
   TipoFolhaHolerite,
 } from '@/lib/holerites/clt-prazo-calculator';
 import {
@@ -301,8 +303,13 @@ export interface HoleriteArmazenadoRHItem {
   dataUploadIso?: string;
   uploadedBy: string;
   visualizacoes: number;
+  acessosTitular: number;
+  inspecoesRh: number;
   primeiraVisualizacaoBr?: string | null;
-  status: 'Ativo' | 'Visualizado';
+  cienciaConfirmadaEmBr?: string | null;
+  cienciaIp?: string | null;
+  cienciaComprovanteHash?: string | null;
+  status: StatusCienciaHolerite;
   arquivoNome: string;
   tamanhoBytes?: number;
   hash: string;
@@ -331,13 +338,14 @@ export async function listarHoleritesArmazenadosRHAction(): Promise<HoleriteArma
 
   if (holerites.length === 0) return [];
 
-  // Carrega colunas extras de governança CLT e snapshot histórico
+  // Carrega colunas extras de governança CLT, ciência eletrônica e snapshot histórico
   const extraMap = new Map<string, any>();
   try {
     const extraRows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id, tipo_folha, prazo_legal_clt, entregue_no_prazo_clt, justificativa_atraso,
               colaborador_nome_snapshot, registro_gestor_snapshot, cpf_mascarado_snapshot,
-              setor_snapshot, cargo_snapshot, primeira_visualizacao_em
+              setor_snapshot, cargo_snapshot, primeira_visualizacao_em,
+              ciencia_confirmada_em, ciencia_ip, ciencia_user_agent, ciencia_comprovante_hash
        FROM public.fiorix_holerites
        WHERE tenant_id = $1`,
       user.tenantId
@@ -345,7 +353,21 @@ export async function listarHoleritesArmazenadosRHAction(): Promise<HoleriteArma
     for (const r of extraRows || []) {
       extraMap.set(String(r.id), r);
     }
-  } catch {}
+  } catch {
+    try {
+      const fallbackRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id, tipo_folha, prazo_legal_clt, entregue_no_prazo_clt, justificativa_atraso,
+                colaborador_nome_snapshot, registro_gestor_snapshot, cpf_mascarado_snapshot,
+                setor_snapshot, cargo_snapshot, primeira_visualizacao_em
+         FROM public.fiorix_holerites
+         WHERE tenant_id = $1`,
+        user.tenantId
+      );
+      for (const r of fallbackRows || []) {
+        extraMap.set(String(r.id), r);
+      }
+    } catch {}
+  }
 
   let gestorRows: any[] = [];
   try {
@@ -362,26 +384,25 @@ export async function listarHoleritesArmazenadosRHAction(): Promise<HoleriteArma
     where: {
       tenantId: user.tenantId,
       recursoId: { in: holeriteIds },
-      tipo: 'holerite_download_authorized',
+      tipo: {
+        in: [
+          'holerite_download_authorized',
+          'holerite_view',
+          'holerite_rh_inspecao',
+          'holerite_ciencia_confirmada',
+        ],
+      },
     },
-    select: { recursoId: true, usuarioId: true, dataAcesso: true },
+    select: { recursoId: true, usuarioId: true, tipo: true, dataAcesso: true, ip: true },
     orderBy: { dataAcesso: 'asc' },
   });
 
-  const viewsByHolerite = new Map<string, number>();
-  const viewedByOwner = new Set<string>();
-  const firstOwnerViewByHolerite = new Map<string, Date>();
-
+  const logsByHolerite = new Map<string, any[]>();
   for (const lg of logs) {
     if (!lg.recursoId) continue;
-    viewsByHolerite.set(lg.recursoId, (viewsByHolerite.get(lg.recursoId) || 0) + 1);
-    const ownerHolerite = holerites.find((h) => h.id === lg.recursoId);
-    if (ownerHolerite && lg.usuarioId === ownerHolerite.usuarioId) {
-      viewedByOwner.add(lg.recursoId);
-      if (!firstOwnerViewByHolerite.has(lg.recursoId)) {
-        firstOwnerViewByHolerite.set(lg.recursoId, lg.dataAcesso);
-      }
-    }
+    const arr = logsByHolerite.get(lg.recursoId) || [];
+    arr.push(lg);
+    logsByHolerite.set(lg.recursoId, arr);
   }
 
   return holerites.map((h) => {
@@ -398,15 +419,24 @@ export async function listarHoleritesArmazenadosRHAction(): Promise<HoleriteArma
     const cpfMascarado =
       mascararCpfLgpd(cpfReal) ||
       (extra?.cpf_mascarado_snapshot ? String(extra.cpf_mascarado_snapshot) : '—');
-    const views = viewsByHolerite.get(h.id) || 0;
     const uploaderRole = h.uploader?.role === 'RH' ? 'RH' : 'Gestão';
     const uploaderLabel = h.uploader?.name ? `${h.uploader.name} (${uploaderRole})` : 'RH';
 
     const prazoClt = calcularPrazoLegalClt(h.ano, h.mes);
     const temp = avaliarTempestividadeUpload(h.dataUpload, prazoClt.dataLimiteIso);
-    const primeiraVisDate = extra?.primeira_visualizacao_em
-      ? new Date(extra.primeira_visualizacao_em)
-      : firstOwnerViewByHolerite.get(h.id) || null;
+
+    const holeriteLogs = logsByHolerite.get(h.id) || [];
+    const classif = classificarAcessosHolerite({
+      titularUsuarioId: h.usuarioId,
+      primeiraVisualizacaoColuna: extra?.primeira_visualizacao_em ?? null,
+      cienciaConfirmadaEmColuna: extra?.ciencia_confirmada_em ?? null,
+      cienciaComprovanteHashColuna: extra?.ciencia_comprovante_hash ?? null,
+      logs: holeriteLogs,
+    });
+
+    const cienciaIpLog = holeriteLogs.find(
+      (l) => l.tipo === 'holerite_ciencia_confirmada' && l.usuarioId === h.usuarioId
+    )?.ip;
 
     return {
       id: h.id,
@@ -441,9 +471,24 @@ export async function listarHoleritesArmazenadosRHAction(): Promise<HoleriteArma
       dataUpload: new Date(h.dataUpload).toLocaleString('pt-BR'),
       dataUploadIso: new Date(h.dataUpload).toISOString(),
       uploadedBy: uploaderLabel,
-      visualizacoes: views,
-      primeiraVisualizacaoBr: primeiraVisDate ? primeiraVisDate.toLocaleString('pt-BR') : null,
-      status: viewedByOwner.has(h.id) || views > 0 ? 'Visualizado' : 'Ativo',
+      visualizacoes: classif.acessosTitular,
+      acessosTitular: classif.acessosTitular,
+      inspecoesRh: classif.inspecoesRh,
+      primeiraVisualizacaoBr: classif.primeiraVisualizacaoTitularEm
+        ? classif.primeiraVisualizacaoTitularEm.toLocaleString('pt-BR')
+        : null,
+      cienciaConfirmadaEmBr: classif.cienciaConfirmadaEm
+        ? classif.cienciaConfirmadaEm.toLocaleString('pt-BR')
+        : null,
+      cienciaIp: extra?.ciencia_ip
+        ? String(extra.ciencia_ip)
+        : cienciaIpLog
+        ? String(cienciaIpLog)
+        : null,
+      cienciaComprovanteHash: extra?.ciencia_comprovante_hash
+        ? String(extra.ciencia_comprovante_hash)
+        : null,
+      status: classif.status,
       arquivoNome: h.arquivoNome,
       tamanhoBytes: h.tamanhoBytes,
       hash: h.arquivoHash,
@@ -466,14 +511,20 @@ export async function listarLogsAcessoHoleriteAction(
   holeriteId: string
 ): Promise<HoleriteLogEntry[]> {
   const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
-  const logs = await prisma.fiorixAcessoLog.findMany({
-    where: {
-      tenantId: user.tenantId,
-      recursoId: holeriteId,
-    },
-    orderBy: { dataAcesso: 'desc' },
-    take: 30,
-  });
+  const [holeriteAlvo, logs] = await Promise.all([
+    prisma.fiorixHolerite.findFirst({
+      where: { id: holeriteId, tenantId: user.tenantId },
+      select: { usuarioId: true },
+    }),
+    prisma.fiorixAcessoLog.findMany({
+      where: {
+        tenantId: user.tenantId,
+        recursoId: holeriteId,
+      },
+      orderBy: { dataAcesso: 'desc' },
+      take: 40,
+    }),
+  ]);
 
   const userIds = Array.from(new Set(logs.map((l) => l.usuarioId).filter(Boolean)));
   const usuarios =
@@ -487,15 +538,21 @@ export async function listarLogsAcessoHoleriteAction(
 
   return logs.map((l) => {
     const u = userMap.get(l.usuarioId);
+    const isTitular = Boolean(holeriteAlvo && l.usuarioId === holeriteAlvo.usuarioId);
+    let tipoLabel = 'ABERTURA / DOWNLOAD PELO TITULAR';
+    if (l.tipo === 'holerite_ciencia_confirmada') {
+      tipoLabel = 'CIÊNCIA ELETRÔNICA CONFIRMADA PELO TITULAR (ART. 464 CLT)';
+    } else if (l.tipo === 'holerite_cpf_reveal') {
+      tipoLabel = 'REVELAÇÃO AUDITADA DE CPF (LGPD)';
+    } else if (l.tipo === 'holerite_rh_inspecao' || (holeriteAlvo && !isTitular)) {
+      tipoLabel = 'INSPEÇÃO TÉCNICA / CONFERÊNCIA RH';
+    }
     return {
       id: l.id,
-      tipo:
-        l.tipo === 'holerite_cpf_reveal'
-          ? 'REVELAÇÃO AUDITADA DE CPF (LGPD)'
-          : 'VISUALIZAÇÃO / DOWNLOAD AUTORIZADO',
+      tipo: tipoLabel,
       dataHora: new Date(l.dataAcesso).toLocaleString('pt-BR'),
       ip: l.ip || 'IP protegido',
-      operador: u?.name ? `${u.name} (${u.role})` : 'Usuário autenticado',
+      operador: u?.name ? `${u.name} (${isTitular ? 'Titular' : u.role})` : 'Usuário autenticado',
     };
   });
 }

@@ -414,6 +414,7 @@ export async function POST(req: NextRequest) {
       const cpfMascSnap = mascararCpfLgpd(cpfValido);
       const setorSnap = gestorSnapshot.setor || usuarioAlvo.departamento || null;
       const cargoSnap = gestorSnapshot.cargo || usuarioAlvo.cargo || null;
+      const hashSubstituido = Boolean(existente && existente.arquivoHash !== arquivoHash);
       await prisma
         .$executeRawUnsafe(
           `UPDATE public.fiorix_holerites
@@ -425,7 +426,12 @@ export async function POST(req: NextRequest) {
                registro_gestor_snapshot = $7,
                cpf_mascarado_snapshot = $8,
                setor_snapshot = $9,
-               cargo_snapshot = $10
+               cargo_snapshot = $10,
+               primeira_visualizacao_em = CASE WHEN $11::boolean THEN NULL ELSE primeira_visualizacao_em END,
+               ciencia_confirmada_em = CASE WHEN $11::boolean THEN NULL ELSE ciencia_confirmada_em END,
+               ciencia_ip = CASE WHEN $11::boolean THEN NULL ELSE ciencia_ip END,
+               ciencia_user_agent = CASE WHEN $11::boolean THEN NULL ELSE ciencia_user_agent END,
+               ciencia_comprovante_hash = CASE WHEN $11::boolean THEN NULL ELSE ciencia_comprovante_hash END
            WHERE id = $1`,
           saved.id,
           tipoFolha,
@@ -436,7 +442,8 @@ export async function POST(req: NextRequest) {
           gestorSnapshot.registroGestor,
           cpfMascSnap,
           setorSnap,
-          cargoSnap
+          cargoSnap,
+          hashSubstituido
         )
         .catch((err) =>
           console.warn("[Holerite Upload] Aviso ao gravar snapshot CLT:", err)
@@ -467,7 +474,7 @@ export async function POST(req: NextRequest) {
     await logAuditEvent({
       tenantId,
       usuarioId: uploaderId,
-      tipo: "holerite_download_authorized" as any,
+      tipo: "holerite_upload_lote",
       ip: getRequestIp(req),
       userAgent: req.headers.get("user-agent") || "unknown",
       metadata: {

@@ -79,10 +79,12 @@ export async function GET(
 
     // ── Auditoria ESTRITA — bloqueia download se o log falhar ───────
     const ip = getRequestIp(req);
+    const isTitular = holerite.usuarioId === usuarioId;
     await logAuditEventStrict({
       tenantId,
       usuarioId,
-      tipo: "holerite_download_authorized",
+      alvoUsuarioId: isTitular ? undefined : holerite.usuarioId,
+      tipo: isTitular ? "holerite_download_authorized" : "holerite_rh_inspecao",
       recursoId: holerite.id,
       ip,
       userAgent: req.headers.get("user-agent") || "unknown",
@@ -90,11 +92,12 @@ export async function GET(
         mes: holerite.mes,
         ano: holerite.ano,
         arquivoHash: holerite.arquivoHash,
+        origemAcesso: isTitular ? "TITULAR" : "INSPECAO_RH",
       },
     });
 
     // Registra carimbo de primeira ciência/abertura pelo titular do holerite (Art. 464 CLT)
-    if (holerite.usuarioId === usuarioId) {
+    if (isTitular) {
       prisma
         .$executeRawUnsafe(
           `UPDATE public.fiorix_holerites

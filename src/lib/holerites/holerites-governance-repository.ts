@@ -12,6 +12,7 @@ import {
   avaliarStatusPrazoCompetencia,
   avaliarTempestividadeUpload,
   calcularPrazoLegalClt,
+  classificarAcessosHolerite,
   formatarCompetenciaCurta,
   formatarCompetenciaTitulo,
   formatarSiglaCardMes,
@@ -91,6 +92,7 @@ export interface ResumoCompetenciaHolerite {
   dispensadosCount: number;
   faltantesCount: number;
   visualizadosCount: number;
+  cientesCount?: number;
   noPrazoCount: number;
   foraDoPrazoCount: number;
   percentualCobertura: number;
@@ -157,7 +159,11 @@ export async function ensureHoleritesGovernanceTablesExist(): Promise<void> {
           ADD COLUMN IF NOT EXISTS cpf_mascarado_snapshot TEXT,
           ADD COLUMN IF NOT EXISTS setor_snapshot TEXT,
           ADD COLUMN IF NOT EXISTS cargo_snapshot TEXT,
-          ADD COLUMN IF NOT EXISTS primeira_visualizacao_em TIMESTAMPTZ;
+          ADD COLUMN IF NOT EXISTS primeira_visualizacao_em TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS ciencia_confirmada_em TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS ciencia_ip TEXT,
+          ADD COLUMN IF NOT EXISTS ciencia_user_agent TEXT,
+          ADD COLUMN IF NOT EXISTS ciencia_comprovante_hash TEXT;
       `);
 
       await prisma.$executeRawUnsafe(`
@@ -464,22 +470,70 @@ export async function obterPainelGovernancaHolerites(
       .catch(() => [] as any[]),
   ]);
 
-  // Verifica visualizações reais dos holerites do ano em FiorixAcessoLog
+  // Verifica visualizações e ciências reais ESTRITAMENTE do colaborador titular em FiorixAcessoLog / fiorix_holerites
   const holeriteIdsAno = holeritesAno.map((h) => h.id);
+  const extraCienciaRows =
+    holeriteIdsAno.length > 0
+      ? await prisma
+          .$queryRawUnsafe<any[]>(
+            `SELECT id, primeira_visualizacao_em, ciencia_confirmada_em, ciencia_comprovante_hash
+             FROM public.fiorix_holerites
+             WHERE tenant_id = $1 AND ano = $2`,
+            tenantId,
+            ano
+          )
+          .catch(() => [] as any[])
+      : [];
+  const extraCienciaMap = new Map<string, any>();
+  for (const r of extraCienciaRows || []) {
+    extraCienciaMap.set(String(r.id), r);
+  }
+
   const logsVisualizacao =
     holeriteIdsAno.length > 0
       ? await prisma.fiorixAcessoLog.findMany({
-        where: {
-          tenantId,
-          recursoId: { in: holeriteIdsAno },
-          tipo: 'holerite_download_authorized',
-        },
-        select: { recursoId: true },
-      })
+          where: {
+            tenantId,
+            recursoId: { in: holeriteIdsAno },
+            tipo: {
+              in: [
+                'holerite_download_authorized',
+                'holerite_view',
+                'holerite_rh_inspecao',
+                'holerite_ciencia_confirmada',
+              ],
+            },
+          },
+          select: { recursoId: true, usuarioId: true, tipo: true, dataAcesso: true },
+        })
       : [];
-  const holeritesVisualizadosSet = new Set(
-    logsVisualizacao.map((l) => l.recursoId).filter(Boolean) as string[]
-  );
+
+  const logsPorHoleriteAno = new Map<string, any[]>();
+  for (const lg of logsVisualizacao) {
+    if (!lg.recursoId) continue;
+    const arr = logsPorHoleriteAno.get(lg.recursoId) || [];
+    arr.push(lg);
+    logsPorHoleriteAno.set(lg.recursoId, arr);
+  }
+
+  const holeritesVisualizadosSet = new Set<string>();
+  const holeritesCientesSet = new Set<string>();
+  for (const h of holeritesAno) {
+    const ext = extraCienciaMap.get(h.id);
+    const classif = classificarAcessosHolerite({
+      titularUsuarioId: h.usuarioId,
+      primeiraVisualizacaoColuna: ext?.primeira_visualizacao_em ?? null,
+      cienciaConfirmadaEmColuna: ext?.ciencia_confirmada_em ?? null,
+      cienciaComprovanteHashColuna: ext?.ciencia_comprovante_hash ?? null,
+      logs: logsPorHoleriteAno.get(h.id) || [],
+    });
+    if (classif.status === 'Visualizado' || classif.status === 'Ciente') {
+      holeritesVisualizadosSet.add(h.id);
+    }
+    if (classif.status === 'Ciente') {
+      holeritesCientesSet.add(h.id);
+    }
+  }
 
   // Anos disponíveis no navegador plurianual
   const anosSet = new Set<number>([anoAtual - 1, anoAtual, anoAtual + 1, ano]);
@@ -543,6 +597,7 @@ export async function obterPainelGovernancaHolerites(
     let noPrazoCount = 0;
     let foraDoPrazoCount = 0;
     let visualizadosCount = 0;
+    let cientesCount = 0;
     let hashesIntactos = true;
 
     for (const h of holeritesMes) {
@@ -552,6 +607,9 @@ export async function obterPainelGovernancaHolerites(
 
       if (holeritesVisualizadosSet.has(h.id)) {
         visualizadosCount++;
+      }
+      if (holeritesCientesSet.has(h.id)) {
+        cientesCount++;
       }
       if (!h.arquivoHash || h.arquivoHash.length < 32) {
         hashesIntactos = false;
@@ -723,6 +781,7 @@ export async function obterPainelGovernancaHolerites(
       dispensadosCount: elegiveisDispensadosCount,
       faltantesCount: faltantes.length,
       visualizadosCount,
+      cientesCount,
       noPrazoCount,
       foraDoPrazoCount,
       percentualCobertura,

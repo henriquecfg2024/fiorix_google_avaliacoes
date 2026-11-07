@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   avaliarTempestividadeUpload,
   calcularPrazoLegalClt,
+  classificarAcessosHolerite,
   extrairMetadadosNomeArquivoHolerite,
+  gerarComprovanteCienciaHoleriteHash,
   gerarManifestHashCompetencia,
 } from '@/lib/holerites/clt-prazo-calculator';
 import { obterPainelGovernancaHolerites } from '@/lib/holerites/holerites-governance-repository';
@@ -261,5 +263,82 @@ describe('Governança Trabalhista CLT, Assistente de Faltantes e Dossiê Correge
         acao: 'HOMOLOGACAO',
       })
     );
+  });
+
+  it('separa estritamente inspeções técnicas do RH dos acessos e ciência do colaborador titular (Art. 464 CLT)', () => {
+    // 1. Apenas RH visualizou (2 vezes): status do colaborador DEVE permanecer 'Ativo' e acessosTitular = 0
+    const apenasRh = classificarAcessosHolerite({
+      titularUsuarioId: 'colab_anne',
+      logs: [
+        {
+          usuarioId: 'rh_nadia',
+          tipo: 'holerite_download_authorized',
+          dataAcesso: '2026-11-07T09:45:10Z',
+        },
+        {
+          usuarioId: 'rh_nadia',
+          tipo: 'holerite_rh_inspecao',
+          dataAcesso: '2026-11-07T09:46:00Z',
+        },
+      ],
+    });
+    expect(apenasRh.acessosTitular).toBe(0);
+    expect(apenasRh.inspecoesRh).toBe(2);
+    expect(apenasRh.status).toBe('Ativo');
+    expect(apenasRh.primeiraVisualizacaoTitularEm).toBeNull();
+
+    // 2. Titular abriu o PDF: status avança para 'Visualizado'
+    const titularAbriu = classificarAcessosHolerite({
+      titularUsuarioId: 'colab_anne',
+      logs: [
+        {
+          usuarioId: 'rh_nadia',
+          tipo: 'holerite_rh_inspecao',
+          dataAcesso: '2026-11-07T09:45:10Z',
+        },
+        {
+          usuarioId: 'colab_anne',
+          tipo: 'holerite_download_authorized',
+          dataAcesso: '2026-11-07T11:30:00Z',
+        },
+      ],
+    });
+    expect(titularAbriu.acessosTitular).toBe(1);
+    expect(titularAbriu.inspecoesRh).toBe(1);
+    expect(titularAbriu.status).toBe('Visualizado');
+    expect(titularAbriu.primeiraVisualizacaoTitularEm?.toISOString()).toBe('2026-11-07T11:30:00.000Z');
+
+    // 3. Titular clicou em "Confirmar Recebimento" (Ciência expressa MP 2.200-2/2001): status 'Ciente' + recibo SHA-256
+    const reciboSha256 = gerarComprovanteCienciaHoleriteHash({
+      tenantId,
+      holeriteId: 'hol_anne_10_2026',
+      usuarioId: 'colab_anne',
+      ano: 2026,
+      mes: 10,
+      arquivoHash: 'f'.repeat(64),
+      cienciaConfirmadaEmIso: '2026-11-07T11:32:00.000Z',
+      ip: '189.40.10.20',
+    });
+    expect(reciboSha256).toMatch(/^[a-f0-9]{64}$/);
+
+    const titularCiente = classificarAcessosHolerite({
+      titularUsuarioId: 'colab_anne',
+      cienciaConfirmadaEmColuna: '2026-11-07T11:32:00.000Z',
+      cienciaComprovanteHashColuna: reciboSha256,
+      logs: [
+        {
+          usuarioId: 'colab_anne',
+          tipo: 'holerite_download_authorized',
+          dataAcesso: '2026-11-07T11:30:00Z',
+        },
+        {
+          usuarioId: 'colab_anne',
+          tipo: 'holerite_ciencia_confirmada',
+          dataAcesso: '2026-11-07T11:32:00Z',
+        },
+      ],
+    });
+    expect(titularCiente.status).toBe('Ciente');
+    expect(titularCiente.acessosTitular).toBe(1);
   });
 });

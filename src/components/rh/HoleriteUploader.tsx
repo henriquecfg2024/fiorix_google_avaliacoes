@@ -36,6 +36,7 @@ import {
   Palmtree,
   Lock,
   Unlock,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1018,8 +1019,13 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
       "Tempestividade CLT",
       "Data Upload",
       "Enviado Por",
-      "Visualizacoes",
-      "Hash SHA-256",
+      "Acessos Titular",
+      "Inspecoes RH",
+      "Status Ciencia",
+      "1a Abertura Titular",
+      "Ciencia Confirmada Em",
+      "Protocolo Ciencia SHA-256",
+      "Hash PDF SHA-256",
     ];
     const rows = selecionados.map((s) =>
       [
@@ -1031,7 +1037,12 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
         s.entregueNoPrazoClt ? "NO PRAZO CLT" : `APOS PRAZO (+${s.diasAtrasoClt}d)`,
         s.dataUpload,
         s.uploadedBy,
-        s.visualizacoes,
+        s.acessosTitular,
+        s.inspecoesRh,
+        s.status,
+        s.primeiraVisualizacaoBr || "",
+        s.cienciaConfirmadaEmBr || "",
+        s.cienciaComprovanteHash || "",
         s.hash,
       ]
         .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
@@ -1046,6 +1057,117 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Relatório CSV exportado.");
+  };
+
+  const handleEmitirComprovanteIndividualA4 = (item: HoleriteArmazenadoRHItem) => {
+    const win = window.open("", "_blank", "width=920,height=860");
+    if (!win) {
+      toast.error("Permita janelas pop-up no navegador para emitir o comprovante individual A4.");
+      return;
+    }
+
+    const esc = (v: string | number | null | undefined) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const emitidoAgora = new Date().toLocaleString("pt-BR");
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Comprovante Individual de Entrega e Ciência de Holerite — ${esc(item.colaborador)} (${esc(item.mesAno)})</title>
+  <style>
+    @page { size: A4 portrait; margin: 14mm; }
+    body { font-family: "Segoe UI", Arial, sans-serif; color: #0f172a; margin: 0; padding: 12px; font-size: 11.5px; line-height: 1.45; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .title { font-size: 15px; font-weight: 800; text-transform: uppercase; margin: 0; }
+    .subtitle { font-size: 10.5px; color: #334155; margin: 3px 0 0 0; }
+    .badge { display: inline-block; padding: 3px 8px; border: 1px solid #0f172a; border-radius: 4px; font-weight: 700; font-size: 10px; text-transform: uppercase; }
+    .section { border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; background: #ffffff; }
+    .section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #0f172a; margin: 0 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+    .mono { font-family: Consolas, monospace; font-size: 10px; word-break: break-all; background: #f8fafc; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 4px; margin-top: 4px; }
+    .note { border-left: 3px solid #0f172a; background: #f8fafc; padding: 9px 12px; font-size: 10.5px; color: #334155; margin-top: 10px; }
+    .signatures { margin-top: 28px; display: flex; justify-content: space-around; text-align: center; }
+    .sig { width: 240px; border-top: 1px solid #0f172a; padding-top: 5px; font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <p class="title">7º Oficial de Registro de Imóveis de São Paulo</p>
+      <p class="subtitle">CERTIDÃO INTERNA DE DISPONIBILIZAÇÃO, ACESSO NOMINAL E CIÊNCIA ELETRÔNICA DE HOLERITE</p>
+      <p class="subtitle">Fundamento Legal: CLT Art. 459, § 1º e Art. 464 • MP nº 2.200-2/2001, Art. 10, § 2º • Provimento CNJ nº 213/2026 • LGPD</p>
+    </div>
+    <div style="text-align:right;font-size:10px">
+      <div><span class="badge">STATUS: ${esc(item.status)}</span></div>
+      <div style="margin-top:4px">Emissão: <strong>${esc(emitidoAgora)}</strong></div>
+      <div>Competência: <strong>${esc(item.mesAno)}</strong></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>1. Identificação do Colaborador Titular e Competência</h2>
+    <div class="grid">
+      <div><strong>Colaborador:</strong> ${esc(item.colaborador)}</div>
+      <div><strong>Registro GESTOR:</strong> ${item.registroGestor != null ? `#${item.registroGestor}` : "—"}</div>
+      <div><strong>CPF (Protegido LGPD):</strong> ${esc(item.cpfMascarado)}</div>
+      <div><strong>Setor / Cargo:</strong> ${esc([item.setor, item.cargo].filter(Boolean).join(" • ") || "—")}</div>
+      <div><strong>Competência Salarial:</strong> ${esc(item.competenciaTitulo)}</div>
+      <div><strong>Natureza da Folha:</strong> ${esc(item.tipoFolha)}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>2. Tempestividade Legal Trabalhista (CLT) e Custódia do Documento</h2>
+    <div class="grid">
+      <div><strong>Data-Limite Legal (CLT):</strong> ${esc(item.prazoLegalCltBr)}</div>
+      <div><strong>Disponibilizado no Portal em:</strong> ${esc(item.dataUpload)}</div>
+      <div><strong>Conformidade de Prazo:</strong> ${item.entregueNoPrazoClt ? "ENTREGUE NO PRAZO LEGAL CLT" : `ENTREGUE APÓS O PRAZO (+${item.diasAtrasoClt} dia(s))`}</div>
+      <div><strong>Responsável pelo Envio:</strong> ${esc(item.uploadedBy)}</div>
+      <div><strong>Arquivo Custodiado:</strong> ${esc(item.arquivoNome)}</div>
+      <div><strong>Isolamento de Acesso:</strong> Autenticação individual Anti-IDOR</div>
+    </div>
+    ${item.justificativaAtraso ? `<div style="margin-top:6px"><strong>Justificativa Registrada:</strong> ${esc(item.justificativaAtraso)}</div>` : ""}
+    <div style="margin-top:8px"><strong>Hash Criptográfico SHA-256 do PDF Original Armazenado:</strong>
+      <div class="mono">${esc(item.hash)}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>3. Rastreabilidade de Entrega, Abertura pelo Titular e Ciência Eletrônica</h2>
+    <div class="grid">
+      <div><strong>Acessos / Downloads do Próprio Titular:</strong> ${item.acessosTitular} acesso(s) autenticado(s)</div>
+      <div><strong>Inspeções Técnicas do RH (Separadas):</strong> ${item.inspecoesRh} conferência(s)</div>
+      <div><strong>1ª Visualização / Download pelo Titular:</strong> ${esc(item.primeiraVisualizacaoBr || "Aguardando abertura pelo titular")}</div>
+      <div><strong>Ciência Eletrônica Expressa (Botão Ciente):</strong> ${esc(item.cienciaConfirmadaEmBr || "Pendente de confirmação expressa")}</div>
+      <div><strong>Endereço IP da Ciência:</strong> ${esc(item.cienciaIp || "—")}</div>
+      <div><strong>Situação Probatória:</strong> <strong>${esc(item.status)}</strong></div>
+    </div>
+    <div style="margin-top:8px"><strong>Protocolo Criptográfico SHA-256 da Ciência Eletrônica (MP nº 2.200-2/2001, art. 10, § 2º):</strong>
+      <div class="mono">${esc(item.cienciaComprovanteHash || "Aguardando confirmação expressa pelo colaborador titular no Meu Espaço (disponibilização e logs de abertura já auditados na trilha WORM).")}</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Nota Jurídica para Fiscalização (MTE / Corregedoria CGJ-SP & CNJ):</strong> Nos termos do <strong>art. 464, parágrafo único, da CLT</strong>, o comprovante de depósito bancário em conta-corrente/salário aberta em nome do empregado possui força legal de recibo de quitação salarial, servindo o presente registro criptográfico WORM como prova plena da tempestiva disponibilização individualizada do demonstrativo de pagamento (holerite) e de sua ciência eletrônica pelo colaborador.
+  </div>
+
+  <div class="signatures">
+    <div class="sig">Departamento Pessoal / Recursos Humanos<br/>7º Oficial de Registro de Imóveis de São Paulo</div>
+    <div class="sig">Administração / Auditoria Interna<br/>Verificação Trilha Imutável WORM</div>
+  </div>
+
+  <script>window.onload = function() { setTimeout(function() { window.print(); }, 250); };</script>
+</body>
+</html>`;
+
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
   };
 
   // Indicadores derivados para a faixa executiva superior
@@ -2172,23 +2294,46 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
                             {item.uploadedBy}
                           </td>
                           <td className="px-3.5 py-3.5 whitespace-nowrap">
-                            <span className="font-mono font-bold text-xs text-white">
-                              {item.visualizacoes}
-                            </span>
-                            <span className="text-[11px] text-slate-400 ml-1">acessos</span>
+                            <div>
+                              <span className="font-mono font-bold text-xs text-white">
+                                {item.acessosTitular}
+                              </span>
+                              <span className="text-[11px] text-slate-400 ml-1">
+                                {item.acessosTitular === 1 ? "acesso" : "acessos"}
+                              </span>
+                            </div>
+                            {item.inspecoesRh > 0 && (
+                              <div
+                                className="text-[10px] font-mono text-slate-500"
+                                title="Conferências técnicas do RH contabilizadas separadamente (não alteram o status do colaborador)"
+                              >
+                                +{item.inspecoesRh} conf. RH
+                              </div>
+                            )}
                           </td>
                           <td className="px-3.5 py-3.5 whitespace-nowrap">
                             <span
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                                item.status === "Visualizado"
+                                item.status === "Ciente"
                                   ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                  : item.status === "Visualizado"
+                                  ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
                                   : "bg-slate-500/15 text-slate-300 border-slate-500/30"
                               }`}
+                              title={
+                                item.cienciaConfirmadaEmBr
+                                  ? `Ciência confirmada em ${item.cienciaConfirmadaEmBr}`
+                                  : item.primeiraVisualizacaoBr
+                                  ? `1ª abertura pelo titular em ${item.primeiraVisualizacaoBr}`
+                                  : "Aguardando acesso do colaborador titular"
+                              }
                             >
                               <span
                                 className={`w-1.5 h-1.5 rounded-full ${
-                                  item.status === "Visualizado"
+                                  item.status === "Ciente"
                                     ? "bg-emerald-400"
+                                    : item.status === "Visualizado"
+                                    ? "bg-indigo-400"
                                     : "bg-slate-400"
                                 }`}
                               />
@@ -2200,15 +2345,23 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
                               <button
                                 type="button"
                                 onClick={() => setViewPdfItem(item)}
-                                title="Visualizar PDF Oficial Armazenado"
+                                title="Visualizar PDF Oficial Armazenado (Conferência RH)"
                                 className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
                               >
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button
                                 type="button"
+                                onClick={() => handleEmitirComprovanteIndividualA4(item)}
+                                title="Emitir Comprovante Individual de Entrega e Ciência (A4 / Auditoria)"
+                                className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
+                              >
+                                <FileCheck2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => abrirModalLogs(item)}
-                                title="Ver Logs Reais de Acesso (LGPD)"
+                                title="Ver Logs Reais de Acesso e Ciência (LGPD)"
                                 className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-white/8 rounded-lg transition-colors cursor-pointer"
                               >
                                 <ScrollText className="w-4 h-4" />
@@ -2897,12 +3050,25 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
                 ))
               )}
 
-              <div className="p-3 bg-white/[0.02] rounded-xl border border-white/8 text-[11px] font-mono text-slate-400 break-all">
-                SHA-256: {viewLogsItem.hash}
+              <div className="p-3 bg-white/[0.02] rounded-xl border border-white/8 text-[11px] font-mono text-slate-400 break-all space-y-1">
+                <div>Hash PDF SHA-256: {viewLogsItem.hash}</div>
+                {viewLogsItem.cienciaComprovanteHash && (
+                  <div className="text-emerald-400">
+                    Protocolo Ciência SHA-256: {viewLogsItem.cienciaComprovanteHash}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="px-6 py-3 bg-[#0E1528] flex justify-end">
+            <div className="px-6 py-3 bg-[#0E1528] flex items-center justify-between gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleEmitirComprovanteIndividualA4(viewLogsItem)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Comprovante Individual (A4)</span>
+              </Button>
               <Button
                 size="sm"
                 onClick={() => setViewLogsItem(null)}
