@@ -19,6 +19,7 @@ import {
 import { gerarLoteImpressaoAction } from "@/app/actions/cartorio-virtual";
 import {
   interpretarSelecaoPedidosLote,
+  pedidoEhQuatroHorasLv2,
   type PedidoCertidaoDetalheDTO,
 } from "@/lib/cartorio-virtual/types";
 
@@ -165,11 +166,65 @@ export function CardSelecaoLotePedidos({
     }
   };
 
+  const pedidosSem4HorasLv2 = useMemo(
+    () => pedidos.filter((p) => !pedidoEhQuatroHorasLv2(p)),
+    [pedidos]
+  );
+
   const selecionarTodosDaFila = () => {
     if (pedidos.length === 0) return;
     setModoEntrada("PONTO_E_VIRGULA");
     setPesquisaSubmetida(true);
     setListaPontoEVirgula(pedidos.map((p) => p.numeroPedido).join("; "));
+  };
+
+  const selecionarTodosMenos4HorasLv2 = () => {
+    if (pedidosSem4HorasLv2.length === 0) {
+      toast.error("Não há pedidos fora de 04 HORAS LV2 na lista atual.");
+      return;
+    }
+    setModoEntrada("PONTO_E_VIRGULA");
+    setPesquisaSubmetida(true);
+    const lista = pedidosSem4HorasLv2.map((p) => p.numeroPedido).join("; ");
+    setListaPontoEVirgula(lista);
+    toast.success(
+      `${pedidosSem4HorasLv2.length} Pedido(s) (TODOS menos 04 HORAS LV2) selecionados.`
+    );
+  };
+
+  const handleImprimirDiretoTodosMenos4HorasLv2 = async () => {
+    if (pedidosSem4HorasLv2.length === 0) {
+      toast.error("Não há pedidos fora de 04 HORAS LV2 para imprimir.");
+      return;
+    }
+    setModoEntrada("PONTO_E_VIRGULA");
+    setPesquisaSubmetida(true);
+    setListaPontoEVirgula(pedidosSem4HorasLv2.map((p) => p.numeroPedido).join("; "));
+    setImprimindoLote(true);
+    try {
+      const ids = pedidosSem4HorasLv2.slice(0, 150).map((p) => p.id);
+      const res = await gerarLoteImpressaoAction({
+        modoSelecao: "SELECIONADOS",
+        pedidosIds: ids,
+        duplexFrenteNovaFolha: duplex,
+        modoDadosImpressao: "ATUAL_RECONSTRUIDO",
+        criterioOrdenacao: "NUMERO_PEDIDO_ASC",
+      });
+      const urlPdf = `/api/cartorio-virtual/impressao/${res.lote.id}/pdf`;
+      toast.success(
+        `Lote ${res.lote.codigoLote} gerado com ${res.lote.totalPedidos} Pedido(s) (TODOS menos 04 HORAS LV2).`
+      );
+      if (onLoteGerado) {
+        onLoteGerado(urlPdf, res.lote.codigoLote);
+      } else {
+        window.open(urlPdf, "_blank", "noopener,noreferrer");
+      }
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err?.message || "Falha ao imprimir lote sem 04 HORAS LV2.");
+    } finally {
+      setImprimindoLote(false);
+    }
   };
 
   return (
@@ -260,13 +315,35 @@ export function CardSelecaoLotePedidos({
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={selecionarTodosDaFila}
-            className="px-2.5 py-1 rounded-lg border border-cyan-400/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-[11px] font-bold cursor-pointer"
-          >
-            Selecionar Todos ({pedidos.length})
-          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              disabled={imprimindoLote || pedidosSem4HorasLv2.length === 0}
+              onClick={handleImprimirDiretoTodosMenos4HorasLv2}
+              className="px-2.5 py-1 rounded-lg border border-emerald-400/50 bg-emerald-600/25 hover:bg-emerald-600/35 text-emerald-200 text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer disabled:opacity-40"
+            >
+              {imprimindoLote ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Printer className="w-3 h-3" />
+              )}
+              Imprimir TODOS menos 04 HORAS LV2 ({pedidosSem4HorasLv2.length})
+            </button>
+            <button
+              type="button"
+              onClick={selecionarTodosMenos4HorasLv2}
+              className="px-2.5 py-1 rounded-lg border border-amber-400/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 text-[11px] font-bold cursor-pointer"
+            >
+              Selecionar s/ 04 HORAS LV2 ({pedidosSem4HorasLv2.length})
+            </button>
+            <button
+              type="button"
+              onClick={selecionarTodosDaFila}
+              className="px-2.5 py-1 rounded-lg border border-cyan-400/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-[11px] font-bold cursor-pointer"
+            >
+              Selecionar Todos ({pedidos.length})
+            </button>
+          </div>
         </div>
       )}
 

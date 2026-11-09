@@ -1091,6 +1091,49 @@ export function obterLinhasDadosDoPedidoWebri(
   });
 }
 
+/**
+ * Identifica se o Pedido pertence ao modelo "04 HORAS LV2" (Certidão de Inteiro Teor de Matrícula do Livro 2 / Certidão Digital <=<=
+ * com número de matrícula positivo no Livro 2 e sem busca manual por endereço, proprietário, transcrição ou Livro 3).
+ */
+export function pedidoEhQuatroHorasLv2(pedido: PedidoCertidaoDetalheDTO): boolean {
+  if (pedido.itens.length === 0) {
+    return pedido.especieSolicitada === "Certidão de Inteiro Teor da Matrícula";
+  }
+
+  return pedido.itens.every((it) => {
+    if (it.enderecoPesquisa && it.enderecoPesquisa.trim() !== "") return false;
+    if (it.transcricaoOuLoteamento && it.transcricaoOuLoteamento.trim() !== "") return false;
+    if (it.livroCodigo && it.livroCodigo !== 2) return false;
+    const nat = `${it.naturezaOriginalWebri || ""} ${it.naturezaDescricao || ""} ${pedido.especieSolicitada || ""}`.toLowerCase();
+    if (
+      nat.includes("vinten") ||
+      nat.includes("quinzen") ||
+      nat.includes("trinten") ||
+      nat.includes("cinquenten") ||
+      nat.includes("livro 03") ||
+      nat.includes("livro3") ||
+      nat.includes("propriedade") ||
+      nat.includes("busca") ||
+      nat.includes("pacto") ||
+      nat.includes("cópia") ||
+      nat.includes("copia") ||
+      nat.includes("documento arquivado") ||
+      nat.includes("convenção") ||
+      nat.includes("convencao") ||
+      nat.includes("cadeia dominial") ||
+      nat.includes("filiação") ||
+      nat.includes("filiacao") ||
+      nat.includes("circunscrição") ||
+      nat.includes("circunscricao")
+    ) {
+      return false;
+    }
+    const numMat = Number(it.numeroMatricula || 0);
+    return Number.isFinite(numMat) && numMat > 0;
+  });
+}
+
+
 
 
 

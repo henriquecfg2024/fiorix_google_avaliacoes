@@ -1,12 +1,25 @@
 "use client";
 
 import React, { useState } from "react";
-import { Filter, RotateCcw, ChevronDown, ChevronUp, Search, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Filter,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Eye,
+  EyeOff,
+  Printer,
+  Loader2,
+} from "lucide-react";
 import type { PedidoCertidaoDetalheDTO } from "@/lib/cartorio-virtual/types";
 import {
   obterAtendentePedidoWebri,
   obterObservacaoOriginalWebri,
+  pedidoEhQuatroHorasLv2,
 } from "@/lib/cartorio-virtual/types";
+import { gerarLoteImpressaoAction } from "@/app/actions/cartorio-virtual";
 import { useCartorioVirtualTopoVisivel } from "@/components/cartorio-virtual/CartorioVirtualTopBar";
 
 export interface EstadoFiltrosAvancadosWebri {
@@ -63,6 +76,8 @@ export function temFiltroAvancadoWebriAtivo(
     filtros.dataCertidaoIso !== "" ||
     filtros.natureza !== "TODOS" ||
     filtros.divisor !== "CUSTAS_INTEGRAIS" ||
+    filtros.modelo !== "4 HORAS LV2" ||
+    filtros.opcaoImpressao !== "Nenhuma" ||
     filtros.guiasRecolhimento.trim() !== "" ||
     filtros.resultadoFiltro !== "TODAS" ||
     filtros.magneticos !== false ||
@@ -193,8 +208,15 @@ export function correspondeFiltrosAvancadosWebri(
     if (divPedido !== filtros.divisor) return false;
   }
 
-  // 7. Modelo (4 HORAS LV2 é o padrão universal; outros modelos filtram pela espécie)
+  // 7. Modelo e Opção de impressão ("TODOS menos as de 04 HORAS LV2")
   if (
+    filtros.modelo === "TODOS_MENOS_04_HORAS_LV2" ||
+    filtros.opcaoImpressao === "TODOS_MENOS_04_HORAS_LV2"
+  ) {
+    if (pedidoEhQuatroHorasLv2(pedido)) return false;
+  } else if (filtros.modelo === "SOMENTE_04_HORAS_LV2") {
+    if (!pedidoEhQuatroHorasLv2(pedido)) return false;
+  } else if (
     filtros.modelo &&
     filtros.modelo !== "TODOS" &&
     filtros.modelo !== "4 HORAS LV2"
@@ -280,7 +302,57 @@ export function BarraFiltrosWebriCartorioVirtual({
   abertoPorPadrao?: boolean;
 }) {
   const [expandido, setExpandido] = useState<boolean>(abertoPorPadrao);
+  const [imprimindoSem4Horas, setImprimindoSem4Horas] = useState<boolean>(false);
   const { tresLinhasVisiveis, alternarTresLinhas } = useCartorioVirtualTopoVisivel();
+
+  const pedidosSem4HorasLv2 = React.useMemo(() => {
+    return pedidosBase.filter(
+      (p) =>
+        !pedidoEhQuatroHorasLv2(p) &&
+        correspondeFiltrosAvancadosWebri(p, {
+          ...filtros,
+          modelo: "TODOS_MENOS_04_HORAS_LV2",
+        })
+    );
+  }, [pedidosBase, filtros]);
+
+  const handleImprimirTodosMenos4HorasLv2 = async () => {
+    onChange({
+      ...filtros,
+      modelo: "TODOS_MENOS_04_HORAS_LV2",
+      opcaoImpressao: "TODOS_MENOS_04_HORAS_LV2",
+    });
+
+    if (pedidosSem4HorasLv2.length === 0) {
+      toast.error(
+        "Nenhum pedido encontrado fora de 04 HORAS LV2 para os filtros atuais."
+      );
+      return;
+    }
+
+    setImprimindoSem4Horas(true);
+    try {
+      const ids = pedidosSem4HorasLv2.slice(0, 150).map((p) => p.id);
+      const res = await gerarLoteImpressaoAction({
+        modoSelecao: "SELECIONADOS",
+        pedidosIds: ids,
+        duplexFrenteNovaFolha: true,
+        modoDadosImpressao: "ATUAL_RECONSTRUIDO",
+        criterioOrdenacao: "NUMERO_PEDIDO_ASC",
+      });
+      const urlPdf = `/api/cartorio-virtual/impressao/${res.lote.id}/pdf`;
+      toast.success(
+        `Lote ${res.lote.codigoLote} gerado com ${res.lote.totalPedidos} Pedido(s) (TODOS menos 04 HORAS LV2).`
+      );
+      window.open(urlPdf, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      toast.error(
+        err?.message || "Falha ao gerar lote de impressão (TODOS menos 04 HORAS LV2)."
+      );
+    } finally {
+      setImprimindoSem4Horas(false);
+    }
+  };
 
   // Extrai naturezas originais do WEBRI e atendentes presentes nos pedidos carregados
   const naturezasDisponiveis = React.useMemo(() => {
@@ -347,6 +419,20 @@ export function BarraFiltrosWebriCartorioVirtual({
         </button>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            disabled={imprimindoSem4Horas}
+            onClick={handleImprimirTodosMenos4HorasLv2}
+            className="h-7 px-2.5 rounded-lg border border-emerald-400/50 bg-emerald-600/25 hover:bg-emerald-600/35 text-[11px] font-extrabold text-emerald-200 inline-flex items-center gap-1 cursor-pointer transition"
+            title="Filtrar e imprimir em lote TODOS os pedidos exceto os de 04 HORAS LV2"
+          >
+            {imprimindoSem4Horas ? (
+              <Loader2 className="w-3 h-3 animate-spin text-emerald-300" />
+            ) : (
+              <Printer className="w-3 h-3 text-emerald-300" />
+            )}
+            <span>Imprimir TODOS menos 04 HORAS LV2 ({pedidosSem4HorasLv2.length})</span>
+          </button>
           <button
             type="button"
             onClick={alternarTresLinhas}
@@ -492,6 +578,15 @@ export function BarraFiltrosWebriCartorioVirtual({
                 <option value="4 HORAS LV2" className="bg-[#080D1A] text-white">
                   4 HORAS LV2
                 </option>
+                <option
+                  value="TODOS_MENOS_04_HORAS_LV2"
+                  className="bg-[#080D1A] text-emerald-300 font-bold"
+                >
+                  TODOS menos as de 04 HORAS LV2 ({pedidosSem4HorasLv2.length})
+                </option>
+                <option value="SOMENTE_04_HORAS_LV2" className="bg-[#080D1A] text-white">
+                  Somente 04 HORAS LV2
+                </option>
                 <option value="TODOS" className="bg-[#080D1A] text-white">
                   Todos os Modelos
                 </option>
@@ -513,11 +608,28 @@ export function BarraFiltrosWebriCartorioVirtual({
               </span>
               <select
                 value={filtros.opcaoImpressao}
-                onChange={(e) => atualizarCampo("opcaoImpressao", e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "TODOS_MENOS_04_HORAS_LV2") {
+                    onChange({
+                      ...filtros,
+                      modelo: "TODOS_MENOS_04_HORAS_LV2",
+                      opcaoImpressao: val,
+                    });
+                  } else {
+                    atualizarCampo("opcaoImpressao", val);
+                  }
+                }}
                 className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
               >
                 <option value="Nenhuma" className="bg-[#080D1A] text-white">
                   Nenhuma
+                </option>
+                <option
+                  value="TODOS_MENOS_04_HORAS_LV2"
+                  className="bg-[#080D1A] text-emerald-300 font-bold"
+                >
+                  Imprimir TODOS menos as de 04 HORAS LV2 ({pedidosSem4HorasLv2.length})
                 </option>
                 <option value="Frente e Verso (Duplex)" className="bg-[#080D1A] text-white">
                   Frente e Verso (Duplex)
