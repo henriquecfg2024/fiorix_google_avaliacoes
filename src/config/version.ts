@@ -1,1 +1,1 @@
-export const AGENT_VERSION = 'v2.6.4';
+export const AGENT_VERSION = 'v2.6.5';

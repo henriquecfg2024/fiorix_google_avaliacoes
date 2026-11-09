@@ -799,7 +799,7 @@ export class Scheduler {
         }
         records = res.records.map((r: any) => attachRecordKey('colaboradores_rh', r));
       } else if (config.name === 'cartorio_virtual_certidoes') {
-        const res = await extrairLoteCompletoCartorioVirtualReadOnly({ limiteTop: 300 });
+        const res = await extrairLoteCompletoCartorioVirtualReadOnly({ limiteTop: 500 });
         durationMs = res.duracaoMs;
         if (!res.sucesso || res.registros.length === 0) {
           status.recordsRead = 0;
