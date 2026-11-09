@@ -31,8 +31,9 @@ export default async function CartorioVirtualLayout({
           ambienteSintetico={isAmbienteSinteticoPermitido()}
           migracaoPendente={ctx.migracaoTabelaPendente}
           alertaOperacionalConnector={alertaConnector}
-        />
-        {children}
+        >
+          {children}
+        </CartorioVirtualTopBar>
       </div>
     </div>
   );

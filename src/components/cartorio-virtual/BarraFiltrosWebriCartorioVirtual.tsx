@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { Filter, RotateCcw, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Filter, RotateCcw, ChevronDown, ChevronUp, Search, Eye, EyeOff } from "lucide-react";
 import type { PedidoCertidaoDetalheDTO } from "@/lib/cartorio-virtual/types";
 import {
   obterAtendentePedidoWebri,
   obterObservacaoOriginalWebri,
 } from "@/lib/cartorio-virtual/types";
+import { useCartorioVirtualTopoVisivel } from "@/components/cartorio-virtual/CartorioVirtualTopBar";
 
 export interface EstadoFiltrosAvancadosWebri {
   dataInicialIso: string; // YYYY-MM-DD ou ""
@@ -279,6 +280,7 @@ export function BarraFiltrosWebriCartorioVirtual({
   abertoPorPadrao?: boolean;
 }) {
   const [expandido, setExpandido] = useState<boolean>(abertoPorPadrao);
+  const { tresLinhasVisiveis, alternarTresLinhas } = useCartorioVirtualTopoVisivel();
 
   // Extrai naturezas originais do WEBRI e atendentes presentes nos pedidos carregados
   const naturezasDisponiveis = React.useMemo(() => {
@@ -344,7 +346,29 @@ export function BarraFiltrosWebriCartorioVirtual({
           )}
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={alternarTresLinhas}
+            className="h-7 px-2.5 rounded-lg border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-[11px] font-bold text-cyan-200 inline-flex items-center gap-1 cursor-pointer transition"
+            title={
+              tresLinhasVisiveis
+                ? "Ocultar as 3 linhas superiores (Abas + 2 linhas de filtros rápidos) de uma vez"
+                : "Exibir novamente as 3 linhas superiores (Abas + 2 linhas de filtros rápidos)"
+            }
+          >
+            {tresLinhasVisiveis ? (
+              <>
+                <EyeOff className="w-3 h-3 text-cyan-300" />
+                <span>Ocultar 3 Linhas do Topo</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-3 h-3 text-cyan-300" />
+                <span>Exibir 3 Linhas do Topo</span>
+              </>
+            )}
+          </button>
           {ativo && (
             <button
               type="button"

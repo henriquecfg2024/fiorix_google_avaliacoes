@@ -48,6 +48,7 @@ import {
   temFiltroAvancadoWebriAtivo,
   type EstadoFiltrosAvancadosWebri,
 } from "@/components/cartorio-virtual/BarraFiltrosWebriCartorioVirtual";
+import { useCartorioVirtualTopoVisivel } from "@/components/cartorio-virtual/CartorioVirtualTopBar";
 
 export type FiltroKpiVisaoGeral =
   | "TODOS"
@@ -102,6 +103,7 @@ export function VisaoGeralDinamicaClient({
     useState<ColunaOrdenacaoPedidos>("PEDIDO");
   const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<"asc" | "desc">("asc");
   const [mostrarCardLote, setMostrarCardLote] = useState<boolean>(false);
+  const { tresLinhasVisiveis, alternarTresLinhas } = useCartorioVirtualTopoVisivel();
 
   const alternarOrdenacaoColuna = (col: ColunaOrdenacaoPedidos) => {
     if (colunaOrdenacao === col) {
@@ -428,129 +430,143 @@ export function VisaoGeralDinamicaClient({
     <div className="space-y-4">
       {/* BARRA DE FILTRO CONFERIDO / NÃO CONFERIDO + BUSCA RÁPIDA E SELEÇÃO EM LOTE (CENTRALIZADA E ADAPTÁVEL AO MONITOR VERTICAL) */}
       <div className="rounded-[24px] border border-emerald-500/25 bg-gradient-to-br from-[#0B1224] via-[#090E1B] to-[#0B1020] px-3 py-2.5 space-y-2">
-        {/* Linha 1: somente os 3 primeiros filtros (Data do Pedido, ONR/Presencial e Tipos de Certidões) */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {/* Card / Seletor DATA DO PEDIDO estruturado por Dia / Mês / Ano + Calendário */}
-          <SeletorDataPedidoCartorioVirtual
-            valor={filtroDataPedido}
-            onChange={setFiltroDataPedido}
-            pedidosBaseParaContagem={baseParaDatas}
-            alturaClasse="h-9"
-          />
+        {tresLinhasVisiveis && (
+          <>
+            {/* Linha 1: somente os 3 primeiros filtros (Data do Pedido, ONR/Presencial e Tipos de Certidões) */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {/* Card / Seletor DATA DO PEDIDO estruturado por Dia / Mês / Ano + Calendário */}
+              <SeletorDataPedidoCartorioVirtual
+                valor={filtroDataPedido}
+                onChange={setFiltroDataPedido}
+                pedidosBaseParaContagem={baseParaDatas}
+                alturaClasse="h-9"
+              />
 
-          {/* Seletor ONR / PRESENCIAL idêntico à Verificação do Escrevente */}
-          <select
-            aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
-            value={filtroOrigem}
-            onChange={(e) =>
-              setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
-            }
-            className="h-9 px-3 rounded-xl bg-[#080D1A] border border-indigo-400/55 text-xs sm:text-sm font-extrabold text-indigo-200 cursor-pointer shrink-0"
-            title="Filtrar pedidos por origem: ONR ou Presencial"
-          >
-            <option value="TODAS" className="bg-[#080D1A] text-white">
-              ONR / PRESENCIAL ({contagensOrigem.todas})
-            </option>
-            <option value="ONR" className="bg-[#080D1A] text-white">
-              ONR ({contagensOrigem.onr})
-            </option>
-            <option value="BALCAO" className="bg-[#080D1A] text-white">
-              PRESENCIAL ({contagensOrigem.presencial})
-            </option>
-          </select>
-
-          {/* Seletor dinâmico TIPOS DE CERTIDÕES idêntico à Verificação do Escrevente */}
-          <select
-            aria-label="Filtrar por Tipo de Certidão"
-            value={filtroTipoCertidao}
-            onChange={(e) => setFiltroTipoCertidao(e.target.value)}
-            className="h-9 px-3 rounded-xl bg-[#080D1A] border border-cyan-400/45 text-xs sm:text-sm font-extrabold text-white cursor-pointer shrink-0"
-          >
-            {opcoesTipoCertidaoDinamicas.map((op) => (
-              <option
-                key={op.valor}
-                value={op.valor}
-                className="bg-[#080D1A] text-white"
+              {/* Seletor ONR / PRESENCIAL idêntico à Verificação do Escrevente */}
+              <select
+                aria-label="Filtrar por Origem do Pedido (ONR ou Presencial)"
+                value={filtroOrigem}
+                onChange={(e) =>
+                  setFiltroOrigem(e.target.value as "TODAS" | "ONR" | "BALCAO")
+                }
+                className="h-9 px-3 rounded-xl bg-[#080D1A] border border-indigo-400/55 text-xs sm:text-sm font-extrabold text-indigo-200 cursor-pointer shrink-0"
+                title="Filtrar pedidos por origem: ONR ou Presencial"
               >
-                {op.rotulo}
-              </option>
-            ))}
-          </select>
-        </div>
+                <option value="TODAS" className="bg-[#080D1A] text-white">
+                  ONR / PRESENCIAL ({contagensOrigem.todas})
+                </option>
+                <option value="ONR" className="bg-[#080D1A] text-white">
+                  ONR ({contagensOrigem.onr})
+                </option>
+                <option value="BALCAO" className="bg-[#080D1A] text-white">
+                  PRESENCIAL ({contagensOrigem.presencial})
+                </option>
+              </select>
 
-        {/* Linha 2: Pesquisa + Conferência + Imprimir + Verificação do Escrevente */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
-          <div className="relative w-56 shrink-0">
-            <Search className="w-4 h-4 text-cyan-300 stroke-[2.5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Pesquisar Pedido, Prenotação, ONR..."
-              className="w-full h-9 pl-9 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#080D1A] border-2 border-cyan-400/70 focus:border-cyan-300 text-xs text-white font-semibold placeholder:text-cyan-100/80 focus:outline-none transition"
-            />
-          </div>
+              {/* Seletor dinâmico TIPOS DE CERTIDÕES idêntico à Verificação do Escrevente */}
+              <select
+                aria-label="Filtrar por Tipo de Certidão"
+                value={filtroTipoCertidao}
+                onChange={(e) => setFiltroTipoCertidao(e.target.value)}
+                className="h-9 px-3 rounded-xl bg-[#080D1A] border border-cyan-400/45 text-xs sm:text-sm font-extrabold text-white cursor-pointer shrink-0"
+              >
+                {opcoesTipoCertidaoDinamicas.map((op) => (
+                  <option
+                    key={op.valor}
+                    value={op.valor}
+                    className="bg-[#080D1A] text-white"
+                  >
+                    {op.rotulo}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => selecionarFiltroConferencia("TODOS")}
-            className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
-              filtroConferencia === "TODOS"
-                ? "bg-cyan-600 text-white border-cyan-400 shadow-md shadow-cyan-600/20"
-                : "bg-[#080D1A] border-white/15 text-slate-200 hover:bg-white/[0.06]"
-            }`}
-          >
-            Todos ({contagensConferenciaNoKpi.total})
-          </button>
+            {/* Linha 2: Pesquisa + Conferência + Imprimir + Ocultar 3 Linhas */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              <div className="relative w-56 shrink-0">
+                <Search className="w-4 h-4 text-cyan-300 stroke-[2.5] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Pesquisar Pedido, Prenotação, ONR..."
+                  className="w-full h-9 pl-9 pr-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 focus:bg-[#080D1A] border-2 border-cyan-400/70 focus:border-cyan-300 text-xs text-white font-semibold placeholder:text-cyan-100/80 focus:outline-none transition"
+                />
+              </div>
 
-          <button
-            type="button"
-            onClick={() => selecionarFiltroConferencia("CONFERIDO")}
-            className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
-              filtroConferencia === "CONFERIDO"
-                ? "bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-600/25"
-                : "bg-emerald-500/10 border-emerald-500/35 text-emerald-300 hover:bg-emerald-500/20"
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            CONFERIDO ({contagensConferenciaNoKpi.conferidos})
-          </button>
+              <button
+                type="button"
+                onClick={() => selecionarFiltroConferencia("TODOS")}
+                className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  filtroConferencia === "TODOS"
+                    ? "bg-cyan-600 text-white border-cyan-400 shadow-md shadow-cyan-600/20"
+                    : "bg-[#080D1A] border-white/15 text-slate-200 hover:bg-white/[0.06]"
+                }`}
+              >
+                Todos ({contagensConferenciaNoKpi.total})
+              </button>
 
-          <button
-            type="button"
-            onClick={() => selecionarFiltroConferencia("DEVOLVIDO")}
-            className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
-              filtroConferencia === "DEVOLVIDO"
-                ? "bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/25"
-                : "bg-rose-500/10 border-rose-500/35 text-rose-200 hover:bg-rose-500/20"
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            DEVOLVIDO ({contagensConferenciaNoKpi.devolvidos})
-          </button>
+              <button
+                type="button"
+                onClick={() => selecionarFiltroConferencia("CONFERIDO")}
+                className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  filtroConferencia === "CONFERIDO"
+                    ? "bg-emerald-600 text-white border-emerald-400 shadow-md shadow-emerald-600/25"
+                    : "bg-emerald-500/10 border-emerald-500/35 text-emerald-300 hover:bg-emerald-500/20"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                CONFERIDO ({contagensConferenciaNoKpi.conferidos})
+              </button>
 
-          <button
-            type="button"
-            onClick={() => selecionarFiltroConferencia("NAO_CONFERIDO")}
-            className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
-              filtroConferencia === "NAO_CONFERIDO"
-                ? "bg-amber-600 text-white border-amber-400 shadow-md shadow-amber-600/25"
-                : "bg-amber-500/10 border-amber-500/35 text-amber-200 hover:bg-amber-500/20"
-            }`}
-          >
-            <Clock3 className="w-3.5 h-3.5" />
-            NÃO CONFERIDO ({contagensConferenciaNoKpi.naoConferidos})
-          </button>
+              <button
+                type="button"
+                onClick={() => selecionarFiltroConferencia("DEVOLVIDO")}
+                className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  filtroConferencia === "DEVOLVIDO"
+                    ? "bg-rose-600 text-white border-rose-400 shadow-md shadow-rose-600/25"
+                    : "bg-rose-500/10 border-rose-500/35 text-rose-200 hover:bg-rose-500/20"
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                DEVOLVIDO ({contagensConferenciaNoKpi.devolvidos})
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setMostrarCardLote((v) => !v)}
-            className="h-9 px-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-          >
-            <Printer className="w-3.5 h-3.5 text-cyan-300" />
-            {mostrarCardLote ? "Ocultar IMPRIMIR" : "IMPRIMIR"}
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={() => selecionarFiltroConferencia("NAO_CONFERIDO")}
+                className={`h-9 px-2.5 rounded-xl border text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer whitespace-nowrap shrink-0 ${
+                  filtroConferencia === "NAO_CONFERIDO"
+                    ? "bg-amber-600 text-white border-amber-400 shadow-md shadow-amber-600/25"
+                    : "bg-amber-500/10 border-amber-500/35 text-amber-200 hover:bg-amber-500/20"
+                }`}
+              >
+                <Clock3 className="w-3.5 h-3.5" />
+                NÃO CONFERIDO ({contagensConferenciaNoKpi.naoConferidos})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMostrarCardLote((v) => !v)}
+                className="h-9 px-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-xs font-extrabold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Printer className="w-3.5 h-3.5 text-cyan-300" />
+                {mostrarCardLote ? "Ocultar IMPRIMIR" : "IMPRIMIR"}
+              </button>
+
+              <button
+                type="button"
+                onClick={alternarTresLinhas}
+                className="h-9 px-2.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-white/[0.08] text-slate-200 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                title="Ocultar as 3 linhas superiores de uma vez"
+              >
+                <EyeOff className="w-3.5 h-3.5 text-cyan-300" />
+                <span>Ocultar 3 Linhas</span>
+              </button>
+            </div>
+          </>
+        )}
 
         {/* Painel Completo de Filtros WEBRI (frmCertidaoImpressaoLote.aspx) */}
         <BarraFiltrosWebriCartorioVirtual

@@ -7,6 +7,7 @@ import {
   Printer,
   FileCheck2,
   Eye,
+  EyeOff,
   Loader2,
   ListChecks,
   Search,
@@ -62,6 +63,7 @@ import {
   correspondeFiltrosAvancadosWebri,
   type EstadoFiltrosAvancadosWebri,
 } from "@/components/cartorio-virtual/BarraFiltrosWebriCartorioVirtual";
+import { useCartorioVirtualTopoVisivel } from "@/components/cartorio-virtual/CartorioVirtualTopBar";
 
 interface FiltrosIniciaisImpressao {
   tipoCertidao?: FiltroTipoCertidaoValor;
@@ -131,6 +133,7 @@ export function CentralImpressaoClient({
   const [filtrosWebri, setFiltrosWebri] = useState<EstadoFiltrosAvancadosWebri>(
     ESTADO_INICIAL_FILTROS_WEBRI
   );
+  const { tresLinhasVisiveis, alternarTresLinhas } = useCartorioVirtualTopoVisivel();
 
   // Pedido atualmente aberto no Card em Tela Cheia
   const resolverPedidoInicialId = () => {
@@ -635,8 +638,10 @@ export function CentralImpressaoClient({
       >
         {/* Barra Superior em Duas Linhas Centralizadas do Card do Pedido */}
         <div className="flex flex-col items-center justify-center gap-1.5 pb-1.5 border-b border-white/10 shrink-0">
-          {/* Linha 1: Navegação < > + Filtro de Data + Conferência + Origem + Tipo */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 shrink-0">
+          {tresLinhasVisiveis && (
+            <>
+              {/* Linha 1: Navegação < > + Filtro de Data + Conferência + Origem + Tipo */}
+              <div className="flex flex-wrap items-center justify-center gap-1.5 shrink-0">
             <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
@@ -956,7 +961,19 @@ export function CentralImpressaoClient({
                 </>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={alternarTresLinhas}
+              className="h-8 px-2.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-white/[0.08] text-slate-200 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              title="Ocultar as 3 linhas superiores de uma vez"
+            >
+              <EyeOff className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Ocultar 3 Linhas</span>
+            </button>
           </div>
+            </>
+          )}
 
           {/* Painel Completo de Filtros WEBRI na Verificação do Escrevente */}
           <BarraFiltrosWebriCartorioVirtual
