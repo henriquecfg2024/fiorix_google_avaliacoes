@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -23,7 +23,7 @@ interface ContextoTopoCartorioVirtual {
 }
 
 const TopoCartorioVirtualContext = createContext<ContextoTopoCartorioVirtual>({
-  tresLinhasVisiveis: true,
+  tresLinhasVisiveis: false,
   setTresLinhasVisiveis: () => {},
   alternarTresLinhas: () => {},
 });
@@ -61,7 +61,11 @@ export function CartorioVirtualTopBar({
   children,
 }: TopBarProps) {
   const pathname = usePathname();
-  const [tresLinhasVisiveis, setTresLinhasVisiveis] = useState<boolean>(true);
+  const [tresLinhasVisiveis, setTresLinhasVisiveis] = useState<boolean>(false);
+
+  useEffect(() => {
+    setTresLinhasVisiveis(false);
+  }, [pathname]);
 
   const alternarTresLinhas = () => {
     setTresLinhasVisiveis((v) => !v);
@@ -127,6 +131,19 @@ export function CartorioVirtualTopBar({
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {!tresLinhasVisiveis && pathname?.includes("/historico") && (
+        <div className="flex items-center justify-end px-2 pb-1">
+          <button
+            type="button"
+            onClick={alternarTresLinhas}
+            className="h-7 px-2.5 rounded-lg border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-[11px] font-bold text-cyan-200 inline-flex items-center gap-1 cursor-pointer transition"
+          >
+            <Eye className="w-3.5 h-3.5 text-cyan-300" />
+            <span>Exibir 3 Linhas do Topo</span>
+            <ChevronDown className="w-3.5 h-3.5 text-cyan-300" />
+          </button>
         </div>
       )}
       {children}

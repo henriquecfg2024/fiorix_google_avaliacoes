@@ -1011,7 +1011,72 @@ export function CentralImpressaoClient({
         <div className="flex flex-col lg:flex-row gap-2.5 pt-2 flex-1 min-h-0">
           <div className="flex-1 min-w-0 rounded-2xl overflow-hidden border border-white/15 bg-[#121826] flex flex-col h-full min-h-0">
             {/* Barra de Zoom, Frente e Verso (Duplex) e Exportação PDF (Centralizada) */}
-            <div className="h-9 px-3 bg-[#090E1B] border-b border-white/10 flex items-center justify-center gap-3 text-xs shrink-0">
+            <div className="min-h-9 py-1 px-3 bg-[#090E1B] border-b border-white/10 flex flex-wrap items-center justify-center gap-2.5 text-xs shrink-0">
+              {!tresLinhasVisiveis && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={irParaPedidoAnterior}
+                    disabled={indiceFocoNaFila <= 0}
+                    className="h-7 px-2 rounded-lg border border-cyan-400/50 bg-cyan-500/15 hover:bg-cyan-500/25 disabled:opacity-35 text-white font-extrabold text-[11px] inline-flex items-center gap-1 cursor-pointer transition whitespace-nowrap"
+                    title="Pedido anterior na fila"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>Anterior</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={irParaProximoPedido}
+                    disabled={
+                      indiceFocoNaFila < 0 || indiceFocoNaFila >= pedidosFilaAtiva.length - 1
+                    }
+                    className="h-7 px-2 rounded-lg border border-cyan-400/50 bg-cyan-500/15 hover:bg-cyan-500/25 disabled:opacity-35 text-white font-extrabold text-[11px] inline-flex items-center gap-1 cursor-pointer transition whitespace-nowrap"
+                    title="Próximo Pedido na fila"
+                  >
+                    <span>Próximo</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-cyan-300" />
+                  </button>
+                  {indiceFocoNaFila >= 0 && (
+                    <span className="text-[11px] text-slate-300 font-mono font-bold px-1 shrink-0">
+                      ({indiceFocoNaFila + 1}/{pedidosFilaAtiva.length})
+                    </span>
+                  )}
+                  {pedidoEmFoco && (
+                    <div className="inline-flex h-7 items-center rounded-lg border border-white/15 bg-[#080D1A] p-0.5 text-[10px] whitespace-nowrap ml-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModoVisor("PEDIDO_EM_FOCO");
+                          setPaginaPdfFoco(1);
+                        }}
+                        className={`px-2 py-0.5 rounded-md font-extrabold cursor-pointer transition ${
+                          modoVisor === "PEDIDO_EM_FOCO" && paginaPdfFoco === 1
+                            ? "bg-cyan-600 text-white"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        FRENTE
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModoVisor("PEDIDO_EM_FOCO");
+                          setPaginaPdfFoco(2);
+                        }}
+                        className={`px-2 py-0.5 rounded-md font-extrabold cursor-pointer transition ${
+                          modoVisor === "PEDIDO_EM_FOCO" && paginaPdfFoco === 2
+                            ? "bg-cyan-600 text-white"
+                            : "text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        VERSO
+                      </button>
+                    </div>
+                  )}
+                  <span className="text-slate-600 mx-0.5">|</span>
+                </div>
+              )}
+
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
