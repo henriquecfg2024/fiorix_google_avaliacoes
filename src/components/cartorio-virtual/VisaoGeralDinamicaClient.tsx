@@ -674,17 +674,19 @@ export function VisaoGeralDinamicaClient({
                       {renderIconeOrdenacao("DATA")}
                     </button>
                   </th>
-                  <th className="px-2.5 py-3">
-                    <button
-                      type="button"
-                      onClick={() => alternarOrdenacaoColuna("CONFERENCIA")}
-                      className="inline-flex items-center gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-left"
-                      title="Ordenar por Conferência"
-                    >
-                      <span>Conferência</span>
-                      {renderIconeOrdenacao("CONFERENCIA")}
-                    </button>
-                  </th>
+                  {tresLinhasVisiveis && (
+                    <th className="px-2.5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => alternarOrdenacaoColuna("CONFERENCIA")}
+                        className="inline-flex items-center gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-left"
+                        title="Ordenar por Conferência"
+                      >
+                        <span>Conferência</span>
+                        {renderIconeOrdenacao("CONFERENCIA")}
+                      </button>
+                    </th>
+                  )}
                   <th className="px-2.5 py-3">
                     <button
                       type="button"
@@ -742,28 +744,32 @@ export function VisaoGeralDinamicaClient({
                       </button>
                     </div>
                   </th>
-                  <th className="px-2.5 py-3">
-                    <button
-                      type="button"
-                      onClick={() => alternarOrdenacaoColuna("SITUACAO")}
-                      className="inline-flex items-center gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-left"
-                      title="Ordenar por Situação"
-                    >
-                      <span>Situação</span>
-                      {renderIconeOrdenacao("SITUACAO")}
-                    </button>
-                  </th>
-                  <th className="px-2.5 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => alternarOrdenacaoColuna("VERIFICACAO")}
-                      className="inline-flex items-center justify-end gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-right ml-auto"
-                      title="Ordenar por Verificação do Escrevente"
-                    >
-                      <span>Verificação do Escrevente</span>
-                      {renderIconeOrdenacao("VERIFICACAO")}
-                    </button>
-                  </th>
+                  {tresLinhasVisiveis && (
+                    <th className="px-2.5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => alternarOrdenacaoColuna("SITUACAO")}
+                        className="inline-flex items-center gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-left"
+                        title="Ordenar por Situação"
+                      >
+                        <span>Situação</span>
+                        {renderIconeOrdenacao("SITUACAO")}
+                      </button>
+                    </th>
+                  )}
+                  {tresLinhasVisiveis && (
+                    <th className="px-2.5 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => alternarOrdenacaoColuna("VERIFICACAO")}
+                        className="inline-flex items-center justify-end gap-1 hover:text-cyan-300 cursor-pointer uppercase font-extrabold text-right ml-auto"
+                        title="Ordenar por Verificação do Escrevente"
+                      >
+                        <span>Verificação do Escrevente</span>
+                        {renderIconeOrdenacao("VERIFICACAO")}
+                      </button>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/8">
@@ -773,9 +779,13 @@ export function VisaoGeralDinamicaClient({
                   return (
                     <tr key={p.id} className="hover:bg-white/[0.04] transition-colors">
                       <td className="px-2.5 py-2.5">
-                        <div className="font-mono font-bold text-sm text-white">
+                        <Link
+                          href={`/cartorio-virtual/impressao?pedido=${p.numeroPedido}`}
+                          className="font-mono font-bold text-sm text-white hover:text-cyan-300 hover:underline transition"
+                          title={`Abrir Pedido #${p.numeroPedido} na mesa de leitura e impressão`}
+                        >
                           {p.numeroPedido}
-                        </div>
+                        </Link>
                         <div className="text-[10px] text-slate-400">
                           {p.origem === "ONR" ? "ONR" : "PRESENCIAL"}{" "}
                           {p.protocoloExterno ? `• ${p.protocoloExterno}` : ""}
@@ -792,38 +802,40 @@ export function VisaoGeralDinamicaClient({
                           </span>
                         </div>
                       </td>
-                      <td className="px-2.5 py-2.5">
-                        {p.conferidoPeloEscrevente ? (
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border-2 border-emerald-400/60 bg-emerald-500/20 text-emerald-200 text-[10px] font-black tracking-wide whitespace-nowrap">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-300" />
-                              CONFERIDO
+                      {tresLinhasVisiveis && (
+                        <td className="px-2.5 py-2.5">
+                          {p.conferidoPeloEscrevente ? (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border-2 border-emerald-400/60 bg-emerald-500/20 text-emerald-200 text-[10px] font-black tracking-wide whitespace-nowrap">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-300" />
+                                CONFERIDO
+                              </span>
+                              {p.conferidoPorNome && (
+                                <div className="text-[9px] text-emerald-300/80">
+                                  {p.conferidoPorNome} • {p.conferidoEmBr}
+                                </div>
+                              )}
+                            </div>
+                          ) : p.devolvidoPeloEscrevente ? (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border-2 border-rose-400/60 bg-rose-500/20 text-rose-200 text-[10px] font-black tracking-wide whitespace-nowrap">
+                                <RotateCcw className="w-3 h-3 text-rose-300" />
+                                DEVOLVIDO
+                              </span>
+                              {p.devolvidoPorNome && (
+                                <div className="text-[9px] text-rose-300/80">
+                                  {p.devolvidoPorNome} • {p.devolvidoEmBr}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-200 text-[10px] font-bold whitespace-nowrap">
+                              <Clock3 className="w-3 h-3" />
+                              NÃO CONFERIDO
                             </span>
-                            {p.conferidoPorNome && (
-                              <div className="text-[9px] text-emerald-300/80">
-                                {p.conferidoPorNome} • {p.conferidoEmBr}
-                              </div>
-                            )}
-                          </div>
-                        ) : p.devolvidoPeloEscrevente ? (
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border-2 border-rose-400/60 bg-rose-500/20 text-rose-200 text-[10px] font-black tracking-wide whitespace-nowrap">
-                              <RotateCcw className="w-3 h-3 text-rose-300" />
-                              DEVOLVIDO
-                            </span>
-                            {p.devolvidoPorNome && (
-                              <div className="text-[9px] text-rose-300/80">
-                                {p.devolvidoPorNome} • {p.devolvidoEmBr}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/35 bg-amber-500/10 text-amber-200 text-[10px] font-bold whitespace-nowrap">
-                            <Clock3 className="w-3 h-3" />
-                            NÃO CONFERIDO
-                          </span>
-                        )}
-                      </td>
+                          )}
+                        </td>
+                      )}
                       <td className="px-2.5 py-2.5">
                         <div className="font-semibold text-slate-200 leading-tight">
                           {p.especieSolicitada}
@@ -941,33 +953,37 @@ export function VisaoGeralDinamicaClient({
                           )}
                         </div>
                       </td>
-                      <td className="px-2.5 py-2.5">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold border leading-tight ${corEstadoBadge(
-                            p.estadoOperacional
-                          )}`}
-                        >
-                          {p.estadoOperacional === "EM_REVISAO_HUMANA"
-                            ? "Aguardando revisão do Escrevente"
-                            : p.estadoOperacionalLabel}
-                        </span>
-                      </td>
-                      <td className="px-2.5 py-2.5 text-right">
-                        <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
-                          {qtdMarcacoes > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-200 text-[10px] font-bold whitespace-nowrap">
-                              {qtdMarcacoes} marc.
-                            </span>
-                          )}
-                          <Link
-                            href={`/cartorio-virtual/impressao?pedido=${p.numeroPedido}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 font-bold text-[11px] whitespace-nowrap"
+                      {tresLinhasVisiveis && (
+                        <td className="px-2.5 py-2.5">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold border leading-tight ${corEstadoBadge(
+                              p.estadoOperacional
+                            )}`}
                           >
-                            <Printer className="w-3.5 h-3.5" />
-                            Abrir
-                          </Link>
-                        </div>
-                      </td>
+                            {p.estadoOperacional === "EM_REVISAO_HUMANA"
+                              ? "Aguardando revisão do Escrevente"
+                              : p.estadoOperacionalLabel}
+                          </span>
+                        </td>
+                      )}
+                      {tresLinhasVisiveis && (
+                        <td className="px-2.5 py-2.5 text-right">
+                          <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                            {qtdMarcacoes > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-200 text-[10px] font-bold whitespace-nowrap">
+                                {qtdMarcacoes} marc.
+                              </span>
+                            )}
+                            <Link
+                              href={`/cartorio-virtual/impressao?pedido=${p.numeroPedido}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 font-bold text-[11px] whitespace-nowrap"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              Abrir
+                            </Link>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
