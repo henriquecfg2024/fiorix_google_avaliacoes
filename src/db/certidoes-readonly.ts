@@ -65,10 +65,17 @@ export interface PedidoCompletoCartorioVirtualPayload {
   totalDeposito: number;
   observacoesOrigem: string | null;
   descricaoDosItens: string | null;
+  numRps?: number | null;
+  gerarNfe?: boolean;
+  codigoAcesso?: string | null;
+  divisorId?: number | null;
+  usuarioIdPedido?: number | null;
+  atendenteNome?: string | null;
   itens: Array<{
     sequenciaItem: number;
     naturezaCodigo: number | null;
     naturezaDescricao: string | null;
+    naturezaDescricaoOriginal?: string | null;
     livroCodigo: number | null;
     numLivro: number | null;
     livroAntigo: number | null;
@@ -87,6 +94,11 @@ export interface PedidoCompletoCartorioVirtualPayload {
     existeNaTblWriReal: boolean;
     dataDigitacaoRealIso: string | null;
     dataBloqueioRealIso: string | null;
+    resultadoPesquisaSistema?: number | null;
+    qtdeImpressao?: number;
+    assinaOnr?: boolean;
+    usuarioIdItem?: number | null;
+    atendenteItemNome?: string | null;
   }>;
   prenotacoesContraditorio: Array<{
     numPrenotacao: number;
@@ -419,7 +431,12 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         c.VlrTotalCompDep,
         c.VlrTotalCota,
         c.ObservacaoPedido,
-        c.DescricaoDosItens
+        c.DescricaoDosItens,
+        c.NumRPS,
+        c.GerarNfe,
+        c.ConsultaInternet,
+        c.FK_tblSIPDivisores_IDDivisor,
+        c.FK_tblSIPUsuarios_Id
       FROM dbo.tblWRICertidao c WITH (NOLOCK)
       LEFT JOIN dbo.tblWRITipoPedidoCertidao tp WITH (NOLOCK)
         ON tp.PK_Id = c.TipoPedido
@@ -445,6 +462,27 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
     const minPedido = Math.min(...orderIds);
     const maxPedido = Math.max(...orderIds);
     const orderIdSet = new Set(orderIds);
+
+    // 1.5. Resolução opcional de nomes de atendentes em dbo.tblSIPUsuarios (após GRANT SELECT)
+    const mapaUsuariosPorId = new Map<number, string>();
+    try {
+      const usrRes = await pool
+        .request()
+        .query(`SELECT TOP (5000) * FROM dbo.tblSIPUsuarios WITH (NOLOCK);`);
+      for (const u of usrRes.recordset || []) {
+        const idVal = Number(
+          u.PK_Id ?? u.PK_ID ?? u.Id ?? u.ID ?? u.PK_Usuario ?? u.IDUsuario ?? u.Codigo ?? 0
+        );
+        const nomeBruto = String(
+          u.Apelido ?? u.Nome ?? u.NomeUsuario ?? u.Usuario ?? u.Login ?? ''
+        ).trim();
+        if (idVal > 0 && nomeBruto) {
+          mapaUsuariosPorId.set(idVal, nomeBruto);
+        }
+      }
+    } catch {
+      // Caso dbo.tblSIPUsuarios ainda aguarde GRANT SELECT, segue normalmente sem interromper a sincronização
+    }
 
     // 2. Itens + Natureza + Endereço + Real (Matrícula)
     const itemsRes = await pool
@@ -472,6 +510,12 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
           i.DataRetirada,
           i.DataDevolucao,
           i.MotivoDevolucao,
+          i.ResultadoPesquisaSistema,
+          i.QtdeImpressao,
+          i.LinkONR,
+          i.IdAssinadorWeb,
+          i.AssinanteONR,
+          i.FK_tblSIPUsuarios_Id AS UsuarioIdItem,
           im.Logradouro,
           im.Numero AS NumeroImovel,
           im.ComplNumero,
@@ -645,10 +689,16 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         limparTextoSql(row.Lote) ? `Lote ${limparTextoSql(row.Lote)}` : null,
       ].filter(Boolean);
 
+      const usuarioIdItem = row.UsuarioIdItem != null ? Number(row.UsuarioIdItem) : null;
+      const linkOnr = limparTextoSql(row.LinkONR);
+      const idAssinadorWeb = limparTextoSql(row.IdAssinadorWeb);
+      const assinanteOnr = limparTextoSql(row.AssinanteONR);
+
       lista.push({
         sequenciaItem: Number(row.SeqNrPedido || 1),
         naturezaCodigo: row.NaturezaId != null ? Number(row.NaturezaId) : null,
         naturezaDescricao: limparTextoSql(row.NaturezaDesc),
+        naturezaDescricaoOriginal: row.NaturezaDesc ? String(row.NaturezaDesc).trim() : null,
         livroCodigo: row.LivroId != null ? Number(row.LivroId) : null,
         numLivro: row.Num_Livro != null ? Number(row.Num_Livro) : null,
         livroAntigo: row.Livro_Antigo != null ? Number(row.Livro_Antigo) : null,
@@ -669,6 +719,15 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         dataBloqueioRealIso: normalizarDataSqlLegada(
           row.RealDataBloqueio || row.RealDataBloqueioImpressao
         ),
+        resultadoPesquisaSistema:
+          row.ResultadoPesquisaSistema != null ? Number(row.ResultadoPesquisaSistema) : null,
+        qtdeImpressao: Number(row.QtdeImpressao || 0),
+        assinaOnr: Boolean(linkOnr || idAssinadorWeb || assinanteOnr),
+        usuarioIdItem,
+        atendenteItemNome:
+          usuarioIdItem && mapaUsuariosPorId.has(usuarioIdItem)
+            ? mapaUsuariosPorId.get(usuarioIdItem) || null
+            : null,
       });
       itensPorPedido.set(nr, lista);
     }
@@ -768,6 +827,13 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         .filter(Boolean)
         .join(', ');
 
+      const usuarioIdPedido =
+        r.FK_tblSIPUsuarios_Id != null ? Number(r.FK_tblSIPUsuarios_Id) : null;
+      const atendenteNome =
+        usuarioIdPedido && mapaUsuariosPorId.has(usuarioIdPedido)
+          ? mapaUsuariosPorId.get(usuarioIdPedido) || null
+          : null;
+
       return {
         numeroPedido: nr,
         protocoloExterno: limparTextoSql(r.ProtocoloEntidade),
@@ -787,6 +853,15 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         totalDeposito: Math.round(totalDeposito * 100) / 100,
         observacoesOrigem: limparTextoSql(r.ObservacaoPedido),
         descricaoDosItens: limparTextoSql(r.DescricaoDosItens),
+        numRps: r.NumRPS != null && Number(r.NumRPS) > 0 ? Number(r.NumRPS) : null,
+        gerarNfe: r.GerarNfe !== undefined && r.GerarNfe !== null ? Boolean(r.GerarNfe) : true,
+        codigoAcesso: limparTextoSql(r.ConsultaInternet),
+        divisorId:
+          r.FK_tblSIPDivisores_IDDivisor != null
+            ? Number(r.FK_tblSIPDivisores_IDDivisor)
+            : null,
+        usuarioIdPedido,
+        atendenteNome,
         itens: itensPorPedido.get(nr) || [],
         prenotacoesContraditorio: contradPorPedido.get(nr) || [],
       };
