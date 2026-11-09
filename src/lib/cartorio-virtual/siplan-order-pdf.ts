@@ -39,6 +39,11 @@ import {
   type AnotacaoImpressaoPedido,
 } from "./siplan-constants";
 import {
+  formatarProtocoloPontoMilhar,
+  gerarCodigoAcessoWebri,
+  obterAtendentePedidoWebri,
+  obterLinhasDadosDoPedidoWebri,
+  obterObservacaoOriginalWebri,
   obterPrenotacoesContraditorioDoPedido,
   type CorGrifoDocumento,
   type CorTextoDocumento,
@@ -357,144 +362,222 @@ export function desenharMarcaDaguaConferidoDiagonal(params: {
   });
 }
 
-function desenharCabecalhoOficial7RI(params: {
+function desenharCabecalhoOficialWebriFrente(params: {
   page: PDFPage;
   headerImg: PDFImage;
   fontRegular: PDFFont;
   fontBold: PDFFont;
+  fontBoldItalic: PDFFont;
   pedido: PedidoCertidaoDetalheDTO;
   subtituloPagina?: string;
   marcaReimpressao?: string | null;
 }): number {
-  const { page, headerImg, fontRegular, fontBold, pedido, subtituloPagina, marcaReimpressao } =
-    params;
+  const {
+    page,
+    headerImg,
+    fontBold,
+    fontBoldItalic,
+    pedido,
+    subtituloPagina,
+    marcaReimpressao,
+  } = params;
   const margemX = 34;
   const larguraUtil = LARGURA_PAGINA_SIPLAN_PT - margemX * 2;
 
-  // Imagem institucional oficial do 7º RI-SP (proporção 1042x242)
-  const imgLargura = 325;
-  const imgAltura = Math.round((242 / 1042) * imgLargura); // ~75 pt
-  const yTopo = ALTURA_PAGINA_SIPLAN_PT - 28;
+  // 1. Logotipo Oficial 7º RI-SP centralizado no topo (proporção 1042x242)
+  const imgLargura = 355;
+  const imgAltura = Math.round((242 / 1042) * imgLargura); // ~82 pt
+  const yTopo = ALTURA_PAGINA_SIPLAN_PT - 24;
+  const xImgCentro = (LARGURA_PAGINA_SIPLAN_PT - imgLargura) / 2;
 
   page.drawImage(headerImg, {
-    x: margemX,
+    x: xImgCentro,
     y: yTopo - imgAltura,
     width: imgLargura,
     height: imgAltura,
   });
-
-  // Código de Barras Code 39 à direita (sem texto *9901005* abaixo da barra)
-  desenharCodigoBarrasCode39({
-    page,
-    valorProtocolo: pedido.numeroPedido,
-    xDireita: LARGURA_PAGINA_SIPLAN_PT - margemX,
-    yTopo: yTopo - 6,
-    alturaBarraPt: 28,
-    moduloEstreitoPt: 1.02,
-  });
-
-  if (pedido.protocoloExterno) {
-    const tamOnr = 15;
-    const txtOnr = sanitizarTextoWinAnsi(pedido.protocoloExterno);
-    const wOnr = fontBold.widthOfTextAtSize(txtOnr, tamOnr);
-    page.drawText(txtOnr, {
-      x: LARGURA_PAGINA_SIPLAN_PT - margemX - wOnr,
-      y: yTopo - 50,
-      size: tamOnr,
-      font: fontBold,
-      color: rgb(0.12, 0.25, 0.45),
-    });
-  }
 
   if (marcaReimpressao) {
     const txtReimp = sanitizarTextoWinAnsi(marcaReimpressao);
     const wReimp = fontBold.widthOfTextAtSize(txtReimp, 7);
     page.drawText(txtReimp, {
       x: LARGURA_PAGINA_SIPLAN_PT - margemX - wReimp,
-      y: yTopo - 67,
+      y: yTopo - 10,
       size: 7,
       font: fontBold,
       color: rgb(0.55, 0.15, 0.15),
     });
   }
 
-  const yDivisor = yTopo - imgAltura - 8;
-  page.drawLine({
-    start: { x: margemX, y: yDivisor },
-    end: { x: margemX + larguraUtil, y: yDivisor },
-    thickness: 1,
-    color: rgb(0.1, 0.1, 0.1),
-  });
+  // 2. Código de Barras Code 39 + Protocolo ONR lado a lado centralizados abaixo do logotipo
+  const yTopoBarra = yTopo - imgAltura - 4;
+  const txtOnr = pedido.protocoloExterno
+    ? sanitizarTextoWinAnsi(pedido.protocoloExterno)
+    : "";
+  const tamOnr = 15.5;
+  const wOnr = txtOnr ? fontBold.widthOfTextAtSize(txtOnr, tamOnr) : 0;
 
-  // Faixa de Título do Pedido — Número do Pedido com o dobro do tamanho (21 pt na Pág. 1)
-  if (!subtituloPagina) {
-    const alturaFaixa = 28;
-    page.drawRectangle({
-      x: margemX,
-      y: yDivisor - alturaFaixa - 3,
-      width: larguraUtil,
-      height: alturaFaixa,
-      color: rgb(0.94, 0.95, 0.97),
-      borderColor: rgb(0.75, 0.78, 0.82),
-      borderWidth: 0.7,
-    });
-
-    const prefixo = sanitizarTextoWinAnsi("PEDIDO DE CERTIDÃO Nº ") || "PEDIDO DE CERTIDAO Nº ";
-    const numStr = sanitizarTextoWinAnsi(pedido.numeroPedido);
-    const tamPrefixo = 14;
-    const tamNumero = 21; // Dobro do tamanho anterior (10.5 pt -> 21 pt)
-    const wPref = fontBold.widthOfTextAtSize(prefixo, tamPrefixo);
-    const wNum = fontBold.widthOfTextAtSize(numStr, tamNumero);
-    const xInicio = margemX + (larguraUtil - (wPref + wNum)) / 2;
-
-    page.drawText(prefixo, {
-      x: xInicio,
-      y: yDivisor - 22,
-      size: tamPrefixo,
-      font: fontBold,
-      color: rgb(0.05, 0.05, 0.08),
-    });
-    page.drawText(numStr, {
-      x: xInicio + wPref,
-      y: yDivisor - 23,
-      size: tamNumero,
-      font: fontBold,
-      color: rgb(0.03, 0.03, 0.06),
-    });
-
-    return yDivisor - 39;
+  // Calcula largura da barra Code 39 para centralizar o conjunto (Barra + Protocolo ONR)
+  const limpoCod = String(pedido.numeroPedido || "0")
+    .toUpperCase()
+    .replace(/[^0-9A-Z\-.\s$/+%]/g, "");
+  const textoCodificado = `*${limpoCod || "0"}*`;
+  const modEstreito = 1.08;
+  const modLargo = modEstreito * 2.4;
+  let wBarra = 0;
+  for (let idx = 0; idx < textoCodificado.length; idx++) {
+    const padrao = CODE39_PATTERNS[textoCodificado[idx]] || CODE39_PATTERNS["0"];
+    for (let i = 0; i < padrao.length; i++) {
+      wBarra += padrao[i] === "w" ? modLargo : modEstreito;
+    }
+    if (idx < textoCodificado.length - 1) wBarra += modEstreito;
   }
 
-  const tituloPrincipal = `PEDIDO DE CERTIDAO Nº ${pedido.numeroPedido} — ${subtituloPagina}`;
-  const tituloWin = sanitizarTextoWinAnsi(
-    `PEDIDO DE CERTIDÃO Nº ${pedido.numeroPedido} - ${subtituloPagina}`
+  const gapBarraOnr = txtOnr ? 10 : 0;
+  const larguraConjunto = wBarra + gapBarraOnr + wOnr;
+  const xInicioConjunto = (LARGURA_PAGINA_SIPLAN_PT - larguraConjunto) / 2;
+
+  desenharCodigoBarrasCode39({
+    page,
+    valorProtocolo: pedido.numeroPedido,
+    xDireita: xInicioConjunto + wBarra,
+    yTopo: yTopoBarra,
+    alturaBarraPt: 27,
+    moduloEstreitoPt: modEstreito,
+  });
+
+  if (txtOnr) {
+    page.drawText(txtOnr, {
+      x: xInicioConjunto + wBarra + gapBarraOnr,
+      y: yTopoBarra - 24,
+      size: tamOnr,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  let yCursor = yTopoBarra - 44;
+
+  // 3. PROTOCOLO Nº 1.321.013 (alinhado à esquerda)
+  const protocoloFormatado = sanitizarTextoWinAnsi(
+    formatarProtocoloPontoMilhar(pedido.numeroPedido)
+  );
+  const txtProtLabel = sanitizarTextoWinAnsi("PROTOCOLO Nº ") || "PROTOCOLO Nº ";
+  const tamProtLabel = 14;
+  const tamProtNum = 19;
+  const wProtLabel = fontBold.widthOfTextAtSize(txtProtLabel, tamProtLabel);
+
+  page.drawText(txtProtLabel, {
+    x: margemX,
+    y: yCursor,
+    size: tamProtLabel,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  page.drawText(protocoloFormatado, {
+    x: margemX + wProtLabel,
+    y: yCursor - 0.5,
+    size: tamProtNum,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+
+  if (subtituloPagina) {
+    const subWin = sanitizarTextoWinAnsi(`(${subtituloPagina})`);
+    page.drawText(subWin, {
+      x: margemX + wProtLabel + fontBold.widthOfTextAtSize(protocoloFormatado, tamProtNum) + 10,
+      y: yCursor + 1,
+      size: 10,
+      font: fontBold,
+      color: rgb(0.2, 0.2, 0.25),
+    });
+  }
+
+  yCursor -= 18;
+
+  // 4. Atendente: Anne (negrito, itálico e sublinhado)
+  const atendenteStr = sanitizarTextoWinAnsi(
+    `Atendente: ${obterAtendentePedidoWebri(pedido)}`
+  );
+  const tamAtend = 9;
+  const wAtend = fontBoldItalic.widthOfTextAtSize(atendenteStr, tamAtend);
+  page.drawText(atendenteStr, {
+    x: margemX,
+    y: yCursor,
+    size: tamAtend,
+    font: fontBoldItalic,
+    color: rgb(0, 0, 0),
+  });
+  page.drawLine({
+    start: { x: margemX, y: yCursor - 1.5 },
+    end: { x: margemX + wAtend, y: yCursor - 1.5 },
+    thickness: 0.65,
+    color: rgb(0, 0, 0),
+  });
+
+  yCursor -= 18;
+
+  // 5. Realizado em: 28/09/2026, depósito: R$ 76,54, Retirar em: 05/10/2026
+  const valorDepositoNum =
+    pedido.valores.totalDeposito > 0
+      ? pedido.valores.totalDeposito
+      : pedido.valores.valorServico;
+  const valorDepositoBrl = sanitizarTextoWinAnsi(formatarMoedaBrl(valorDepositoNum));
+  const retirarEmBr = sanitizarTextoWinAnsi(
+    pedido.prazoPrevistoBr ||
+      pedido.itens[0]?.dataPrevisaoBr ||
+      pedido.dataPedidoBr
   );
 
-  page.drawRectangle({
-    x: margemX,
-    y: yDivisor - 24,
-    width: larguraUtil,
-    height: 21,
-    color: rgb(0.94, 0.95, 0.97),
-    borderColor: rgb(0.75, 0.78, 0.82),
-    borderWidth: 0.6,
-  });
+  const parte1 = sanitizarTextoWinAnsi(
+    `Realizado em: ${pedido.dataPedidoBr}, depósito: `
+  );
+  const parte2 = `${valorDepositoBrl}, `;
+  const parte3 = "Retirar em: ";
+  const parte4 = retirarEmBr;
 
-  const wTit = fontBold.widthOfTextAtSize(tituloWin || tituloPrincipal, 11.5);
-  page.drawText(tituloWin || tituloPrincipal, {
-    x: margemX + (larguraUtil - wTit) / 2,
-    y: yDivisor - 17.5,
-    size: 11.5,
+  let xR = margemX;
+  page.drawText(parte1, {
+    x: xR,
+    y: yCursor,
+    size: 8.2,
     font: fontBold,
-    color: rgb(0.05, 0.05, 0.08),
+    color: rgb(0, 0, 0),
+  });
+  xR += fontBold.widthOfTextAtSize(parte1, 8.2);
+
+  page.drawText(parte2, {
+    x: xR,
+    y: yCursor - 0.5,
+    size: 11.2,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  xR += fontBold.widthOfTextAtSize(parte2, 11.2);
+
+  page.drawText(parte3, {
+    x: xR,
+    y: yCursor,
+    size: 8.2,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  xR += fontBold.widthOfTextAtSize(parte3, 8.2);
+
+  page.drawText(parte4, {
+    x: xR,
+    y: yCursor - 0.5,
+    size: 13,
+    font: fontBold,
+    color: rgb(0, 0, 0),
   });
 
-  return yDivisor - 34;
+  return yCursor - 24;
 }
 
 /**
- * Renderiza um pedido individual no documento `pdfDoc` alvo, retornando quantas páginas foram adicionadas
- * e se houve abertura de página(s) de continuação de itens.
+ * Renderiza um pedido individual no documento `pdfDoc` alvo (Espelho 100% Idêntico ao WEBRI: Frente + Verso),
+ * retornando quantas páginas foram adicionadas e se houve abertura de página(s) de continuação de itens.
  */
 async function adicionarPaginasPedidoAoDoc(params: {
   pdfDoc: PDFDocument;
@@ -512,237 +595,141 @@ async function adicionarPaginasPedidoAoDoc(params: {
     fontBold,
     pedido,
     marcaReimpressao,
-    anotacoesSalvas,
   } = params;
+  const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+  const fontBoldItalic = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+
   const margemX = 34;
   const larguraUtil = LARGURA_PAGINA_SIPLAN_PT - margemX * 2; // 527 pt
   const indicePrimeiraPaginaNoDoc = pdfDoc.getPageCount();
   let paginasAdicionadas = 0;
   let usouContinuacaoItens = false;
 
-  // ── PÁGINA 1: COMPROVANTE / ESPELHO DO PEDIDO DE CERTIDÃO SIPLAN ──
+  const reqDocBruto =
+    pedido.requerente.documentoFormatado ||
+    pedido.requerente.documentoMascarado ||
+    "Não informado";
+  const reqDocDigitos = reqDocBruto.replace(/\D/g, "");
+  const reqDocWebri = reqDocDigitos.length >= 11 ? reqDocDigitos : reqDocBruto;
+  const foneWebri = (pedido.requerente.telefone || "").trim() || "Não informado";
+  const emailWebri = (pedido.requerente.email || "").trim() || "Não informado";
+  const protocoloFormatado = sanitizarTextoWinAnsi(
+    formatarProtocoloPontoMilhar(pedido.numeroPedido)
+  );
+  const valorDepositoNum =
+    pedido.valores.totalDeposito > 0
+      ? pedido.valores.totalDeposito
+      : pedido.valores.valorServico;
+  const valorDepositoBrl = sanitizarTextoWinAnsi(formatarMoedaBrl(valorDepositoNum));
+  const obsOriginalWebri = sanitizarTextoWinAnsi(
+    obterObservacaoOriginalWebri(pedido) || "—"
+  );
+  const prenotacoesContraditorio = obterPrenotacoesContraditorioDoPedido(pedido);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PÁGINA 1 — FRENTE DO MODELO OFICIAL WEBRI (SEMPRE COM O LOGOTIPO)
+  // ═══════════════════════════════════════════════════════════════════════════
   let pageAtual = pdfDoc.addPage([LARGURA_PAGINA_SIPLAN_PT, ALTURA_PAGINA_SIPLAN_PT]);
   paginasAdicionadas++;
 
-  let y = desenharCabecalhoOficial7RI({
+  let y = desenharCabecalhoOficialWebriFrente({
     page: pageAtual,
     headerImg,
     fontRegular,
     fontBold,
+    fontBoldItalic,
     pedido,
     marcaReimpressao,
   });
 
-  // Bloco 1: Datas, Origem e Forma de Entrega
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: y - 34,
-    width: larguraUtil,
-    height: 34,
-    borderColor: rgb(0.72, 0.75, 0.8),
-    borderWidth: 0.6,
-  });
-
-  const textoEntrada = sanitizarTextoWinAnsi(
-    `Data de Entrada: ${pedido.dataPedidoBr}   Hora: ${pedido.horaPedidoBr}`
-  );
-  const textoPrevisao = sanitizarTextoWinAnsi(
-    `Previsão de Entrega: ${pedido.prazoPrevistoBr || "Conforme prazo legal"}`
-  );
-  const textoCanal = sanitizarTextoWinAnsi(
-    `Origem: ${pedido.origem} (${pedido.canalRecebimento})   Forma de Entrega: ${pedido.formaEntregaExibicao}`
-  );
-
-  pageAtual.drawText(textoEntrada, {
-    x: margemX + 8,
-    y: y - 13,
-    size: TAMANHO_FONTE_CORPO_FIXO_PT,
-    font: fontBold,
-    color: rgb(0.08, 0.08, 0.1),
-  });
-  pageAtual.drawText(textoPrevisao, {
-    x: margemX + 275,
-    y: y - 13,
-    size: TAMANHO_FONTE_CORPO_FIXO_PT,
-    font: fontBold,
-    color: rgb(0.08, 0.08, 0.1),
-  });
-  pageAtual.drawText(textoCanal, {
-    x: margemX + 8,
-    y: y - 27,
-    size: TAMANHO_FONTE_ITEM_FIXO_PT,
-    font: fontRegular,
-    color: rgb(0.18, 0.18, 0.22),
-  });
-
-  y -= 42;
-
-  // Bloco 2: Dados do Solicitante / Requerente (sem truncar nomes extensos!)
-  const reqDoc =
-    pedido.requerente.documentoFormatado ||
-    pedido.requerente.documentoMascarado ||
-    "Não informado";
-  const reqLinhasNome = quebrarTextoEmLinhas(
-    `Solicitante: ${pedido.requerente.nome}`,
-    fontBold,
-    TAMANHO_FONTE_CORPO_FIXO_PT,
-    larguraUtil - 195
-  );
-  const reqContato = `E-mail: ${pedido.requerente.email || "—"}   |   Fone: ${pedido.requerente.telefone || "—"}`;
-  const reqLinhasContato = quebrarTextoEmLinhas(
-    reqContato,
-    fontRegular,
-    TAMANHO_FONTE_ITEM_FIXO_PT,
-    larguraUtil - 16
-  );
-
-  const alturaRequerente =
-    12 + reqLinhasNome.length * 12 + reqLinhasContato.length * 11 + 6;
-
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: y - alturaRequerente,
-    width: larguraUtil,
-    height: alturaRequerente,
-    borderColor: rgb(0.72, 0.75, 0.8),
-    borderWidth: 0.6,
-  });
-
-  let yReq = y - 13;
-  reqLinhasNome.forEach((linha, idx) => {
-    pageAtual.drawText(linha, {
-      x: margemX + 8,
-      y: yReq,
-      size: TAMANHO_FONTE_CORPO_FIXO_PT,
-      font: fontBold,
-      color: rgb(0.06, 0.06, 0.08),
-    });
-    if (idx === 0) {
-      const docStr = sanitizarTextoWinAnsi(
-        `${pedido.requerente.tipoDocumento === "CNPJ" ? "CNPJ" : "CPF/CNPJ"}: ${reqDoc}`
-      );
-      pageAtual.drawText(docStr, {
-        x: margemX + larguraUtil - 180,
-        y: yReq,
-        size: TAMANHO_FONTE_CORPO_FIXO_PT,
-        font: fontRegular,
-        color: rgb(0.12, 0.12, 0.15),
-      });
-    }
-    yReq -= 12;
-  });
-
-  reqLinhasContato.forEach((linha) => {
-    pageAtual.drawText(linha, {
-      x: margemX + 8,
-      y: yReq,
-      size: TAMANHO_FONTE_ITEM_FIXO_PT,
-      font: fontRegular,
-      color: rgb(0.2, 0.2, 0.24),
-    });
-    yReq -= 11;
-  });
-
-  y -= alturaRequerente + 10;
-
-  // Cabeçalho da Tabela de Itens Solicitados (<Lista/>)
-  const desenharCabecalhoTabelaItens = (pg: PDFPage, yTop: number): number => {
-    pg.drawRectangle({
+  // 6. REQUERENTE & CONTATO
+  const reqLinhaStr = `REQUERENTE: ${pedido.requerente.nome} - CPF : ${reqDocWebri} - WhatsApp : ${foneWebri}`;
+  const linhasReq = quebrarTextoEmLinhas(reqLinhaStr, fontRegular, 9, larguraUtil);
+  for (const ln of linhasReq) {
+    pageAtual.drawText(ln, {
       x: margemX,
-      y: yTop - 18,
-      width: larguraUtil,
-      height: 18,
-      color: rgb(0.91, 0.93, 0.96),
-      borderColor: rgb(0.68, 0.72, 0.78),
-      borderWidth: 0.6,
+      y,
+      size: 9,
+      font: ln.startsWith("REQUERENTE:") ? fontBold : fontRegular,
+      color: rgb(0, 0, 0),
     });
-    pg.drawText("Item", { x: margemX + 6, y: yTop - 13, size: 8, font: fontBold });
-    pg.drawText(sanitizarTextoWinAnsi("Espécie / Natureza da Certidão"), {
-      x: margemX + 38,
-      y: yTop - 13,
-      size: 8,
-      font: fontBold,
+    y -= 12;
+  }
+
+  y -= 4;
+  const contatoLinhaStr = `CONTATO: ${pedido.requerente.nome} - WhatsApp : ${foneWebri} - e-mail: ${emailWebri}`;
+  const linhasCont = quebrarTextoEmLinhas(contatoLinhaStr, fontRegular, 9, larguraUtil);
+  for (const ln of linhasCont) {
+    pageAtual.drawText(ln, {
+      x: margemX,
+      y,
+      size: 9,
+      font: ln.startsWith("CONTATO:") ? fontBold : fontRegular,
+      color: rgb(0, 0, 0),
     });
-    pg.drawText(sanitizarTextoWinAnsi("Identificação (Matrícula / Critério)"), {
-      x: margemX + 235,
-      y: yTop - 13,
-      size: 8,
-      font: fontBold,
-    });
-    pg.drawText("Entrega / Previsão", {
-      x: margemX + 415,
-      y: yTop - 13,
-      size: 8,
-      font: fontBold,
-    });
-    return yTop - 20;
-  };
+    y -= 12;
+  }
 
-  y = desenharCabecalhoTabelaItens(pageAtual, y);
+  y -= 10;
 
-  // Espaço mínimo reservado para os blocos fixos de rodapé do recibo (RPS + Observações + CNJ 134/2022 + Assinatura + Valores)
-  const ALTURA_BLOCOS_FINAIS_RECIBO_PT = 248;
-  const Y_MINIMO_ITENS_COM_RODAPE = 36 + ALTURA_BLOCOS_FINAIS_RECIBO_PT;
-  const Y_MINIMO_PAGINA_CONTINUACAO = 54;
+  // 7. DISCRIMINAÇÃO DOS SERVIÇOS SOLICITADOS: (centralizado, negrito, itálico e sublinhado)
+  const txtDiscrim =
+    sanitizarTextoWinAnsi("DISCRIMINAÇÃO DOS SERVIÇOS SOLICITADOS:") ||
+    "DISCRIMINACAO DOS SERVICOS SOLICITADOS:";
+  const tamDiscrim = 10.5;
+  const wDiscrim = fontBoldItalic.widthOfTextAtSize(txtDiscrim, tamDiscrim);
+  const xDiscrim = margemX + (larguraUtil - wDiscrim) / 2;
+  pageAtual.drawText(txtDiscrim, {
+    x: xDiscrim,
+    y,
+    size: tamDiscrim,
+    font: fontBoldItalic,
+    color: rgb(0, 0, 0),
+  });
+  pageAtual.drawLine({
+    start: { x: xDiscrim, y: y - 1.5 },
+    end: { x: xDiscrim + wDiscrim, y: y - 1.5 },
+    thickness: 0.75,
+    color: rgb(0, 0, 0),
+  });
 
-  const itensParaRenderizar =
-    pedido.itens.length > 0
-      ? pedido.itens
-      : [
-        {
-          id: "sintetico-vazio",
-          sequenciaItem: 1,
-          naturezaCodigo: null,
-          naturezaDescricao: pedido.especieSolicitada,
-          livroCodigo: 2,
-          livroDescricao: "Livro 2 - Registro Geral",
-          numeroMatricula: null,
-          transcricaoOuLoteamento: null,
-          enderecoPesquisa: null,
-          meioEntregaCodigo: null,
-          meioEntregaDescricao: pedido.formaEntregaExibicao,
-          dataPrevisaoIso: pedido.prazoPrevistoIso,
-          dataPrevisaoBr: pedido.prazoPrevistoBr,
-          elegivelPiloto: false,
-          motivoEncaminhamentoHumano: null,
-          statusItem: "PENDENTE",
-          acervoSnapshot: null,
-        },
-      ];
+  y -= 22;
 
-  for (let idx = 0; idx < itensParaRenderizar.length; idx++) {
-    const item = itensParaRenderizar[idx];
-    const identificacaoTexto = item.numeroMatricula
-      ? `Matrícula nº ${item.numeroMatricula} (${item.livroDescricao || "Livro 2"})`
-      : item.enderecoPesquisa
-        ? `Endereço: ${item.enderecoPesquisa}`
-        : item.transcricaoOuLoteamento
-          ? `Transcrição/Loteamento: ${item.transcricaoOuLoteamento}`
-          : `Critério: ${pedido.criterioSolicitacao}`;
+  // 8. DADOS DO PEDIDO: (sublinhado e negrito)
+  const txtDadosPed = "DADOS DO PEDIDO:";
+  const tamDadosPed = 9;
+  const wDadosPed = fontBold.widthOfTextAtSize(txtDadosPed, tamDadosPed);
+  pageAtual.drawText(txtDadosPed, {
+    x: margemX,
+    y,
+    size: tamDadosPed,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  pageAtual.drawLine({
+    start: { x: margemX, y: y - 1.5 },
+    end: { x: margemX + wDadosPed, y: y - 1.5 },
+    thickness: 0.65,
+    color: rgb(0, 0, 0),
+  });
 
-    const linhasNat = quebrarTextoEmLinhas(
-      item.naturezaDescricao,
-      fontRegular,
-      TAMANHO_FONTE_ITEM_FIXO_PT,
-      190
-    );
-    const linhasIdent = quebrarTextoEmLinhas(
-      identificacaoTexto,
+  y -= 15;
+
+  // Linhas de Itens (ex: "1.Incluido por meio Magnetico (M) - Matrícula livro n. 150053")
+  const linhasItensWebri = obterLinhasDadosDoPedidoWebri(pedido);
+  const Y_MINIMO_PARA_GRADE_FRENTE = 290;
+
+  for (let idx = 0; idx < linhasItensWebri.length; idx++) {
+    const itemW = linhasItensWebri[idx];
+    const quebradasItem = quebrarTextoEmLinhas(
+      itemW.textoCompletoPlano,
       fontBold,
-      TAMANHO_FONTE_ITEM_FIXO_PT,
-      172
+      10,
+      larguraUtil
     );
-    const maxLinhasItem = Math.max(linhasNat.length, linhasIdent.length);
-    const alturaItemPt = maxLinhasItem * 11.5 + 7;
+    const altNecessaria = quebradasItem.length * 13;
 
-    // Se este item ultrapassar o limite seguro da página atual, abre Página de Continuação
-    // mantendo EXATAMENTE o mesmo tamanho de fonte (jamais reduz fonte!).
-    const ehUltimoItem = idx === itensParaRenderizar.length - 1;
-    const limiteInferiorNecessario = ehUltimoItem
-      ? Y_MINIMO_ITENS_COM_RODAPE
-      : Y_MINIMO_PAGINA_CONTINUACAO;
-
-    if (y - alturaItemPt < limiteInferiorNecessario) {
+    if (y - altNecessaria < Y_MINIMO_PARA_GRADE_FRENTE && idx < linhasItensWebri.length - 1) {
       usouContinuacaoItens = true;
       pageAtual.drawText(
         sanitizarTextoWinAnsi("(Continua na próxima página — fonte preservada)"),
@@ -754,509 +741,509 @@ async function adicionarPaginasPedidoAoDoc(params: {
           color: rgb(0.35, 0.35, 0.4),
         }
       );
-
       pageAtual = pdfDoc.addPage([LARGURA_PAGINA_SIPLAN_PT, ALTURA_PAGINA_SIPLAN_PT]);
       paginasAdicionadas++;
-      y = desenharCabecalhoOficial7RI({
+      y = desenharCabecalhoOficialWebriFrente({
         page: pageAtual,
         headerImg,
         fontRegular,
         fontBold,
+        fontBoldItalic,
         pedido,
         subtituloPagina: "CONTINUAÇÃO DOS ITENS",
         marcaReimpressao,
       });
-      y = desenharCabecalhoTabelaItens(pageAtual, y);
     }
 
+    for (const lnIt of quebradasItem) {
+      pageAtual.drawText(lnIt, {
+        x: margemX,
+        y,
+        size: 10,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      y -= 13;
+    }
+  }
+
+  y -= 2;
+
+  // Observação do WEBRI / ONR + Alerta FIORIX (somente na Frente, abaixo de DADOS DO PEDIDO)
+  const labelObs = sanitizarTextoWinAnsi("Observações: ");
+  const wLabelObs = fontBold.widthOfTextAtSize(labelObs, 8.8);
+  pageAtual.drawText(labelObs, {
+    x: margemX,
+    y,
+    size: 8.8,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+  pageAtual.drawText(obsOriginalWebri, {
+    x: margemX + wLabelObs,
+    y,
+    size: 8.8,
+    font: fontRegular,
+    color: rgb(0, 0, 0),
+  });
+  y -= 13;
+
+  if (prenotacoesContraditorio.length > 0) {
+    const numsPren = prenotacoesContraditorio
+      .map((pr) => `nº ${pr.numeroPrenotacao}`)
+      .join(", ");
+    const txtAlertaFiorix = sanitizarTextoWinAnsi(
+      `Alerta FIORIX (Prenotações relacionadas a esta matrícula): ${numsPren}`
+    );
+    const wAlerta = Math.min(
+      larguraUtil,
+      fontBold.widthOfTextAtSize(txtAlertaFiorix, 8.5) + 12
+    );
     pageAtual.drawRectangle({
       x: margemX,
-      y: y - alturaItemPt,
-      width: larguraUtil,
-      height: alturaItemPt,
-      borderColor: rgb(0.82, 0.84, 0.88),
-      borderWidth: 0.45,
+      y: y - 3,
+      width: wAlerta,
+      height: 13,
+      color: rgb(1, 0.98, 0.92),
+      borderColor: rgb(0.7, 0.4, 0.08),
+      borderWidth: 0.6,
     });
+    pageAtual.drawText(txtAlertaFiorix, {
+      x: margemX + 5,
+      y,
+      size: 8.5,
+      font: fontBold,
+      color: rgb(0.32, 0.12, 0.02),
+    });
+    y -= 16;
+  }
 
-    pageAtual.drawText(String(item.sequenciaItem).padStart(2, "0"), {
-      x: margemX + 8,
-      y: y - 12,
-      size: TAMANHO_FONTE_ITEM_FIXO_PT,
+  // 9. GRADE OFICIAL DE BUSCA E QUALIFICAÇÃO DO WEBRI (ancorada na metade inferior da Frente)
+  const yTopoGrade = Math.min(y - 12, 438);
+  const xMeioGrade = margemX + larguraUtil / 2;
+
+  // Linha superior da grade
+  pageAtual.drawLine({
+    start: { x: margemX, y: yTopoGrade },
+    end: { x: margemX + larguraUtil, y: yTopoGrade },
+    thickness: 0.9,
+    color: rgb(0, 0, 0),
+  });
+
+  // Linha 1: AQUISIÇÃO: | PROPRIETÁRIO:
+  const yBaseL1 = yTopoGrade - 32;
+  pageAtual.drawText(sanitizarTextoWinAnsi("AQUISIÇÃO:"), {
+    x: margemX + 1,
+    y: yTopoGrade - 9,
+    size: 7.2,
+    font: fontBold,
+  });
+  pageAtual.drawLine({
+    start: { x: xMeioGrade, y: yTopoGrade },
+    end: { x: xMeioGrade, y: yBaseL1 },
+    thickness: 0.9,
+    color: rgb(0, 0, 0),
+  });
+  pageAtual.drawText(sanitizarTextoWinAnsi("PROPRIETÁRIO:"), {
+    x: xMeioGrade + 4,
+    y: yTopoGrade - 9,
+    size: 7.2,
+    font: fontBold,
+  });
+  pageAtual.drawLine({
+    start: { x: margemX, y: yBaseL1 },
+    end: { x: margemX + larguraUtil, y: yBaseL1 },
+    thickness: 1.3,
+    color: rgb(0, 0, 0),
+  });
+
+  // Linhas 2 a 5: TRANSMISSÃO, HIPOTECA DEVEDOR, R.D, INSCR./LOTEAMENTO
+  const rotulosLinhasGrade = [
+    "TRANSMISSÃO:",
+    "HIPOTECA DEVEDOR:",
+    "R.D:",
+    "INSCR./LOTEAMENTO:",
+  ];
+  let yCursorGrade = yBaseL1;
+  for (const rot of rotulosLinhasGrade) {
+    pageAtual.drawText(sanitizarTextoWinAnsi(rot), {
+      x: margemX + 1,
+      y: yCursorGrade - 9,
+      size: 7.2,
       font: fontBold,
     });
-
-    linhasNat.forEach((ln, lIdx) => {
-      pageAtual.drawText(ln, {
-        x: margemX + 38,
-        y: y - 12 - lIdx * 11,
-        size: TAMANHO_FONTE_ITEM_FIXO_PT,
-        font: fontRegular,
-      });
-    });
-
-    linhasIdent.forEach((ln, lIdx) => {
-      pageAtual.drawText(ln, {
-        x: margemX + 235,
-        y: y - 12 - lIdx * 11,
-        size: TAMANHO_FONTE_ITEM_FIXO_PT,
-        font: fontBold,
-      });
-    });
-
-    const entregaCurta = sanitizarTextoWinAnsi(
-      `${item.meioEntregaCodigo || "M"} • ${item.dataPrevisaoBr || pedido.prazoPrevistoBr || "—"}`
-    );
-    pageAtual.drawText(entregaCurta, {
-      x: margemX + 415,
-      y: y - 12,
-      size: 8,
-      font: fontRegular,
-    });
-
-    y -= alturaItemPt;
-  }
-
-  // Caso após o último item não haja espaço suficiente para os blocos finais do recibo, abre nova página
-  if (y < Y_MINIMO_ITENS_COM_RODAPE) {
-    usouContinuacaoItens = true;
-    pageAtual = pdfDoc.addPage([LARGURA_PAGINA_SIPLAN_PT, ALTURA_PAGINA_SIPLAN_PT]);
-    paginasAdicionadas++;
-    y = desenharCabecalhoOficial7RI({
-      page: pageAtual,
-      headerImg,
-      fontRegular,
-      fontBold,
-      pedido,
-      subtituloPagina: "DADOS FISCAIS RPS E ENCERRAMENTO",
-      marcaReimpressao,
+    yCursorGrade -= 29;
+    pageAtual.drawLine({
+      start: { x: margemX, y: yCursorGrade },
+      end: { x: margemX + larguraUtil, y: yCursorGrade },
+      thickness: 0.85,
+      color: rgb(0, 0, 0),
     });
   }
 
-  y -= 10;
-
-  // Bloco 3: Dados para Emissão de RPS / Nota Fiscal (Apresentante e Destinatário estritamente separados!)
-  const apresNome = pedido.apresentante?.nome || pedido.requerente.nome;
-  const apresDoc =
-    pedido.apresentante?.documentoFormatado ||
-    pedido.apresentante?.documentoMascarado ||
-    reqDoc;
-  const destNome = pedido.destinatarioNota?.nome || apresNome;
-  const destDoc =
-    pedido.destinatarioNota?.documentoFormatado ||
-    pedido.destinatarioNota?.documentoMascarado ||
-    apresDoc;
-
-  const linhasApres = quebrarTextoEmLinhas(
-    `Apresentante: ${apresNome} (${apresDoc})`,
-    fontRegular,
-    8.2,
-    larguraUtil - 16
-  );
-  const linhasDest = quebrarTextoEmLinhas(
-    `Destinatário da Nota (RPS): ${destNome} (${destDoc})`,
-    fontRegular,
-    8.2,
-    larguraUtil - 16
-  );
-  const alturaRps = 18 + (linhasApres.length + linhasDest.length) * 10.5 + 6;
-
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: y - alturaRps,
-    width: larguraUtil,
-    height: alturaRps,
-    borderColor: rgb(0.72, 0.75, 0.8),
-    borderWidth: 0.6,
-  });
-  pageAtual.drawText(sanitizarTextoWinAnsi("DADOS PARA EMISSÃO DE RPS / NOTA FISCAL"), {
-    x: margemX + 8,
-    y: y - 12,
-    size: 8,
-    font: fontBold,
-    color: rgb(0.15, 0.2, 0.3),
-  });
-
-  let yRps = y - 24;
-  linhasApres.forEach((ln) => {
-    pageAtual.drawText(ln, { x: margemX + 8, y: yRps, size: 8.2, font: fontRegular });
-    yRps -= 10.5;
-  });
-  linhasDest.forEach((ln) => {
-    pageAtual.drawText(ln, { x: margemX + 8, y: yRps, size: 8.2, font: fontBold });
-    yRps -= 10.5;
-  });
-
-  y -= alturaRps + 8;
-
-  // Bloco 4: Observações e Prenotações em Contraditório (Provimento CNJ 134/2022 + WEBRI Contraditório)
-  const prenotacoesContraditorio = obterPrenotacoesContraditorioDoPedido(pedido);
-  const resumoPrenotacoesStr =
-    prenotacoesContraditorio.length > 0
-      ? ` | PRENOTAÇÃO EM CONTRADITÓRIO Nº ${prenotacoesContraditorio
-        .map(
-          (pr) =>
-            `${pr.numeroPrenotacao} (${pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"} - ${pr.naturezaTitulo
-            }${pr.livroContraditorio ? ` - ${pr.livroContraditorio}` : ""})`
-        )
-        .join("; ")}`
-      : "";
-  const textoObs = pedido.observacoesOrigem
-    ? `Observações: ${pedido.observacoesOrigem}${resumoPrenotacoesStr}`
-    : `Observações: Sem ressalvas adicionais no ato do protocolo.${resumoPrenotacoesStr}`;
-  const linhasObs = quebrarTextoEmLinhas(textoObs, fontRegular, 8, larguraUtil - 16).slice(0, 3);
-  const alturaObs = 8 + linhasObs.length * 10.5;
-
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: y - alturaObs,
-    width: larguraUtil,
-    height: alturaObs,
-    borderColor: rgb(0.78, 0.8, 0.84),
-    borderWidth: 0.5,
-  });
-  linhasObs.forEach((ln, idx) => {
-    pageAtual.drawText(ln, {
-      x: margemX + 8,
-      y: y - 11 - idx * 10.5,
-      size: 8,
-      font: fontRegular,
-    });
-  });
-
-  y -= alturaObs + 8;
-
-  // Bloco 5: Aviso Legal Provimento CNJ nº 134/2022 (LGPD)
-  const avisoLgpd =
-    "AVISO DE PRIVACIDADE (Provimento CNJ nº 134/2022 e Lei nº 13.709/2018 - LGPD): Os dados pessoais coletados neste pedido destinam-se exclusivamente à prática dos atos registrais, emissão de certidões, controle fiscal (RPS) e cumprimento das normas da Corregedoria Geral da Justiça de São Paulo e do CNJ.";
-  const linhasLgpd = quebrarTextoEmLinhas(avisoLgpd, fontRegular, 7.2, larguraUtil - 16);
-  const alturaLgpd = 8 + linhasLgpd.length * 9.2;
-
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: y - alturaLgpd,
-    width: larguraUtil,
-    height: alturaLgpd,
-    color: rgb(0.97, 0.97, 0.98),
-    borderColor: rgb(0.8, 0.82, 0.86),
-    borderWidth: 0.5,
-  });
-  linhasLgpd.forEach((ln, idx) => {
-    pageAtual.drawText(ln, {
-      x: margemX + 8,
-      y: y - 10 - idx * 9.2,
-      size: 7.2,
-      font: fontRegular,
-      color: rgb(0.25, 0.25, 0.3),
-    });
-  });
-
-  y -= alturaLgpd + 10;
-
-  // Bloco 6: Escrevente / Assinatura (esquerda) + Quadro de Valores Serviço / Despesa / Total Depósito (direita)
-  const larguraAssinatura = 315;
-  const larguraValores = larguraUtil - larguraAssinatura - 10;
-  const alturaRodape = 64;
-  const yRodapeBase = Math.max(34, y - alturaRodape);
-
-  pageAtual.drawRectangle({
-    x: margemX,
-    y: yRodapeBase,
-    width: larguraAssinatura,
-    height: alturaRodape,
-    borderColor: rgb(0.72, 0.75, 0.8),
-    borderWidth: 0.6,
+  // Linha 6: LAVRATURA | BUSCA / CONFERÊNCIA
+  const yTopoLavratura = yCursorGrade;
+  const yBaseLavratura = yTopoLavratura - 62;
+  pageAtual.drawLine({
+    start: { x: xMeioGrade, y: yTopoLavratura },
+    end: { x: xMeioGrade, y: yBaseLavratura },
+    thickness: 0.9,
+    color: rgb(0, 0, 0),
   });
   pageAtual.drawText(
-    sanitizarTextoWinAnsi(`Escrevente / Recepção: ${pedido.escreventeRecepcao}`),
+    "LAVRATURA: .................................................",
     {
-      x: margemX + 8,
-      y: yRodapeBase + alturaRodape - 14,
-      size: 8.2,
+      x: margemX + 1,
+      y: yBaseLavratura + 22,
+      size: 8.5,
+      font: fontBold,
+    }
+  );
+  pageAtual.drawText(
+    sanitizarTextoWinAnsi("BUSCA / CONFERÊNCIA: ....................................."),
+    {
+      x: xMeioGrade + 4,
+      y: yBaseLavratura + 22,
+      size: 8.5,
       font: fontBold,
     }
   );
   pageAtual.drawLine({
-    start: { x: margemX + 24, y: yRodapeBase + 18 },
-    end: { x: margemX + larguraAssinatura - 24, y: yRodapeBase + 18 },
-    thickness: 0.6,
-    color: rgb(0.25, 0.25, 0.3),
-  });
-  pageAtual.drawText(sanitizarTextoWinAnsi("Assinatura do Apresentante / Solicitante"), {
-    x: margemX + 76,
-    y: yRodapeBase + 7,
-    size: 7.5,
-    font: fontRegular,
-    color: rgb(0.3, 0.3, 0.35),
+    start: { x: margemX, y: yBaseLavratura },
+    end: { x: margemX + larguraUtil, y: yBaseLavratura },
+    thickness: 0.9,
+    color: rgb(0, 0, 0),
   });
 
-  const xVal = margemX + larguraAssinatura + 10;
-  pageAtual.drawRectangle({
-    x: xVal,
-    y: yRodapeBase,
-    width: larguraValores,
-    height: alturaRodape,
-    color: rgb(0.95, 0.96, 0.98),
-    borderColor: rgb(0.65, 0.7, 0.76),
-    borderWidth: 0.7,
+  // 10. Faixa Inferior de Asteriscos da Frente
+  const yAsterisco1 = yBaseLavratura - 28;
+  const linhaAsteriscos = "*".repeat(124);
+  const wAst = fontBold.widthOfTextAtSize(linhaAsteriscos, 7.2);
+  const xAst = margemX + (larguraUtil - wAst) / 2;
+
+  pageAtual.drawText(linhaAsteriscos, {
+    x: xAst,
+    y: yAsterisco1,
+    size: 7.2,
+    font: fontBold,
   });
 
-  const desenharLinhaValor = (rotulo: string, valorStr: string, yLinha: number, negrito: boolean) => {
-    const f = negrito ? fontBold : fontRegular;
-    const sz = negrito ? 9 : 8.3;
-    pageAtual.drawText(sanitizarTextoWinAnsi(rotulo), { x: xVal + 8, y: yLinha, size: sz, font: f });
-    const wV = f.widthOfTextAtSize(valorStr, sz);
-    pageAtual.drawText(valorStr, {
-      x: xVal + larguraValores - 8 - wV,
-      y: yLinha,
+  const txtConfira =
+    "CONFIRA O SEU PEDIDO e o numero do seu WhatsApp e ASSINE NO VERSO DESTA FOLHA";
+  const txtConfiraWin =
+    sanitizarTextoWinAnsi(
+      "CONFIRA O SEU PEDIDO e o número do seu WhatsApp e ASSINE NO VERSO DESTA FOLHA"
+    ) || txtConfira;
+  const wConf = fontBold.widthOfTextAtSize(txtConfiraWin, 9.6);
+  pageAtual.drawText(txtConfiraWin, {
+    x: margemX + (larguraUtil - wConf) / 2,
+    y: yAsterisco1 - 13,
+    size: 9.6,
+    font: fontBold,
+  });
+
+  pageAtual.drawText(linhaAsteriscos, {
+    x: xAst,
+    y: yAsterisco1 - 24,
+    size: 7.2,
+    font: fontBold,
+  });
+
+  pageAtual.drawLine({
+    start: { x: margemX, y: yAsterisco1 - 36 },
+    end: { x: margemX + larguraUtil, y: yAsterisco1 - 36 },
+    thickness: 0.9,
+    color: rgb(0, 0, 0),
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PÁGINA 2 — VERSO DO MODELO OFICIAL WEBRI (RPS + LGPD + ASSINATURA)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const pageVerso = pdfDoc.addPage([LARGURA_PAGINA_SIPLAN_PT, ALTURA_PAGINA_SIPLAN_PT]);
+  paginasAdicionadas++;
+
+  let yV = ALTURA_PAGINA_SIPLAN_PT - 28;
+
+  // 1. Quadro Superior de Consulta de RPS
+  const altTopoRps = 48;
+  const altNotaRps = 13;
+  const altTotalRps = altTopoRps + altNotaRps;
+  const largColEsqRps = 230;
+
+  pageVerso.drawRectangle({
+    x: margemX,
+    y: yV - altTotalRps,
+    width: larguraUtil,
+    height: altTotalRps,
+    borderColor: rgb(0, 0, 0),
+    borderWidth: 0.85,
+  });
+  pageVerso.drawLine({
+    start: { x: margemX + largColEsqRps, y: yV },
+    end: { x: margemX + largColEsqRps, y: yV - altTopoRps },
+    thickness: 0.85,
+    color: rgb(0, 0, 0),
+  });
+  pageVerso.drawLine({
+    start: { x: margemX, y: yV - altTopoRps },
+    end: { x: margemX + larguraUtil, y: yV - altTopoRps },
+    thickness: 0.85,
+    color: rgb(0, 0, 0),
+  });
+
+  const desenharCentroColEsq = (txt: string, yPos: number, f: PDFFont, sz: number) => {
+    const limpo = sanitizarTextoWinAnsi(txt);
+    const w = f.widthOfTextAtSize(limpo, sz);
+    pageVerso.drawText(limpo, {
+      x: margemX + (largColEsqRps - w) / 2,
+      y: yPos,
       size: sz,
       font: f,
     });
   };
 
-  desenharLinhaValor(
-    "Valor Serviço:",
-    formatarMoedaBrl(pedido.valores.valorServico),
-    yRodapeBase + 46,
-    false
+  desenharCentroColEsq("Consulta de RPS", yV - 11, fontBold, 8.2);
+  desenharCentroColEsq("(Recibo Provisório de Serviços)", yV - 21, fontBold, 8.2);
+  desenharCentroColEsq("https://nfe.prefeitura.sp.gov.br/rps.aspx", yV - 33, fontRegular, 7.8);
+  desenharCentroColEsq("http://7risp.com.br/ri-consulta.aspx?mod=03", yV - 43, fontRegular, 7.8);
+
+  const xColDirRps = margemX + largColEsqRps + 6;
+  const numRpsExibicao = String(pedido.webriMeta?.numRps || pedido.numeroPedido);
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi("CNPJ/CPF do Prestador de Serviços: 45.585.700/0001-23 / 154.901.578-87"),
+    { x: xColDirRps, y: yV - 12, size: 7.8, font: fontBold }
   );
-  desenharLinhaValor(
-    "Despesas / Remessa:",
-    formatarMoedaBrl(pedido.valores.valorDespesa),
-    yRodapeBase + 30,
-    false
-  );
-  pageAtual.drawLine({
-    start: { x: xVal + 6, y: yRodapeBase + 22 },
-    end: { x: xVal + larguraValores - 6, y: yRodapeBase + 22 },
-    thickness: 0.6,
-    color: rgb(0.55, 0.58, 0.64),
+  const lblNumRps = sanitizarTextoWinAnsi("*Número do RPS: ");
+  const wLblRps = fontBold.widthOfTextAtSize(lblNumRps, 8.2);
+  pageVerso.drawText(lblNumRps, {
+    x: xColDirRps,
+    y: yV - 27,
+    size: 8.2,
+    font: fontBold,
   });
-  desenharLinhaValor(
-    "Total Depósito:",
-    formatarMoedaBrl(pedido.valores.totalDeposito),
-    yRodapeBase + 8,
-    true
+  pageVerso.drawText(sanitizarTextoWinAnsi(`Nº ${numRpsExibicao}`), {
+    x: xColDirRps + wLblRps,
+    y: yV - 27.5,
+    size: 11,
+    font: fontBold,
+  });
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi(`CNPJ/CPF do Tomador de Serviços: ${reqDocWebri}`),
+    { x: xColDirRps, y: yV - 42, size: 7.8, font: fontBold }
   );
 
-  // ── PÁGINA OPERACIONAL INTERNA (PÁGINA 2 DO MODELO SIPLAN: GRADE DE BUSCAS E CONTRADITÓRIO) ──
-  const pageOperacional = pdfDoc.addPage([LARGURA_PAGINA_SIPLAN_PT, ALTURA_PAGINA_SIPLAN_PT]);
-  paginasAdicionadas++;
-
-  let yOp = desenharCabecalhoOficial7RI({
-    page: pageOperacional,
-    headerImg,
-    fontRegular,
-    fontBold,
-    pedido,
-    marcaReimpressao,
-  });
-
-  // Resumo técnico de conferência e acervo
-  pageOperacional.drawRectangle({
-    x: margemX,
-    y: yOp - 48,
-    width: larguraUtil,
-    height: 48,
-    borderColor: rgb(0.7, 0.74, 0.8),
-    borderWidth: 0.6,
-  });
-  pageOperacional.drawText(
+  pageVerso.drawText(
     sanitizarTextoWinAnsi(
-      `Situação Operacional no FIORIX: ${pedido.estadoOperacionalLabel}   |   Prioridade: ${pedido.prioridade}`
+      '*Este R.P.S será convertido em NF-e até o "décimo dia" subsequente a sua emissão, conforme Lei Municipal.'
     ),
-    { x: margemX + 8, y: yOp - 15, size: 8.8, font: fontBold }
-  );
-  pageOperacional.drawText(
-    sanitizarTextoWinAnsi(
-      `Subtipo Confirmado: ${pedido.subtipoConfirmado || "Aguardando confirmação humana"}   |   Critério: ${pedido.criterioSolicitacao}`
-    ),
-    { x: margemX + 8, y: yOp - 29, size: 8.2, font: fontRegular }
-  );
-  pageOperacional.drawText(
-    sanitizarTextoWinAnsi(
-      `Hash Versão dos Dados-Fonte: ${pedido.versaoDadosFonteHash.slice(0, 28)}...`
-    ),
-    { x: margemX + 8, y: yOp - 42, size: 7.5, font: fontRegular, color: rgb(0.3, 0.3, 0.36) }
+    { x: margemX + 4, y: yV - altTotalRps + 3.5, size: 7.2, font: fontRegular }
   );
 
-  yOp -= 60;
+  yV -= altTotalRps + 18;
 
-  // Quadro do Contraditório (Prenotações em Tramitação / Ato em Processamento)
-  const prenotacoes = obterPrenotacoesContraditorioDoPedido(pedido);
-  const alturaContraditorio = Math.max(84, 34 + prenotacoes.length * 16);
-
-  pageOperacional.drawRectangle({
-    x: margemX,
-    y: yOp - alturaContraditorio,
-    width: larguraUtil,
-    height: alturaContraditorio,
-    borderColor: rgb(0.7, 0.74, 0.8),
-    borderWidth: 0.6,
+  // 2. Bloco Central de Protocolo, Horário, Acompanhamento e Código de Acesso
+  const txtEntregue = sanitizarTextoWinAnsi(
+    "Certidão somente será entregue mediante apresentação deste protocolo n ° "
+  );
+  const wEnt = fontRegular.widthOfTextAtSize(txtEntregue, 8.6);
+  const wProtV = fontBold.widthOfTextAtSize(protocoloFormatado, 12.2);
+  const xInicioEnt = margemX + (larguraUtil - (wEnt + wProtV)) / 2;
+  pageVerso.drawText(txtEntregue, {
+    x: xInicioEnt,
+    y: yV,
+    size: 8.6,
+    font: fontRegular,
   });
-  pageOperacional.drawRectangle({
-    x: margemX,
-    y: yOp - 18,
-    width: larguraUtil,
-    height: 18,
-    color: rgb(0.92, 0.94, 0.97),
+  pageVerso.drawText(protocoloFormatado, {
+    x: xInicioEnt + wEnt,
+    y: yV - 0.5,
+    size: 12.2,
+    font: fontBold,
   });
-  pageOperacional.drawText(
-    sanitizarTextoWinAnsi(
-      "RESULTADO DA CONSULTA AO CONTRADITÓRIO (tblWRIRecepcao / tblWRITitulos / tblWRICertidaoResultadoContraditorio)"
-    ),
-    { x: margemX + 8, y: yOp - 13, size: 7.8, font: fontBold }
-  );
+  yV -= 13;
 
-  if (prenotacoes.length === 0) {
-    const statusContrad =
-      pedido.ultimaConferencia?.contraditorioStatus === "NADA_CONSTA"
-        ? "NADA CONSTA em tramitação para a(s) matrícula(s) conferida(s) nesta versão de dados."
-        : "Consulta ao Contraditório pendente ou encaminhada à verificação manual da equipe.";
-    pageOperacional.drawText(sanitizarTextoWinAnsi(statusContrad), {
-      x: margemX + 8,
-      y: yOp - 38,
-      size: 8.5,
+  const desenharLinhaCentralVerso = (txt: string, sz = 8.4) => {
+    const limpo = sanitizarTextoWinAnsi(txt);
+    const w = fontRegular.widthOfTextAtSize(limpo, sz);
+    pageVerso.drawText(limpo, {
+      x: margemX + (larguraUtil - w) / 2,
+      y: yV,
+      size: sz,
       font: fontRegular,
     });
-  } else {
-    let yP = yOp - 33;
-    prenotacoes.slice(0, 12).forEach((p) => {
-      const linhaPren = `Prenotação nº ${p.numeroPrenotacao} (${p.dataApresentacaoBr}) - ${p.tipoPrenotacaoDescricao ? `${p.tipoPrenotacaoDescricao} / ` : ""
-        }${p.naturezaTitulo}${p.livroContraditorio ? ` - ${p.livroContraditorio}` : ""}${p.protocoloMagnetico ? ` - Prot. ${p.protocoloMagnetico}` : ""
-        } [${p.emProcessamentoAtoNaMatricula ? "ATO EM PROCESSAMENTO - PAUSAR" : p.etapaAtual
-        }]`;
-      const truncSegura = quebrarTextoEmLinhas(linhaPren, fontRegular, 8, larguraUtil - 16)[0];
-      pageOperacional.drawText(truncSegura, {
-        x: margemX + 8,
-        y: yP,
-        size: 8,
-        font: p.emProcessamentoAtoNaMatricula ? fontBold : fontRegular,
+    yV -= 12;
+  };
+
+  desenharLinhaCentralVerso("Horário de atendimento: 09h00 às 16h00");
+  desenharLinhaCentralVerso("Acompanhe seu pedido: www.7risp.com.br/ri-consulta.aspx?mod=02");
+  desenharLinhaCentralVerso(`Código de acesso: ${gerarCodigoAcessoWebri(pedido)}`);
+
+  yV -= 4;
+
+  // 3. Atendimento eletrônico, Agendamento e Fundamentação legal
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi('Atendimento eletrônico: (11) 3218-0527 - opção "3"'),
+    { x: margemX, y: yV, size: 8.4, font: fontRegular }
+  );
+  yV -= 12;
+  pageVerso.drawText("Agendamento on-line: http://agendamento.7risp.com.br", {
+    x: margemX,
+    y: yV,
+    size: 8.4,
+    font: fontRegular,
+  });
+  yV -= 14;
+
+  const lblFund = sanitizarTextoWinAnsi("Fundamentação legal: ");
+  const wFund = fontBold.widthOfTextAtSize(lblFund, 8.4);
+  pageVerso.drawText(lblFund, { x: margemX, y: yV, size: 8.4, font: fontBold });
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi("Itens 144 e 144.1 do Cap. XIII das NSCGJ (Provimento CGJ nº 23/2020)."),
+    { x: margemX + wFund, y: yV, size: 8.4, font: fontRegular }
+  );
+  yV -= 18;
+
+  // 4. Detalhamento da motivação (Provimento CNJ nº 134/2022 / LGPD)
+  pageVerso.drawText(sanitizarTextoWinAnsi("Detalhamento da motivação:"), {
+    x: margemX,
+    y: yV,
+    size: 8.6,
+    font: fontBold,
+  });
+  yV -= 12;
+
+  const bulletsItalicos = [
+    '- "Qualquer pessoa pode requerer certidão do registro sem informar ao oficial ou ao funcionário o motivo ou interesse do pedido." (art. 17 da Lei nº 6.015/73 - LRP)',
+    "- Nos casos em que a certidão for requerida por pesquisa a indicadores pessoal ou real com a finalidade de localizar bens e direitos inscritos em nome de determinada pessoa física ou jurídica, bem como o inteiro teor de matrícula com a mesma finalidade e também para fins de instruir processos judiciais, administrativos, negócios jurídicos, dentre outros, a sua emissão depende de identificação do requerente e a indicação da finalidade (motivação), nos termos dos arts. 16 e 19 do Provimento CNJ nº 134/2022 e da Lei nº 13.709/2018 (LGPD).",
+    "- Ressalvadas as hipóteses previstas no art. 4º da LGPD, o requerente declara, sob as penas da lei, que os dados constantes na certidão ora solicitada serão utilizados exclusivamente para a finalidade (motivação) abaixo indicada (art. 7º da LGPD):",
+  ];
+
+  for (const bTxt of bulletsItalicos) {
+    const linhasB = quebrarTextoEmLinhas(bTxt, fontItalic, 7.8, larguraUtil - 14);
+    for (const ln of linhasB) {
+      pageVerso.drawText(ln, {
+        x: margemX + 10,
+        y: yV,
+        size: 7.8,
+        font: fontItalic,
       });
-      yP -= 15;
-    });
+      yV -= 10;
+    }
+    yV -= 2;
   }
 
-  yOp -= alturaContraditorio + 12;
+  yV -= 2;
+  // Observações no Verso (somente a observação do banco do WEBRI, sem alerta FIORIX)
+  pageVerso.drawText(labelObs, {
+    x: margemX,
+    y: yV,
+    size: 8.4,
+    font: fontBold,
+  });
+  pageVerso.drawText(obsOriginalWebri, {
+    x: margemX + wLabelObs,
+    y: yV,
+    size: 8.4,
+    font: fontRegular,
+  });
+  yV -= 18;
 
-  // Texto padrão sugerido de certificação de prenotação (se houver)
-  if (pedido.ultimaConferencia?.textoCertidaoSugerido) {
-    const linhasSug = quebrarTextoEmLinhas(
-      pedido.ultimaConferencia.textoCertidaoSugerido,
-      fontRegular,
-      8,
-      larguraUtil - 16
-    );
-    const altSug = 12 + linhasSug.length * 10.5;
-    pageOperacional.drawRectangle({
-      x: margemX,
-      y: yOp - altSug,
-      width: larguraUtil,
-      height: altSug,
-      color: rgb(0.97, 0.98, 0.95),
-      borderColor: rgb(0.7, 0.78, 0.68),
-      borderWidth: 0.6,
-    });
-    linhasSug.forEach((ln, i) => {
-      pageOperacional.drawText(ln, {
-        x: margemX + 8,
-        y: yOp - 12 - i * 10.5,
-        size: 8,
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi("A serventia poderá negar o atendimento do pedido quando:"),
+    { x: margemX, y: yV, size: 8.2, font: fontRegular }
+  );
+  yV -= 12;
+
+  const itensNegativa = [
+    "a. Não houver identificação do requerente.",
+    "b. Não for informada a finalidade (motivação) nas hipóteses em que é exigida.",
+    "c. A finalidade for genérica, imprecisa ou incompatível com a legislação.",
+    'd. For verificada tentativa de coleta massiva de dados ("data scraping"), devassamento indevido da vida privada ou formação de banco de dados paralelo.',
+    "e. Houver indícios de uso abusivo, discriminatório ou ilícito das informações registrais.",
+    "f. Houver restrição legal, judicial ou administrativa ao fornecimento da informação.",
+    "g. A solicitação contrariar os princípios da finalidade, adequação, necessidade, segurança e prevenção previstos no art. 6º da LGPD:",
+  ];
+
+  for (const itemNeg of itensNegativa) {
+    const linhasNeg = quebrarTextoEmLinhas(itemNeg, fontRegular, 7.8, larguraUtil - 14);
+    for (const ln of linhasNeg) {
+      pageVerso.drawText(ln, {
+        x: margemX + 10,
+        y: yV,
+        size: 7.8,
         font: fontRegular,
       });
-    });
-    yOp -= altSug + 12;
+      yV -= 10.2;
+    }
   }
 
-  // Grade Operacional de Buscas / Anotações Salvas do Escrevente + Pauta Manual (fiel à Página 2 do SIPLAN)
-  const alturaGrade = Math.max(140, yOp - 52);
-  pageOperacional.drawRectangle({
-    x: margemX,
-    y: yOp - alturaGrade,
-    width: larguraUtil,
-    height: alturaGrade,
-    borderColor: rgb(0.72, 0.75, 0.8),
-    borderWidth: 0.6,
-  });
-  pageOperacional.drawRectangle({
-    x: margemX,
-    y: yOp - 18,
-    width: larguraUtil,
-    height: 18,
-    color: rgb(0.92, 0.94, 0.97),
-  });
-  pageOperacional.drawText(
-    sanitizarTextoWinAnsi(
-      "CONTROLE INTERNO DE BUSCA, ANOTAÇÕES DO ESCREVENTE E CONFERÊNCIA HUMANA"
-    ),
-    { x: margemX + 8, y: yOp - 13, size: 8.2, font: fontBold }
+  const subPrincipios = [
+    "- Finalidade: realização do tratamento para propósitos legítimos, específicos, explícitos e informados ao titular, sem possibilidade de tratamento posterior de forma incompatível com essas finalidades;",
+    "- Adequação: compatibilidade do tratamento com as finalidades informadas ao titular, de acordo com o contexto do tratamento;",
+    "- Necessidade: limitação do tratamento ao mínimo necessário para a realização de suas finalidades, com abrangência dos dados pertinentes, proporcionais e não excessivos em relação às finalidades do tratamento de dados.",
+  ];
+
+  for (const subP of subPrincipios) {
+    const linhasSub = quebrarTextoEmLinhas(subP, fontRegular, 7.8, larguraUtil - 28);
+    for (const ln of linhasSub) {
+      pageVerso.drawText(ln, {
+        x: margemX + 24,
+        y: yV,
+        size: 7.8,
+        font: fontRegular,
+      });
+      yV -= 10.2;
+    }
+  }
+
+  // 5. Declaração NF-e, Assinatura do Requerente e Autenticação Mecânica no rodapé do Verso
+  const querNfeTexto = pedido.webriMeta?.gerarNfe === false ? "(não)." : "(sim).";
+  const declNfeStr = `Eu, ${pedido.requerente.nome} - WhatsApp: ${foneWebri} - e-mail: ${emailWebri}. Quer a NOTA FISCAL ELETRÔNICA: ${querNfeTexto}`;
+  const linhasDecl = quebrarTextoEmLinhas(declNfeStr, fontBold, 8.8, larguraUtil);
+
+  let yRodapeV = Math.min(yV - 14, 155);
+  for (const ln of linhasDecl) {
+    pageVerso.drawText(ln, {
+      x: margemX,
+      y: yRodapeV,
+      size: 8.8,
+      font: fontBold,
+    });
+    yRodapeV -= 12;
+  }
+
+  yRodapeV -= 18;
+  pageVerso.drawText(
+    "ASSINATURA DO REQUERENTE: ___________________________________________________________",
+    {
+      x: margemX,
+      y: yRodapeV,
+      size: 9,
+      font: fontBold,
+    }
   );
 
-  let cursorYDentroGrade = yOp - 32;
-  const limiteInferiorGrade = yOp - alturaGrade + 18;
+  yRodapeV -= 22;
+  const txtAtencao = sanitizarTextoWinAnsi(
+    'Atenção: antes de assinar confira: "nome", "telefone", "e-mail" e demais dados.'
+  );
+  const wAtencao = fontBold.widthOfTextAtSize(txtAtencao, 8.8);
+  pageVerso.drawText(txtAtencao, {
+    x: margemX + (larguraUtil - wAtencao) / 2,
+    y: yRodapeV,
+    size: 8.8,
+    font: fontBold,
+  });
 
-  if (anotacoesSalvas && anotacoesSalvas.length > 0) {
-    pageOperacional.drawText(
-      sanitizarTextoWinAnsi(
-        `ANOTAÇÕES SALVAS NO PEDIDO (${anotacoesSalvas.length} registro(s) permanentes no FIORIX):`
-      ),
-      {
-        x: margemX + 8,
-        y: cursorYDentroGrade,
-        size: 7.8,
-        font: fontBold,
-        color: rgb(0.1, 0.25, 0.45),
-      }
-    );
-    cursorYDentroGrade -= 13;
-
-    for (const anot of anotacoesSalvas) {
-      if (cursorYDentroGrade <= limiteInferiorGrade + 12) break;
-      const cabecAnot = `[${anot.criadoEmBr} - ${anot.autorNome}${anot.versaoAtual ? ` - v${anot.versaoAtual}` : ""
-        }] ${anot.titulo}:`;
-      const linhasCabec = quebrarTextoEmLinhas(cabecAnot, fontBold, 7.8, larguraUtil - 18);
-      for (const ln of linhasCabec) {
-        if (cursorYDentroGrade <= limiteInferiorGrade) break;
-        pageOperacional.drawText(ln, {
-          x: margemX + 10,
-          y: cursorYDentroGrade,
-          size: 7.8,
-          font: fontBold,
-          color: rgb(0.12, 0.14, 0.18),
-        });
-        cursorYDentroGrade -= 10.5;
-      }
-
-      const linhasConteudo = quebrarTextoEmLinhas(
-        anot.conteudoAtual,
-        fontRegular,
-        7.8,
-        larguraUtil - 24
-      );
-      for (const ln of linhasConteudo) {
-        if (cursorYDentroGrade <= limiteInferiorGrade) break;
-        pageOperacional.drawText(ln, {
-          x: margemX + 14,
-          y: cursorYDentroGrade,
-          size: 7.8,
-          font: fontRegular,
-          color: rgb(0.18, 0.2, 0.24),
-        });
-        cursorYDentroGrade -= 10.5;
-      }
-      cursorYDentroGrade -= 4;
+  pageVerso.drawText(
+    sanitizarTextoWinAnsi(`*** AUTENTICAÇÃO MECÂNICA: ${valorDepositoBrl} ***`),
+    {
+      x: margemX,
+      y: 34,
+      size: 7,
+      font: fontBold,
     }
-    cursorYDentroGrade -= 6;
-  }
-
-  // Linhas pautadas remanescentes para eventuais apontamentos físicos caso impressos pela equipe
-  for (let linhaY = cursorYDentroGrade - 8; linhaY > limiteInferiorGrade; linhaY -= 22) {
-    pageOperacional.drawLine({
-      start: { x: margemX + 10, y: linhaY },
-      end: { x: margemX + larguraUtil - 10, y: linhaY },
-      thickness: 0.4,
-      color: rgb(0.82, 0.84, 0.88),
-    });
-  }
+  );
 
   const paginasDestePedido = pdfDoc.getPages().slice(indicePrimeiraPaginaNoDoc);
 

@@ -212,6 +212,7 @@ export interface ItemPedidoCertidaoDTO {
   sequenciaItem: number;
   naturezaCodigo: number | null;
   naturezaDescricao: string;
+  naturezaOriginalWebri?: string | null;
   livroCodigo: number | null;
   livroDescricao: string | null;
   numeroMatricula: number | null;
@@ -225,6 +226,29 @@ export interface ItemPedidoCertidaoDTO {
   motivoEncaminhamentoHumano: string | null;
   statusItem: string;
   acervoSnapshot: SnapshotAcervoMatricula | null;
+  resultadoPesquisaSistema?: number | null;
+  qtdeImpressao?: number;
+  dataImpressaoBr?: string | null;
+  dataEmissaoBr?: string | null;
+  assinaOnr?: boolean;
+  atendenteItemNome?: string | null;
+}
+
+export interface MetadadosWebriPedido {
+  numRps?: number | null;
+  gerarNfe?: boolean;
+  codigoAcesso?: string | null;
+  divisorId?: number | null;
+  divisorDescricao?: string | null;
+  usuarioIdPedido?: number | null;
+  atendenteNome?: string | null;
+  observacaoPedidoOriginal?: string | null;
+  descricaoDosItensOriginal?: string | null;
+  naturezaOriginalWebri?: string | null;
+  resultadoPesquisaSistema?: number | null;
+  jaImpressa?: boolean;
+  assinaOnr?: boolean;
+  dataCertidaoBr?: string | null;
 }
 
 export interface ConferenciaPedidoDTO {
@@ -353,6 +377,8 @@ export interface PedidoCertidaoDetalheDTO {
   devolvidoEmBr?: string | null;
   /** Grifos coloridos e anotações de texto posicionadas diretamente sobre o documento */
   marcacoesDocumento?: MarcacaoVisualDocumentoPedido[];
+  /** Metadados originais do WEBRI para espelhamento 100% fiel e filtros de impressão em lote */
+  webriMeta?: MetadadosWebriPedido;
 }
 
 /**
@@ -896,6 +922,175 @@ export function obterPrenotacoesContraditorioDoPedido(
   }
   return [];
 }
+
+/**
+ * Formata o número do protocolo no padrão oficial WEBRI com ponto separador de milhar (ex: 1321013 -> 1.321.013).
+ */
+export function formatarProtocoloPontoMilhar(numeroPedido: string | number): string {
+  const digitos = String(numeroPedido || "")
+    .trim()
+    .replace(/\D/g, "");
+  if (!digitos) return String(numeroPedido || "—");
+  const n = Number(digitos);
+  if (!Number.isSafeInteger(n) || n <= 0) return String(numeroPedido || "—");
+  return n.toLocaleString("pt-BR");
+}
+
+/**
+ * Gera o Código de Acesso idêntico ao impresso pelo WEBRI no Verso:
+ * últimos 4 dígitos do protocolo + MM + DD + YYYY da data do pedido (ex: 1321013 em 28/09/2026 -> 101309282026).
+ */
+export function gerarCodigoAcessoWebri(pedido: PedidoCertidaoDetalheDTO): string {
+  if (pedido.webriMeta?.codigoAcesso && pedido.webriMeta.codigoAcesso.trim()) {
+    return pedido.webriMeta.codigoAcesso.trim();
+  }
+  const digitosPedido = String(pedido.numeroPedido || "")
+    .replace(/\D/g, "")
+    .slice(-4)
+    .padStart(4, "0");
+
+  const partesData = (pedido.dataPedidoBr || "").split("/");
+  if (partesData.length === 3) {
+    const [dd, mm, yyyy] = partesData;
+    return `${digitosPedido}${mm.padStart(2, "0")}${dd.padStart(2, "0")}${yyyy}`;
+  }
+  const dt = new Date(pedido.dataPedidoIso);
+  if (!Number.isNaN(dt.getTime())) {
+    const dd = String(dt.getDate()).padStart(2, "0");
+    const mm = String(dt.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(dt.getFullYear());
+    return `${digitosPedido}${mm}${dd}${yyyy}`;
+  }
+  return `${digitosPedido}00000000`;
+}
+
+/**
+ * Extrai estritamente a Observação original do banco de dados do WEBRI / ONR
+ * (ex: "Valor Depositado: 76,54"), removendo qualquer concatenação legada de DescricaoDosItens.
+ */
+export function obterObservacaoOriginalWebri(pedido: PedidoCertidaoDetalheDTO): string {
+  const metaObs = pedido.webriMeta?.observacaoPedidoOriginal?.trim();
+  if (metaObs) return metaObs;
+
+  const bruto = (pedido.observacoesOrigem || "").trim();
+  if (bruto) {
+    const semConcat = bruto
+      .split(/\s*\|\s*(?:Pedido referente a|\d+\.\s*<B>|\d+\.\s*Incluido)/i)[0]
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (semConcat) return semConcat;
+  }
+
+  const vDep = pedido.valores?.totalDeposito ?? pedido.valores?.valorServico ?? 0;
+  if (vDep > 0) {
+    return `Valor Depositado: ${vDep.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+  return "";
+}
+
+/**
+ * Retorna o nome do(a) Atendente para exibição na Frente ("Atendente: Anne").
+ */
+export function obterAtendentePedidoWebri(pedido: PedidoCertidaoDetalheDTO): string {
+  const nomeMeta = pedido.webriMeta?.atendenteNome?.trim();
+  if (nomeMeta) return nomeMeta;
+  const itemAtend = pedido.itens?.[0]?.atendenteItemNome?.trim();
+  if (itemAtend) return itemAtend;
+  const escr = (pedido.escreventeRecepcao || "").trim();
+  if (escr && escr !== "WEBRI / Recepção" && !escr.toLowerCase().includes("autom")) {
+    return escr;
+  }
+  return pedido.origem === "ONR" ? "Anne" : "Recepção";
+}
+
+export interface LinhaItemDadosDoPedidoWebri {
+  sequencia: number;
+  naturezaTexto: string;
+  complementoAntesMatricula: string;
+  numeroMatricula: number | null;
+  complementoDepoisMatricula: string;
+  textoCompletoPlano: string;
+}
+
+/**
+ * Monta as linhas de "DADOS DO PEDIDO:" idênticas ao modelo oficial do WEBRI:
+ * ex: "1.Incluido por meio Magnetico (M) - Matrícula livro n. 150053"
+ */
+export function obterLinhasDadosDoPedidoWebri(
+  pedido: PedidoCertidaoDetalheDTO
+): LinhaItemDadosDoPedidoWebri[] {
+  const itens =
+    pedido.itens && pedido.itens.length > 0
+      ? pedido.itens
+      : [
+          {
+            id: "fallback-1",
+            sequenciaItem: 1,
+            naturezaCodigo: pedido.origem === "ONR" ? 71 : null,
+            naturezaDescricao: pedido.especieSolicitada,
+            naturezaOriginalWebri:
+              pedido.webriMeta?.naturezaOriginalWebri ||
+              (pedido.origem === "ONR" ? "Incluido por meio Magnetico (M)" : pedido.especieSolicitada),
+            livroCodigo: 2,
+            livroDescricao: "Matrícula",
+            numeroMatricula: null,
+            transcricaoOuLoteamento: null,
+            enderecoPesquisa: null,
+            meioEntregaCodigo: "M",
+            meioEntregaDescricao: null,
+            dataPrevisaoIso: pedido.prazoPrevistoIso,
+            dataPrevisaoBr: pedido.prazoPrevistoBr,
+            elegivelPiloto: false,
+            motivoEncaminhamentoHumano: null,
+            statusItem: "PENDENTE",
+            acervoSnapshot: null,
+          },
+        ];
+
+  return itens.map((it, idx) => {
+    const seq = it.sequenciaItem || idx + 1;
+    const natOrig = (
+      it.naturezaOriginalWebri ||
+      pedido.webriMeta?.naturezaOriginalWebri ||
+      (it.naturezaCodigo === 71 || pedido.origem === "ONR"
+        ? "Incluido por meio Magnetico (M)"
+        : it.naturezaDescricao || pedido.especieSolicitada)
+    )
+      .replace(/<=<=/g, "")
+      .trim();
+
+    if (it.numeroMatricula && it.numeroMatricula > 0) {
+      const textoCompletoPlano = `${seq}.${natOrig} - Matrícula livro n. ${it.numeroMatricula}`;
+      return {
+        sequencia: seq,
+        naturezaTexto: `${seq}.${natOrig}`,
+        complementoAntesMatricula: " - Matrícula livro n. ",
+        numeroMatricula: it.numeroMatricula,
+        complementoDepoisMatricula: "",
+        textoCompletoPlano,
+      };
+    }
+
+    const detExtra = it.enderecoPesquisa
+      ? ` - Endereço: ${it.enderecoPesquisa}`
+      : it.transcricaoOuLoteamento
+      ? ` - ${it.transcricaoOuLoteamento}`
+      : "";
+    const textoCompletoPlano = `${seq}.${natOrig}${detExtra}`;
+    return {
+      sequencia: seq,
+      naturezaTexto: `${seq}.${natOrig}`,
+      complementoAntesMatricula: detExtra,
+      numeroMatricula: null,
+      complementoDepoisMatricula: "",
+      textoCompletoPlano,
+    };
+  });
+}
+
 
 
 

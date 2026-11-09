@@ -41,6 +41,13 @@ import {
   SeletorDataPedidoCartorioVirtual,
   correspondeFiltroDataPedido,
 } from "@/components/cartorio-virtual/SeletorDataPedidoCartorioVirtual";
+import {
+  BarraFiltrosWebriCartorioVirtual,
+  ESTADO_INICIAL_FILTROS_WEBRI,
+  correspondeFiltrosAvancadosWebri,
+  temFiltroAvancadoWebriAtivo,
+  type EstadoFiltrosAvancadosWebri,
+} from "@/components/cartorio-virtual/BarraFiltrosWebriCartorioVirtual";
 
 export type FiltroKpiVisaoGeral =
   | "TODOS"
@@ -88,6 +95,9 @@ export function VisaoGeralDinamicaClient({
   const [filtroOrigem, setFiltroOrigem] = useState<"TODAS" | "ONR" | "BALCAO">("TODAS");
   const [filtroTipoCertidao, setFiltroTipoCertidao] =
     useState<FiltroTipoCertidaoValor>("TODOS");
+  const [filtrosWebri, setFiltrosWebri] = useState<EstadoFiltrosAvancadosWebri>(
+    ESTADO_INICIAL_FILTROS_WEBRI
+  );
   const [colunaOrdenacao, setColunaOrdenacao] =
     useState<ColunaOrdenacaoPedidos>("PEDIDO");
   const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<"asc" | "desc">("asc");
@@ -148,6 +158,7 @@ export function VisaoGeralDinamicaClient({
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -157,7 +168,7 @@ export function VisaoGeralDinamicaClient({
         return false;
       return true;
     });
-  }, [pedidos, kpiAtivo, filtroOrigem, filtroTipoCertidao, filtroConferencia]);
+  }, [pedidos, kpiAtivo, filtroOrigem, filtroTipoCertidao, filtroConferencia, filtrosWebri]);
 
   const datasPedidoDisponiveis = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -174,6 +185,7 @@ export function VisaoGeralDinamicaClient({
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -183,7 +195,7 @@ export function VisaoGeralDinamicaClient({
         return false;
       return true;
     });
-  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroConferencia]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroConferencia, filtrosWebri]);
 
   const opcoesTipoCertidaoDinamicas = useMemo(() => {
     const especiesDistintas = extrairEspeciesDistintasPedidos(baseParaTiposCertidao).sort(
@@ -215,6 +227,7 @@ export function VisaoGeralDinamicaClient({
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -231,7 +244,7 @@ export function VisaoGeralDinamicaClient({
       onr,
       presencial,
     };
-  }, [pedidos, kpiAtivo, filtroDataPedido, filtroTipoCertidao, filtroConferencia]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroTipoCertidao, filtroConferencia, filtrosWebri]);
 
   const contagensConferenciaNoKpi = useMemo(() => {
     const baseKpi = pedidos.filter(
@@ -239,7 +252,8 @@ export function VisaoGeralDinamicaClient({
         correspondeAoKpi(p, kpiAtivo) &&
         correspondeFiltroDataPedido(p, filtroDataPedido) &&
         (filtroOrigem === "TODAS" || p.origem === filtroOrigem) &&
-        correspondeFiltroTipoCertidao(p, filtroTipoCertidao)
+        correspondeFiltroTipoCertidao(p, filtroTipoCertidao) &&
+        correspondeFiltrosAvancadosWebri(p, filtrosWebri)
     );
     const conferidos = baseKpi.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
     const devolvidos = baseKpi.filter((p) => Boolean(p.devolvidoPeloEscrevente)).length;
@@ -249,7 +263,7 @@ export function VisaoGeralDinamicaClient({
       devolvidos,
       naoConferidos: Math.max(0, baseKpi.length - conferidos - devolvidos),
     };
-  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroTipoCertidao]);
+  }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroTipoCertidao, filtrosWebri]);
 
   const pedidosFiltrados = useMemo(() => {
     const q = busca.trim().replace(/^#+/, "").toLowerCase();
@@ -265,6 +279,10 @@ export function VisaoGeralDinamicaClient({
       }
 
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) {
+        return false;
+      }
+
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) {
         return false;
       }
 
@@ -365,6 +383,7 @@ export function VisaoGeralDinamicaClient({
     filtroOrigem,
     filtroTipoCertidao,
     filtroConferencia,
+    filtrosWebri,
     busca,
     colunaOrdenacao,
     direcaoOrdenacao,
@@ -532,6 +551,14 @@ export function VisaoGeralDinamicaClient({
             {mostrarCardLote ? "Ocultar IMPRIMIR" : "IMPRIMIR"}
           </button>
         </div>
+
+        {/* Painel Completo de Filtros WEBRI (frmCertidaoImpressaoLote.aspx) */}
+        <BarraFiltrosWebriCartorioVirtual
+          filtros={filtrosWebri}
+          onChange={setFiltrosWebri}
+          pedidosBase={pedidos}
+          abertoPorPadrao={true}
+        />
       </div>
 
       {mostrarCardLote && (
@@ -579,6 +606,7 @@ export function VisaoGeralDinamicaClient({
             filtroOrigem !== "TODAS" ||
             filtroTipoCertidao !== "TODOS" ||
             filtroConferencia !== "TODOS" ||
+            temFiltroAvancadoWebriAtivo(filtrosWebri) ||
             busca.trim() !== "") && (
             <button
               type="button"
@@ -588,6 +616,7 @@ export function VisaoGeralDinamicaClient({
                 setFiltroOrigem("TODAS");
                 setFiltroTipoCertidao("TODOS");
                 setFiltroConferencia("TODOS");
+                setFiltrosWebri(ESTADO_INICIAL_FILTROS_WEBRI);
                 setBusca("");
               }}
               className="px-3 py-1.5 rounded-xl border border-white/15 bg-[#080D1A] hover:bg-white/[0.08] text-xs font-semibold text-slate-200 cursor-pointer"

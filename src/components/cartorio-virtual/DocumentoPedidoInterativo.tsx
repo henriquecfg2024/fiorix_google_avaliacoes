@@ -23,6 +23,11 @@ import {
   type AnotacaoImpressaoPedido,
 } from "@/lib/cartorio-virtual/siplan-constants";
 import {
+  formatarProtocoloPontoMilhar,
+  gerarCodigoAcessoWebri,
+  obterAtendentePedidoWebri,
+  obterLinhasDadosDoPedidoWebri,
+  obterObservacaoOriginalWebri,
   obterPrenotacoesContraditorioDoPedido,
   type CorGrifoDocumento,
   type CorTextoDocumento,
@@ -855,21 +860,40 @@ export function DocumentoPedidoInterativo({
     });
   };
 
-  // Dados estruturados fiéis ao SIPLAN para renderização da Folha 595 x 842
-  const reqDoc =
+  // Dados estruturados 100% fiéis ao Modelo de Pedido de Certidão do WEBRI (Folha 595 x 842 pt)
+  const reqDocBruto =
     pedido.requerente.documentoFormatado ||
     pedido.requerente.documentoMascarado ||
     "Não informado";
-  const apresNome = pedido.apresentante?.nome || pedido.requerente.nome;
-  const apresDoc =
-    pedido.apresentante?.documentoFormatado ||
-    pedido.apresentante?.documentoMascarado ||
-    reqDoc;
-  const destNome = pedido.destinatarioNota?.nome || apresNome;
-  const destDoc =
-    pedido.destinatarioNota?.documentoFormatado ||
-    pedido.destinatarioNota?.documentoMascarado ||
-    apresDoc;
+  const reqDocDigitos = reqDocBruto.replace(/\D/g, "");
+  const reqDocWebri = reqDocDigitos.length >= 11 ? reqDocDigitos : reqDocBruto;
+  const foneWebri = (pedido.requerente.telefone || "").trim() || "Não informado";
+  const emailWebri = (pedido.requerente.email || "").trim() || "Não informado";
+  const protocoloFormatado = formatarProtocoloPontoMilhar(pedido.numeroPedido);
+  const atendenteNome = obterAtendentePedidoWebri(pedido);
+  const valorDepositoNum =
+    pedido.valores.totalDeposito > 0
+      ? pedido.valores.totalDeposito
+      : pedido.valores.valorServico;
+  const valorDepositoBrl = formatarMoedaBrl(valorDepositoNum);
+  const retirarEmBr =
+    pedido.prazoPrevistoBr ||
+    pedido.itens[0]?.dataPrevisaoBr ||
+    pedido.dataPedidoBr;
+  const linhasDadosPedido = useMemo(
+    () => obterLinhasDadosDoPedidoWebri(pedido),
+    [pedido]
+  );
+  const obsOriginalWebri = useMemo(
+    () => obterObservacaoOriginalWebri(pedido),
+    [pedido]
+  );
+  const codigoAcessoWebri = useMemo(
+    () => gerarCodigoAcessoWebri(pedido),
+    [pedido]
+  );
+  const numRpsExibicao = pedido.webriMeta?.numRps || pedido.numeroPedido;
+  const querNfeTexto = pedido.webriMeta?.gerarNfe === false ? "(não)." : "(sim).";
   const prenotacoesContraditorio = useMemo(
     () => obterPrenotacoesContraditorioDoPedido(pedido),
     [pedido]
@@ -1035,417 +1059,395 @@ export function DocumentoPedidoInterativo({
             />
           )}
 
-          {/* Conteúdo Oficial SIPLAN proporcional 595 x 842 */}
-          <div className="w-full min-h-full px-[5.7%] py-[3.3%] flex flex-col justify-between font-sans text-[clamp(9px,1.51cqi,23px)] leading-snug">
+          {/* Conteúdo Oficial WEBRI proporcional 595 x 842 */}
+          <div className="w-full min-h-full px-[5.7%] py-[3.6%] flex flex-col justify-between font-sans text-[#000000] text-[clamp(8.5px,1.42cqi,21px)] leading-snug">
             {paginaAtiva === 1 ? (
-              <div className="space-y-[1.4%]">
-                {/* Cabeçalho Oficial 7º RI-SP + Código de Barras Code 39 */}
-                <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-900">
-                  <img
-                    src={`data:image/png;base64,${SIPLAN_7RI_HEADER_PNG_BASE64}`}
-                    alt="7º Registro de Imóveis de São Paulo - SP"
-                    className="w-[58%] h-auto object-contain pointer-events-none select-none"
-                    draggable={false}
-                  />
-                  <div className="flex flex-col items-end pt-0.5">
+              /* ═══════════════════════════════════════════════════════════════════════
+                 PÁGINA 1 — FRENTE DO MODELO OFICIAL WEBRI (SEMPRE COM O LOGOTIPO)
+                 ═══════════════════════════════════════════════════════════════════════ */
+              <div className="flex flex-col justify-between flex-1">
+                <div className="space-y-[1.2%]">
+                  {/* 1. Cabeçalho Institucional Centralizado (7º RI-SP) */}
+                  <div className="flex flex-col items-center justify-center pt-0.5">
+                    <img
+                      src={`data:image/png;base64,${SIPLAN_7RI_HEADER_PNG_BASE64}`}
+                      alt="7º Registro de Imóveis de São Paulo - SP"
+                      className="w-[68%] h-auto object-contain pointer-events-none select-none mx-auto"
+                      draggable={false}
+                    />
+                  </div>
+
+                  {/* 2. Código de Barras Code 39 + Protocolo ONR lado a lado centralizados */}
+                  <div className="flex items-end justify-center gap-3 pt-0.5">
                     <BarcodeCode39Svg valor={pedido.numeroPedido} />
                     {pedido.protocoloExterno && (
-                      <div className="text-[1.64em] font-black text-[#1E3F73] mt-1 leading-none tracking-tight">
+                      <span className="text-[1.68em] font-black text-black leading-none tracking-tight">
                         {pedido.protocoloExterno}
-                      </div>
+                      </span>
                     )}
                   </div>
-                </div>
 
-                {/* Faixa PEDIDO DE CERTIDÃO — Número do Pedido com o dobro do tamanho */}
-                <div className="bg-[#EFF2F7] border border-[#BFC7D1] py-1.5 px-3 text-center font-black tracking-tight text-[#0D0E14] flex flex-wrap items-baseline justify-center gap-2 leading-none">
-                  <span className="text-[1.45em] font-extrabold">
-                    PEDIDO DE CERTIDÃO Nº
-                  </span>
-                  <span className="text-[2.24em] font-black tracking-tight">
-                    {pedido.numeroPedido}
-                  </span>
-                </div>
-
-                {/* Bloco 1: Entrada, Previsão e Origem */}
-                <div className="border border-[#B8BFCC] px-2.5 py-1.5 space-y-0.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#14141A]">
-                    <span>
-                      Data de Entrada: {pedido.dataPedidoBr} &nbsp; Hora:{" "}
-                      {pedido.horaPedidoBr}
-                    </span>
-                    <span>
-                      Previsão de Entrega:{" "}
-                      {pedido.prazoPrevistoBr || "Conforme prazo legal"}
+                  {/* 3. PROTOCOLO Nº 1.321.013 */}
+                  <div className="pt-1 flex items-baseline gap-1.5 font-black text-black leading-none">
+                    <span className="text-[1.48em] tracking-tight">PROTOCOLO Nº</span>
+                    <span className="text-[1.92em] tracking-tight">
+                      {protocoloFormatado}
                     </span>
                   </div>
-                  <div className="text-[0.94em] text-[#2E2E38]">
-                    Origem: {pedido.origem === "ONR" ? "ONR" : "PRESENCIAL"} (
-                    {pedido.canalRecebimento}) &nbsp; Forma de Entrega:{" "}
-                    {pedido.formaEntregaExibicao}
-                  </div>
-                </div>
 
-                {/* Bloco 2: Solicitante / Requerente */}
-                <div className="border border-[#B8BFCC] px-2.5 py-1.5 space-y-0.5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-bold text-[#101014]">
-                      Solicitante: {pedido.requerente.nome}
-                    </span>
-                    <span className="text-[#1F1F26]">
-                      {pedido.requerente.tipoDocumento === "CNPJ" ? "CNPJ" : "CPF/CNPJ"}:{" "}
-                      {reqDoc}
+                  {/* 4. Atendente: Anne */}
+                  <div className="pt-0.5">
+                    <span className="font-bold italic underline text-[0.92em] text-black">
+                      Atendente: {atendenteNome}
                     </span>
                   </div>
-                  <div className="text-[0.94em] text-[#33333D]">
-                    E-mail: {pedido.requerente.email || "—"} &nbsp;|&nbsp; Fone:{" "}
-                    {pedido.requerente.telefone || "—"}
-                  </div>
-                </div>
 
-                {/* Tabela de Itens Solicitados */}
-                <div className="border border-[#AEB8C7]">
-                  <div className="grid grid-cols-12 bg-[#E8EDF5] border-b border-[#AEB8C7] px-2 py-1 font-bold text-[0.9em]">
-                    <div className="col-span-1">Item</div>
-                    <div className="col-span-5">Espécie / Natureza da Certidão</div>
-                    <div className="col-span-4">Identificação (Matrícula / Critério)</div>
-                    <div className="col-span-2">Entrega / Previsão</div>
+                  {/* 5. Realizado em: ..., depósito: R$ ..., Retirar em: ... */}
+                  <div className="pt-0.5 font-bold text-[0.86em] text-black flex flex-wrap items-baseline gap-x-1">
+                    <span>Realizado em: {pedido.dataPedidoBr},</span>
+                    <span>depósito:</span>
+                    <span className="text-[1.25em] font-black">
+                      {valorDepositoBrl},
+                    </span>
+                    <span>Retirar em:</span>
+                    <span className="text-[1.45em] font-black">{retirarEmBr}</span>
                   </div>
-                  {(pedido.itens.length > 0
-                    ? pedido.itens
-                    : [
-                      {
-                        id: "item-padrao",
-                        sequenciaItem: 1,
-                        naturezaDescricao: pedido.especieSolicitada,
-                        livroDescricao: "Livro 2 - Registro Geral",
-                        numeroMatricula: null,
-                        enderecoPesquisa: null,
-                        transcricaoOuLoteamento: null,
-                        meioEntregaCodigo: "M",
-                        dataPrevisaoBr: pedido.prazoPrevistoBr,
-                      },
-                    ]
-                  ).map((item) => {
-                    const identFallback = item.enderecoPesquisa
-                      ? `Endereço: ${item.enderecoPesquisa}`
-                      : item.transcricaoOuLoteamento
-                        ? `Transcrição/Loteamento: ${item.transcricaoOuLoteamento}`
-                        : `Critério: ${pedido.criterioSolicitacao}`;
-                    return (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-12 px-2 py-1.5 text-[0.94em] border-b last:border-b-0 border-[#D1D6E0]"
-                      >
-                        <div className="col-span-1 font-bold">
-                          {String(item.sequenciaItem).padStart(2, "0")}
-                        </div>
-                        <div className="col-span-5 pr-2">{item.naturezaDescricao}</div>
-                        <div className="col-span-4 font-bold pr-2">
-                          {item.numeroMatricula ? (
-                            <>
-                              Matrícula nº{" "}
-                              <LinkMatriculaLv2
-                                numeroMatricula={item.numeroMatricula}
-                                variante="papel"
-                              />{" "}
-                              ({item.livroDescricao || "Livro 2 - Registro Geral"})
-                            </>
-                          ) : (
-                            renderizarTextoComLinksMatriculaLv2(identFallback, "papel")
-                          )}
-                        </div>
-                        <div className="col-span-2 text-[0.92em]">
-                          {item.meioEntregaCodigo || "M"} -{" "}
-                          {item.dataPrevisaoBr || pedido.prazoPrevistoBr || "—"}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
 
-                {/* Bloco Contraditório: Número da Prenotação em Contraditório (quando houver) */}
-                {prenotacoesContraditorio.length > 0 && (
-                  <div className="border-2 border-[#B45309] bg-[#FFFBEB] px-2.5 py-2 space-y-1.5 text-[0.92em]">
-                    <div className="font-black text-[#78350F] flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-[#F59E0B]/40">
-                      <span className="inline-flex flex-wrap items-baseline gap-1.5">
-                        <span>
-                          PRENOTAÇÕES EM CONTRADITÓRIO ({prenotacoesContraditorio.length}):
-                        </span>
-                        {prenotacoesContraditorio.map((pr, idxH) => (
-                          <React.Fragment key={`h-${pr.numeroPrenotacao}-${idxH}`}>
-                            {idxH > 0 && <span>/</span>}
-                            <LinkPrenotacaoWebri
-                              numeroPrenotacao={pr.numeroPrenotacao}
+                  {/* 6. REQUERENTE & CONTATO */}
+                  <div className="pt-2 space-y-1.5 text-[0.95em] text-black leading-tight">
+                    <div>
+                      <span className="font-bold">REQUERENTE: </span>
+                      <span>{pedido.requerente.nome} - </span>
+                      <span className="font-bold">CPF : </span>
+                      <span>{reqDocWebri} - </span>
+                      <span className="font-bold underline">WhatsApp</span>
+                      <span> : {foneWebri}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold">CONTATO: </span>
+                      <span>{pedido.requerente.nome} - </span>
+                      <span className="font-bold underline">WhatsApp</span>
+                      <span> : {foneWebri} - </span>
+                      <span className="font-bold">e-mail: </span>
+                      <span>{emailWebri}</span>
+                    </div>
+                  </div>
+
+                  {/* 7. DISCRIMINAÇÃO DOS SERVIÇOS SOLICITADOS: */}
+                  <div className="pt-2.5 pb-1 text-center">
+                    <span className="font-black italic underline text-[1.12em] tracking-tight text-black">
+                      DISCRIMINAÇÃO DOS SERVIÇOS SOLICITADOS:
+                    </span>
+                  </div>
+
+                  {/* 8. DADOS DO PEDIDO + ITENS + OBSERVAÇÕES (WEBRI/ONR vs ALERTA FIORIX) */}
+                  <div className="space-y-1 text-black">
+                    <div className="font-bold underline text-[0.95em]">
+                      DADOS DO PEDIDO:
+                    </div>
+
+                    <div className="space-y-0.5">
+                      {linhasDadosPedido.map((ln) => (
+                        <div
+                          key={ln.sequencia}
+                          className="font-black text-[1.08em] leading-snug"
+                        >
+                          <span>{ln.naturezaTexto}</span>
+                          <span>{ln.complementoAntesMatricula}</span>
+                          {ln.numeroMatricula ? (
+                            <LinkMatriculaLv2
+                              numeroMatricula={ln.numeroMatricula}
                               variante="papel"
                             />
-                          </React.Fragment>
-                        ))}
-                      </span>
+                          ) : null}
+                          <span>{ln.complementoDepoisMatricula}</span>
+                        </div>
+                      ))}
                     </div>
-                    <div className="divide-y divide-[#F59E0B]/30">
-                      {prenotacoesContraditorio.map((pr, idxP) => {
-                        const ehHashHex = /^[0-9A-F]{12}$/i.test(
-                          (pr.naturezaTitulo || "").trim()
-                        );
-                        return (
-                          <div
-                            key={`${pr.numeroPrenotacao}-${idxP}`}
-                            className="py-1 first:pt-0 last:pb-0 text-[#1F2937] font-semibold flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
-                          >
-                            <span>
-                              Prenotação nº{" "}
-                              <LinkPrenotacaoWebri
-                                numeroPrenotacao={pr.numeroPrenotacao}
-                                variante="papel"
-                              />
-                            </span>
-                            <span>• Entrada: <strong>{pr.dataApresentacaoBr || "—"}</strong></span>
-                            <span>
-                              • Tipo:{" "}
-                              <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong>
-                            </span>
-                            {pr.naturezaTitulo &&
-                              pr.naturezaTitulo !== pr.tipoPrenotacaoDescricao &&
-                              !ehHashHex && (
-                                <span>
-                                  • Detalhes: <strong>{pr.naturezaTitulo}</strong>
-                                </span>
-                              )}
-                            {pr.livroContraditorio ? (
-                              <span>
-                                • Livro:{" "}
-                                {renderizarTextoComLinksMatriculaLv2(
-                                  pr.livroContraditorio,
-                                  "papel"
-                                )}
-                              </span>
-                            ) : null}
-                            {pr.protocoloMagnetico ? (
-                              <span>
-                                • Protocolo: <strong>{pr.protocoloMagnetico}</strong>
-                              </span>
-                            ) : null}
-                            <span>
-                              • Situação:{" "}
-                              <strong
-                                className={
-                                  pr.emProcessamentoAtoNaMatricula
-                                    ? "text-red-700"
-                                    : "text-[#78350F]"
-                                }
-                              >
-                                {pr.emProcessamentoAtoNaMatricula
-                                  ? "ATO EM PROCESSAMENTO - PAUSAR"
-                                  : pr.etapaAtual || "Em tramitação no Contraditório"}
-                              </strong>
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
-                {/* Bloco 3: Dados para Emissão de RPS / Nota Fiscal */}
-                <div className="border border-[#B8BFCC] px-2.5 py-1.5 space-y-0.5 text-[0.92em]">
-                  <div className="font-bold text-[#26334D] text-[0.94em]">
-                    DADOS PARA EMISSÃO DE RPS / NOTA FISCAL
-                  </div>
-                  <div>
-                    Apresentante: {apresNome} ({apresDoc})
-                  </div>
-                  <div className="font-bold">
-                    Destinatário da Nota (RPS): {destNome} ({destDoc})
-                  </div>
-                </div>
+                    {/* Observação original do banco WEBRI / ONR + Alerta elegante do FIORIX */}
+                    <div className="pt-0.5 space-y-1 text-[0.92em]">
+                      <div>
+                        <span className="font-bold">Observações: </span>
+                        <span>{obsOriginalWebri || "—"}</span>
+                      </div>
 
-                {/* Bloco 4: Observações */}
-                <div className="border border-[#C7CCD6] px-2.5 py-1 text-[0.9em]">
-                  {pedido.observacoesOrigem ? (
-                    <>
-                      Observações:{" "}
-                      {renderizarTextoComLinksMatriculaLv2(
-                        pedido.observacoesOrigem,
-                        "papel"
+                      {prenotacoesContraditorio.length > 0 && (
+                        <div className="inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 px-2 py-0.5 rounded border border-amber-700/60 bg-amber-50/90 text-[#451A03] text-[0.92em]">
+                          <span className="font-black">
+                            Alerta FIORIX (Prenotações relacionadas a esta matrícula):
+                          </span>
+                          <span className="font-bold inline-flex flex-wrap items-baseline gap-1">
+                            {prenotacoesContraditorio.map((pr, idxP) => (
+                              <React.Fragment key={`pr-frente-${pr.numeroPrenotacao}-${idxP}`}>
+                                {idxP > 0 && <span>,</span>}
+                                <span>nº</span>
+                                <LinkPrenotacaoWebri
+                                  numeroPrenotacao={pr.numeroPrenotacao}
+                                  variante="papel"
+                                />
+                              </React.Fragment>
+                            ))}
+                          </span>
+                        </div>
                       )}
-                    </>
-                  ) : (
-                    "Observações: Sem ressalvas adicionais no ato do protocolo."
-                  )}
-                </div>
-
-                {/* Bloco 5: LGPD CNJ 134/2022 */}
-                <div className="bg-[#F7F7FA] border border-[#CCCEDB] px-2.5 py-1 text-[0.8em] text-[#40404D] leading-tight">
-                  AVISO DE PRIVACIDADE (Provimento CNJ nº 134/2022 e Lei nº 13.709/2018 -
-                  LGPD): Os dados pessoais coletados neste pedido destinam-se
-                  exclusivamente à prática dos atos registrais, emissão de certidões,
-                  controle fiscal (RPS) e cumprimento das normas da Corregedoria Geral da
-                  Justiça de São Paulo e do CNJ.
-                </div>
-
-                {/* Bloco 6: Escrevente / Assinatura + Quadro de Valores */}
-                <div className="grid grid-cols-12 gap-2.5 pt-1">
-                  <div className="col-span-7 border border-[#B8BFCC] p-2.5 flex flex-col justify-between min-h-[72px]">
-                    <div className="font-bold text-[0.92em]">
-                      Escrevente / Recepção: {pedido.escreventeRecepcao}
                     </div>
-                    <div className="pt-5 text-center">
-                      <div className="border-t border-slate-500 mx-6 pt-0.5 text-[0.82em] text-slate-600">
-                        Assinatura do Apresentante / Solicitante
+                  </div>
+                </div>
+
+                {/* 9. GRADE OFICIAL DE BUSCA E QUALIFICAÇÃO DO WEBRI + FAIXA DE ASTERISCOS */}
+                <div className="pt-3 space-y-3">
+                  <div className="border-t border-black text-[0.76em] font-black text-black">
+                    {/* Linha 1: AQUISIÇÃO | PROPRIETÁRIO */}
+                    <div className="grid grid-cols-2 border-b-[1.5px] border-black min-h-[3.2em]">
+                      <div className="border-r border-black pt-0.5 pr-2">
+                        AQUISIÇÃO:
+                      </div>
+                      <div className="pt-0.5 pl-1.5">PROPRIETÁRIO:</div>
+                    </div>
+
+                    {/* Linha 2: TRANSMISSÃO */}
+                    <div className="border-b border-black min-h-[2.8em] pt-0.5">
+                      TRANSMISSÃO:
+                    </div>
+
+                    {/* Linha 3: HIPOTECA DEVEDOR */}
+                    <div className="border-b border-black min-h-[2.8em] pt-0.5">
+                      HIPOTECA DEVEDOR:
+                    </div>
+
+                    {/* Linha 4: R.D */}
+                    <div className="border-b border-black min-h-[2.8em] pt-0.5">
+                      R.D:
+                    </div>
+
+                    {/* Linha 5: INSCR./LOTEAMENTO */}
+                    <div className="border-b border-black min-h-[2.8em] pt-0.5">
+                      INSCR./LOTEAMENTO:
+                    </div>
+
+                    {/* Linha 6: LAVRATURA | BUSCA / CONFERÊNCIA */}
+                    <div className="grid grid-cols-2 border-b border-black min-h-[5.6em]">
+                      <div className="border-r border-black flex items-center pr-2 text-[1.15em]">
+                        <span className="truncate">
+                          LAVRATURA: .........................................................
+                        </span>
+                      </div>
+                      <div className="flex items-center pl-1.5 text-[1.15em]">
+                        <span className="truncate">
+                          BUSCA / CONFERÊNCIA: .........................................
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="col-span-5 bg-[#F2F5FA] border border-[#A6B2C2] p-2.5 flex flex-col justify-between text-[0.92em]">
-                    <div className="flex justify-between">
-                      <span>Valor Serviço:</span>
-                      <span>{formatarMoedaBrl(pedido.valores.valorServico)}</span>
+
+                  {/* 10. Aviso Inferior com Asteriscos idêntico ao WEBRI */}
+                  <div className="pt-1 pb-1 border-b border-black text-center text-black space-y-0.5">
+                    <div className="font-mono font-bold text-[0.76em] tracking-tighter leading-none overflow-hidden whitespace-nowrap">
+                      **************************************************************************************************************************************
                     </div>
-                    <div className="flex justify-between">
-                      <span>Despesas / Remessa:</span>
-                      <span>{formatarMoedaBrl(pedido.valores.valorDespesa)}</span>
+                    <div className="font-black text-[1.06em] tracking-tight leading-tight">
+                      CONFIRA O SEU PEDIDO e o número do seu{" "}
+                      <span className="underline">WhatsApp</span> e ASSINE NO VERSO DESTA
+                      FOLHA
                     </div>
-                    <div className="border-t border-[#8C94A3] pt-1 mt-1 flex justify-between font-extrabold">
-                      <span>Total Depósito:</span>
-                      <span>{formatarMoedaBrl(pedido.valores.totalDeposito)}</span>
+                    <div className="font-mono font-bold text-[0.76em] tracking-tighter leading-none overflow-hidden whitespace-nowrap">
+                      **************************************************************************************************************************************
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              /* PÁGINA 2: FICHA OPERACIONAL DE CONFERÊNCIA E CONTRADITÓRIO */
-              <div className="space-y-[1.6%] flex-1 flex flex-col">
-                <div className="flex items-start justify-between gap-3 pb-2 border-b border-slate-900">
-                  <img
-                    src={`data:image/png;base64,${SIPLAN_7RI_HEADER_PNG_BASE64}`}
-                    alt="7º Registro de Imóveis de São Paulo - SP"
-                    className="w-[58%] h-auto object-contain pointer-events-none select-none"
-                    draggable={false}
-                  />
-                  <div className="flex flex-col items-end pt-0.5">
-                    <BarcodeCode39Svg valor={pedido.numeroPedido} />
-                    {pedido.protocoloExterno && (
-                      <div className="text-[1.64em] font-black text-[#1E3F73] mt-1 leading-none tracking-tight">
-                        {pedido.protocoloExterno}
+              /* ═══════════════════════════════════════════════════════════════════════
+                 PÁGINA 2 — VERSO DO MODELO OFICIAL WEBRI (RPS + LGPD + ASSINATURA)
+                 ═══════════════════════════════════════════════════════════════════════ */
+              <div className="flex flex-col justify-between flex-1 text-black text-[0.88em] leading-snug">
+                <div className="space-y-[1.2%]">
+                  {/* 1. Quadro Superior de Consulta de RPS */}
+                  <div className="border border-black text-[0.94em]">
+                    <div className="grid grid-cols-12">
+                      <div className="col-span-5 border-r border-black p-1.5 flex flex-col justify-center items-center text-center leading-tight">
+                        <div className="font-bold">Consulta de RPS</div>
+                        <div className="font-bold">
+                          (Recibo Provisório de Serviços)
+                        </div>
+                        <div className="pt-0.5 text-[0.92em]">
+                          https://nfe.prefeitura.sp.gov.br/rps.aspx
+                        </div>
+                        <div className="text-[0.92em]">
+                          http://7risp.com.br/ri-consulta.aspx?mod=03
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-[#EFF2F7] border border-[#BFC7D1] py-1.5 px-3 text-center font-black tracking-tight text-[#0D0E14] flex flex-wrap items-baseline justify-center gap-2 leading-none">
-                  <span className="text-[1.45em] font-extrabold">
-                    PEDIDO DE CERTIDÃO Nº
-                  </span>
-                  <span className="text-[2.24em] font-black tracking-tight">
-                    {pedido.numeroPedido}
-                  </span>
-                </div>
-
-                <div className="border border-[#B3BDCC] px-2.5 py-2 space-y-0.5 text-[0.94em]">
-                  <div className="font-bold">
-                    Situação Operacional no FIORIX: {pedido.estadoOperacionalLabel} &nbsp;|&nbsp;
-                    Prioridade: {pedido.prioridade}
-                  </div>
-                  <div>
-                    Subtipo Confirmado:{" "}
-                    {pedido.subtipoConfirmado || "Aguardando confirmação humana"} &nbsp;|&nbsp;
-                    Critério:{" "}
-                    {renderizarTextoComLinksMatriculaLv2(
-                      pedido.criterioSolicitacao,
-                      "papel"
-                    )}
-                  </div>
-                  <div className="text-[0.85em] text-slate-600 font-mono">
-                    Hash Versão dos Dados-Fonte: {pedido.versaoDadosFonteHash.slice(0, 28)}...
-                  </div>
-                </div>
-
-                <div className="border border-[#B3BDCC]">
-                  <div className="bg-[#EBF0F7] px-2.5 py-1 font-bold text-[0.9em] border-b border-[#B3BDCC] flex flex-wrap items-center justify-between gap-2">
-                    <span>
-                      RESULTADO DA CONSULTA AO CONTRADITÓRIO (PRENOTAÇÕES ATIVAS)
-                    </span>
-                    <span className="text-[0.76em] font-mono text-slate-600">
-                      tblWRIRecepcao • tblWRITitulos • tblWRICertidaoResultadoContraditorio •
-                      tblWRITipoPrenotacao • tblWRITitulosReal • tblWRIReal • tblWRIImovelBase •
-                      tblWRIImovel
-                    </span>
-                  </div>
-                  <div className="p-2.5 text-[0.94em] min-h-[54px]">
-                    {prenotacoesContraditorio.length === 0 ? (
-                      <span>
-                        {pedido.ultimaConferencia?.contraditorioStatus === "NADA_CONSTA"
-                          ? "NADA CONSTA em tramitação para a(s) matrícula(s) conferida(s) nesta versão de dados."
-                          : "Consulta ao Contraditório pendente ou encaminhada à verificação manual da equipe."}
-                      </span>
-                    ) : (
-                      <ul className="space-y-1.5">
-                        {prenotacoesContraditorio.map((pr, i) => (
-                          <li
-                            key={i}
-                            className={pr.emProcessamentoAtoNaMatricula ? "font-bold" : ""}
-                          >
-                            <strong>
-                              Prenotação nº{" "}
-                              <LinkPrenotacaoWebri
-                                numeroPrenotacao={pr.numeroPrenotacao}
-                                variante="papel"
-                              />
-                            </strong>{" "}
-                            ({pr.dataApresentacaoBr}) • Tipo:{" "}
-                            <strong>{pr.tipoPrenotacaoDescricao || "PRENOTAÇÃO"}</strong> •
-                            Natureza: <strong>{pr.naturezaTitulo}</strong>
-                            {pr.livroContraditorio ? (
-                              <>
-                                {" "}
-                                • Livro:{" "}
-                                {renderizarTextoComLinksMatriculaLv2(
-                                  pr.livroContraditorio,
-                                  "papel"
-                                )}
-                              </>
-                            ) : null}
-                            {pr.protocoloMagnetico ? ` • Prot.: ${pr.protocoloMagnetico}` : ""}{" "}
-                            [
-                            {pr.emProcessamentoAtoNaMatricula
-                              ? "ATO EM PROCESSAMENTO - PAUSAR"
-                              : pr.etapaAtual}
-                            ]
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {pedido.ultimaConferencia?.textoCertidaoSugerido && (
-                  <div className="bg-[#F7FAF2] border border-[#B3C7AD] px-2.5 py-1.5 text-[0.9em]">
-                    {pedido.ultimaConferencia.textoCertidaoSugerido}
-                  </div>
-                )}
-
-                <div className="border border-[#B8BFC9] flex-1 flex flex-col">
-                  <div className="bg-[#EBF0F7] px-2.5 py-1 font-bold text-[0.9em] border-b border-[#B8BFC9]">
-                    CONTROLE INTERNO DE BUSCA, ANOTAÇÕES DO ESCREVENTE E CONFERÊNCIA HUMANA
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col justify-between">
-                    {anotacoesLegadas.length > 0 && (
-                      <div className="space-y-1.5 mb-2 text-[0.88em]">
-                        {anotacoesLegadas.map((an, idx) => (
-                          <div key={idx}>
-                            <div className="font-bold text-[#1A3866]">
-                              [{an.criadoEmBr} - {an.autorNome}] {an.titulo}:
-                            </div>
-                            <div className="pl-2 text-slate-800">{an.conteudoAtual}</div>
-                          </div>
-                        ))}
+                      <div className="col-span-7 p-1.5 flex flex-col justify-between leading-tight">
+                        <div>
+                          <span className="font-bold">
+                            CNPJ/CPF do Prestador de Serviços:{" "}
+                          </span>
+                          <span>45.585.700/0001-23 / 154.901.578-87</span>
+                        </div>
+                        <div className="py-0.5">
+                          <span className="font-bold">*Número do RPS: </span>
+                          <span className="font-black text-[1.35em]">
+                            Nº {numRpsExibicao}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-bold">
+                            CNPJ/CPF do Tomador de Serviços:{" "}
+                          </span>
+                          <span>{reqDocWebri}</span>
+                        </div>
                       </div>
-                    )}
-                    <div className="space-y-4 flex-1 pt-2">
-                      {Array.from({ length: 10 }).map((_, idx) => (
-                        <div key={idx} className="border-b border-slate-200 h-4" />
-                      ))}
                     </div>
+                    <div className="border-t border-black px-1.5 py-0.5 text-[0.84em] leading-tight">
+                      *Este R.P.S será convertido em NF-e até o &ldquo;décimo dia&rdquo;
+                      subsequente a sua emissão, conforme Lei Municipal.
+                    </div>
+                  </div>
+
+                  {/* 2. Bloco Central de Protocolo, Horário, Acompanhamento e Código de Acesso */}
+                  <div className="pt-1 text-center space-y-0.5 leading-tight">
+                    <div className="text-[1.02em]">
+                      <span>
+                        Certidão somente será entregue mediante apresentação deste
+                        protocolo n °{" "}
+                      </span>
+                      <span className="font-black text-[1.42em]">
+                        {protocoloFormatado}
+                      </span>
+                    </div>
+                    <div>Horário de atendimento: 09h00 às 16h00</div>
+                    <div>
+                      Acompanhe seu pedido: www.7risp.com.br/ri-consulta.aspx?mod=02
+                    </div>
+                    <div>
+                      <span>Código de acesso: </span>
+                      <span className="font-semibold">{codigoAcessoWebri}</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Atendimento Eletrônico, Agendamento e Fundamentação Legal */}
+                  <div className="pt-1 space-y-0.5 leading-tight">
+                    <div>Atendimento eletrônico: (11) 3218-0527 – opção &ldquo;3&rdquo;</div>
+                    <div>Agendamento on-line: http://agendamento.7risp.com.br</div>
+                    <div>
+                      <span className="font-bold">Fundamentação legal: </span>
+                      <span>
+                        Itens 144 e 144.1 do Cap. XIII das NSCGJ (Provimento CGJ nº
+                        23/2020).
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 4. Detalhamento da motivação (Provimento CNJ nº 134/2022 e LGPD) */}
+                  <div className="pt-1 space-y-1 leading-tight text-[0.94em]">
+                    <div className="font-bold">Detalhamento da motivação:</div>
+                    <div className="pl-3 space-y-1 italic">
+                      <div>
+                        • &ldquo;Qualquer pessoa pode requerer certidão do registro sem
+                        informar ao oficial ou ao funcionário o motivo ou interesse do
+                        pedido.&rdquo; (art. 17 da Lei nº 6.015/73 - LRP)
+                      </div>
+                      <div>
+                        • Nos casos em que a certidão for requerida por pesquisa a
+                        indicadores pessoal ou real com a finalidade de localizar bens e
+                        direitos inscritos em nome de determinada pessoa física ou
+                        jurídica, bem como o inteiro teor de matrícula com a mesma
+                        finalidade e também para fins de instruir processos judiciais,
+                        administrativos, negócios jurídicos, dentre outros, a sua emissão
+                        depende de identificação do requerente e a indicação da finalidade
+                        (motivação), nos termos dos arts. 16 e 19 do Provimento CNJ nº
+                        134/2022 e da Lei nº 13.709/2018 (LGPD).
+                      </div>
+                      <div>
+                        • Ressalvadas as hipóteses previstas no art. 4º da LGPD, o
+                        requerente declara, sob as penas da lei, que os dados constantes na
+                        certidão ora solicitada serão utilizados exclusivamente para a
+                        finalidade (motivação) abaixo indicada (art. 7º da LGPD):
+                      </div>
+                    </div>
+
+                    {/* Observações do WEBRI no Verso (sem alerta FIORIX no verso) */}
+                    <div className="pt-0.5">
+                      <span className="font-bold">Observações: </span>
+                      <span>{obsOriginalWebri || "—"}</span>
+                    </div>
+
+                    <div className="pt-1">
+                      A serventia poderá negar o atendimento do pedido quando:
+                    </div>
+                    <div className="pl-3 space-y-0.5">
+                      <div>a. Não houver identificação do requerente.</div>
+                      <div>
+                        b. Não for informada a finalidade (motivação) nas hipóteses em que
+                        é exigida.
+                      </div>
+                      <div>
+                        c. A finalidade for genérica, imprecisa ou incompatível com a
+                        legislação.
+                      </div>
+                      <div>
+                        d. For verificada tentativa de coleta massiva de dados (&ldquo;data
+                        scraping&rdquo;), devassamento indevido da vida privada ou formação
+                        de banco de dados paralelo.
+                      </div>
+                      <div>
+                        e. Houver indícios de uso abusivo, discriminatório ou ilícito das
+                        informações registrais.
+                      </div>
+                      <div>
+                        f. Houver restrição legal, judicial ou administrativa ao
+                        fornecimento da informação.
+                      </div>
+                      <div>
+                        g. A solicitação contrariar os princípios da finalidade, adequação,
+                        necessidade, segurança e prevenção previstos no art. 6º da LGPD:
+                      </div>
+                      <div className="pl-4 space-y-0.5">
+                        <div>
+                          • Finalidade: realização do tratamento para propósitos legítimos,
+                          específicos, explícitos e informados ao titular, sem
+                          possibilidade de tratamento posterior de forma incompatível com
+                          essas finalidades;
+                        </div>
+                        <div>
+                          • Adequação: compatibilidade do tratamento com as finalidades
+                          informadas ao titular, de acordo com o contexto do tratamento;
+                        </div>
+                        <div>
+                          • Necessidade: limitação do tratamento ao mínimo necessário para a
+                          realização de suas finalidades, com abrangência dos dados
+                          pertinentes, proporcionais e não excessivos em relação às
+                          finalidades do tratamento de dados.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Declaração NF-e, Assinatura do Requerente e Autenticação Mecânica */}
+                <div className="pt-2 space-y-2 leading-tight">
+                  <div className="font-bold text-[1.02em]">
+                    <span>Eu, {pedido.requerente.nome} - </span>
+                    <span className="underline">WhatsApp</span>
+                    <span>
+                      : {foneWebri} - e-mail: {emailWebri}. Quer a NOTA FISCAL ELETRÔNICA:{" "}
+                      {querNfeTexto}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 font-bold text-[1.02em]">
+                    ASSINATURA DO REQUERENTE:
+                    ___________________________________________________________
+                  </div>
+
+                  <div className="pt-1 text-center font-bold text-[1.02em]">
+                    Atenção: antes de assinar confira: &ldquo;nome&rdquo;,
+                    &ldquo;telefone&rdquo;, &ldquo;e-mail&rdquo; e demais dados.
+                  </div>
+
+                  <div className="pt-1 font-bold text-[0.76em]">
+                    *** AUTENTICAÇÃO MECÂNICA: {valorDepositoBrl} ***
                   </div>
                 </div>
               </div>

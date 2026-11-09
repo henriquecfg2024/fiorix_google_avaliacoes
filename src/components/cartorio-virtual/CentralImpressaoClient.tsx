@@ -56,6 +56,12 @@ import {
   SeletorDataPedidoCartorioVirtual,
   correspondeFiltroDataPedido,
 } from "@/components/cartorio-virtual/SeletorDataPedidoCartorioVirtual";
+import {
+  BarraFiltrosWebriCartorioVirtual,
+  ESTADO_INICIAL_FILTROS_WEBRI,
+  correspondeFiltrosAvancadosWebri,
+  type EstadoFiltrosAvancadosWebri,
+} from "@/components/cartorio-virtual/BarraFiltrosWebriCartorioVirtual";
 
 interface FiltrosIniciaisImpressao {
   tipoCertidao?: FiltroTipoCertidaoValor;
@@ -121,6 +127,9 @@ export function CentralImpressaoClient({
   );
   const [filtroConferencia, setFiltroConferencia] = useState<FiltroConferenciaEscrevente>(
     filtrosIniciais?.statusConferencia || "NAO_CONFERIDO"
+  );
+  const [filtrosWebri, setFiltrosWebri] = useState<EstadoFiltrosAvancadosWebri>(
+    ESTADO_INICIAL_FILTROS_WEBRI
   );
 
   // Pedido atualmente aberto no Card em Tela Cheia
@@ -206,6 +215,7 @@ export function CentralImpressaoClient({
     return pedidosState.filter((p) => {
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -215,7 +225,7 @@ export function CentralImpressaoClient({
         return false;
       return true;
     });
-  }, [pedidosState, filtroOrigem, filtroTipoCertidao, filtroConferencia]);
+  }, [pedidosState, filtroOrigem, filtroTipoCertidao, filtroConferencia, filtrosWebri]);
 
   const datasPedidoDisponiveis = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -232,6 +242,7 @@ export function CentralImpressaoClient({
     return pedidosState.filter((p) => {
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -241,7 +252,7 @@ export function CentralImpressaoClient({
         return false;
       return true;
     });
-  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroConferencia]);
+  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroConferencia, filtrosWebri]);
 
   const opcoesTipoCertidaoDinamicas = useMemo(() => {
     const especiesDistintas = extrairEspeciesDistintasPedidos(baseParaTiposCertidao).sort(
@@ -274,6 +285,7 @@ export function CentralImpressaoClient({
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       return true;
     });
     const conf = base.filter((p) => Boolean(p.conferidoPeloEscrevente)).length;
@@ -284,12 +296,13 @@ export function CentralImpressaoClient({
       devolvidos: dev,
       naoConferidos: Math.max(0, base.length - conf - dev),
     };
-  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroTipoCertidao]);
+  }, [pedidosState, filtroDataPedido, filtroOrigem, filtroTipoCertidao, filtrosWebri]);
 
   const contagensOrigem = useMemo(() => {
     const base = pedidosState.filter((p) => {
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -306,9 +319,9 @@ export function CentralImpressaoClient({
       onr,
       presencial,
     };
-  }, [pedidosState, filtroDataPedido, filtroTipoCertidao, filtroConferencia]);
+  }, [pedidosState, filtroDataPedido, filtroTipoCertidao, filtroConferencia, filtrosWebri]);
 
-  // Fila ativa na Mesa: respeita seleção em lote ou filtros ativos (incluindo DATA, CONFERIDO / DEVOLVIDO / NÃO CONFERIDO e ONR / PRESENCIAL)
+  // Fila ativa na Mesa: respeita seleção em lote ou filtros ativos (incluindo DATA, CONFERIDO / DEVOLVIDO / NÃO CONFERIDO, ONR / PRESENCIAL e Filtros WEBRI)
   const pedidosFilaAtiva = useMemo(() => {
     if (selecaoLoteIds.length > 0) {
       const posMap = new Map(selecaoLoteIds.map((id, idx) => [id, idx]));
@@ -321,6 +334,7 @@ export function CentralImpressaoClient({
       if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (!correspondeFiltrosAvancadosWebri(p, filtrosWebri)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
       if (
@@ -344,6 +358,7 @@ export function CentralImpressaoClient({
     filtroOrigem,
     filtroTipoCertidao,
     filtroConferencia,
+    filtrosWebri,
     filtrosIniciais,
   ]);
 
@@ -942,6 +957,37 @@ export function CentralImpressaoClient({
               )}
             </button>
           </div>
+
+          {/* Painel Completo de Filtros WEBRI na Verificação do Escrevente */}
+          <BarraFiltrosWebriCartorioVirtual
+            filtros={filtrosWebri}
+            onChange={(novosFiltros) => {
+              setSelecaoLoteIds([]);
+              setFiltrosWebri(novosFiltros);
+              const primeiroDaNovaFila = pedidosState.find((p) => {
+                if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
+                if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+                if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+                if (!correspondeFiltrosAvancadosWebri(p, novosFiltros)) return false;
+                if (filtroConferencia === "CONFERIDO")
+                  return Boolean(p.conferidoPeloEscrevente);
+                if (filtroConferencia === "DEVOLVIDO")
+                  return Boolean(p.devolvidoPeloEscrevente);
+                if (filtroConferencia === "NAO_CONFERIDO") {
+                  return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
+                }
+                return true;
+              });
+              if (primeiroDaNovaFila) {
+                setPedidoFocoId(primeiroDaNovaFila.id);
+                setModoVisor("PEDIDO_EM_FOCO");
+                setPaginaPdfFoco(1);
+              }
+            }}
+            pedidosBase={pedidosState}
+            compacto={true}
+            abertoPorPadrao={true}
+          />
         </div>
 
         {/* Corpo Principal: Card do Pedido ocupando o máximo da tela + Barra Lateral Direita compacta (~196px) */}

@@ -491,12 +491,66 @@ export async function sincronizarPedidosOficiaisWebriBatch(
     const valorDespesa = Number(raw.valorDespesa ?? 0);
     const totalDeposito = Number(raw.totalDeposito ?? valorServico + valorDespesa);
 
+    const observacaoOriginalLimpa = raw.observacoesOrigem
+      ? String(raw.observacoesOrigem).trim()
+      : null;
+    const descricaoItensOriginalLimpa = raw.descricaoDosItens
+      ? String(raw.descricaoDosItens).trim()
+      : null;
+
+    const webriMetaObj = {
+      numRps: raw.numRps != null && Number(raw.numRps) > 0 ? Number(raw.numRps) : null,
+      gerarNfe: raw.gerarNfe !== undefined && raw.gerarNfe !== null ? Boolean(raw.gerarNfe) : true,
+      codigoAcesso: raw.codigoAcesso ? String(raw.codigoAcesso).trim() : null,
+      divisorId: raw.divisorId != null ? Number(raw.divisorId) : 2,
+      divisorDescricao: "Custas Integrais",
+      usuarioIdPedido: raw.usuarioIdPedido != null ? Number(raw.usuarioIdPedido) : null,
+      atendenteNome:
+        (raw.atendenteNome && String(raw.atendenteNome).trim()) ||
+        (itensRaw[0]?.atendenteItemNome && String(itensRaw[0].atendenteItemNome).trim()) ||
+        null,
+      observacaoPedidoOriginal: observacaoOriginalLimpa,
+      descricaoDosItensOriginal: descricaoItensOriginalLimpa,
+      naturezaOriginalWebri:
+        itensRaw[0]?.naturezaDescricaoOriginal ||
+        itensRaw[0]?.naturezaDescricao ||
+        null,
+      resultadoPesquisaSistema:
+        itensRaw[0]?.resultadoPesquisaSistema != null
+          ? Number(itensRaw[0].resultadoPesquisaSistema)
+          : itensProcessados[0]?.numeroMatricula
+          ? 2
+          : 1,
+      jaImpressa: itensRaw.some(
+        (i) => Number(i.qtdeImpressao || 0) > 0 || Boolean(i.dataImpressaoIso)
+      ),
+      assinaOnr: itensRaw.some((i) => Boolean(i.assinaOnr)) || ehOnr,
+      dataCertidaoBr: formatarDataBrCurta(
+        itensRaw[0]?.dataEmissaoIso ||
+          itensRaw[0]?.dataImpressaoIso ||
+          dataPedido.toISOString()
+      ),
+      itensMeta: itensRaw.map((i, idx) => ({
+        sequenciaItem: Number(i.sequenciaItem || idx + 1),
+        naturezaOriginalWebri:
+          i.naturezaDescricaoOriginal || i.naturezaDescricao || null,
+        resultadoPesquisaSistema:
+          i.resultadoPesquisaSistema != null ? Number(i.resultadoPesquisaSistema) : null,
+        qtdeImpressao: Number(i.qtdeImpressao || 0),
+        dataImpressaoBr: i.dataImpressaoIso ? formatarDataBrCurta(i.dataImpressaoIso) : null,
+        dataEmissaoBr: i.dataEmissaoIso ? formatarDataBrCurta(i.dataEmissaoIso) : null,
+        assinaOnr: Boolean(i.assinaOnr),
+        atendenteItemNome: i.atendenteItemNome ? String(i.atendenteItemNome).trim() : null,
+      })),
+    };
+
     const valoresJsonFinal: Record<string, unknown> = {
       ...valoresExistentes,
       valorServico,
       valorDespesa,
       totalDeposito,
       moeda: "BRL",
+      _webriMeta: webriMetaObj,
     };
 
     const prenotacaoVinculada =
@@ -504,12 +558,7 @@ export async function sincronizarPedidosOficiaisWebriBatch(
         ? prenotacoesEncontradas.map((p) => p.numeroPrenotacao).join(" / ")
         : null;
 
-    const observacoesOrigem = [
-      raw.observacoesOrigem ? String(raw.observacoesOrigem).trim() : "",
-      raw.descricaoDosItens ? String(raw.descricaoDosItens).trim() : "",
-    ]
-      .filter(Boolean)
-      .join(" | ") || null;
+    const observacoesOrigem = observacaoOriginalLimpa;
 
     const prioridade =
       prenotacoesEncontradas.some((p) => p.emProcessamentoAtoNaMatricula)

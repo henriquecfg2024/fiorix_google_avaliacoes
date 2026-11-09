@@ -630,6 +630,10 @@ export async function listarPedidosCartorioVirtual(
       pedidosBase = rows.map((r) => {
         const ultima = r.conferencias[0] || null;
         const estado = r.estadoOperacional as EstadoOperacionalPedido;
+        const webriMetaRaw = ((r.valoresJson as any)?._webriMeta || null) as any;
+        const itensMetaArr: any[] = Array.isArray(webriMetaRaw?.itensMeta)
+          ? webriMetaRaw.itensMeta
+          : [];
         return {
           id: r.id,
           tenantId: r.tenantId,
@@ -649,7 +653,9 @@ export async function listarPedidosCartorioVirtual(
           prazoPrevistoIso: r.prazoPrevisto ? r.prazoPrevisto.toISOString() : null,
           prazoPrevistoBr: r.prazoPrevisto ? r.prazoPrevisto.toLocaleDateString("pt-BR") : null,
           formaEntregaExibicao: r.origem === "ONR" ? "Meio Magnético (M) — ONR" : "Balcão",
-          escreventeRecepcao: "WEBRI / Recepção",
+          escreventeRecepcao:
+            webriMetaRaw?.atendenteNome ||
+            (r.origem === "ONR" ? "Anne" : "WEBRI / Recepção"),
           versaoDadosFonteHash: r.versaoDadosFonteHash,
           dadosInvalidadosMudanca: r.dadosInvalidadosMudanca,
           pausadoPorAtoProcessamento: r.pausadoPorAtoProcessam,
@@ -675,25 +681,38 @@ export async function listarPedidosCartorioVirtual(
           statusComparacao: (r.statusComparacao as any) || "AGUARDANDO_EQUIPE",
           divergenciaClassificacao: r.divergenciaClassificacao,
           ambienteSintetico: r.ambienteSintetico,
-          itens: r.itens.map((it) => ({
-            id: it.id,
-            sequenciaItem: it.sequenciaItem,
-            naturezaCodigo: it.naturezaCodigo,
-            naturezaDescricao: it.naturezaDescricao,
-            livroCodigo: it.livroCodigo,
-            livroDescricao: it.livroDescricao,
-            numeroMatricula: it.numeroMatricula,
-            transcricaoOuLoteamento: it.transcricaoOuLoteamento,
-            enderecoPesquisa: it.enderecoPesquisa,
-            meioEntregaCodigo: it.meioEntregaCodigo,
-            meioEntregaDescricao: it.meioEntregaDescricao,
-            dataPrevisaoIso: it.dataPrevisao ? it.dataPrevisao.toISOString() : null,
-            dataPrevisaoBr: it.dataPrevisao ? it.dataPrevisao.toLocaleDateString("pt-BR") : null,
-            elegivelPiloto: it.elegivelPiloto,
-            motivoEncaminhamentoHumano: it.motivoEncaminhamentoHumano,
-            statusItem: it.statusItem,
-            acervoSnapshot: (it.acervoSnapshotJson as any) || null,
-          })),
+          itens: r.itens.map((it) => {
+            const mIt = itensMetaArr.find((x) => Number(x.sequenciaItem) === it.sequenciaItem);
+            return {
+              id: it.id,
+              sequenciaItem: it.sequenciaItem,
+              naturezaCodigo: it.naturezaCodigo,
+              naturezaDescricao: it.naturezaDescricao,
+              naturezaOriginalWebri: mIt?.naturezaOriginalWebri ?? webriMetaRaw?.naturezaOriginalWebri ?? null,
+              livroCodigo: it.livroCodigo,
+              livroDescricao: it.livroDescricao,
+              numeroMatricula: it.numeroMatricula,
+              transcricaoOuLoteamento: it.transcricaoOuLoteamento,
+              enderecoPesquisa: it.enderecoPesquisa,
+              meioEntregaCodigo: it.meioEntregaCodigo,
+              meioEntregaDescricao: it.meioEntregaDescricao,
+              dataPrevisaoIso: it.dataPrevisao ? it.dataPrevisao.toISOString() : null,
+              dataPrevisaoBr: it.dataPrevisao ? it.dataPrevisao.toLocaleDateString("pt-BR") : null,
+              elegivelPiloto: it.elegivelPiloto,
+              motivoEncaminhamentoHumano: it.motivoEncaminhamentoHumano,
+              statusItem: it.statusItem,
+              acervoSnapshot: (it.acervoSnapshotJson as any) || null,
+              resultadoPesquisaSistema:
+                mIt?.resultadoPesquisaSistema ??
+                webriMetaRaw?.resultadoPesquisaSistema ??
+                (it.numeroMatricula ? 2 : 1),
+              qtdeImpressao: mIt?.qtdeImpressao ?? (webriMetaRaw?.jaImpressa ? 1 : 0),
+              dataImpressaoBr: mIt?.dataImpressaoBr ?? null,
+              dataEmissaoBr: mIt?.dataEmissaoBr ?? null,
+              assinaOnr: mIt?.assinaOnr ?? Boolean(webriMetaRaw?.assinaOnr ?? r.origem === "ONR"),
+              atendenteItemNome: mIt?.atendenteItemNome ?? webriMetaRaw?.atendenteNome ?? null,
+            };
+          }),
           ultimaConferencia: ultima
             ? {
                 id: ultima.id,
@@ -729,6 +748,7 @@ export async function listarPedidosCartorioVirtual(
           marcacoesDocumento: Array.isArray((r.valoresJson as any)?._marcacoesDocumento)
             ? ((r.valoresJson as any)._marcacoesDocumento as MarcacaoVisualDocumentoPedido[])
             : [],
+          webriMeta: webriMetaRaw || undefined,
         };
       });
     }
