@@ -55,7 +55,7 @@ export const ESTADO_INICIAL_FILTROS_WEBRI: EstadoFiltrosAvancadosWebri = {
   digitaCertidao: "ADEMAR FIORANELLI",
   natureza: "TODOS",
   divisor: "CUSTAS_INTEGRAIS",
-  modelo: "4 HORAS LV2",
+  modelo: "TODOS_MENOS_04_HORAS_LV2",
   opcaoImpressao: "Nenhuma",
   guiasRecolhimento: "",
   resultadoFiltro: "TODAS",
@@ -76,7 +76,7 @@ export function temFiltroAvancadoWebriAtivo(
     filtros.dataCertidaoIso !== "" ||
     filtros.natureza !== "TODOS" ||
     filtros.divisor !== "CUSTAS_INTEGRAIS" ||
-    filtros.modelo !== "4 HORAS LV2" ||
+    filtros.modelo !== "TODOS_MENOS_04_HORAS_LV2" ||
     filtros.opcaoImpressao !== "Nenhuma" ||
     filtros.guiasRecolhimento.trim() !== "" ||
     filtros.resultadoFiltro !== "TODAS" ||
@@ -572,14 +572,14 @@ export function BarraFiltrosWebriCartorioVirtual({
                 onChange={(e) => atualizarCampo("modelo", e.target.value)}
                 className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
               >
-                <option value="4 HORAS LV2" className="bg-[#080D1A] text-white">
-                  4 HORAS LV2
-                </option>
                 <option
                   value="TODOS_MENOS_04_HORAS_LV2"
                   className="bg-[#080D1A] text-emerald-300 font-bold"
                 >
                   TODOS menos as de 04 HORAS LV2 ({pedidosSem4HorasLv2.length})
+                </option>
+                <option value="4 HORAS LV2" className="bg-[#080D1A] text-white">
+                  4 HORAS LV2
                 </option>
                 <option value="SOMENTE_04_HORAS_LV2" className="bg-[#080D1A] text-white">
                   Somente 04 HORAS LV2

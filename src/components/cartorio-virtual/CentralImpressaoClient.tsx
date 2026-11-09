@@ -150,14 +150,18 @@ export function CentralImpressaoClient({
     if (idsSelecaoInicial.length > 0) {
       return idsSelecaoInicial[0];
     }
+    const basePadrao = pedidos.filter((p) =>
+      correspondeFiltrosAvancadosWebri(p, ESTADO_INICIAL_FILTROS_WEBRI)
+    );
+    const listaCandidata = basePadrao.length > 0 ? basePadrao : pedidos;
     const statusIni = filtrosIniciais?.statusConferencia || "NAO_CONFERIDO";
     if (statusIni === "NAO_CONFERIDO") {
-      const primeiroNaoConf = pedidos.find(
+      const primeiroNaoConf = listaCandidata.find(
         (p) => !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente
       );
       if (primeiroNaoConf) return primeiroNaoConf.id;
     }
-    return pedidos[0]?.id || "";
+    return listaCandidata[0]?.id || pedidos[0]?.id || "";
   };
 
   const [pedidoFocoId, setPedidoFocoId] = useState<string>(resolverPedidoInicialId);

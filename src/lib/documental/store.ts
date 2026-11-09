@@ -71,16 +71,25 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         `;
         if (recent.length) return { id: recent[0].id, status: 'complete', result: recent[0].result, cached: true };
       } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text') && rootId && relativePath) {
-        const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
-          SELECT id, result FROM "DocumentSearchRequest"
+        const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue; pageStart: number | null; pageEnd: number | null }>>`
+          SELECT id, result, "pageStart", "pageEnd" FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = ${type} AND "rootId" = ${rootId} AND "relativePath" = ${relativePath} AND status = 'complete'
+            AND (
+              ("pageStart" IS NOT DISTINCT FROM ${pageStart} AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd})
+              OR (${pageStart} IS NOT NULL AND ${pageEnd} IS NOT NULL AND "pageStart" IS NULL AND "pageEnd" IS NULL)
+            )
             AND "expiresAt" > NOW()
-          ORDER BY "createdAt" DESC LIMIT 1
+          ORDER BY
+            CASE WHEN "pageStart" IS NOT DISTINCT FROM ${pageStart} AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd} THEN 0 ELSE 1 END ASC,
+            "createdAt" DESC
+          LIMIT 1
         `;
         if (recent.length) {
-          const res = recent[0].result as Record<string, unknown> | null;
+          const row = recent[0];
+          const res = row.result as Record<string, unknown> | null;
           let ehValido = true;
+          let resultadoFinal: unknown = row.result;
           if (type === 'extract_petition') {
             const imovelTxt = typeof res?.imovel === 'string' ? res.imovel : '';
             const reqTxt = typeof res?.requerente === 'string' ? res.requerente : '';
@@ -92,8 +101,27 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             const relLower = (relativePath || '').toLowerCase();
             const isKen = relLower.endsWith('.ken') || relLower.endsWith('.tif') || relLower.endsWith('.tiff');
             const isPdf = relLower.endsWith('.pdf');
-            if (isKen && (!Array.isArray(res?.pages) || res.pages.length === 0)) {
-              ehValido = false;
+            if (isKen) {
+              const paginasCache = Array.isArray(res?.pages) ? (res.pages as string[]) : [];
+              if (paginasCache.length === 0) {
+                ehValido = false;
+              } else if (pageStart !== null && pageEnd !== null && row.pageStart === null && row.pageEnd === null) {
+                const totalDoc = Number(res?.pageCount) || paginasCache.length;
+                const endEfetivo = Math.min(pageEnd, totalDoc);
+                if (pageStart >= 1 && paginasCache.length >= endEfetivo) {
+                  const fatia = paginasCache.slice(pageStart - 1, endEfetivo);
+                  resultadoFinal = {
+                    ...res,
+                    pages: fatia,
+                    pageCount: totalDoc,
+                    loadedPageStart: pageStart,
+                    loadedPageEnd: pageStart + fatia.length - 1,
+                    hasMorePages: pageStart + fatia.length - 1 < totalDoc,
+                  };
+                } else {
+                  ehValido = false;
+                }
+              }
             } else if (isPdf) {
               // PDF servido pelo Connector na rede interna: o ticket expira (15 min)
               const expira = typeof res?.localUrlExpiresAt === 'string' ? Date.parse(res.localUrlExpiresAt) : NaN;
@@ -102,7 +130,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             }
           }
           if (ehValido) {
-            return { id: recent[0].id, status: 'complete', result: recent[0].result, cached: true };
+            return { id: row.id, status: 'complete', result: resultadoFinal, cached: true };
           }
         }
       }
@@ -162,7 +190,10 @@ export async function claimSearch(tenantId: string, connectorId: string) {
     UPDATE "DocumentSearchRequest" SET status = 'running'
     WHERE id = (SELECT id FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId}
       AND "connectorId" = ${connectorId} AND status = 'queued' AND "expiresAt" > NOW()
-      ORDER BY "createdAt" FOR UPDATE SKIP LOCKED LIMIT 1)
+      ORDER BY
+        CASE WHEN type IN ('read_document_text', 'read_document_chunk') THEN 0 ELSE 1 END ASC,
+        "createdAt" ASC
+      FOR UPDATE SKIP LOCKED LIMIT 1)
     RETURNING id, type, query, "rootId", "relativePath", "pageStart", "pageEnd"`;
   return rows[0] || null;
 }
@@ -176,4 +207,3 @@ export async function finishSearch(id: string, tenantId: string, connectorId: st
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
       AND status = 'running' AND "expiresAt" > NOW()`;
 }
-

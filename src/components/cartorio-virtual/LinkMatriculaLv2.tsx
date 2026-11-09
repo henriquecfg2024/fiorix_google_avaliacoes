@@ -79,13 +79,12 @@ export function LinkPrenotacaoWebri({
     <a
       href={href}
       target="_blank"
-      rel="noopener noreferrer"
       onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
       }}
-      title={`Abrir Prenotação nº ${digitos} diretamente no WEBRI (Contraditórios)`}
+      title={`Abrir Prenotação nº ${digitos} diretamente no WEBRI (Recepção de Títulos)`}
       className={`cursor-pointer inline-flex items-baseline ${estiloVariante} ${className}`}
     >
       {digitos}

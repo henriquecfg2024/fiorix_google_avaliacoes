@@ -53,7 +53,15 @@ function isTabelaNaoMigradaError(err: unknown): boolean {
  * Carrega no servidor o contexto completo de autorização do usuário autenticado na serventia ativa.
  */
 export async function obterContextoAutorizacaoCartorioVirtual(): Promise<ContextoAutorizacaoCartorioVirtual> {
-  const user = await requireAuth();
+  let user: AuthenticatedUser;
+  try {
+    user = await requireAuth();
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest || "").startsWith("NEXT_REDIRECT")) {
+      throw err;
+    }
+    redirect("/login");
+  }
   let tenantNome = "7º Registro de Imóveis de São Paulo";
   let migracaoTabelaPendente = false;
   let registroAutorizacao: RegistroAutorizacaoRegistral | null = null;

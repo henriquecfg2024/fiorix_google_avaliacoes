@@ -22,7 +22,7 @@ export const NAV_PERMISSIONS_FLAG = 'FEATURE_NAV_PERMISSIONS_V1_ENABLED';
 export function isNavPermissionsFeatureEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return env[NAV_PERMISSIONS_FLAG] === 'true';
+  return env[NAV_PERMISSIONS_FLAG] !== 'false';
 }
 
 /**

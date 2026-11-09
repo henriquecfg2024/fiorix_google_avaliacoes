@@ -13,7 +13,16 @@ export async function authenticate(
   formData: FormData,
 ) {
   try {
-    await signIn('credentials', formData);
+    const email = String(formData.get('email') || '').trim();
+    const password = String(formData.get('password') || '');
+    const totpCode = formData.get('totpCode') ? String(formData.get('totpCode')) : undefined;
+    await signIn('credentials', {
+      email,
+      password,
+      ...(totpCode ? { totpCode } : {}),
+      redirect: false,
+    });
+    return undefined;
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {

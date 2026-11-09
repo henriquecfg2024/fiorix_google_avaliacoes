@@ -1,8 +1,7 @@
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import { DocumentSearch } from '@/components/documental/DocumentSearch';
 import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
+import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,13 +41,7 @@ export default async function DocumentalPage() {
             <GestaoDocumentalAbas ativa="manifestacoes" />
           </div>
 
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Voltar ao Início</span>
-          </Link>
+          <BotaoVoltarTelaAnterior />
         </div>
 
         <DocumentSearch />

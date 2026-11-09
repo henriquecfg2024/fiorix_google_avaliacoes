@@ -33,7 +33,8 @@ async function autenticar(): Promise<AuthenticatedUser> {
  * Valida acesso à Gestão Documental delegando integralmente à tela de Permissões de Menu
  * quando ativa (qualquer grupo/perfil, departamento ou colaborador liberado pelo MASTER).
  * Se `requiredRoute` não for informada (ex.: API compartilhada do Connector ou janela auxiliar),
- * aceita permissão em Manifestações (/gestao-documental) OU Visualizador (/gestao-documental/visualizador).
+ * aceita permissão em Manifestações (/gestao-documental), Visualizador (/gestao-documental/visualizador)
+ * ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
  */
 export async function requireDocumentAccess(
   requiredRoute?: '/gestao-documental' | '/gestao-documental/visualizador'
@@ -41,16 +42,22 @@ export async function requireDocumentAccess(
   const user = await autenticar();
 
   if (isNavPermissionsFeatureEnabled()) {
-    const allowed = requiredRoute
-      ? await isRouteAllowedForUser(requiredRoute, user)
-      : (await isRouteAllowedForUser('/gestao-documental', user)) ||
-        (await isRouteAllowedForUser('/gestao-documental/visualizador', user));
+    const allowed =
+      requiredRoute === '/gestao-documental'
+        ? await isRouteAllowedForUser('/gestao-documental', user)
+        : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+          (await isRouteAllowedForUser('/gestao-documental', user)) ||
+          (await isRouteAllowedForUser('/cartorio-virtual', user));
 
     if (!allowed) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');
     }
   } else {
-    if (!PERFIS_GESTAO.includes(String(user.role)) && !isSetorUsucapiao(user.departamento)) {
+    const perfisPermitidos =
+      requiredRoute === '/gestao-documental'
+        ? PERFIS_GESTAO
+        : [...PERFIS_GESTAO, 'COLABORADOR'];
+    if (!perfisPermitidos.includes(String(user.role)) && !isSetorUsucapiao(user.departamento)) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');
     }
   }

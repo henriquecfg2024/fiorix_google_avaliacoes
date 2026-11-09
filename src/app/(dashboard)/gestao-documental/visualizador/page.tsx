@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 import { VisualizadorJanela } from '@/components/documental/VisualizadorJanela';
 import { VisualizadorDedicado } from '@/components/documental/VisualizadorDedicado';
 import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
+import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,13 +61,7 @@ export default async function VisualizadorPage({
             <GestaoDocumentalAbas ativa="visualizador" />
           </div>
 
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Voltar ao Início</span>
-          </Link>
+          <BotaoVoltarTelaAnterior />
         </div>
 
         <VisualizadorDedicado

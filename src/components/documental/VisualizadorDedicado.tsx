@@ -146,7 +146,7 @@ export function VisualizadorDedicado({
 } = {}) {
   // Conectores e Servidor
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
-  const [connectorId, setConnectorId] = useState('');
+  const [connectorId, setConnectorId] = useState('auto');
 
   // Explorador de pastas do cartório (pastaAtual = null → visão "Acervo" com as 3 pastas oficiais)
   const [pastaAtual, setPastaAtual] = useState<{ rootId: RaizId; relativePath: string } | null>(null);
@@ -212,7 +212,7 @@ export function VisualizadorDedicado({
             if (activeOnline) return activeOnline.id;
             if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c) && c.operationalState !== 'PAUSED')) return prev;
             const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
-            return online?.id || ordenados[0]?.id || '';
+            return online?.id || ordenados[0]?.id || 'auto';
           });
         })
         .catch(() => {});
@@ -460,14 +460,18 @@ export function VisualizadorDedicado({
     setCurrentPage(1);
 
     try {
-      // 1. Acesso direto ultrarrápido para imagens .KEN / TIFF do acervo local K:\IMAGENS
+      // 1. Acesso direto ultrarrápido para imagens .KEN / TIFF quando rodando localmente na máquina com K:\IMAGENS
       const isKen = file.name.toLowerCase().endsWith('.ken') || file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
-      if (isKen && !forceFresh) {
+      const isLocalHost =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+      if (isKen && isLocalHost && !forceFresh) {
         try {
           const sessao = file.rootId === 'imagens' ? (file.relativePath.split(/[\\/]/)[0] || 'LV2') : 'LV2';
           const rel = file.rootId === 'imagens' ? file.relativePath.replace(/^[^\\/]+[\\/]/, '') : file.relativePath;
           const url = `/api/documental/ken?path=${encodeURIComponent(rel)}&sessao=${encodeURIComponent(sessao)}&doc=${encodeURIComponent(file.name)}`;
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: controller.signal });
           if (res.ok) {
             const data = await res.json();
             if (data.success && data.pages?.length > 0) {
@@ -491,8 +495,16 @@ export function VisualizadorDedicado({
         }
       }
 
+      // Para matrículas .KEN / .TIFF, carrega imediatamente as primeiras 4 fichas (< 1s)
+      // e busca as fichas adicionais em segundo plano sem travar a tela do escrevente.
       const bruto = await executarJob<DocumentTextResult>(
-        { type: 'read_document_text', rootId: file.rootId, relativePath: file.relativePath, ...(forceFresh ? { forceFresh: true } : {}) },
+        {
+          type: 'read_document_text',
+          rootId: file.rootId,
+          relativePath: file.relativePath,
+          ...(isKen ? { pageStart: 1, pageEnd: 4 } : {}),
+          ...(forceFresh ? { forceFresh: true } : {}),
+        },
         'Falha ao renderizar documento no Connector.',
         60000,
         controller.signal,
@@ -507,6 +519,47 @@ export function VisualizadorDedicado({
       if (pronto.pdfDataUrl?.startsWith('blob:')) pdfBlobUrlRef.current = pronto.pdfDataUrl;
       setDocumentoAtivo(pronto);
       setErrorMessage('');
+      setIsLoadingDoc(false);
+      setProgressoPdf(null);
+
+      // Se a matrícula .KEN tiver mais de 4 páginas, carrega o restante das fichas em segundo plano em lotes
+      const paginasIniciais = pronto.pages?.length || 0;
+      const totalFichas = Math.min(pronto.pageCount || paginasIniciais, 120);
+      if (isKen && totalFichas > paginasIniciais) {
+        void (async () => {
+          const tamanhoLote = 16;
+          for (let inicio = paginasIniciais + 1; inicio <= totalFichas; inicio += tamanhoLote) {
+            if (pedido !== pedidoDocRef.current || controller.signal.aborted) return;
+            const fim = Math.min(totalFichas, inicio + tamanhoLote - 1);
+            try {
+              const lote = await executarJob<DocumentTextResult>(
+                {
+                  type: 'read_document_text',
+                  rootId: file.rootId,
+                  relativePath: file.relativePath,
+                  pageStart: inicio,
+                  pageEnd: fim,
+                },
+                'Falha ao carregar fichas complementares.',
+                60000,
+                controller.signal,
+              );
+              if (pedido !== pedidoDocRef.current || controller.signal.aborted) return;
+              if (lote?.pages?.length) {
+                setDocumentoAtivo(prev => {
+                  if (!prev || prev.fileName !== pronto.fileName) return prev;
+                  return {
+                    ...prev,
+                    pages: [...(prev.pages || []), ...lote.pages!],
+                  };
+                });
+              }
+            } catch {
+              break;
+            }
+          }
+        })();
+      }
     } catch (err: any) {
       if (pedido !== pedidoDocRef.current || controller.signal.aborted || err?.name === 'AbortError') return;
       // Link do servidor de arquivos expirou: pede um novo ao Connector uma única vez
@@ -546,41 +599,19 @@ export function VisualizadorDedicado({
       document.title = `${fileName} (Matrícula ${num}) — Visualizador LV2 FIORIX`;
     }
 
-    if (!connectorId) {
-      matriculaPendenteLv2Ref.current = String(num);
-      try {
-        const res = await fetch(`/api/documental/ken?path=${encodeURIComponent(relativePath)}&sessao=LV2&doc=${encodeURIComponent(fileName)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.pages?.length > 0) {
-            matriculaPendenteLv2Ref.current = '';
-            setDocumentoAtivo({
-              fileName: data.fileName,
-              extension: '.KEN',
-              html: '',
-              text: data.text,
-              size: data.size,
-              pageCount: data.pages.length,
-              pages: data.pages,
-            });
-            setErrorMessage('');
-            setIsLoadingDoc(false);
-            return;
-          }
-        }
-      } catch {
-        /* aguarda connectorId */
-      }
-      return;
-    }
-
     matriculaPendenteLv2Ref.current = '';
 
+    // Prioridade máxima: abre a imagem .KEN da matrícula PRIMEIRO (primeiras 4 fichas em < 1s)
     const chaveCache = `livro2:${normalizarCaminho(bloco)}`;
     const cacheBloco = listagemCacheRef.current.get(chaveCache);
     if (cacheBloco) {
       setListagem(cacheBloco);
-    } else {
+    }
+
+    await abrirDocumento(alvo);
+
+    // Só lista o diretório do bloco em segundo plano DEPOIS que o documento principal já abriu
+    if (!cacheBloco) {
       executarJob<DirectoryListing>(
         { type: 'list_directory', rootId: 'livro2', relativePath: bloco },
         'Não foi possível listar o bloco no Livro 2.',
@@ -592,8 +623,6 @@ export function VisualizadorDedicado({
         })
         .catch(() => {});
     }
-
-    await abrirDocumento(alvo);
   }
 
   useEffect(() => {
@@ -1118,6 +1147,11 @@ export function VisualizadorDedicado({
             className="h-8 min-w-0 flex-1 sm:flex-initial sm:max-w-[190px] rounded-lg border border-white/15 bg-[#080D1A] px-2 text-base sm:text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
             title="Conector ativo"
           >
+            {connectors.length === 0 && (
+              <option value="auto" className="bg-[#0B1020]">
+                🟢 Automático (Servidor Ativo)
+              </option>
+            )}
             {connectors.map(c => {
               const online = isConnectorOnline(c);
               return (

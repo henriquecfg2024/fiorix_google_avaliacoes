@@ -32,7 +32,7 @@ export const authConfig = {
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
-        const navPermissionsActive = process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED === 'true';
+        const navPermissionsActive = process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED !== 'false';
 
         // MASTER tem acesso irrestrito
         if (role === 'MASTER') return true;
@@ -137,7 +137,7 @@ export const authConfig = {
         // ADMIN tem acesso amplo à organização
         return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
-        if (process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED === 'true') {
+        if (process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED !== 'false') {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
         const role = auth.user.role || 'USER';

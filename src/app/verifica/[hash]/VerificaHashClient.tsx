@@ -275,12 +275,19 @@ export function VerificaHashClient({ data }: VerificaHashClientProps) {
                   Hash consultado: {data.comprovanteHash}
                 </div>
               )}
-              <Link
-                href="/dashboard"
-                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all"
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.history.length > 1) {
+                    window.history.back();
+                  } else if (typeof window !== 'undefined') {
+                    window.location.href = '/dashboard';
+                  }
+                }}
+                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-all cursor-pointer"
               >
-                <span>Voltar ao Início</span>
-              </Link>
+                <span>Voltar à Tela Anterior</span>
+              </button>
             </div>
           )}
         </div>

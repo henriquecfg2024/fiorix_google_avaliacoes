@@ -373,11 +373,11 @@ export function abrirMatriculaLv2EmOutroMonitor(numeroMatricula: string | number
   return true;
 }
 
-/** Constrói a URL oficial do sistema WEBRI (Siplan Control) para abrir os Contraditórios da Prenotação. */
+/** Constrói a URL oficial do sistema WEBRI (Siplan Control) para abrir a Prenotação na Recepção de Títulos. */
 export function construirUrlWebriContraditorio(
   numeroPrenotacao: string | number,
   seqTitulo = 1
 ): string {
   const limpo = String(numeroPrenotacao).replace(/\D+/g, '');
-  return `http://srvsql/Siplan%20Informatica%20Ltda/Siplan%20RI/frmSelecionarContraditorios.aspx?FormPai=frmRecepcao.aspx&PK_FlagRecepcao=1&PK_Recepcao=${encodeURIComponent(limpo)}&PK_SeqTitulo=${encodeURIComponent(String(seqTitulo))}`;
+  return `http://srvsql/Siplan%20Informatica%20Ltda/Siplan%20RI/frmRecepcao.aspx?PK_FlagRecepcao=1&PK_Recepcao=${encodeURIComponent(limpo)}&PK_SeqTitulo=${encodeURIComponent(String(seqTitulo))}`;
 }

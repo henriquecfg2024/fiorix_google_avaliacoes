@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2, Smartphone, ArrowLeft } from 'lucide-react';
+import { authenticate, checkCredentials } from '@/app/actions/auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -92,7 +93,6 @@ export default function LoginPage() {
     try {
       if (step === 'credentials') {
         // Passo 1: Verifica credenciais e se precisa de 2FA
-        const { checkCredentials } = await import('@/app/actions/auth');
         const result = await checkCredentials(email, password);
         
         if (!result.valid) {
@@ -121,10 +121,12 @@ export default function LoginPage() {
         formData.append('password', password);
         formData.append('redirectTo', resolvedRedirect);
 
-        const { authenticate } = await import('@/app/actions/auth');
         const errorMessage = await authenticate(undefined, formData);
         if (errorMessage) {
           setError(errorMessage);
+        } else {
+          window.location.href = resolvedRedirect;
+          return;
         }
       } else {
         // Passo 2: Verifica código TOTP
@@ -141,7 +143,6 @@ export default function LoginPage() {
         formData.append('totpCode', code);
         formData.append('redirectTo', validCallback || targetRedirect || '/minha-it');
 
-        const { authenticate } = await import('@/app/actions/auth');
         const errorMessage = await authenticate(undefined, formData);
         if (errorMessage) {
           if (errorMessage === 'INVALID_2FA_CODE') {
@@ -153,6 +154,9 @@ export default function LoginPage() {
           } else {
             setError(errorMessage);
           }
+        } else {
+          window.location.href = validCallback || targetRedirect || '/minha-it';
+          return;
         }
       }
     } catch (err) {

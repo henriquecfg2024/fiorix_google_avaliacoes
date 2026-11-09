@@ -47,7 +47,8 @@ export function filterNavigationByRole(
   for (const [key, group] of Object.entries(navigationGroups)) {
     // MASTER: Apenas o MASTER vê o grupo 'master'
     if (key === "master" && role !== "MASTER") continue;
-    if ((key === "cartorioVirtual" || key === "documental") && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
+    if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
+    if (key === "cartorioVirtual" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE", "COLABORADOR"].includes(role)) continue;
 
     // COLABORADOR: vê 'operacional', 'comunicacaoInterna' e 'pessoas' (MEU ESPAÇO)
     if (
