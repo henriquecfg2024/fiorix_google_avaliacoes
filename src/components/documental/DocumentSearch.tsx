@@ -25,7 +25,20 @@ import {
   ChevronDown,
   MoreVertical,
   MonitorUp,
+  Star,
+  Folder,
 } from 'lucide-react';
+import {
+  UNIDADES_PRINCIPAIS,
+  arquivoPertenceAPasta,
+  lerPastasFavoritas,
+  PASTAS_FAVORITAS_PADRAO,
+  alternarPastaFavoritaNoStorage,
+  verificarPastaFavorita,
+  EVENTO_FAVORITOS_ATUALIZADOS,
+  type RaizId,
+  type PastaFavorita,
+} from '@/lib/documental/pastasFavoritas';
 import {
   FichaOficialView,
   DadosManifestacao,
@@ -128,6 +141,26 @@ export interface RootConfigDisplay {
 
 export function getRootInfo(rootId: string): RootConfigDisplay {
   const norm = (rootId || '').toLowerCase().trim();
+  if (norm === 'vol1' || norm === 'h') {
+    return {
+      label: 'VOL1 (H:)',
+      drive: 'H:',
+      fullName: 'VOL1 — Acervo Geral (\\SrvFiles\VOL1)',
+      pathDisplay: 'H:',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10 hover:bg-emerald-900/60',
+      dotClass: 'bg-emerald-400',
+    };
+  }
+  if (norm === 'deptos' || norm === 'dep' || norm === 'w') {
+    return {
+      label: 'DEP (W:)',
+      drive: 'W:',
+      fullName: 'DEP / DEPTOS — Departamentos e Escreventes (\\SrvFiles\DEPTOS)',
+      pathDisplay: 'W:',
+      badgeClass: 'bg-violet-950/70 text-violet-300 border-violet-500/40 shadow-violet-500/10 hover:bg-violet-900/60',
+      dotClass: 'bg-violet-400',
+    };
+  }
   if (norm === 'minutas' || norm === 'usucapiao') {
     return {
       label: 'Minutas (W:)',
@@ -256,6 +289,30 @@ export function DocumentSearch() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [historicoBuscas, setHistoricoBuscas] = useState<HistoricoNavegacao[]>([]);
+
+  // Seletor de pasta (VOL1, IMAGENS, DEP ou Favoritos)
+  const [pastaFiltro, setPastaFiltro] = useState<{ rootId: RaizId; relativePath: string; rotulo: string } | null>(null);
+  const [pastasFavoritas, setPastasFavoritas] = useState<PastaFavorita[]>(PASTAS_FAVORITAS_PADRAO);
+
+  function toggleFavoritoBusca(rootId: RaizId, relativePath: string, rotulo?: string, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const { favoritos } = alternarPastaFavoritaNoStorage(rootId, relativePath, rotulo);
+    setPastasFavoritas(favoritos);
+  }
+
+  useEffect(() => {
+    setPastasFavoritas(lerPastasFavoritas());
+    const sync = () => setPastasFavoritas(lerPastasFavoritas());
+    window.addEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
 
   // Modo de Busca: Simples ou Cruzada
   const [searchMode, setSearchMode] = useState<'simples' | 'cruzada'>('simples');
@@ -1552,6 +1609,110 @@ export function DocumentSearch() {
           </form>
         )}
 
+        {/* Seleção de Pasta da Pesquisa (VOL1, IMAGENS ou DEP) e Pastas Favoritas */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2.5 text-[11px]">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-semibold text-white/60 mr-0.5">Pasta da pesquisa:</span>
+            <button
+              type="button"
+              onClick={() => setPastaFiltro(null)}
+              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-semibold transition ${
+                !pastaFiltro
+                  ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
+                  : 'border-white/10 bg-[#080D1A] text-slate-300 hover:border-slate-600 hover:text-white'
+              }`}
+              title="Pesquisar em todas as pastas (VOL1, IMAGENS e DEP)"
+            >
+              <HardDrive className="h-3 w-3 text-cyan-400" />
+              <span>Todas</span>
+            </button>
+            {UNIDADES_PRINCIPAIS.map(u => {
+              const ativo = pastaFiltro?.rootId === u.id && !pastaFiltro.relativePath;
+              const isFav = verificarPastaFavorita(pastasFavoritas, u.id, '');
+              return (
+                <div
+                  key={`ds-unit-${u.id}`}
+                  className={`inline-flex items-center rounded-lg border transition ${
+                    ativo
+                      ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
+                      : 'border-white/10 bg-[#080D1A] text-slate-300 hover:border-amber-500/40 hover:text-white'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPastaFiltro(ativo ? null : { rootId: u.id, relativePath: '', rotulo: u.rotuloCurto })}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 font-bold"
+                    title={`Selecionar pasta ${u.rotulo} — ${u.descricao}`}
+                  >
+                    <Folder className="h-3 w-3 text-amber-400 fill-amber-400/20" />
+                    <span>{u.sigla}</span>
+                    <span className="font-mono text-[10px] opacity-70">({u.caminho.replace('\\', '')})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => toggleFavoritoBusca(u.id, '', u.rotuloCurto, e)}
+                    title={isFav ? `Retirar ${u.sigla} dos favoritos` : `Colocar ${u.sigla} nos favoritos`}
+                    className="px-1.5 py-1 border-l border-white/10 text-slate-400 hover:text-amber-300 transition"
+                  >
+                    <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {pastasFavoritas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 font-semibold text-amber-300/90">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                Favoritos:
+              </span>
+              {pastasFavoritas.map(fav => {
+                const ativo =
+                  pastaFiltro &&
+                  pastaFiltro.rootId === fav.rootId &&
+                  pastaFiltro.relativePath === fav.relativePath;
+                return (
+                  <div
+                    key={`ds-fav-${fav.id}`}
+                    className={`inline-flex items-center rounded-lg border transition ${
+                      ativo
+                        ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
+                        : 'border-amber-500/25 bg-[#080D1A] text-slate-200 hover:border-amber-500/50'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPastaFiltro(
+                          ativo
+                            ? null
+                            : { rootId: fav.rootId, relativePath: fav.relativePath, rotulo: fav.rotulo },
+                        )
+                      }
+                      title={`Filtrar pesquisa pela pasta favorita ${fav.caminhoExibicao}`}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
+                    >
+                      <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
+                        {fav.unidade}
+                      </span>
+                      <span className="max-w-[150px] truncate">{fav.rotulo}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => toggleFavoritoBusca(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                      title={`Retirar "${fav.rotulo}" dos favoritos`}
+                      className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
+                    >
+                      <Star className="h-3 w-3 fill-amber-400" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Filtros e tempos de pesquisa (como no app original) */}
         <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-white/5 pt-2 text-[11px]">
           <button
@@ -1911,15 +2072,37 @@ export function DocumentSearch() {
         )}
 
         {/* Tabela de Resultados */}
-        {job?.status === 'complete' && job.result && (
+        {job?.status === 'complete' && job.result && (() => {
+          const arquivosFiltradosPorPasta = pastaFiltro
+            ? job.result.files.filter(f =>
+                arquivoPertenceAPasta(f.rootId, f.relativePath, pastaFiltro.rootId, pastaFiltro.relativePath),
+              )
+            : job.result.files;
+          const ocultadosPorPasta = job.result.files.length - arquivosFiltradosPorPasta.length;
+
+          return (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between text-xs text-white/70 gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span>
-                  <strong className="text-white">{job.result.files.length}</strong> documento(s) localizado(s)
+                  <strong className="text-white">{arquivosFiltradosPorPasta.length}</strong> documento(s) localizado(s)
+                  {pastaFiltro && (
+                    <>
+                      {' '}em <strong className="text-amber-300">{pastaFiltro.rotulo}</strong>
+                    </>
+                  )}
                   {duracaoJobMs !== null && <> em <strong className="text-cyan-300">{fmtDuracaoBusca(duracaoJobMs)}</strong></>}
                   {job.result.partial && ' (resultado parcial devido a limite de pesquisa)'}.
                 </span>
+                {pastaFiltro && ocultadosPorPasta > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPastaFiltro(null)}
+                    className="rounded-lg border border-amber-500/40 bg-amber-950/50 px-2 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-900/60 transition"
+                  >
+                    Mostrar todos ({job.result.files.length})
+                  </button>
+                )}
                 {isCacheHit && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 text-[10px] font-bold text-cyan-300">
                     ⚡ Resposta instantânea (Cache em memória)
@@ -2036,7 +2219,7 @@ export function DocumentSearch() {
               );
             })()}
 
-            {job.result.files.length === 0 ? (
+            {arquivosFiltradosPorPasta.length === 0 ? (
               <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-8 sm:p-12 text-center text-white/60 shadow-sm backdrop-blur-xl">
                 <FileText className="mx-auto h-12 w-12 text-white/30" />
                 <h4 className="mt-3 text-base font-bold text-white">Nenhum documento localizado</h4>
@@ -2048,7 +2231,7 @@ export function DocumentSearch() {
               <>
                 {/* LISTA MOBILE RESPONSIVA (< md: iPhone / celulares, sem cortar nome, caminho, tamanho ou data) */}
                 <div className="md:hidden divide-y divide-white/10 rounded-2xl border border-white/15 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl overflow-hidden">
-                  {job.result.files.map(file => {
+                  {arquivosFiltradosPorPasta.map(file => {
                     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
                     const isPdf = ext === '.pdf';
                     const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
@@ -2184,7 +2367,7 @@ export function DocumentSearch() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {job.result.files.map(file => {
+                      {arquivosFiltradosPorPasta.map(file => {
                         const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
                         const isPdf = ext === '.pdf';
                         const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
@@ -2212,12 +2395,39 @@ export function DocumentSearch() {
                                     <span className="hover:underline">{file.name}</span>
                                     <Eye className="inline ml-1.5 h-3 w-3 text-white/40 group-hover/fn:text-cyan-400 opacity-60 group-hover/fn:opacity-100 shrink-0 transition" />
                                   </button>
-                                  <span
-                                    className="truncate max-w-full block font-mono text-[11px] text-white/50 mt-0.5"
-                                    title={formatCartorioPath(file.rootId, file.relativePath)}
-                                  >
-                                    {formatCartorioPath(file.rootId, file.relativePath)}
-                                  </span>
+                                  {(() => {
+                                    const partes = (file.relativePath || '').split(/[\\/]/).filter(Boolean);
+                                    const pastaPaiRel = partes.slice(0, -1).join('\\');
+                                    const rotuloPastaPai = partes.length > 1 ? partes[partes.length - 2] : getRootInfo(file.rootId).label;
+                                    const rootIdCast = (file.rootId as RaizId) || 'vol1';
+                                    const isPastaFav = verificarPastaFavorita(pastasFavoritas, rootIdCast, pastaPaiRel);
+                                    return (
+                                      <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                        <span
+                                          className="truncate font-mono text-[11px] text-white/50"
+                                          title={formatCartorioPath(file.rootId, file.relativePath)}
+                                        >
+                                          {formatCartorioPath(file.rootId, file.relativePath)}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={e => toggleFavoritoBusca(rootIdCast, pastaPaiRel, rotuloPastaPai, e)}
+                                          title={
+                                            isPastaFav
+                                              ? `Retirar pasta "${rotuloPastaPai}" dos favoritos`
+                                              : `Colocar pasta "${rotuloPastaPai}" nos favoritos`
+                                          }
+                                          className={`shrink-0 inline-flex items-center justify-center rounded p-0.5 transition ${
+                                            isPastaFav
+                                              ? 'text-amber-400 opacity-100'
+                                              : 'text-slate-500 opacity-50 group-hover:opacity-100 hover:text-amber-300'
+                                          }`}
+                                        >
+                                          <Star className={`h-3 w-3 ${isPastaFav ? 'fill-amber-400' : ''}`} />
+                                        </button>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {(() => {
                                     // Arquivos de imagem de matrícula (.KEN / .TIF) já são o documento final do Livro 2
@@ -2545,7 +2755,8 @@ export function DocumentSearch() {
               </>
             )}
           </div>
-        )}
+        );
+        })()}
       </div>
       </div>
 

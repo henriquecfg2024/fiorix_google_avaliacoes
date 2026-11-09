@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { FileText, Eye, Archive } from 'lucide-react';
+import { requireAuth } from '@/lib/auth-helpers';
+import { isNavPermissionsFeatureEnabled, isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
 type Aba = 'manifestacoes' | 'visualizador' | 'historico';
 
@@ -10,10 +12,38 @@ const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] 
 ];
 
 /** Alternador de submenus da Gestão Documental (Manifestações / Visualizador / Histórico). */
-export function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
+export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
+  let podeManifestacoes = true;
+  let podeVisualizador = true;
+
+  try {
+    const user = await requireAuth();
+    if (isNavPermissionsFeatureEnabled()) {
+      const [allowManif, allowVis] = await Promise.all([
+        isRouteAllowedForUser('/gestao-documental', user),
+        isRouteAllowedForUser('/gestao-documental/visualizador', user),
+      ]);
+      podeManifestacoes = allowManif;
+      podeVisualizador = allowVis;
+    }
+  } catch {
+    // Em caso de falha na sessão, exibe apenas a aba ativa
+  }
+
+  const abasVisiveis = ABAS.filter((aba) => {
+    if (aba.id === ativa) return true;
+    if (aba.id === 'manifestacoes' || aba.id === 'historico') return podeManifestacoes;
+    if (aba.id === 'visualizador') return podeVisualizador;
+    return true;
+  });
+
+  if (abasVisiveis.length <= 1) {
+    return null;
+  }
+
   return (
     <nav aria-label="Submenus da Gestão Documental" className="flex items-center rounded-lg border border-white/15 bg-slate-900/80 p-0.5 text-xs font-semibold">
-      {ABAS.map(({ id, href, rotulo, Icone }) => (
+      {abasVisiveis.map(({ id, href, rotulo, Icone }) => (
         <Link
           key={id}
           href={href}

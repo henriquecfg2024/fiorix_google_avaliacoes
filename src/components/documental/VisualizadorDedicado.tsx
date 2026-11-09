@@ -40,6 +40,7 @@ import {
   ArrowUp,
   X,
   Loader2,
+  Star,
 } from 'lucide-react';
 import { getFichaRotulo, DocumentTextResult } from './DocumentPreviewModal';
 import { JanelaSeparadaMenu } from './JanelaSeparadaMenu';
@@ -58,6 +59,21 @@ import {
   LinkLocalExpiradoError,
   resolverPdfParaNavegador,
 } from '@/lib/documental/pdfTransfer';
+import {
+  RAIZES_DOCUMENTAL,
+  UNIDADES_PRINCIPAIS,
+  getRaizDocumental,
+  arquivoPertenceAPasta,
+  resolverCaminhoCanonicoUnidade,
+  formatarCaminhoPasta,
+  lerPastasFavoritas,
+  PASTAS_FAVORITAS_PADRAO,
+  alternarPastaFavoritaNoStorage,
+  verificarPastaFavorita,
+  EVENTO_FAVORITOS_ATUALIZADOS,
+  type RaizId,
+  type PastaFavorita,
+} from '@/lib/documental/pastasFavoritas';
 
 interface MatchItem {
   name: string;
@@ -91,15 +107,9 @@ function connectorItemScore(c: ConnectorItem): number {
   return 0;
 }
 
-// Pastas oficiais do 7º RI liberadas no Connector (o caminho real é configurado no servidor do cartório)
-type RaizId = 'imagens' | 'livro2' | 'processos' | 'minutas';
-const RAIZES: { id: RaizId; rotulo: string; caminho: string; descricao: string; aliases: string[] }[] = [
-  { id: 'imagens', rotulo: 'Acervo Geral (K:\\IMAGENS)', caminho: 'K:\\IMAGENS', descricao: 'Todas as sessões de imagens digitalizadas (LV2, LV3, LV7, etc.)', aliases: ['imagens'] },
-  { id: 'livro2', rotulo: 'Livro 2 — Matrículas', caminho: 'K:\\IMAGENS\\LV2', descricao: 'Imagens .KEN / TIFF por bloco de 1.000', aliases: ['livro2'] },
-  { id: 'processos', rotulo: 'Processos', caminho: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL', descricao: 'PDFs recebidos das Varas', aliases: ['processos'] },
-  { id: 'minutas', rotulo: 'Usucapião / Minutas', caminho: 'W:\\USUCAPIAO', descricao: 'Pastas dos escreventes (.DOCX)', aliases: ['minutas', 'usucapiao'] },
-];
-const getRaiz = (rootId: string) => RAIZES.find(r => r.aliases.includes(rootId));
+// Pastas oficiais do 7º RI liberadas no Connector (VOL1, IMAGENS, DEP e atalhos oficiais)
+const RAIZES = RAIZES_DOCUMENTAL;
+const getRaiz = (rootId: string) => getRaizDocumental(rootId);
 
 interface DirectoryEntry {
   name: string;
@@ -189,11 +199,27 @@ export function VisualizadorDedicado({
   const panStartRef = useRef({ x: 0, y: 0, initialX: 0, initialY: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Pastas favoritas (persistidas localmente e sincronizadas entre telas)
+  const [pastasFavoritas, setPastasFavoritas] = useState<PastaFavorita[]>(PASTAS_FAVORITAS_PADRAO);
+
+  function toggleFavorito(rootId: RaizId, relativePath: string, rotulo?: string, e?: React.MouseEvent) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const { favoritos } = alternarPastaFavoritaNoStorage(rootId, relativePath, rotulo);
+    setPastasFavoritas(favoritos);
+  }
+
   // Monitor e janelas
   const [prefJanelas, setPrefJanelas] = useState<PreferenciasJanelas | null>(null);
 
   useEffect(() => {
     setPrefJanelas(lerPreferenciasJanelas());
+    setPastasFavoritas(lerPastasFavoritas());
+    const sincronizarFavoritos = () => setPastasFavoritas(lerPastasFavoritas());
+    window.addEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sincronizarFavoritos);
+    window.addEventListener('storage', sincronizarFavoritos);
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setSidebarOpen(false);
     }
@@ -219,7 +245,11 @@ export function VisualizadorDedicado({
     };
     carregarConectores();
     const intervaloConn = window.setInterval(carregarConectores, 30000);
-    return () => window.clearInterval(intervaloConn);
+    return () => {
+      window.clearInterval(intervaloConn);
+      window.removeEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sincronizarFavoritos);
+      window.removeEventListener('storage', sincronizarFavoritos);
+    };
   }, []);
 
   // PDFs baixados do Connector viram blob: em memória; libera o anterior ao trocar de documento/sair
@@ -364,9 +394,7 @@ export function VisualizadorDedicado({
   /** O arquivo está na pasta atual (ou em subpastas dela)? */
   function estaNoEscopo(file: MatchItem): boolean {
     if (!pastaAtual) return true;
-    if (getRaiz(file.rootId)?.id !== pastaAtual.rootId) return false;
-    const prefixo = normalizarCaminho(pastaAtual.relativePath);
-    return !prefixo || normalizarCaminho(file.relativePath).startsWith(prefixo + '/');
+    return arquivoPertenceAPasta(file.rootId, file.relativePath, pastaAtual.rootId, pastaAtual.relativePath);
   }
 
   // Pesquisa no Connector (pasta atual + subpastas; na visão Acervo, em todas as pastas)
@@ -379,27 +407,97 @@ export function VisualizadorDedicado({
     setIsSearching(true);
     setErroPasta('');
     try {
-      const resultado = await executarJob<{ files?: MatchItem[]; partial?: boolean }>(
+      const termosNorm = normalizarTexto(termo).split(/\s+/).filter(Boolean);
+      const casaComTermo = (caminhoOuNome: string) => {
+        const norm = normalizarTexto(caminhoOuNome);
+        const limpo = norm.replace(/[.\-_/\s]/g, '');
+        return termosNorm.every(t => {
+          if (norm.includes(t)) return true;
+          const tLimpo = t.replace(/[.\-_/\s]/g, '');
+          return tLimpo.length >= 2 && limpo.includes(tLimpo);
+        });
+      };
+
+      // Se houver pasta selecionada, também varre diretamente a pasta atual e suas subpastas imediatas
+      const promessaBuscaGlobal = executarJob<{ files?: MatchItem[]; partial?: boolean }>(
         { type: 'search', query: termo },
         'Falha na busca pelo Connector local.',
         130000,
-      );
-      const brutos = resultado.files || [];
+      ).catch(() => ({ files: [] as MatchItem[], partial: false }));
+
+      const promessaVarreduraPasta = (async (): Promise<MatchItem[]> => {
+        if (!pastaAtual) return [];
+        const achadosLocais: MatchItem[] = [];
+        const filaPastas: string[] = [pastaAtual.relativePath || '.'];
+        const visitadas = new Set<string>();
+        const MAX_PASTAS_LOCAIS = 15;
+
+        while (filaPastas.length > 0 && visitadas.size < MAX_PASTAS_LOCAIS && achadosLocais.length < 100) {
+          const lote = filaPastas.splice(0, 4);
+          const listagens = await Promise.all(
+            lote.map(async rel => {
+              const chave = `${pastaAtual.rootId}:${normalizarCaminho(rel)}`;
+              if (visitadas.has(chave)) return null;
+              visitadas.add(chave);
+              const cacheado = listagemCacheRef.current.get(chave);
+              if (cacheado) return cacheado;
+              try {
+                const res = await executarJob<DirectoryListing>(
+                  { type: 'list_directory', rootId: pastaAtual.rootId, relativePath: rel || '.' },
+                  'Falha ao listar pasta',
+                  15000,
+                );
+                listagemCacheRef.current.set(chave, res);
+                return res;
+              } catch {
+                return null;
+              }
+            }),
+          );
+
+          for (const dirRes of listagens) {
+            if (!dirRes?.entries) continue;
+            for (const entry of dirRes.entries) {
+              if (entry.type === 'dir') {
+                if (visitadas.size + filaPastas.length < MAX_PASTAS_LOCAIS) {
+                  filaPastas.push(entry.relativePath);
+                }
+              } else if (casaComTermo(`${entry.relativePath} ${entry.name}`)) {
+                achadosLocais.push({
+                  name: entry.name,
+                  relativePath: entry.relativePath,
+                  rootId: pastaAtual.rootId,
+                  size: entry.size,
+                  modifiedAt: entry.modifiedAt,
+                });
+              }
+            }
+          }
+        }
+        return achadosLocais;
+      })();
+
+      const [resultado, achadosPasta] = await Promise.all([promessaBuscaGlobal, promessaVarreduraPasta]);
+      const brutos = [...achadosPasta, ...(resultado.files || [])];
       const mapaCanon = new Map<string, MatchItem>();
       for (const item of brutos) {
-        const raiz = getRaiz(item.rootId);
-        const relNorm = normalizarCaminho(item.relativePath);
-        const chave = raiz?.id === 'imagens' && relNorm.startsWith('lv2/')
-          ? `livro2:${relNorm.slice(4)}`
-          : `${raiz?.id || item.rootId}:${relNorm}`;
+        const canon = resolverCaminhoCanonicoUnidade(item.rootId, item.relativePath);
+        const chave = canon
+          ? `${canon.unidade}:${canon.caminhoNaUnidade}`
+          : `${item.rootId}:${normalizarCaminho(item.relativePath)}`;
         const atual = mapaCanon.get(chave);
-        if (!atual || item.rootId === 'livro2') {
+        if (!atual || item.rootId === 'livro2' || item.rootId === pastaAtual?.rootId) {
           mapaCanon.set(chave, item);
         }
       }
       const todos = Array.from(mapaCanon.values());
       const noEscopo = todos.filter(estaNoEscopo);
-      setResultadosBusca({ termo, files: noEscopo, ocultados: todos.length - noEscopo.length, parcial: !!resultado.partial });
+      setResultadosBusca({
+        termo,
+        files: noEscopo,
+        ocultados: Math.max(0, todos.length - noEscopo.length),
+        parcial: !!resultado.partial && achadosPasta.length === 0,
+      });
     } catch (err: any) {
       setErroPasta(err?.message || 'Falha ao pesquisar arquivos.');
     } finally {
@@ -905,90 +1003,218 @@ export function VisualizadorDedicado({
       );
     };
 
+    const pastaAtualFavorita = pastaAtual
+      ? verificarPastaFavorita(pastasFavoritas, pastaAtual.rootId, pastaAtual.relativePath)
+      : false;
+
     return (
       <div className="flex-1 min-h-0 flex flex-col bg-slate-950">
-        {/* Barra de endereço estilo Windows Explorer */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0B1020] px-3 py-2">
-          <button
-            type="button"
-            onClick={subirPasta}
-            disabled={!pastaAtual}
-            title="Subir um nível"
-            aria-label="Subir um nível"
-            className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
-          >
-            <ArrowUp className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => pastaAtual && abrirPasta(pastaAtual.rootId, pastaAtual.relativePath, true)}
-            disabled={!pastaAtual || carregandoPasta}
-            title="Atualizar pasta"
-            aria-label="Atualizar pasta"
-            className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
-          >
-            <RefreshCw className={`h-4 w-4 ${carregandoPasta ? 'animate-spin' : ''}`} />
-          </button>
-          <nav
-            aria-label="Endereço da pasta"
-            className="flex-1 min-w-[220px] h-8 flex items-center gap-0.5 overflow-x-auto rounded-lg border border-white/10 bg-slate-950 px-2 font-mono text-[11px] whitespace-nowrap"
-          >
-            <button type="button" onClick={irParaAcervo} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
-              <HardDrive className="h-3.5 w-3.5 text-amber-400" />
-              Acervo
-            </button>
-            {raizAtual && pastaAtual && (
-              <>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
-                <button type="button" onClick={() => abrirPasta(pastaAtual.rootId, '')} className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
-                  {raizAtual.caminho}
-                </button>
-              </>
-            )}
-            {pastaAtual && segmentos.map((seg, i) => (
-              <React.Fragment key={`m-${i}-${seg}`}>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
-                <button
-                  type="button"
-                  onClick={() => abrirPasta(pastaAtual.rootId, segmentos.slice(0, i + 1).join('\\'))}
-                  className={`rounded px-1.5 py-0.5 transition hover:bg-slate-800 hover:text-white ${i === segmentos.length - 1 ? 'text-amber-300 font-semibold' : 'text-slate-300'}`}
-                >
-                  {seg}
-                </button>
-              </React.Fragment>
-            ))}
-          </nav>
-          <div className="relative w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-            <input
-              id="explorador-principal-busca"
-              type="text"
-              value={filtroPasta}
-              onChange={e => setFiltroPasta(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && executarPesquisa()}
-              placeholder={raizAtual ? `Pesquisar em ${segmentos[segmentos.length - 1] || raizAtual.caminho}` : 'Pesquisar no acervo'}
-              aria-label="Filtrar ou pesquisar arquivos"
-              className="w-full h-8 rounded-lg border border-white/15 bg-slate-900 pl-8 pr-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-            />
-            {isSearching ? (
-              <RefreshCw className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-amber-400" />
-            ) : filtroPasta ? (
-              <button type="button" onClick={() => { setFiltroPasta(''); setResultadosBusca(null); }} aria-label="Limpar filtro" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-white">
-                <X className="h-3.5 w-3.5" />
+        {/* Barra de endereço estilo Windows Explorer + Seletor de Pasta (VOL1, IMAGENS ou DEP) */}
+        <div className="border-b border-white/10 bg-[#0B1020] px-3 py-2 space-y-2">
+          {/* Linha 1: Seletor rápido da pasta a ser pesquisada (Todas, VOL1, IMAGENS, DEP) + Favoritos rápidos */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-400 mr-1">Pasta da pesquisa:</span>
+              <button
+                type="button"
+                onClick={irParaAcervo}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                  !pastaAtual
+                    ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
+                    : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-slate-600 hover:text-white'
+                }`}
+                title="Pesquisar em todas as pastas do acervo (VOL1, IMAGENS e DEP)"
+              >
+                <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Todas</span>
               </button>
-            ) : null}
+              {UNIDADES_PRINCIPAIS.map(u => {
+                const selecionada = raizAtual?.unidade === u.unidade && pastaAtual?.rootId === u.id && !pastaAtual?.relativePath;
+                const dentroDaUnidade = raizAtual?.unidade === u.unidade;
+                return (
+                  <button
+                    key={`sel-${u.id}`}
+                    type="button"
+                    onClick={() => abrirPasta(u.id, '')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition ${
+                      selecionada
+                        ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
+                        : dentroDaUnidade
+                        ? 'border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50'
+                        : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                    }`}
+                    title={`Selecionar e pesquisar na pasta ${u.rotulo} — ${u.descricao}`}
+                  >
+                    <Folder className="h-3.5 w-3.5 text-amber-400 fill-amber-400/20" />
+                    <span>{u.sigla}</span>
+                    <span className="font-mono text-[10px] opacity-75">({u.caminho.replace('\\', '')})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Chips rápidos de Pastas Favoritas na barra superior */}
+            {pastasFavoritas.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300/90">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  Favoritos:
+                </span>
+                {pastasFavoritas.map(fav => {
+                  const ativo =
+                    pastaAtual &&
+                    verificarPastaFavorita([fav], pastaAtual.rootId, pastaAtual.relativePath);
+                  return (
+                    <div
+                      key={`top-fav-${fav.id}`}
+                      className={`inline-flex items-center rounded-lg border text-[11px] transition ${
+                        ativo
+                          ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
+                          : 'border-amber-500/25 bg-slate-900/90 text-slate-200 hover:border-amber-500/50'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => abrirPasta(fav.rootId, fav.relativePath)}
+                        title={`Abrir e pesquisar em ${fav.caminhoExibicao}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
+                      >
+                        <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
+                          {fav.unidade}
+                        </span>
+                        <span className="max-w-[150px] truncate">{fav.rotulo}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => toggleFavorito(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                        title={`Retirar "${fav.rotulo}" dos favoritos`}
+                        aria-label={`Retirar ${fav.rotulo} dos favoritos`}
+                        className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
+                      >
+                        <Star className="h-3 w-3 fill-amber-400" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          {documentoAtivo && (
+
+          {/* Linha 2: Endereço + Favoritar pasta atual + Campo de Pesquisa */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setExploradorAberto(false)}
-              className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-cyan-500/40 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/60 transition"
-              title="Voltar ao documento aberto"
+              onClick={subirPasta}
+              disabled={!pastaAtual}
+              title="Subir um nível"
+              aria-label="Subir um nível"
+              className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
             >
-              <FileText className="h-3.5 w-3.5" />
-              Voltar ao documento
+              <ArrowUp className="h-4 w-4" />
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => pastaAtual && abrirPasta(pastaAtual.rootId, pastaAtual.relativePath, true)}
+              disabled={!pastaAtual || carregandoPasta}
+              title="Atualizar pasta"
+              aria-label="Atualizar pasta"
+              className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
+            >
+              <RefreshCw className={`h-4 w-4 ${carregandoPasta ? 'animate-spin' : ''}`} />
+            </button>
+            <nav
+              aria-label="Endereço da pasta"
+              className="flex-1 min-w-[200px] h-8 flex items-center gap-0.5 overflow-x-auto rounded-lg border border-white/10 bg-slate-950 px-2 font-mono text-[11px] whitespace-nowrap"
+            >
+              <button type="button" onClick={irParaAcervo} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                <HardDrive className="h-3.5 w-3.5 text-amber-400" />
+                Acervo
+              </button>
+              {raizAtual && pastaAtual && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                  <button type="button" onClick={() => abrirPasta(pastaAtual.rootId, '')} className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                    {raizAtual.caminho}
+                  </button>
+                </>
+              )}
+              {pastaAtual && segmentos.map((seg, i) => (
+                <React.Fragment key={`m-${i}-${seg}`}>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                  <button
+                    type="button"
+                    onClick={() => abrirPasta(pastaAtual.rootId, segmentos.slice(0, i + 1).join('\\'))}
+                    className={`rounded px-1.5 py-0.5 transition hover:bg-slate-800 hover:text-white ${i === segmentos.length - 1 ? 'text-amber-300 font-semibold' : 'text-slate-300'}`}
+                  >
+                    {seg}
+                  </button>
+                </React.Fragment>
+              ))}
+            </nav>
+
+            {pastaAtual && (
+              <button
+                type="button"
+                onClick={e => toggleFavorito(pastaAtual.rootId, pastaAtual.relativePath, undefined, e)}
+                title={
+                  pastaAtualFavorita
+                    ? 'Retirar esta pasta dos Favoritos'
+                    : 'Colocar esta pasta nos Favoritos (acesso rápido)'
+                }
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition ${
+                  pastaAtualFavorita
+                    ? 'border-amber-500/60 bg-amber-950/70 text-amber-200 hover:bg-amber-900/70'
+                    : 'border-white/15 bg-slate-900 text-slate-300 hover:border-amber-500/40 hover:text-amber-200'
+                }`}
+              >
+                <Star className={`h-3.5 w-3.5 ${pastaAtualFavorita ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
+                <span className="hidden md:inline">{pastaAtualFavorita ? 'Favorita' : 'Favoritar pasta'}</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                <input
+                  id="explorador-principal-busca"
+                  type="text"
+                  value={filtroPasta}
+                  onChange={e => setFiltroPasta(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && executarPesquisa()}
+                  placeholder={raizAtual ? `Pesquisar em ${segmentos[segmentos.length - 1] || raizAtual.sigla}…` : 'Pesquisar em todas as pastas…'}
+                  aria-label="Filtrar ou pesquisar arquivos"
+                  className="w-full h-8 rounded-lg border border-white/15 bg-slate-900 pl-8 pr-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                />
+                {isSearching ? (
+                  <RefreshCw className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-amber-400" />
+                ) : filtroPasta ? (
+                  <button type="button" onClick={() => { setFiltroPasta(''); setResultadosBusca(null); }} aria-label="Limpar filtro" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-white">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={executarPesquisa}
+                disabled={isSearching || filtroPasta.trim().length < 2}
+                className="h-8 shrink-0 rounded-lg border border-amber-500/40 bg-amber-700 hover:bg-amber-600 px-3 text-xs font-semibold text-white transition disabled:opacity-50"
+              >
+                {isSearching ? 'Buscando…' : 'Pesquisar'}
+              </button>
+            </div>
+
+            {documentoAtivo && (
+              <button
+                type="button"
+                onClick={() => setExploradorAberto(false)}
+                className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-cyan-500/40 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/60 transition"
+                title="Voltar ao documento aberto"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Voltar ao documento
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Conteúdo */}
@@ -1007,7 +1233,10 @@ export function VisualizadorDedicado({
           {resultadosBusca ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-semibold text-slate-200">{resultadosBusca.files.length} resultado(s) para “{resultadosBusca.termo}”</span>
+                <span className="text-xs font-semibold text-slate-200">
+                  {resultadosBusca.files.length} resultado(s) para “{resultadosBusca.termo}”
+                  {pastaAtual && raizAtual ? ` em ${formatarCaminhoPasta(pastaAtual.rootId, pastaAtual.relativePath)}` : ''}
+                </span>
                 {resultadosBusca.ocultados > 0 && <span className="text-[11px] text-slate-500">{resultadosBusca.ocultados} em outras pastas ocultado(s)</span>}
                 {resultadosBusca.parcial && <span className="text-[11px] text-amber-300/80">Pesquisa parcial — refine o termo</span>}
                 <button type="button" onClick={() => setResultadosBusca(null)} className="text-[11px] font-semibold text-amber-400 hover:underline">
@@ -1015,7 +1244,7 @@ export function VisualizadorDedicado({
                 </button>
               </div>
               {resultadosBusca.files.length === 0 ? (
-                <p className="py-16 text-center text-xs text-slate-500">Nenhum arquivo encontrado.</p>
+                <p className="py-16 text-center text-xs text-slate-500">Nenhum arquivo encontrado nesta pasta.</p>
               ) : (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
                   {resultadosBusca.files.map(f => tileArquivo(f, true))}
@@ -1023,30 +1252,100 @@ export function VisualizadorDedicado({
               )}
             </div>
           ) : !pastaAtual ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-100">Pastas do cartório</h3>
-                <p className="text-[11px] text-slate-500">Clique em uma pasta para navegar e escolher onde deseja pesquisar.</p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {RAIZES.map(r => (
-                  <button
-                    key={`m-${r.id}`}
-                    type="button"
-                    onClick={() => abrirPasta(r.id, '')}
-                    className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-4 text-left transition hover:-translate-y-0.5 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-950/40"
-                  >
-                    <div className="h-12 w-12 shrink-0 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                      <HardDrive className="h-6 w-6" />
+            <div className="space-y-6">
+              {/* Seção 1: Pastas Favoritas (pesquisadas frequentemente) */}
+              {pastasFavoritas.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <h3 className="text-sm font-bold text-slate-100">Pastas Favoritas (Pesquisa Frequente)</h3>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-100">{r.rotulo}</p>
-                      <p className="font-mono text-[11px] text-slate-400 truncate">{r.caminho}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{r.descricao}</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 text-slate-600 transition group-hover:text-amber-400" />
-                  </button>
-                ))}
+                    <span className="text-[11px] text-slate-500">Clique na estrela ★ para retirar ou adicionar pastas</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    {pastasFavoritas.map(fav => (
+                      <div
+                        key={`fav-card-${fav.id}`}
+                        onClick={() => abrirPasta(fav.rootId, fav.relativePath)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => e.key === 'Enter' && abrirPasta(fav.rootId, fav.relativePath)}
+                        className="group flex items-center gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-950/25 via-slate-900 to-slate-950 p-3 text-left transition hover:border-amber-400/60 hover:bg-slate-900/90 cursor-pointer"
+                      >
+                        <div className="h-10 w-10 shrink-0 rounded-lg bg-amber-500/15 text-amber-300 flex flex-col items-center justify-center border border-amber-500/30">
+                          <Folder className="h-4 w-4 fill-amber-400/30" />
+                          <span className="font-mono text-[8px] font-black">{fav.unidade}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-slate-100 truncate group-hover:text-amber-200">{fav.rotulo}</p>
+                          <p className="font-mono text-[10px] text-slate-400 truncate">{fav.caminhoExibicao}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={e => toggleFavorito(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                          title="Retirar pasta dos favoritos"
+                          aria-label={`Retirar ${fav.rotulo} dos favoritos`}
+                          className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/50 text-amber-400 hover:bg-rose-950/70 hover:border-rose-500/40 hover:text-rose-300 transition"
+                        >
+                          <Star className="h-4 w-4 fill-amber-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Seção 2: Unidades Principais (VOL1, IMAGENS e DEP) */}
+              <div className="space-y-2.5">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100">Selecionar Pasta do Servidor (VOL1, IMAGENS ou DEP)</h3>
+                  <p className="text-[11px] text-slate-500">Escolha uma unidade de rede (\\SrvFiles) ou subpasta para navegar, pesquisar e favoritar (☆).</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {RAIZES.map(r => {
+                    const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
+                    return (
+                      <div
+                        key={`m-${r.id}`}
+                        onClick={() => abrirPasta(r.id, '')}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={e => e.key === 'Enter' && abrirPasta(r.id, '')}
+                        className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 cursor-pointer ${
+                          r.principal
+                            ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-950/40'
+                            : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-950/40'
+                        }`}
+                      >
+                        <div className={`h-12 w-12 shrink-0 rounded-xl flex flex-col items-center justify-center ${
+                          r.principal ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-amber-500/10 text-amber-400'
+                        }`}>
+                          <HardDrive className="h-5 w-5" />
+                          <span className="font-mono text-[9px] font-black mt-0.5">{r.sigla}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-100">{r.rotulo}</p>
+                          <p className="font-mono text-[11px] text-slate-400 truncate">{r.caminho}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{r.descricao}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={e => toggleFavorito(r.id, '', r.rotuloCurto, e)}
+                          title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
+                          aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
+                          className={`h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border transition ${
+                            isFav
+                              ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
+                              : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
+                          }`}
+                        >
+                          <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400' : ''}`} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ) : carregandoPasta && !listagem ? (
@@ -1057,30 +1356,47 @@ export function VisualizadorDedicado({
           ) : listagem ? (
             entradas.length === 0 ? (
               <p className="py-16 text-center text-xs text-slate-500">
-                {filtro ? 'Nenhum item com esse nome nesta pasta. Pressione Enter para pesquisar também nas subpastas.' : 'Pasta vazia.'}
+                {filtro ? 'Nenhum item com esse nome nesta pasta. Pressione Enter ou clique em Pesquisar para buscar também nas subpastas.' : 'Pasta vazia.'}
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2">
-                  {entradas.slice(0, MAX_ITENS_RENDERIZADOS).map(entrada =>
-                    entrada.type === 'dir' ? (
-                      <button
-                        key={`md:${entrada.relativePath}`}
-                        type="button"
-                        onClick={() => abrirPasta(pastaAtual.rootId, entrada.relativePath)}
-                        title={entrada.name}
-                        className="group flex flex-col items-center gap-1.5 rounded-xl border border-transparent p-2.5 text-center transition hover:border-amber-500/40 hover:bg-slate-900/80"
-                      >
-                        <Folder className="h-11 w-11 text-amber-400 fill-amber-400/25 group-hover:fill-amber-400/40 transition" strokeWidth={1.25} />
-                        <span className="w-full break-all text-[11px] leading-tight text-slate-200 line-clamp-2">{entrada.name}</span>
-                      </button>
-                    ) : (
-                      tileArquivo(
-                        { name: entrada.name, relativePath: entrada.relativePath, rootId: pastaAtual.rootId, size: entrada.size, modifiedAt: entrada.modifiedAt },
-                        false,
-                      )
-                    ),
-                  )}
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(135px,1fr))] gap-2">
+                  {entradas.slice(0, MAX_ITENS_RENDERIZADOS).map(entrada => {
+                    if (entrada.type === 'dir') {
+                      const dirFav = verificarPastaFavorita(pastasFavoritas, pastaAtual.rootId, entrada.relativePath);
+                      return (
+                        <div
+                          key={`md:${entrada.relativePath}`}
+                          onClick={() => abrirPasta(pastaAtual.rootId, entrada.relativePath)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={e => e.key === 'Enter' && abrirPasta(pastaAtual.rootId, entrada.relativePath)}
+                          title={entrada.name}
+                          className="group relative flex flex-col items-center gap-1.5 rounded-xl border border-transparent p-2.5 text-center transition hover:border-amber-500/40 hover:bg-slate-900/80 cursor-pointer"
+                        >
+                          <button
+                            type="button"
+                            onClick={e => toggleFavorito(pastaAtual.rootId, entrada.relativePath, entrada.name, e)}
+                            title={dirFav ? `Retirar "${entrada.name}" dos favoritos` : `Favoritar pasta "${entrada.name}"`}
+                            aria-label={dirFav ? `Retirar ${entrada.name} dos favoritos` : `Favoritar pasta ${entrada.name}`}
+                            className={`absolute top-1.5 right-1.5 h-6 w-6 inline-flex items-center justify-center rounded-md border transition ${
+                              dirFav
+                                ? 'border-amber-500/50 bg-amber-950/80 text-amber-400 opacity-100'
+                                : 'border-white/10 bg-slate-900/90 text-slate-400 opacity-0 group-hover:opacity-100 hover:border-amber-500/40 hover:text-amber-300'
+                            }`}
+                          >
+                            <Star className={`h-3.5 w-3.5 ${dirFav ? 'fill-amber-400' : ''}`} />
+                          </button>
+                          <Folder className="h-11 w-11 text-amber-400 fill-amber-400/25 group-hover:fill-amber-400/40 transition" strokeWidth={1.25} />
+                          <span className="w-full break-all text-[11px] leading-tight text-slate-200 line-clamp-2">{entrada.name}</span>
+                        </div>
+                      );
+                    }
+                    return tileArquivo(
+                      { name: entrada.name, relativePath: entrada.relativePath, rootId: pastaAtual.rootId, size: entrada.size, modifiedAt: entrada.modifiedAt },
+                      false,
+                    );
+                  })}
                 </div>
                 {entradas.length > MAX_ITENS_RENDERIZADOS && (
                   <p className="pt-3 text-center text-[11px] text-slate-500">
@@ -1656,10 +1972,48 @@ export function VisualizadorDedicado({
                 );
               };
 
+              const pastaAtualFavorita = pastaAtual
+                ? verificarPastaFavorita(pastasFavoritas, pastaAtual.rootId, pastaAtual.relativePath)
+                : false;
+
               return (
                 <div className="flex-1 min-h-0 flex flex-col">
-                  {/* Barra de navegação + endereço */}
+                  {/* Barra de navegação + seletor VOL1 / IMAGENS / DEP + favoritos */}
                   <div className="p-2.5 border-b border-white/10 space-y-2">
+                    {/* Seletor rápido de pasta: Todas | VOL1 | IMAGENS | DEP */}
+                    <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-slate-950 p-0.5 text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={irParaAcervo}
+                        className={`rounded py-1 text-center transition ${
+                          !pastaAtual
+                            ? 'bg-cyan-950/90 text-cyan-300 border border-cyan-500/40'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                        title="Todas as pastas (VOL1, IMAGENS e DEP)"
+                      >
+                        Todas
+                      </button>
+                      {UNIDADES_PRINCIPAIS.map(u => {
+                        const ativo = raizAtual?.unidade === u.unidade;
+                        return (
+                          <button
+                            key={`sb-unit-${u.id}`}
+                            type="button"
+                            onClick={() => abrirPasta(u.id, '')}
+                            className={`rounded py-1 text-center transition ${
+                              ativo
+                                ? 'bg-amber-950/90 text-amber-300 border border-amber-500/50'
+                                : 'text-slate-400 hover:text-white'
+                            }`}
+                            title={`Selecionar ${u.rotulo}`}
+                          >
+                            {u.sigla}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -1720,6 +2074,21 @@ export function VisualizadorDedicado({
                           </React.Fragment>
                         ))}
                       </nav>
+                      {pastaAtual && (
+                        <button
+                          type="button"
+                          onClick={e => toggleFavorito(pastaAtual.rootId, pastaAtual.relativePath, undefined, e)}
+                          title={pastaAtualFavorita ? 'Retirar pasta atual dos Favoritos' : 'Colocar pasta atual nos Favoritos'}
+                          aria-label={pastaAtualFavorita ? 'Retirar pasta atual dos Favoritos' : 'Colocar pasta atual nos Favoritos'}
+                          className={`h-7 w-7 shrink-0 inline-flex items-center justify-center rounded-lg border transition ${
+                            pastaAtualFavorita
+                              ? 'border-amber-500/60 bg-amber-950/70 text-amber-400'
+                              : 'border-white/10 bg-slate-900 text-slate-400 hover:border-amber-500/40 hover:text-amber-300'
+                          }`}
+                        >
+                          <Star className={`h-3.5 w-3.5 ${pastaAtualFavorita ? 'fill-amber-400' : ''}`} />
+                        </button>
+                      )}
                     </div>
 
                     {/* Filtro instantâneo da pasta / pesquisa nas subpastas */}
@@ -1731,7 +2100,7 @@ export function VisualizadorDedicado({
                           value={filtroPasta}
                           onChange={e => setFiltroPasta(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && executarPesquisa()}
-                          placeholder={pastaAtual ? 'Filtrar nesta pasta (Enter pesquisa)' : 'Pesquisar no acervo…'}
+                          placeholder={pastaAtual ? 'Filtrar/pesquisar nesta pasta…' : 'Pesquisar no acervo…'}
                           aria-label="Filtrar ou pesquisar arquivos"
                           className="w-full h-8 rounded-lg border border-white/15 bg-slate-900 pl-7 pr-7 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                         />
@@ -1759,6 +2128,52 @@ export function VisualizadorDedicado({
                     <p className="text-[10px] text-slate-500 truncate" title={caminhoExibicao}>
                       Pesquisa em: <span className="font-mono text-slate-400">{caminhoExibicao}</span>
                     </p>
+
+                    {/* Atalhos rápidos de Pastas Favoritas no painel lateral */}
+                    {pastasFavoritas.length > 0 && (
+                      <div className="pt-0.5 space-y-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="inline-flex items-center gap-1 font-semibold text-amber-300/90">
+                            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                            Favoritos
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                          {pastasFavoritas.map(fav => {
+                            const ativo =
+                              pastaAtual &&
+                              verificarPastaFavorita([fav], pastaAtual.rootId, pastaAtual.relativePath);
+                            return (
+                              <div
+                                key={`sb-fav-${fav.id}`}
+                                className={`inline-flex items-center rounded-md border text-[10px] transition ${
+                                  ativo
+                                    ? 'border-amber-400/70 bg-amber-950/80 text-amber-100'
+                                    : 'border-white/10 bg-slate-900/90 text-slate-300 hover:border-amber-500/40'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => abrirPasta(fav.rootId, fav.relativePath)}
+                                  title={fav.caminhoExibicao}
+                                  className="px-1.5 py-0.5 truncate max-w-[130px] hover:text-white"
+                                >
+                                  {fav.rotulo}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={e => toggleFavorito(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                                  title={`Retirar "${fav.rotulo}" dos favoritos`}
+                                  className="px-1 py-0.5 text-amber-400 hover:text-rose-300 border-l border-white/10"
+                                >
+                                  <Star className="h-2.5 w-2.5 fill-amber-400" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Conteúdo da pasta */}
@@ -1808,27 +2223,43 @@ export function VisualizadorDedicado({
                         )}
                       </div>
                     ) : !pastaAtual ? (
-                      /* Visão "Acervo": as pastas oficiais do cartório */
+                      /* Visão "Acervo": as pastas oficiais do cartório (VOL1, IMAGENS, DEP e atalhos) */
                       <div className="space-y-1.5">
-                        <p className="px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Pastas do cartório</p>
-                        {RAIZES.map(r => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => abrirPasta(r.id, '')}
-                            className="group w-full flex items-center gap-2.5 rounded-xl border border-white/10 bg-slate-900/60 p-2.5 text-left transition hover:border-amber-500/40 hover:bg-slate-900"
-                          >
-                            <div className="h-8 w-8 shrink-0 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                              <HardDrive className="h-4 w-4" />
+                        <p className="px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Selecionar Pasta (VOL1, IMAGENS ou DEP)</p>
+                        {RAIZES.map(r => {
+                          const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
+                          return (
+                            <div
+                              key={r.id}
+                              onClick={() => abrirPasta(r.id, '')}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={e => e.key === 'Enter' && abrirPasta(r.id, '')}
+                              className="group w-full flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 p-2 text-left transition hover:border-amber-500/40 hover:bg-slate-900 cursor-pointer"
+                            >
+                              <div className="h-8 w-8 shrink-0 rounded-lg bg-amber-500/10 text-amber-400 flex flex-col items-center justify-center">
+                                <HardDrive className="h-3.5 w-3.5" />
+                                <span className="font-mono text-[8px] font-black">{r.sigla}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-slate-100 truncate">{r.rotulo}</p>
+                                <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={e => toggleFavorito(r.id, '', r.rotuloCurto, e)}
+                                title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
+                                className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
+                                  isFav
+                                    ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
+                                    : 'border-white/10 bg-slate-950 text-slate-500 hover:text-amber-300'
+                                }`}
+                              >
+                                <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
+                              </button>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-slate-100">{r.rotulo}</p>
-                              <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
-                              <p className="text-[10px] text-slate-500 truncate">{r.descricao}</p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 shrink-0 text-slate-600 transition group-hover:text-amber-400" />
-                          </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : carregandoPasta && !listagem ? (
                       <div className="flex flex-col items-center justify-center gap-2 py-10 text-[11px] text-slate-400">
@@ -1842,26 +2273,41 @@ export function VisualizadorDedicado({
                             {filtro ? 'Nenhum item com esse nome nesta pasta. Pressione Enter para pesquisar nas subpastas.' : 'Pasta vazia.'}
                           </p>
                         )}
-                        {entradasFiltradas.slice(0, MAX_ITENS_RENDERIZADOS).map(entrada =>
-                          entrada.type === 'dir' ? (
-                            <button
-                              key={`d:${entrada.relativePath}`}
-                              type="button"
-                              onClick={() => abrirPasta(pastaAtual.rootId, entrada.relativePath)}
-                              title={`Abrir pasta ${entrada.name}`}
-                              className="group w-full flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left text-xs text-slate-200 transition hover:bg-slate-900 hover:border-slate-700"
-                            >
-                              <Folder className="h-4 w-4 shrink-0 text-amber-400 fill-amber-400/20" />
-                              <span className="truncate flex-1">{entrada.name}</span>
-                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600 group-hover:text-amber-400" />
-                            </button>
-                          ) : (
-                            renderArquivo(
-                              { name: entrada.name, relativePath: entrada.relativePath, rootId: pastaAtual.rootId, size: entrada.size, modifiedAt: entrada.modifiedAt },
-                              false,
-                            )
-                          ),
-                        )}
+                        {entradasFiltradas.slice(0, MAX_ITENS_RENDERIZADOS).map(entrada => {
+                          if (entrada.type === 'dir') {
+                            const dirFav = verificarPastaFavorita(pastasFavoritas, pastaAtual.rootId, entrada.relativePath);
+                            return (
+                              <div
+                                key={`d:${entrada.relativePath}`}
+                                onClick={() => abrirPasta(pastaAtual.rootId, entrada.relativePath)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={e => e.key === 'Enter' && abrirPasta(pastaAtual.rootId, entrada.relativePath)}
+                                title={`Abrir pasta ${entrada.name}`}
+                                className="group w-full flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left text-xs text-slate-200 transition hover:bg-slate-900 hover:border-slate-700 cursor-pointer"
+                              >
+                                <Folder className="h-4 w-4 shrink-0 text-amber-400 fill-amber-400/20" />
+                                <span className="truncate flex-1">{entrada.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={e => toggleFavorito(pastaAtual.rootId, entrada.relativePath, entrada.name, e)}
+                                  title={dirFav ? `Retirar "${entrada.name}" dos favoritos` : `Favoritar "${entrada.name}"`}
+                                  className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded border transition ${
+                                    dirFav
+                                      ? 'border-amber-500/50 bg-amber-950/60 text-amber-400 opacity-100'
+                                      : 'border-transparent text-slate-500 opacity-60 group-hover:opacity-100 hover:text-amber-300'
+                                  }`}
+                                >
+                                  <Star className={`h-3 w-3 ${dirFav ? 'fill-amber-400' : ''}`} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          return renderArquivo(
+                            { name: entrada.name, relativePath: entrada.relativePath, rootId: pastaAtual.rootId, size: entrada.size, modifiedAt: entrada.modifiedAt },
+                            false,
+                          );
+                        })}
                         {entradasFiltradas.length > MAX_ITENS_RENDERIZADOS && (
                           <p className="px-1 pt-2 text-center text-[10px] text-slate-500">
                             Exibindo {MAX_ITENS_RENDERIZADOS} de {entradasFiltradas.length.toLocaleString('pt-BR')} itens. Use o filtro para localizar.
