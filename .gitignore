@@ -24,3 +24,7 @@ tools/nssm/extracted/
 
 remote-config.cache.json
 update-status.json
+
+# Artefatos temporarios de rollback/auto-update OTA
+dist.rollback/
+tools/apply-connector-update.ps1
