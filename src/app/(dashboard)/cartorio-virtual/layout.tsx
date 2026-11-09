@@ -3,6 +3,7 @@ import { obterContextoAutorizacaoCartorioVirtual } from "@/lib/cartorio-virtual/
 import { diagnosticarAdaptadoresCartorioVirtual } from "@/lib/cartorio-virtual/adapters";
 import { isAmbienteSinteticoPermitido } from "@/lib/cartorio-virtual/synthetic-fixtures";
 import { CartorioVirtualTopBar } from "@/components/cartorio-virtual/CartorioVirtualTopBar";
+import { isNavPermissionsFeatureEnabled, isRouteAllowedForUser } from "@/lib/nav-permissions/service";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,25 @@ export default async function CartorioVirtualLayout({
   const sqlWebri = adaptadores.find((a) => a.id === "WEBRI_SQL_CERTIDOES");
   const alertaConnector =
     sqlWebri && sqlWebri.estado !== "ONLINE" ? sqlWebri.mensagemOperacional : null;
+
+  let rotasPermitidas = [
+    "/cartorio-virtual",
+    "/cartorio-virtual/impressao",
+    "/cartorio-virtual/historico",
+  ];
+
+  if (isNavPermissionsFeatureEnabled()) {
+    const [allowPedidos, allowImpressao, allowHistorico] = await Promise.all([
+      isRouteAllowedForUser("/cartorio-virtual", ctx.user),
+      isRouteAllowedForUser("/cartorio-virtual/impressao", ctx.user),
+      isRouteAllowedForUser("/cartorio-virtual/historico", ctx.user),
+    ]);
+    rotasPermitidas = [
+      ...(allowPedidos ? ["/cartorio-virtual"] : []),
+      ...(allowImpressao ? ["/cartorio-virtual/impressao"] : []),
+      ...(allowHistorico ? ["/cartorio-virtual/historico"] : []),
+    ];
+  }
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-2">
@@ -31,6 +51,7 @@ export default async function CartorioVirtualLayout({
           ambienteSintetico={isAmbienteSinteticoPermitido()}
           migracaoPendente={ctx.migracaoTabelaPendente}
           alertaOperacionalConnector={alertaConnector}
+          rotasPermitidas={rotasPermitidas}
         >
           {children}
         </CartorioVirtualTopBar>
@@ -38,4 +59,3 @@ export default async function CartorioVirtualLayout({
     </div>
   );
 }
-

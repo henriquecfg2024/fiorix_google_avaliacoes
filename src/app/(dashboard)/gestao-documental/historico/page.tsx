@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { HistoricoManifestacoes } from '@/components/documental/HistoricoManifestacoes';
 import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
-import { requireManifestacaoAccess, DocumentAccessError } from '@/lib/documental/access';
+import { requireHistoricoManifestacaoAccess, DocumentAccessError } from '@/lib/documental/access';
 import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function HistoricoManifestacoesPage() {
   try {
-    await requireManifestacaoAccess();
+    await requireHistoricoManifestacaoAccess();
   } catch (error) {
     if (!(error instanceof DocumentAccessError)) throw error;
     return (

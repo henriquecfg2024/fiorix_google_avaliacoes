@@ -294,3 +294,4 @@ export function alternarPastaFavoritaNoStorage(
   salvarPastasFavoritas(novos);
   return { favoritos: novos, adicionada: true };
 }
+

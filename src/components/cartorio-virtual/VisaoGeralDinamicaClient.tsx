@@ -267,6 +267,55 @@ export function VisaoGeralDinamicaClient({
     };
   }, [pedidos, kpiAtivo, filtroDataPedido, filtroOrigem, filtroTipoCertidao, filtrosWebri]);
 
+  const pedidosBaseParaWebri = useMemo(() => {
+    const q = busca.trim().replace(/^#+/, "").toLowerCase();
+    return pedidos.filter((p) => {
+      if (!correspondeAoKpi(p, kpiAtivo)) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
+      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+      if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
+      if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
+      if (
+        filtroConferencia === "NAO_CONFERIDO" &&
+        (Boolean(p.conferidoPeloEscrevente) || Boolean(p.devolvidoPeloEscrevente))
+      ) {
+        return false;
+      }
+      if (q) {
+        const bateNumero =
+          p.numeroPedido.toLowerCase().includes(q) ||
+          (p.protocoloExterno || "").toLowerCase().includes(q);
+        const bateNome =
+          p.requerente.nome.toLowerCase().includes(q) ||
+          (p.requerente.documentoFormatado || "").toLowerCase().includes(q) ||
+          (p.requerente.documentoMascarado || "").toLowerCase().includes(q);
+        const bateEspecie = p.especieSolicitada.toLowerCase().includes(q);
+        const bateMat = p.itens.some((it) =>
+          String(it.numeroMatricula || "").toLowerCase().includes(q)
+        );
+        const batePrenotacao = obterPrenotacoesContraditorioDoPedido(p).some(
+          (pr) =>
+            pr.numeroPrenotacao.toLowerCase().includes(q) ||
+            (pr.protocoloMagnetico || "").toLowerCase().includes(q) ||
+            (pr.tipoPrenotacaoDescricao || "").toLowerCase().includes(q) ||
+            pr.naturezaTitulo.toLowerCase().includes(q)
+        );
+        if (!bateNumero && !bateNome && !bateEspecie && !bateMat && !batePrenotacao)
+          return false;
+      }
+      return true;
+    });
+  }, [
+    pedidos,
+    kpiAtivo,
+    filtroDataPedido,
+    filtroOrigem,
+    filtroTipoCertidao,
+    filtroConferencia,
+    busca,
+  ]);
+
   const pedidosFiltrados = useMemo(() => {
     const q = busca.trim().replace(/^#+/, "").toLowerCase();
     const filtrados = pedidos.filter((p) => {
@@ -572,7 +621,7 @@ export function VisaoGeralDinamicaClient({
         <BarraFiltrosWebriCartorioVirtual
           filtros={filtrosWebri}
           onChange={setFiltrosWebri}
-          pedidosBase={pedidos}
+          pedidosBase={pedidosBaseParaWebri}
           pedidosFiltrados={pedidosFiltrados}
           abertoPorPadrao={true}
         />

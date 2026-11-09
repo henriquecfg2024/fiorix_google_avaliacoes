@@ -51,6 +51,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupLabel: 'GESTÃO DOCUMENTAL',
         description: 'Visualizador universal de documentos e matrículas digitalizadas',
       },
+      {
+        id: 'historico_documental',
+        label: 'Histórico',
+        href: '/gestao-documental/historico',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Histórico de manifestações finalizadas e arquivadas',
+      },
     ],
   },
   {

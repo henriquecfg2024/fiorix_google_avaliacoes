@@ -60,6 +60,9 @@ export async function getRoleRulesFromDb(
     for (const r of rows) {
       map.set(r.item_id, Boolean(r.visible));
     }
+    if (!map.has('historico_documental') && map.has('gestao_documental')) {
+      map.set('historico_documental', map.get('gestao_documental')!);
+    }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
@@ -89,6 +92,9 @@ export async function getDepartmentRulesFromDb(
     for (const r of rows) {
       map.set(r.item_id, r.override as OverrideValue);
     }
+    if (!map.has('historico_documental') && map.has('gestao_documental')) {
+      map.set('historico_documental', map.get('gestao_documental')!);
+    }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
@@ -112,6 +118,9 @@ export async function getUserRulesFromDb(
     );
     for (const r of rows) {
       map.set(r.item_id, r.override as OverrideValue);
+    }
+    if (!map.has('historico_documental') && map.has('gestao_documental')) {
+      map.set('historico_documental', map.get('gestao_documental')!);
     }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
@@ -646,7 +655,6 @@ export async function isRouteAllowedForUser(
   const matchingItem = ALL_NAV_CATALOG_ITEMS.find((item) => {
     if (item.href === pathname) return true;
     if (item.href.includes('?') && item.href.split('?')[0] === pathname) return true;
-    if (pathname === '/gestao-documental/historico' && item.id === 'gestao_documental') return true;
     if (pathname.startsWith('/cartorio-virtual/certidoes/') && item.id === 'cv_certidoes') return true;
     return false;
   });

@@ -126,6 +126,22 @@ function itemEhNegativoWebri(pedido: PedidoCertidaoDetalheDTO): boolean {
   });
 }
 
+export function extrairNaturezasDoPedidoWebri(pedido: PedidoCertidaoDetalheDTO): string[] {
+  const result = new Set<string>();
+  for (const it of pedido.itens) {
+    const raw = (it.naturezaOriginalWebri || it.naturezaDescricao || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (raw) {
+      result.add(raw);
+    }
+  }
+  if (result.size === 0 && pedido.especieSolicitada?.trim()) {
+    result.add(pedido.especieSolicitada.replace(/\s+/g, " ").trim());
+  }
+  return Array.from(result);
+}
+
 export function correspondeFiltrosAvancadosWebri(
   pedido: PedidoCertidaoDetalheDTO,
   filtros: EstadoFiltrosAvancadosWebri
@@ -187,14 +203,9 @@ export function correspondeFiltrosAvancadosWebri(
 
   // 5. Natureza WEBRI
   if (filtros.natureza && filtros.natureza !== "TODOS") {
-    const natFiltro = filtros.natureza.toLowerCase();
-    const bateNat =
-      pedido.especieSolicitada.toLowerCase().includes(natFiltro) ||
-      pedido.itens.some(
-        (it) =>
-          (it.naturezaOriginalWebri || "").toLowerCase().includes(natFiltro) ||
-          (it.naturezaDescricao || "").toLowerCase().includes(natFiltro)
-      );
+    const natFiltro = filtros.natureza.replace(/\s+/g, " ").trim().toLowerCase();
+    const naturezasPedido = extrairNaturezasDoPedidoWebri(pedido).map((n) => n.toLowerCase());
+    const bateNat = naturezasPedido.includes(natFiltro);
     if (!bateNat) return false;
   }
 
@@ -351,24 +362,50 @@ export function BarraFiltrosWebriCartorioVirtual({
     }
   };
 
-  // Extrai naturezas originais do WEBRI e atendentes presentes nos pedidos carregados
+  // Pedidos que atendem a todos os filtros ativos exceto o próprio filtro de Natureza
+  const pedidosBaseParaNatureza = React.useMemo(() => {
+    return pedidosBase.filter((p) =>
+      correspondeFiltrosAvancadosWebri(p, {
+        ...filtros,
+        natureza: "TODOS",
+      })
+    );
+  }, [pedidosBase, filtros]);
+
+  // Extrai dinamicamente apenas as naturezas presentes nos pedidos filtrados atuais
   const naturezasDisponiveis = React.useMemo(() => {
-    const set = new Set<string>([
-      "Incluido por meio Magnetico (M)",
-      "Certidão Digital <=<=",
-      "Certidão Solicitada por Endereço (Meio Magnético)",
-    ]);
-    for (const p of pedidosBase) {
-      for (const it of p.itens) {
-        if (it.naturezaOriginalWebri?.trim()) {
-          set.add(it.naturezaOriginalWebri.trim());
-        } else if (it.naturezaDescricao?.trim()) {
-          set.add(it.naturezaDescricao.trim());
+    const mapa = new Map<string, { label: string; count: number }>();
+    for (const p of pedidosBaseParaNatureza) {
+      const nats = extrairNaturezasDoPedidoWebri(p);
+      for (const nat of nats) {
+        const chave = nat.toLowerCase();
+        const atual = mapa.get(chave);
+        if (atual) {
+          atual.count += 1;
+        } else {
+          mapa.set(chave, { label: nat, count: 1 });
         }
       }
     }
-    return Array.from(set);
-  }, [pedidosBase]);
+    return Array.from(mapa.values()).sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label, "pt-BR")
+    );
+  }, [pedidosBaseParaNatureza]);
+
+  // Se os outros filtros mudarem e a natureza antes selecionada não existir mais na seleção atual, volta para "TODOS"
+  React.useEffect(() => {
+    if (
+      filtros.natureza !== "TODOS" &&
+      !naturezasDisponiveis.some(
+        (item) => item.label.toLowerCase() === filtros.natureza.replace(/\s+/g, " ").trim().toLowerCase()
+      )
+    ) {
+      onChange({
+        ...filtros,
+        natureza: "TODOS",
+      });
+    }
+  }, [filtros, naturezasDisponiveis, onChange]);
 
   const usuariosDisponiveis = React.useMemo(() => {
     const set = new Set<string>(["ADEMAR FIORANELLI"]);
@@ -539,11 +576,11 @@ export function BarraFiltrosWebriCartorioVirtual({
                 className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
               >
                 <option value="TODOS" className="bg-[#080D1A] text-white">
-                  Certidão(s) (Todas)
+                  Certidão(s) (Todas) ({pedidosBaseParaNatureza.length})
                 </option>
                 {naturezasDisponiveis.map((nat) => (
-                  <option key={nat} value={nat} className="bg-[#080D1A] text-white">
-                    {nat}
+                  <option key={nat.label} value={nat.label} className="bg-[#080D1A] text-white">
+                    {nat.label} ({nat.count})
                   </option>
                 ))}
               </select>

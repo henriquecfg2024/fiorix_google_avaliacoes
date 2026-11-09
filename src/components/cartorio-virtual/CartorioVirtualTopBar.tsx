@@ -39,6 +39,7 @@ interface TopBarProps {
   ambienteSintetico: boolean;
   migracaoPendente: boolean;
   alertaOperacionalConnector: string | null;
+  rotasPermitidas?: string[];
   children?: React.ReactNode;
 }
 
@@ -58,6 +59,7 @@ export function CartorioVirtualTopBar({
   papelSistema,
   papelRegistral: _papelRegistral,
   ambienteSintetico,
+  rotasPermitidas,
   children,
 }: TopBarProps) {
   const pathname = usePathname();
@@ -71,6 +73,10 @@ export function CartorioVirtualTopBar({
     setTresLinhasVisiveis((v) => !v);
   };
 
+  const submenusVisiveis = rotasPermitidas
+    ? SUBMENUS.filter((item) => rotasPermitidas.includes(item.href))
+    : SUBMENUS;
+
   return (
     <TopoCartorioVirtualContext.Provider
       value={{ tresLinhasVisiveis, setTresLinhasVisiveis, alternarTresLinhas }}
@@ -83,31 +89,33 @@ export function CartorioVirtualTopBar({
               <span className="text-slate-300 font-semibold">Cartório Virtual</span>
             </div>
 
-            <nav
-              aria-label="Submenus do Cartório Virtual"
-              className="inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-cyan-500/30 bg-[#070C18]/90 p-1.5 shadow-lg shadow-cyan-950/30"
-            >
-              {SUBMENUS.map((item) => {
-                const Icon = item.icon;
-                const ativo = item.exact
-                  ? pathname === item.href
-                  : pathname === item.href || pathname?.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-[13px] font-black tracking-wide whitespace-nowrap border-2 transition-all ${
-                      ativo
-                        ? "bg-gradient-to-r from-cyan-600 to-sky-600 border-cyan-300 text-white shadow-md shadow-cyan-500/25"
-                        : "bg-[#0D1528] border-cyan-500/30 text-cyan-100 hover:border-cyan-400/70 hover:bg-cyan-500/15 hover:text-white"
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${ativo ? "text-white" : "text-cyan-300"}`} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+            {submenusVisiveis.length > 0 && (
+              <nav
+                aria-label="Submenus do Cartório Virtual"
+                className="inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-cyan-500/30 bg-[#070C18]/90 p-1.5 shadow-lg shadow-cyan-950/30"
+              >
+                {submenusVisiveis.map((item) => {
+                  const Icon = item.icon;
+                  const ativo = item.exact
+                    ? pathname === item.href
+                    : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-[13px] font-black tracking-wide whitespace-nowrap border-2 transition-all ${
+                        ativo
+                          ? "bg-gradient-to-r from-cyan-600 to-sky-600 border-cyan-300 text-white shadow-md shadow-cyan-500/25"
+                          : "bg-[#0D1528] border-cyan-500/30 text-cyan-100 hover:border-cyan-400/70 hover:bg-cyan-500/15 hover:text-white"
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${ativo ? "text-white" : "text-cyan-300"}`} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap text-xs lg:absolute lg:right-2">
               <button

@@ -15,16 +15,19 @@ const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] 
 export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
   let podeManifestacoes = true;
   let podeVisualizador = true;
+  let podeHistorico = true;
 
   try {
     const user = await requireAuth();
     if (isNavPermissionsFeatureEnabled()) {
-      const [allowManif, allowVis] = await Promise.all([
+      const [allowManif, allowVis, allowHist] = await Promise.all([
         isRouteAllowedForUser('/gestao-documental', user),
         isRouteAllowedForUser('/gestao-documental/visualizador', user),
+        isRouteAllowedForUser('/gestao-documental/historico', user),
       ]);
       podeManifestacoes = allowManif;
       podeVisualizador = allowVis;
+      podeHistorico = allowHist;
     }
   } catch {
     // Em caso de falha na sessão, exibe apenas a aba ativa
@@ -32,8 +35,9 @@ export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
 
   const abasVisiveis = ABAS.filter((aba) => {
     if (aba.id === ativa) return true;
-    if (aba.id === 'manifestacoes' || aba.id === 'historico') return podeManifestacoes;
+    if (aba.id === 'manifestacoes') return podeManifestacoes;
     if (aba.id === 'visualizador') return podeVisualizador;
+    if (aba.id === 'historico') return podeHistorico;
     return true;
   });
 

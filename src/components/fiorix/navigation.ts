@@ -63,6 +63,7 @@ export const navigationGroups = {
     items: [
       { id: "gestao_documental", label: "Manifestações", href: "/gestao-documental", icon: FileText },
       { id: "visualizador_documental", label: "Visualizador", href: "/gestao-documental/visualizador", icon: Eye },
+      { id: "historico_documental", label: "Histórico", href: "/gestao-documental/historico", icon: History },
     ],
   },
   gestao: {

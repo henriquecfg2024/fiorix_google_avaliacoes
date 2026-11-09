@@ -33,11 +33,11 @@ async function autenticar(): Promise<AuthenticatedUser> {
  * Valida acesso à Gestão Documental delegando integralmente à tela de Permissões de Menu
  * quando ativa (qualquer grupo/perfil, departamento ou colaborador liberado pelo MASTER).
  * Se `requiredRoute` não for informada (ex.: API compartilhada do Connector ou janela auxiliar),
- * aceita permissão em Manifestações (/gestao-documental), Visualizador (/gestao-documental/visualizador)
- * ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
+ * aceita permissão em Manifestações (/gestao-documental), Visualizador (/gestao-documental/visualizador),
+ * Histórico (/gestao-documental/historico) ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
  */
 export async function requireDocumentAccess(
-  requiredRoute?: '/gestao-documental' | '/gestao-documental/visualizador'
+  requiredRoute?: '/gestao-documental' | '/gestao-documental/visualizador' | '/gestao-documental/historico'
 ) {
   const user = await autenticar();
 
@@ -45,16 +45,19 @@ export async function requireDocumentAccess(
     const allowed =
       requiredRoute === '/gestao-documental'
         ? await isRouteAllowedForUser('/gestao-documental', user)
-        : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
-          (await isRouteAllowedForUser('/gestao-documental', user)) ||
-          (await isRouteAllowedForUser('/cartorio-virtual', user));
+        : requiredRoute === '/gestao-documental/historico'
+          ? await isRouteAllowedForUser('/gestao-documental/historico', user)
+          : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+            (await isRouteAllowedForUser('/gestao-documental', user)) ||
+            (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
+            (await isRouteAllowedForUser('/cartorio-virtual', user));
 
     if (!allowed) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');
     }
   } else {
     const perfisPermitidos =
-      requiredRoute === '/gestao-documental'
+      requiredRoute === '/gestao-documental' || requiredRoute === '/gestao-documental/historico'
         ? PERFIS_GESTAO
         : [...PERFIS_GESTAO, 'COLABORADOR'];
     if (!perfisPermitidos.includes(String(user.role)) && !isSetorUsucapiao(user.departamento)) {
@@ -70,9 +73,17 @@ export async function requireDocumentAccess(
 }
 
 /**
- * Fila de conferência e histórico de Manifestações: controlado pela permissão
+ * Fila de conferência de Manifestações: controlado pela permissão
  * de Manifestações (/gestao-documental) na tela de Permissões de Menu.
  */
 export async function requireManifestacaoAccess() {
   return requireDocumentAccess('/gestao-documental');
+}
+
+/**
+ * Histórico de Manifestações: controlado pela permissão individual
+ * de Histórico (/gestao-documental/historico) na tela de Permissões de Menu.
+ */
+export async function requireHistoricoManifestacaoAccess() {
+  return requireDocumentAccess('/gestao-documental/historico');
 }
