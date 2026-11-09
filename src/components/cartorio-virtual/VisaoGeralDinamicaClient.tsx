@@ -37,6 +37,10 @@ import {
   renderizarTextoComLinksMatriculaLv2,
 } from "./LinkMatriculaLv2";
 import { CardSelecaoLotePedidos } from "@/components/cartorio-virtual/CardSelecaoLotePedidos";
+import {
+  SeletorDataPedidoCartorioVirtual,
+  correspondeFiltroDataPedido,
+} from "@/components/cartorio-virtual/SeletorDataPedidoCartorioVirtual";
 
 export type FiltroKpiVisaoGeral =
   | "TODOS"
@@ -168,7 +172,7 @@ export function VisaoGeralDinamicaClient({
   const baseParaTiposCertidao = useMemo(() => {
     return pedidos.filter((p) => {
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
@@ -206,19 +210,10 @@ export function VisaoGeralDinamicaClient({
     }
   }, [filtroTipoCertidao, opcoesTipoCertidaoDinamicas]);
 
-  useEffect(() => {
-    if (
-      filtroDataPedido !== "TODAS" &&
-      !datasPedidoDisponiveis.some((d) => d.dataBr === filtroDataPedido)
-    ) {
-      setFiltroDataPedido("TODAS");
-    }
-  }, [filtroDataPedido, datasPedidoDisponiveis]);
-
   const contagensOrigem = useMemo(() => {
     const base = pedidos.filter((p) => {
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
@@ -242,7 +237,7 @@ export function VisaoGeralDinamicaClient({
     const baseKpi = pedidos.filter(
       (p) =>
         correspondeAoKpi(p, kpiAtivo) &&
-        (filtroDataPedido === "TODAS" || p.dataPedidoBr === filtroDataPedido) &&
+        correspondeFiltroDataPedido(p, filtroDataPedido) &&
         (filtroOrigem === "TODAS" || p.origem === filtroOrigem) &&
         correspondeFiltroTipoCertidao(p, filtroTipoCertidao)
     );
@@ -261,7 +256,7 @@ export function VisaoGeralDinamicaClient({
     const filtrados = pedidos.filter((p) => {
       if (!correspondeAoKpi(p, kpiAtivo)) return false;
 
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) {
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) {
         return false;
       }
 
@@ -416,28 +411,13 @@ export function VisaoGeralDinamicaClient({
       <div className="rounded-[24px] border border-emerald-500/25 bg-gradient-to-br from-[#0B1224] via-[#090E1B] to-[#0B1020] px-3 py-2.5 space-y-2">
         {/* Linha 1: somente os 3 primeiros filtros (Data do Pedido, ONR/Presencial e Tipos de Certidões) */}
         <div className="flex flex-wrap items-center justify-center gap-2">
-          {/* Card / Seletor DATA DO PEDIDO no lado esquerdo */}
-          <div className="h-9 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
-            <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
-            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-cyan-200 whitespace-nowrap">
-              DATA DO PEDIDO:
-            </span>
-            <select
-              aria-label="Filtrar por Data do Pedido"
-              value={filtroDataPedido}
-              onChange={(e) => setFiltroDataPedido(e.target.value)}
-              className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
-            >
-              <option value="TODAS" className="bg-[#080D1A] text-white">
-                Todas ({baseParaDatas.length})
-              </option>
-              {datasPedidoDisponiveis.map((d) => (
-                <option key={d.dataBr} value={d.dataBr} className="bg-[#080D1A] text-white">
-                  {d.dataBr} ({d.qtd})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Card / Seletor DATA DO PEDIDO estruturado por Dia / Mês / Ano + Calendário */}
+          <SeletorDataPedidoCartorioVirtual
+            valor={filtroDataPedido}
+            onChange={setFiltroDataPedido}
+            pedidosBaseParaContagem={baseParaDatas}
+            alturaClasse="h-9"
+          />
 
           {/* Seletor ONR / PRESENCIAL idêntico à Verificação do Escrevente */}
           <select

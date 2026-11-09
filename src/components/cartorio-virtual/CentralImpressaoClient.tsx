@@ -52,6 +52,10 @@ import {
 } from "@/lib/cartorio-virtual/types";
 import { CardSelecaoLotePedidos } from "@/components/cartorio-virtual/CardSelecaoLotePedidos";
 import { DocumentoPedidoInterativo } from "@/components/cartorio-virtual/DocumentoPedidoInterativo";
+import {
+  SeletorDataPedidoCartorioVirtual,
+  correspondeFiltroDataPedido,
+} from "@/components/cartorio-virtual/SeletorDataPedidoCartorioVirtual";
 
 interface FiltrosIniciaisImpressao {
   tipoCertidao?: FiltroTipoCertidaoValor;
@@ -226,7 +230,7 @@ export function CentralImpressaoClient({
   // Base filtrada por Data, Origem e Conferência para harmonizar dinamicamente os TIPOS DE CERTIDÕES
   const baseParaTiposCertidao = useMemo(() => {
     return pedidosState.filter((p) => {
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
@@ -255,7 +259,7 @@ export function CentralImpressaoClient({
     ];
   }, [baseParaTiposCertidao]);
 
-  // Garante que, ao trocar ONR/PRESENCIAL, Data ou Conferência, um Tipo ou Data inexistente no novo conjunto volte para TODOS/TODAS
+  // Garante que, ao trocar ONR/PRESENCIAL, Data ou Conferência, um Tipo inexistente no novo conjunto volte para TODOS
   useEffect(() => {
     if (
       filtroTipoCertidao !== "TODOS" &&
@@ -265,18 +269,9 @@ export function CentralImpressaoClient({
     }
   }, [filtroTipoCertidao, opcoesTipoCertidaoDinamicas]);
 
-  useEffect(() => {
-    if (
-      filtroDataPedido !== "TODAS" &&
-      !datasPedidoDisponiveis.some((d) => d.dataBr === filtroDataPedido)
-    ) {
-      setFiltroDataPedido("TODAS");
-    }
-  }, [filtroDataPedido, datasPedidoDisponiveis]);
-
   const contagensConferencia = useMemo(() => {
     const base = pedidosState.filter((p) => {
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       return true;
@@ -293,7 +288,7 @@ export function CentralImpressaoClient({
 
   const contagensOrigem = useMemo(() => {
     const base = pedidosState.filter((p) => {
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
       if (filtroConferencia === "DEVOLVIDO" && !p.devolvidoPeloEscrevente) return false;
@@ -323,7 +318,7 @@ export function CentralImpressaoClient({
     }
 
     return pedidosState.filter((p) => {
-      if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido) return false;
+      if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
       if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
       if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
       if (filtroConferencia === "CONFERIDO" && !p.conferidoPeloEscrevente) return false;
@@ -659,50 +654,34 @@ export function CentralImpressaoClient({
 
             {/* Filtro de Data + Filtro de Conferência + Origem + Tipo (na 1ª linha) */}
             <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-              {/* Seletor DATA DO PEDIDO na tela de Verificação do Escrevente */}
-              <div className="h-8 px-3 rounded-xl border border-cyan-400/55 bg-[#080D1A] inline-flex items-center gap-1.5 shrink-0">
-                <Calendar className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide text-cyan-200 whitespace-nowrap">
-                  DATA DO PEDIDO:
-                </span>
-                <select
-                  aria-label="Filtrar por Data do Pedido"
-                  value={filtroDataPedido}
-                  onChange={(e) => {
-                    const novaData = e.target.value;
-                    setSelecaoLoteIds([]);
-                    setFiltroDataPedido(novaData);
-                    const primeiroDaNovaFila = pedidosState.find((p) => {
-                      if (novaData !== "TODAS" && p.dataPedidoBr !== novaData) return false;
-                      if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
-                      if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
-                      if (filtroConferencia === "CONFERIDO")
-                        return Boolean(p.conferidoPeloEscrevente);
-                      if (filtroConferencia === "DEVOLVIDO")
-                        return Boolean(p.devolvidoPeloEscrevente);
-                      if (filtroConferencia === "NAO_CONFERIDO") {
-                        return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
-                      }
-                      return true;
-                    });
-                    if (primeiroDaNovaFila) {
-                      setPedidoFocoId(primeiroDaNovaFila.id);
-                      setModoVisor("PEDIDO_EM_FOCO");
-                      setPaginaPdfFoco(1);
+              {/* Seletor DATA DO PEDIDO estruturado por Dia / Mês / Ano + Calendário */}
+              <SeletorDataPedidoCartorioVirtual
+                valor={filtroDataPedido}
+                onChange={(novaData) => {
+                  setSelecaoLoteIds([]);
+                  setFiltroDataPedido(novaData);
+                  const primeiroDaNovaFila = pedidosState.find((p) => {
+                    if (!correspondeFiltroDataPedido(p, novaData)) return false;
+                    if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
+                    if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
+                    if (filtroConferencia === "CONFERIDO")
+                      return Boolean(p.conferidoPeloEscrevente);
+                    if (filtroConferencia === "DEVOLVIDO")
+                      return Boolean(p.devolvidoPeloEscrevente);
+                    if (filtroConferencia === "NAO_CONFERIDO") {
+                      return !p.conferidoPeloEscrevente && !p.devolvidoPeloEscrevente;
                     }
-                  }}
-                  className="bg-transparent text-xs sm:text-sm font-extrabold text-white focus:outline-none cursor-pointer"
-                >
-                  <option value="TODAS" className="bg-[#080D1A] text-white">
-                    Todas ({baseParaDatas.length})
-                  </option>
-                  {datasPedidoDisponiveis.map((d) => (
-                    <option key={d.dataBr} value={d.dataBr} className="bg-[#080D1A] text-white">
-                      {d.dataBr} ({d.qtd})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                    return true;
+                  });
+                  if (primeiroDaNovaFila) {
+                    setPedidoFocoId(primeiroDaNovaFila.id);
+                    setModoVisor("PEDIDO_EM_FOCO");
+                    setPaginaPdfFoco(1);
+                  }
+                }}
+                pedidosBaseParaContagem={baseParaDatas}
+                alturaClasse="h-8"
+              />
 
               <select
                 aria-label="Filtrar por Conferência do Escrevente"
@@ -712,8 +691,7 @@ export function CentralImpressaoClient({
                   setSelecaoLoteIds([]);
                   setFiltroConferencia(novoFiltro);
                   const primeiroDaNovaFila = pedidosState.find((p) => {
-                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
-                      return false;
+                    if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
                     if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
                     if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
                     if (novoFiltro === "CONFERIDO") return Boolean(p.conferidoPeloEscrevente);
@@ -751,8 +729,7 @@ export function CentralImpressaoClient({
                   setSelecaoLoteIds([]);
                   setFiltroOrigem(novaOrigem);
                   const primeiroDaNovaFila = pedidosState.find((p) => {
-                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
-                      return false;
+                    if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
                     if (novaOrigem !== "TODAS" && p.origem !== novaOrigem) return false;
                     if (!correspondeFiltroTipoCertidao(p, filtroTipoCertidao)) return false;
                     if (filtroConferencia === "CONFERIDO")
@@ -790,8 +767,7 @@ export function CentralImpressaoClient({
                   setSelecaoLoteIds([]);
                   setFiltroTipoCertidao(novoTipo);
                   const primeiroDaNovaFila = pedidosState.find((p) => {
-                    if (filtroDataPedido !== "TODAS" && p.dataPedidoBr !== filtroDataPedido)
-                      return false;
+                    if (!correspondeFiltroDataPedido(p, filtroDataPedido)) return false;
                     if (filtroOrigem !== "TODAS" && p.origem !== filtroOrigem) return false;
                     if (!correspondeFiltroTipoCertidao(p, novoTipo)) return false;
                     if (filtroConferencia === "CONFERIDO")
