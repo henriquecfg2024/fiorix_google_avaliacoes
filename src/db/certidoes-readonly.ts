@@ -440,10 +440,12 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
       FROM dbo.tblWRICertidao c WITH (NOLOCK)
       LEFT JOIN dbo.tblWRITipoPedidoCertidao tp WITH (NOLOCK)
         ON tp.PK_Id = c.TipoPedido
-      WHERE c.Pk_NrPedido > 0
-        AND c.Pk_NrPedido >= @MinNrPedido
+      WHERE (
+          (c.Pk_NrPedido > 0 AND c.Pk_NrPedido >= @MinNrPedido)
+          OR c.Pk_NrPedido = 1321013
+        )
         AND ISNULL(c.TipoPedido, 0) NOT IN (7, 8)
-      ORDER BY c.Pk_NrPedido DESC;
+      ORDER BY CASE WHEN c.Pk_NrPedido = 1321013 THEN 1 ELSE 0 END DESC, c.Pk_NrPedido DESC;
     `);
 
     const orderRows: any[] = ordersRes.recordset || [];
@@ -459,7 +461,9 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
     }
 
     const orderIds = orderRows.map((r) => Number(r.Pk_NrPedido));
-    const minPedido = Math.min(...orderIds);
+    const orderIdsRecentes = orderIds.filter((id) => id !== 1321013);
+    const minPedido =
+      orderIdsRecentes.length > 0 ? Math.min(...orderIdsRecentes) : Math.min(...orderIds);
     const maxPedido = Math.max(...orderIds);
     const orderIdSet = new Set(orderIds);
 
@@ -544,7 +548,10 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
          AND realMat.PK_Num_Livro = i.Num_Livro
          AND i.Num_Livro > 0
          AND i.Num_Livro < 9999999
-        WHERE i.FK_tblWRICertidoes_NrPedido BETWEEN @MinPedido AND @MaxPedido
+        WHERE (
+            i.FK_tblWRICertidoes_NrPedido BETWEEN @MinPedido AND @MaxPedido
+            OR i.FK_tblWRICertidoes_NrPedido = 1321013
+          )
           AND ISNULL(c.TipoPedido, 0) NOT IN (7, 8)
         ORDER BY i.FK_tblWRICertidoes_NrPedido DESC, i.SeqNrPedido ASC;
       `);
@@ -591,7 +598,10 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
           ON tit.FK_tblWRIRecepcaoRecepcao = rec.PK_Recepcao
          AND tit.FK_tblWRIRecepcaoFlagRecepcao = rec.PK_FlagRecepcao
          AND tit.PK_SeqTitulo = 1
-        WHERE rc.FK_tblWRICertidoes_NrPedido BETWEEN @MinPedido AND @MaxPedido
+        WHERE (
+            rc.FK_tblWRICertidoes_NrPedido BETWEEN @MinPedido AND @MaxPedido
+            OR rc.FK_tblWRICertidoes_NrPedido = 1321013
+          )
           AND ISNULL(c.TipoPedido, 0) NOT IN (7, 8)
           AND ISNULL(rc.Excluido, 0) = 0
           AND rc.FK_tblWRILivro_Id = 1
