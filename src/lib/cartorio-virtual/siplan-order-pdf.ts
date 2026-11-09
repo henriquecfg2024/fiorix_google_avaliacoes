@@ -170,6 +170,118 @@ export function quebrarTextoEmLinhas(
 }
 
 /**
+ * Desenha um rótulo em negrito (ex: "Observações: ") seguido de texto regular com quebra automática
+ * de linhas respeitando a largura máxima da página (1ª linha após o rótulo; demais linhas alinhadas à margem esquerda).
+ */
+function desenharRotuloETextoComQuebra(params: {
+  page: PDFPage;
+  rotulo: string;
+  texto: string;
+  x: number;
+  yInicial: number;
+  larguraMaxPt: number;
+  fontBold: PDFFont;
+  fontRegular: PDFFont;
+  tamanhoFonte: number;
+  alturaLinhaPt: number;
+}): number {
+  const {
+    page,
+    rotulo,
+    texto,
+    x,
+    yInicial,
+    larguraMaxPt,
+    fontBold,
+    fontRegular,
+    tamanhoFonte,
+    alturaLinhaPt,
+  } = params;
+
+  const rotuloWin = sanitizarTextoWinAnsi(rotulo);
+  const wRotulo = fontBold.widthOfTextAtSize(rotuloWin, tamanhoFonte);
+  let y = yInicial;
+
+  page.drawText(rotuloWin, {
+    x,
+    y,
+    size: tamanhoFonte,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+
+  const paragrafos = String(texto || "—")
+    .replace(/\r\n/g, "\n")
+    .split("\n");
+
+  let primeiraLinhaGlobal = true;
+
+  for (const paragrafoBruto of paragrafos) {
+    const paragrafo = sanitizarTextoWinAnsi(paragrafoBruto).trim();
+    const palavras = (paragrafo || "—").split(/\s+/);
+    let linhaAtual = "";
+    let larguraDisponivel = primeiraLinhaGlobal
+      ? Math.max(80, larguraMaxPt - wRotulo)
+      : larguraMaxPt;
+
+    for (const palavra of palavras) {
+      const candidata = linhaAtual ? `${linhaAtual} ${palavra}` : palavra;
+      if (fontRegular.widthOfTextAtSize(candidata, tamanhoFonte) <= larguraDisponivel) {
+        linhaAtual = candidata;
+      } else if (!linhaAtual) {
+        let pedaco = "";
+        for (const ch of palavra) {
+          if (fontRegular.widthOfTextAtSize(pedaco + ch, tamanhoFonte) <= larguraDisponivel) {
+            pedaco += ch;
+          } else {
+            if (pedaco) {
+              page.drawText(pedaco, {
+                x: primeiraLinhaGlobal ? x + wRotulo : x,
+                y,
+                size: tamanhoFonte,
+                font: fontRegular,
+                color: rgb(0, 0, 0),
+              });
+              y -= alturaLinhaPt;
+              primeiraLinhaGlobal = false;
+              larguraDisponivel = larguraMaxPt;
+            }
+            pedaco = ch;
+          }
+        }
+        linhaAtual = pedaco;
+      } else {
+        page.drawText(linhaAtual, {
+          x: primeiraLinhaGlobal ? x + wRotulo : x,
+          y,
+          size: tamanhoFonte,
+          font: fontRegular,
+          color: rgb(0, 0, 0),
+        });
+        y -= alturaLinhaPt;
+        primeiraLinhaGlobal = false;
+        larguraDisponivel = larguraMaxPt;
+        linhaAtual = palavra;
+      }
+    }
+
+    if (linhaAtual) {
+      page.drawText(linhaAtual, {
+        x: primeiraLinhaGlobal ? x + wRotulo : x,
+        y,
+        size: tamanhoFonte,
+        font: fontRegular,
+        color: rgb(0, 0, 0),
+      });
+      y -= alturaLinhaPt;
+      primeiraLinhaGlobal = false;
+    }
+  }
+
+  return y;
+}
+
+/**
  * Renderiza código de barras Code 39 vetorial (*VALOR*) diretamente na página PDF.
  */
 export function desenharCodigoBarrasCode39(params: {
@@ -642,33 +754,33 @@ async function adicionarPaginasPedidoAoDoc(params: {
     marcaReimpressao,
   });
 
-  // 6. REQUERENTE & CONTATO
-  const reqLinhaStr = `REQUERENTE: ${pedido.requerente.nome} - CPF : ${reqDocWebri} - WhatsApp : ${foneWebri}`;
-  const linhasReq = quebrarTextoEmLinhas(reqLinhaStr, fontRegular, 9, larguraUtil);
-  for (const ln of linhasReq) {
-    pageAtual.drawText(ln, {
-      x: margemX,
-      y,
-      size: 9,
-      font: ln.startsWith("REQUERENTE:") ? fontBold : fontRegular,
-      color: rgb(0, 0, 0),
-    });
-    y -= 12;
-  }
+  // 6. REQUERENTE & CONTATO (com quebra de linhas automática dentro da margem)
+  y = desenharRotuloETextoComQuebra({
+    page: pageAtual,
+    rotulo: "REQUERENTE: ",
+    texto: `${pedido.requerente.nome} - CPF : ${reqDocWebri} - WhatsApp : ${foneWebri}`,
+    x: margemX,
+    yInicial: y,
+    larguraMaxPt: larguraUtil,
+    fontBold,
+    fontRegular,
+    tamanhoFonte: 9,
+    alturaLinhaPt: 12,
+  });
 
   y -= 4;
-  const contatoLinhaStr = `CONTATO: ${pedido.requerente.nome} - WhatsApp : ${foneWebri} - e-mail: ${emailWebri}`;
-  const linhasCont = quebrarTextoEmLinhas(contatoLinhaStr, fontRegular, 9, larguraUtil);
-  for (const ln of linhasCont) {
-    pageAtual.drawText(ln, {
-      x: margemX,
-      y,
-      size: 9,
-      font: ln.startsWith("CONTATO:") ? fontBold : fontRegular,
-      color: rgb(0, 0, 0),
-    });
-    y -= 12;
-  }
+  y = desenharRotuloETextoComQuebra({
+    page: pageAtual,
+    rotulo: "CONTATO: ",
+    texto: `${pedido.requerente.nome} - WhatsApp : ${foneWebri} - e-mail: ${emailWebri}`,
+    x: margemX,
+    yInicial: y,
+    larguraMaxPt: larguraUtil,
+    fontBold,
+    fontRegular,
+    tamanhoFonte: 9,
+    alturaLinhaPt: 12,
+  });
 
   y -= 10;
 
@@ -769,24 +881,19 @@ async function adicionarPaginasPedidoAoDoc(params: {
 
   y -= 2;
 
-  // Observação do WEBRI / ONR + Alerta FIORIX (somente na Frente, abaixo de DADOS DO PEDIDO)
-  const labelObs = sanitizarTextoWinAnsi("Observações: ");
-  const wLabelObs = fontBold.widthOfTextAtSize(labelObs, 8.8);
-  pageAtual.drawText(labelObs, {
+  // Observação do WEBRI / ONR + Alerta FIORIX (somente na Frente, abaixo de DADOS DO PEDIDO, com quebra de linhas)
+  y = desenharRotuloETextoComQuebra({
+    page: pageAtual,
+    rotulo: "Observações: ",
+    texto: obsOriginalWebri,
     x: margemX,
-    y,
-    size: 8.8,
-    font: fontBold,
-    color: rgb(0, 0, 0),
+    yInicial: y,
+    larguraMaxPt: larguraUtil,
+    fontBold,
+    fontRegular,
+    tamanhoFonte: 8.8,
+    alturaLinhaPt: 11.5,
   });
-  pageAtual.drawText(obsOriginalWebri, {
-    x: margemX + wLabelObs,
-    y,
-    size: 8.8,
-    font: fontRegular,
-    color: rgb(0, 0, 0),
-  });
-  y -= 13;
 
   if (prenotacoesContraditorio.length > 0) {
     const numsPren = prenotacoesContraditorio
@@ -795,27 +902,38 @@ async function adicionarPaginasPedidoAoDoc(params: {
     const txtAlertaFiorix = sanitizarTextoWinAnsi(
       `Alerta FIORIX (Prenotações relacionadas a esta matrícula): ${numsPren}`
     );
-    const wAlerta = Math.min(
-      larguraUtil,
-      fontBold.widthOfTextAtSize(txtAlertaFiorix, 8.5) + 12
+    const linhasAlerta = quebrarTextoEmLinhas(
+      txtAlertaFiorix,
+      fontBold,
+      8.5,
+      larguraUtil - 12
     );
+    const maxWLinhaAlerta = Math.max(
+      ...linhasAlerta.map((ln) => fontBold.widthOfTextAtSize(ln, 8.5))
+    );
+    const wAlerta = Math.min(larguraUtil, maxWLinhaAlerta + 12);
+    const altCaixaAlerta = linhasAlerta.length * 11 + 4;
+
     pageAtual.drawRectangle({
       x: margemX,
-      y: y - 3,
+      y: y - (linhasAlerta.length - 1) * 11 - 3,
       width: wAlerta,
-      height: 13,
+      height: altCaixaAlerta,
       color: rgb(1, 0.98, 0.92),
       borderColor: rgb(0.7, 0.4, 0.08),
       borderWidth: 0.6,
     });
-    pageAtual.drawText(txtAlertaFiorix, {
-      x: margemX + 5,
-      y,
-      size: 8.5,
-      font: fontBold,
-      color: rgb(0.32, 0.12, 0.02),
-    });
-    y -= 16;
+    for (const lnAlerta of linhasAlerta) {
+      pageAtual.drawText(lnAlerta, {
+        x: margemX + 5,
+        y,
+        size: 8.5,
+        font: fontBold,
+        color: rgb(0.32, 0.12, 0.02),
+      });
+      y -= 11;
+    }
+    y -= 5;
   }
 
   // 9. GRADE OFICIAL DE BUSCA E QUALIFICAÇÃO DO WEBRI (ancorada na metade inferior da Frente)
@@ -1133,20 +1251,20 @@ async function adicionarPaginasPedidoAoDoc(params: {
   }
 
   yV -= 2;
-  // Observações no Verso (somente a observação do banco do WEBRI, sem alerta FIORIX)
-  pageVerso.drawText(labelObs, {
+  // Observações no Verso (somente a observação do banco do WEBRI, sem alerta FIORIX, com quebra de linhas)
+  yV = desenharRotuloETextoComQuebra({
+    page: pageVerso,
+    rotulo: "Observações: ",
+    texto: obsOriginalWebri,
     x: margemX,
-    y: yV,
-    size: 8.4,
-    font: fontBold,
+    yInicial: yV,
+    larguraMaxPt: larguraUtil,
+    fontBold,
+    fontRegular,
+    tamanhoFonte: 8.4,
+    alturaLinhaPt: 11,
   });
-  pageVerso.drawText(obsOriginalWebri, {
-    x: margemX + wLabelObs,
-    y: yV,
-    size: 8.4,
-    font: fontRegular,
-  });
-  yV -= 18;
+  yV -= 6;
 
   pageVerso.drawText(
     sanitizarTextoWinAnsi("A serventia poderá negar o atendimento do pedido quando:"),

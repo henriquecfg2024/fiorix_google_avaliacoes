@@ -1167,7 +1167,7 @@ export function DocumentoPedidoInterativo({
 
                     {/* Observação original do banco WEBRI / ONR + Alerta elegante do FIORIX */}
                     <div className="pt-0.5 space-y-1 text-[0.92em]">
-                      <div>
+                      <div className="break-words whitespace-pre-wrap leading-snug">
                         <span className="font-bold">Observações: </span>
                         <span>{obsOriginalWebri || "—"}</span>
                       </div>
@@ -1368,7 +1368,7 @@ export function DocumentoPedidoInterativo({
                     </div>
 
                     {/* Observações do WEBRI no Verso (sem alerta FIORIX no verso) */}
-                    <div className="pt-0.5">
+                    <div className="pt-0.5 break-words whitespace-pre-wrap leading-snug">
                       <span className="font-bold">Observações: </span>
                       <span>{obsOriginalWebri || "—"}</span>
                     </div>
