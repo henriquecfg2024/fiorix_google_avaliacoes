@@ -292,18 +292,25 @@ export function BarraFiltrosWebriCartorioVirtual({
   filtros,
   onChange,
   pedidosBase,
+  pedidosFiltrados,
   compacto = false,
   abertoPorPadrao = true,
 }: {
   filtros: EstadoFiltrosAvancadosWebri;
   onChange: (novosFiltros: EstadoFiltrosAvancadosWebri) => void;
   pedidosBase: PedidoCertidaoDetalheDTO[];
+  pedidosFiltrados?: PedidoCertidaoDetalheDTO[];
   compacto?: boolean;
   abertoPorPadrao?: boolean;
 }) {
   const [expandido, setExpandido] = useState<boolean>(abertoPorPadrao);
-  const [imprimindoSem4Horas, setImprimindoSem4Horas] = useState<boolean>(false);
+  const [imprimindoLoteFiltrado, setImprimindoLoteFiltrado] = useState<boolean>(false);
   const { tresLinhasVisiveis, alternarTresLinhas } = useCartorioVirtualTopoVisivel();
+
+  const listaFiltradaAtiva = React.useMemo(() => {
+    if (pedidosFiltrados) return pedidosFiltrados;
+    return pedidosBase.filter((p) => correspondeFiltrosAvancadosWebri(p, filtros));
+  }, [pedidosFiltrados, pedidosBase, filtros]);
 
   const pedidosSem4HorasLv2 = React.useMemo(() => {
     return pedidosBase.filter(
@@ -316,23 +323,15 @@ export function BarraFiltrosWebriCartorioVirtual({
     );
   }, [pedidosBase, filtros]);
 
-  const handleImprimirTodosMenos4HorasLv2 = async () => {
-    onChange({
-      ...filtros,
-      modelo: "TODOS_MENOS_04_HORAS_LV2",
-      opcaoImpressao: "TODOS_MENOS_04_HORAS_LV2",
-    });
-
-    if (pedidosSem4HorasLv2.length === 0) {
-      toast.error(
-        "Nenhum pedido encontrado fora de 04 HORAS LV2 para os filtros atuais."
-      );
+  const handleImprimirFiltrados = async () => {
+    if (listaFiltradaAtiva.length === 0) {
+      toast.error("Nenhum pedido encontrado na listagem filtrada atual para imprimir.");
       return;
     }
 
-    setImprimindoSem4Horas(true);
+    setImprimindoLoteFiltrado(true);
     try {
-      const ids = pedidosSem4HorasLv2.slice(0, 150).map((p) => p.id);
+      const ids = listaFiltradaAtiva.map((p) => p.id);
       const res = await gerarLoteImpressaoAction({
         modoSelecao: "SELECIONADOS",
         pedidosIds: ids,
@@ -342,15 +341,13 @@ export function BarraFiltrosWebriCartorioVirtual({
       });
       const urlPdf = `/api/cartorio-virtual/impressao/${res.lote.id}/pdf`;
       toast.success(
-        `Lote ${res.lote.codigoLote} gerado com ${res.lote.totalPedidos} Pedido(s) (TODOS menos 04 HORAS LV2).`
+        `Lote ${res.lote.codigoLote} gerado com ${res.lote.totalPedidos} Pedido(s) da listagem filtrada.`
       );
       window.open(urlPdf, "_blank", "noopener,noreferrer");
     } catch (err: any) {
-      toast.error(
-        err?.message || "Falha ao gerar lote de impressão (TODOS menos 04 HORAS LV2)."
-      );
+      toast.error(err?.message || "Falha ao gerar lote de impressão dos pedidos filtrados.");
     } finally {
-      setImprimindoSem4Horas(false);
+      setImprimindoLoteFiltrado(false);
     }
   };
 
@@ -421,17 +418,17 @@ export function BarraFiltrosWebriCartorioVirtual({
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            disabled={imprimindoSem4Horas}
-            onClick={handleImprimirTodosMenos4HorasLv2}
-            className="h-7 px-2.5 rounded-lg border border-emerald-400/50 bg-emerald-600/25 hover:bg-emerald-600/35 text-[11px] font-extrabold text-emerald-200 inline-flex items-center gap-1 cursor-pointer transition"
-            title="Filtrar e imprimir em lote TODOS os pedidos exceto os de 04 HORAS LV2"
+            disabled={imprimindoLoteFiltrado || listaFiltradaAtiva.length === 0}
+            onClick={handleImprimirFiltrados}
+            className="h-7 px-3 rounded-lg border border-emerald-400/50 bg-emerald-600/25 hover:bg-emerald-600/35 disabled:opacity-45 text-[11px] font-extrabold text-emerald-200 inline-flex items-center gap-1.5 cursor-pointer transition"
+            title="Imprimir todos os pedidos filtrados que aparecem na listagem abaixo"
           >
-            {imprimindoSem4Horas ? (
-              <Loader2 className="w-3 h-3 animate-spin text-emerald-300" />
+            {imprimindoLoteFiltrado ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300" />
             ) : (
-              <Printer className="w-3 h-3 text-emerald-300" />
+              <Printer className="w-3.5 h-3.5 text-emerald-300" />
             )}
-            <span>Imprimir TODOS menos 04 HORAS LV2 ({pedidosSem4HorasLv2.length})</span>
+            <span>IMPRIMIR ({listaFiltradaAtiva.length})</span>
           </button>
           <button
             type="button"

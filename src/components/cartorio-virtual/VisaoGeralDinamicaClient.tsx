@@ -573,6 +573,7 @@ export function VisaoGeralDinamicaClient({
           filtros={filtrosWebri}
           onChange={setFiltrosWebri}
           pedidosBase={pedidos}
+          pedidosFiltrados={pedidosFiltrados}
           abertoPorPadrao={true}
         />
       </div>

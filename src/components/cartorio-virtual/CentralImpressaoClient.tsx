@@ -1002,6 +1002,7 @@ export function CentralImpressaoClient({
               }
             }}
             pedidosBase={pedidosState}
+            pedidosFiltrados={pedidosFilaAtiva}
             compacto={true}
             abertoPorPadrao={true}
           />
