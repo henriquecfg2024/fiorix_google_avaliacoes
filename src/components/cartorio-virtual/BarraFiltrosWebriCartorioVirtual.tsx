@@ -391,10 +391,10 @@ export function BarraFiltrosWebriCartorioVirtual({
 
       {expandido && (
         <div className="space-y-2 pt-1 border-t border-white/10">
-          {/* LINHA 1 DO WEBRI: Data Inicial | Data Final | N. Pedido | Data Certidão | Assina Certidão | Verifica Certidão */}
+          {/* LINHA 1 DO WEBRI: Data Inicial | Data Final | N. Pedido | Data Certidão */}
           <div
-            className={`grid grid-cols-2 sm:grid-cols-3 ${
-              compacto ? "xl:grid-cols-6 gap-1.5" : "xl:grid-cols-6 gap-2"
+            className={`grid grid-cols-2 sm:grid-cols-4 ${
+              compacto ? "gap-1.5" : "gap-2"
             }`}
           >
             <label className="flex flex-col gap-0.5">
@@ -440,86 +440,14 @@ export function BarraFiltrosWebriCartorioVirtual({
                 className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none"
               />
             </label>
-
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-rose-300">Assina Certidão</span>
-              <select
-                value={filtros.assinaCertidao}
-                onChange={(e) => atualizarCampo("assinaCertidao", e.target.value)}
-                className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
-              >
-                {usuariosDisponiveis.map((u) => (
-                  <option key={u} value={u} className="bg-[#080D1A] text-white">
-                    {u}
-                  </option>
-                ))}
-                <option value="TODOS" className="bg-[#080D1A] text-white">
-                  Todos
-                </option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-slate-200">Verifica Certidão</span>
-              <select
-                value={filtros.verificaCertidao}
-                onChange={(e) => atualizarCampo("verificaCertidao", e.target.value)}
-                className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
-              >
-                {usuariosDisponiveis.map((u) => (
-                  <option key={u} value={u} className="bg-[#080D1A] text-white">
-                    {u}
-                  </option>
-                ))}
-                <option value="TODOS" className="bg-[#080D1A] text-white">
-                  Todos
-                </option>
-              </select>
-            </label>
           </div>
 
-          {/* LINHA 2 DO WEBRI: Confere Certidão | Digita Certidão | Natureza | Divisor */}
+          {/* LINHA 2 DO WEBRI: Natureza | Divisor | Modelo | Opção de impressão */}
           <div
-            className={`grid grid-cols-1 sm:grid-cols-2 ${
-              compacto ? "xl:grid-cols-4 gap-1.5" : "xl:grid-cols-4 gap-2"
+            className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 ${
+              compacto ? "gap-1.5" : "gap-2"
             }`}
           >
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-slate-200">Confere Certidão</span>
-              <select
-                value={filtros.confereCertidao}
-                onChange={(e) => atualizarCampo("confereCertidao", e.target.value)}
-                className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
-              >
-                {usuariosDisponiveis.map((u) => (
-                  <option key={u} value={u} className="bg-[#080D1A] text-white">
-                    {u}
-                  </option>
-                ))}
-                <option value="TODOS" className="bg-[#080D1A] text-white">
-                  Todos
-                </option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-slate-200">Digita Certidão</span>
-              <select
-                value={filtros.digitaCertidao}
-                onChange={(e) => atualizarCampo("digitaCertidao", e.target.value)}
-                className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white focus:border-cyan-400 focus:outline-none cursor-pointer"
-              >
-                {usuariosDisponiveis.map((u) => (
-                  <option key={u} value={u} className="bg-[#080D1A] text-white">
-                    {u}
-                  </option>
-                ))}
-                <option value="TODOS" className="bg-[#080D1A] text-white">
-                  Todos
-                </option>
-              </select>
-            </label>
-
             <label className="flex flex-col gap-0.5">
               <span className="text-[11px] font-bold text-slate-200">Natureza</span>
               <select
@@ -553,14 +481,7 @@ export function BarraFiltrosWebriCartorioVirtual({
                 </option>
               </select>
             </label>
-          </div>
 
-          {/* LINHA 3 DO WEBRI: Modelo | Opção de impressão | Guias de recolhimento */}
-          <div
-            className={`grid grid-cols-1 sm:grid-cols-3 ${
-              compacto ? "gap-1.5" : "gap-2"
-            }`}
-          >
             <label className="flex flex-col gap-0.5">
               <span className="text-[11px] font-bold text-slate-200">Modelo</span>
               <select
@@ -608,19 +529,6 @@ export function BarraFiltrosWebriCartorioVirtual({
                   Somente Verso (Pág. 2)
                 </option>
               </select>
-            </label>
-
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-slate-200">
-                Guias de recolhimento
-              </span>
-              <input
-                type="text"
-                value={filtros.guiasRecolhimento}
-                onChange={(e) => atualizarCampo("guiasRecolhimento", e.target.value)}
-                placeholder="Filtrar por Guia, RPS ou Depósito..."
-                className="h-8 px-2 rounded-lg bg-[#0B1224] border border-white/20 text-xs font-semibold text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-              />
             </label>
           </div>
 
