@@ -619,8 +619,8 @@ export async function listarPedidosCartorioVirtual(
         itens: { orderBy: { sequenciaItem: "asc" } },
         conferencias: { orderBy: { createdAt: "desc" }, take: 1 },
       },
-      orderBy: { dataPedido: "desc" },
-      take: 1000,
+      orderBy: [{ dataPedido: "desc" }, { numeroPedido: "desc" }],
+      take: 3000,
     });
 
     if (rows.length === 0 && isAmbienteSinteticoPermitido()) {

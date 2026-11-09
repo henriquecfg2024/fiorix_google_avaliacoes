@@ -1667,11 +1667,12 @@ export async function processHeartbeatHaAndBuildDirective(params: {
   }
 
   const manifest = getLatestReleaseManifest();
+  const autoUpgradeEligible =
+    Boolean(manifest && reportedVersion && reportedVersion.startsWith('v2.') && reportedVersion < manifest.version);
   const pendingUpdate =
-    finalNode?.targetVersion &&
     manifest &&
-    finalNode.targetVersion === manifest.version &&
-    reportedVersion !== manifest.version
+    reportedVersion !== manifest.version &&
+    (finalNode?.targetVersion === manifest.version || autoUpgradeEligible)
       ? {
           version: manifest.version,
           sha256: manifest.bundle.sha256,
