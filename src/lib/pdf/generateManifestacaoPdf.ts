@@ -31,7 +31,7 @@ function pdfTexto(s: string): string {
     .replace(/[^\t\n\r\x20-\x7E\u00A0-\u00FF]/g, '');
 }
 
-interface Peca { t: string; destaque: boolean; espacoAntes: boolean }
+interface Peca { t: string; negrito: boolean; sublinhado: boolean; espacoAntes: boolean }
 
 class EscritorPdf {
   y = MARGEM.topo;
@@ -98,9 +98,11 @@ class EscritorPdf {
     const pecas: Peca[] = [];
     let espacoPendente = false;
     for (const seg of segmentos) {
+      const segNegrito = Boolean(seg.negrito ?? seg.destaque) || Boolean(opcoes.negritoTudo);
+      const segSublinhado = Boolean(seg.sublinhado ?? seg.destaque) && !opcoes.negritoTudo;
       for (const token of pdfTexto(seg.t).match(/\s+|[^\s]+/g) || []) {
         if (/^\s+$/.test(token)) { espacoPendente = true; continue; }
-        pecas.push({ t: token, destaque: !!seg.destaque || !!opcoes.negritoTudo, espacoAntes: espacoPendente && pecas.length > 0 });
+        pecas.push({ t: token, negrito: segNegrito, sublinhado: segSublinhado, espacoAntes: espacoPendente && pecas.length > 0 });
         espacoPendente = false;
       }
     }
@@ -110,7 +112,7 @@ class EscritorPdf {
       if (!p.espacoAntes && palavras.length) palavras[palavras.length - 1].push(p);
       else palavras.push([p]);
     }
-    const larguraPeca = (p: Peca) => { this.fonte(p.destaque, tamanho); return this.doc.getTextWidth(p.t); };
+    const larguraPeca = (p: Peca) => { this.fonte(p.negrito, tamanho); return this.doc.getTextWidth(p.t); };
     const larguraPalavra = (w: Peca[]) => w.reduce((s, p) => s + larguraPeca(p), 0);
     this.fonte(false, tamanho);
     const espaco = this.doc.getTextWidth(' ');
@@ -145,10 +147,10 @@ class EscritorPdf {
       const base = this.y + alturaLinha * 0.75;
       linha.forEach((palavra, j) => {
         for (const p of palavra) {
-          this.fonte(p.destaque, tamanho);
+          this.fonte(p.negrito, tamanho);
           this.doc.text(p.t, x, base);
           const w = this.doc.getTextWidth(p.t);
-          if (p.destaque && !opcoes.negritoTudo && /[\p{L}\p{N}]/u.test(p.t)) {
+          if (p.sublinhado && /[\p{L}\p{N}]/u.test(p.t)) {
             this.doc.setLineWidth(0.2);
             this.doc.line(x, base + 0.6, x + w, base + 0.6);
           }

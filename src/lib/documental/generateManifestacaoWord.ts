@@ -210,13 +210,15 @@ function xmlParagrafoSegmentos(
   }
 
   const runs = segmentos
-    .map(seg =>
-      xmlRun(seg.t, {
-        bold: Boolean(opcoes.boldAll || seg.destaque),
-        underline: Boolean(seg.destaque && !opcoes.boldAll),
+    .map(seg => {
+      const bold = Boolean(opcoes.boldAll || seg.negrito || seg.destaque);
+      const underline = Boolean((seg.sublinhado ?? seg.destaque) && !opcoes.boldAll);
+      return xmlRun(seg.t, {
+        bold,
+        underline,
         sizeHalfPt: opcoes.sizeHalfPt ?? 22,
-      }),
-    )
+      });
+    })
     .join('');
 
   return `<w:p><w:pPr>${pPr.join('')}</w:pPr>${runs}</w:p>`;
@@ -501,7 +503,15 @@ export function gerarDocxBytesManifestacao(
 
 function htmlSegmentos(segmentos: Segmento[]): string {
   return segmentos
-    .map(s => (s.destaque ? `<b><u>${escaparHtml(s.t)}</u></b>` : escaparHtml(s.t)))
+    .map(s => {
+      const bold = Boolean(s.negrito ?? s.destaque);
+      const under = Boolean(s.sublinhado ?? s.destaque);
+      const txt = escaparHtml(s.t);
+      if (bold && under) return `<b><u>${txt}</u></b>`;
+      if (bold) return `<b>${txt}</b>`;
+      if (under) return `<u>${txt}</u>`;
+      return txt;
+    })
     .join('');
 }
 

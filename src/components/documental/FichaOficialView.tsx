@@ -94,6 +94,8 @@ export interface DadosManifestacao {
   paragrafo_contribuinte_custom?: string;
   paragrafo_anexos_custom?: string;
   paragrafo_encaminhamento_custom?: string;
+  modelo_finalizacao_manifestacao?: ModeloFinalizacaoManifestacaoId;
+  incluir_fecho_cortesia?: boolean;
   paragrafo_fecho_custom?: string;
   paragrafo_extra_custom?: string;
   corpo_livre_manifestacao?: string;
@@ -104,6 +106,198 @@ export interface DadosManifestacao {
   assinatura_cargo?: string;
   rascunho_salvo_em?: string | null;
   etapa_ativa_salva?: 'formulario' | 'manifestacao';
+}
+
+export type ModeloFinalizacaoManifestacaoId =
+  | '1_positivas_portaria_juizo'
+  | '2_positivas_aqui_12ri_juizo'
+  | '3_nesta_oportunidade_9ri'
+  | '4_complemento_3ri'
+  | '5_complemento_9ri_6ri_3ri'
+  | '6_zona_limitrofe_ipiranga_6ri'
+  | '7_complemento_cartorio_dinamico'
+  | '8_sugestao_origem_matricula';
+
+export interface ModeloFinalizacaoOpcao {
+  id: ModeloFinalizacaoManifestacaoId;
+  numero: number;
+  rotuloCurto: string;
+  rotulo: string;
+  descricao: string;
+}
+
+export const MODELOS_FINALIZACAO_MANIFESTACAO: ModeloFinalizacaoOpcao[] = [
+  {
+    id: '1_positivas_portaria_juizo',
+    numero: 1,
+    rotuloCurto: '1. Positivas (Portaria 1/26 → Juízo)',
+    rotulo: '1 - Buscas Positivas (Portaria Conjunta nº 1/26 — Encaminhamento direto ao D. Juízo)',
+    descricao:
+      'Tendo sido positivas as buscas em relação ao imóvel usucapiendo e seus confinantes, em cumprimento ao § 2º do art. 1º da Portaria Conjunta nº 1/26, dessa e da 1ª Vara de Registros Públicos, encaminho os Autos diretamente a esse D. Juízo.',
+  },
+  {
+    id: '2_positivas_aqui_12ri_juizo',
+    numero: 2,
+    rotuloCurto: '2. Positivas (aqui e 12º RI → Juízo)',
+    rotulo: '2 - Buscas Positivas aqui e no 12º RI (Encaminhamento direto ao D. Juízo)',
+    descricao:
+      'Tendo sido positivas as buscas em relação à área a ser usucapida e seus confinantes, aqui e no 12º Registro de Imóveis da Capital, encaminho os autos diretamente a esse D. Juízo.',
+  },
+  {
+    id: '3_nesta_oportunidade_9ri',
+    numero: 3,
+    rotuloCurto: '3. Encaminhar ao 9º RI (Nesta oportunidade)',
+    rotulo: '3 - Nesta oportunidade encaminho os Autos ao digno 9º Oficial de Registro de Imóveis da Capital',
+    descricao:
+      'Nesta oportunidade encaminho os Autos ao digno 9º Oficial de Registro de Imóveis da Capital, para complemento das informações.',
+  },
+  {
+    id: '4_complemento_3ri',
+    numero: 4,
+    rotuloCurto: '4. Encaminhar ao 3º RI (Complemento)',
+    rotulo: '4 - Para complemento das informações encaminho os Autos ao digno 3º Oficial de Registro de Imóveis da Capital',
+    descricao:
+      'Para complemento das informações encaminho os Autos ao digno 3º Oficial de Registro de Imóveis da Capital.',
+  },
+  {
+    id: '5_complemento_9ri_6ri_3ri',
+    numero: 5,
+    rotuloCurto: '5. Encaminhar ao 9º RI (+ 6º e 3º RI)',
+    rotulo: '5 - Encaminhamento ao 9º RI, devendo manifestar-se também o 6º e 3º Registros de Imóveis',
+    descricao:
+      'Para complemento das informações encaminho os Autos ao digno 9º Oficial de Registro de Imóveis da Capital, sendo que, deverá manifestar-se também o 6º e 3º Registros de Imóveis da Capital.',
+  },
+  {
+    id: '6_zona_limitrofe_ipiranga_6ri',
+    numero: 6,
+    rotuloCurto: '6. Zona Limítrofe IPIRANGA (+ 6º RI)',
+    rotulo: '6 - Zona limítrofe com o Subdistrito IPIRANGA — manifestação do 6º Oficial de Registro de Imóveis',
+    descricao:
+      'Nesta oportunidade para complemento das informações, alertando para o fato de que, por estar o imóvel situado em zona limítrofe com o Subdistrito IPIRANGA, deverá manifestar-se também, o 6º Oficial de Registro de Imóveis da Capital.',
+  },
+  {
+    id: '7_complemento_cartorio_dinamico',
+    numero: 7,
+    rotuloCurto: '7. Complemento (Cartório selecionado)',
+    rotulo: '7 - Para complemento das informações encaminho ao Cartório selecionado nos dados',
+    descricao:
+      'Para complemento das informações encaminho os Autos ao digno Cartório de Registro de Imóveis selecionado.',
+  },
+  {
+    id: '8_sugestao_origem_matricula',
+    numero: 8,
+    rotuloCurto: '8. Sugestão com nº da Matrícula/Transcrição',
+    rotulo: '8 - Com a vênia devida, sugiro o encaminhamento tendo em vista a transcrição/matrícula de origem',
+    descricao:
+      'Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno Cartório, tendo em vista a transcrição de origem.',
+  },
+];
+
+export function inferirModeloFinalizacaoPadrao(d: Partial<DadosManifestacao>): ModeloFinalizacaoManifestacaoId {
+  if (d.modelo_finalizacao_manifestacao) return d.modelo_finalizacao_manifestacao;
+  const buscas = (d.resultado_buscas || '').toUpperCase();
+  const cart = (d.cartorio_encaminhamento || d.cartorio_origem || '').toUpperCase();
+  const sub = (d.subdistrito || '').toUpperCase();
+  if (buscas.includes('POSITIVA')) {
+    if (
+      cart.includes('12') ||
+      ['SÃO MIGUEL PAULISTA', 'ERMELINO MATARAZZO', 'CANGAÍBA', 'PENHA DE FRANÇA', 'VILA MATILDE'].includes(sub)
+    ) {
+      return '2_positivas_aqui_12ri_juizo';
+    }
+    return '1_positivas_portaria_juizo';
+  }
+  if (cart.includes('9º') || cart.includes('9O') || cart.startsWith('9')) {
+    return '3_nesta_oportunidade_9ri';
+  }
+  if (cart.includes('3º') || cart.includes('3O') || cart.startsWith('3')) {
+    return '4_complemento_3ri';
+  }
+  if (sub.includes('IPIRANGA')) {
+    return '6_zona_limitrofe_ipiranga_6ri';
+  }
+  return '8_sugestao_origem_matricula';
+}
+
+export function obterSegmentosFinalizacaoPorModelo(
+  d: DadosManifestacao,
+  modeloId?: ModeloFinalizacaoManifestacaoId,
+): Segmento[] {
+  const id = modeloId || inferirModeloFinalizacaoPadrao(d);
+  const matricula = d.matricula_transcricao || '_____';
+  const cartorioEncaminhamento =
+    d.cartorio_encaminhamento || d.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital';
+
+  switch (id) {
+    case '1_positivas_portaria_juizo':
+      return [
+        {
+          t: 'Tendo sido positivas as buscas em relação ao imóvel usucapiendo e seus confinantes, em cumprimento ao § 2º do art. 1º da Portaria Conjunta nº 1/26, dessa e da 1ª Vara de Registros Públicos, encaminho os Autos diretamente a esse D. Juízo.',
+        },
+      ];
+    case '2_positivas_aqui_12ri_juizo':
+      return [
+        { t: 'Tendo sido positivas as buscas em relação à área a ser usucapida e seus confinantes, ' },
+        { t: 'aqui', sublinhado: true },
+        { t: ' e no ' },
+        { t: '12º', negrito: true },
+        { t: ' Registro de Imóveis da Capital, encaminho os autos diretamente a esse D. Juízo.' },
+      ];
+    case '3_nesta_oportunidade_9ri':
+      return [
+        { t: 'Nesta oportunidade encaminho os Autos ao digno ' },
+        { t: '9º', negrito: true },
+        { t: ' Oficial de Registro de Imóveis da Capital, para complemento das informações.' },
+      ];
+    case '4_complemento_3ri':
+      return [
+        { t: 'Para complemento das informações encaminho os Autos ao digno ' },
+        { t: '3º', negrito: true },
+        { t: ' Oficial de Registro de Imóveis da Capital.' },
+      ];
+    case '5_complemento_9ri_6ri_3ri':
+      return [
+        { t: 'Para complemento das informações encaminho os Autos ao digno ' },
+        { t: '9º', negrito: true },
+        { t: ' Oficial de Registro de Imóveis da Capital, sendo que, deverá manifestar-se também o ' },
+        { t: '6º', negrito: true },
+        { t: ' e ' },
+        { t: '3º', negrito: true },
+        { t: ' Registros de Imóveis da Capital.' },
+      ];
+    case '6_zona_limitrofe_ipiranga_6ri':
+      return [
+        {
+          t: 'Nesta oportunidade para complemento das informações, alertando para o fato de que, por estar o imóvel situado em zona limítrofe com o Subdistrito ',
+        },
+        { t: 'IPIRANGA', negrito: true },
+        { t: ', deverá manifestar-se também, o ' },
+        { t: '6º', negrito: true },
+        { t: ' Oficial de Registro de Imóveis da Capital.' },
+      ];
+    case '7_complemento_cartorio_dinamico':
+      return [
+        { t: `Para complemento das informações encaminho os Autos ao digno ${cartorioEncaminhamento}.` },
+      ];
+    case '8_sugestao_origem_matricula':
+    default:
+      return [
+        {
+          t: `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${cartorioEncaminhamento}, tendo em vista a transcrição de origem nº `,
+        },
+        { t: matricula, destaque: true },
+        { t: '.' },
+      ];
+  }
+}
+
+export function obterTextoPlanoFinalizacaoPorModelo(
+  d: DadosManifestacao,
+  modeloId?: ModeloFinalizacaoManifestacaoId,
+): string {
+  return obterSegmentosFinalizacaoPorModelo(d, modeloId)
+    .map(s => s.t)
+    .join('');
 }
 
 export const SUBDISTRITOS_7RI = [
@@ -1720,8 +1914,41 @@ export function FichaOficialView({
     const textoParagrafoCompetenciaPadrao = `Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir da Circunscrição atribuída ao 12º Registro de Imóveis da Capital, por força do Decreto Estadual nº 9.775, de ${dados.data_competencia_subdistrito || '___ de ________ de ____'}.`;
     const textoParagrafoContribuintePadrao = `Cumpre ressaltar que o número de contribuinte (${dados.contribuinte_sql || '________'}) não se encontra averbado à margem da matrícula ou transcrição de origem nesta Serventia.`;
     const textoParagrafoAnexosPadrao = `Encaminho cópia da planta do Setor Fiscal Municipal, certidão das transcrições nºs ${dados.transcricoes_anexas || 'conforme na certidão'} e matrículas nºs ${dados.matriculas_anexas || 'conforme na certidão'}, para que acompanhe a presente.`;
-    const textoParagrafoEncaminhamentoPadrao = `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${dados.cartorio_encaminhamento || '___ Cartório de Registro de Imóveis da Capital'}, tendo em vista a transcrição de origem nº ${dados.matricula_transcricao || '___'}.`;
+    const modeloFinalizacaoAtivo = inferirModeloFinalizacaoPadrao(dados);
+    const segmentosFinalizacaoAtiva = obterSegmentosFinalizacaoPorModelo(dados, modeloFinalizacaoAtivo);
+    const textoParagrafoEncaminhamentoPadrao = obterTextoPlanoFinalizacaoPorModelo(dados, modeloFinalizacaoAtivo);
     const textoFechoPadrao = 'Era o que, respeitosamente, cumpria informar a V. Exa.';
+
+    const selecionarModeloFinalizacao = (novoModelo: ModeloFinalizacaoManifestacaoId) => {
+      const novoTexto = obterTextoPlanoFinalizacaoPorModelo(dados, novoModelo);
+      setDados(prev => {
+        const proximo: DadosManifestacao = {
+          ...prev,
+          modelo_finalizacao_manifestacao: novoModelo,
+          paragrafo_encaminhamento_custom: paragrafosEmEdicao.pEnc ? novoTexto : '',
+        };
+        if (novoModelo === '1_positivas_portaria_juizo' || novoModelo === '2_positivas_aqui_12ri_juizo') {
+          proximo.resultado_buscas = 'POSITIVAS';
+        } else if (novoModelo === '3_nesta_oportunidade_9ri' || novoModelo === '5_complemento_9ri_6ri_3ri') {
+          proximo.cartorio_encaminhamento = '9º Oficial de Registro de Imóveis da Capital';
+        } else if (novoModelo === '4_complemento_3ri') {
+          proximo.cartorio_encaminhamento = '3º Oficial de Registro de Imóveis da Capital';
+        } else if (novoModelo === '6_zona_limitrofe_ipiranga_6ri') {
+          proximo.cartorio_encaminhamento = '6º Oficial de Registro de Imóveis da Capital';
+        }
+        if (prev.modo_edicao_manifestacao === 'texto_livre' && prev.corpo_livre_manifestacao?.trim()) {
+          const blocos = prev.corpo_livre_manifestacao
+            .split(/\r?\n\s*\r?\n/)
+            .map(b => b.trim())
+            .filter(Boolean);
+          if (blocos.length > 0) {
+            blocos[blocos.length - 1] = novoTexto;
+            proximo.corpo_livre_manifestacao = blocos.join('\n\n');
+          }
+        }
+        return proximo;
+      });
+    };
 
     return (
       <article className="mx-auto max-w-[900px] rounded-xl border-2 border-gray-300 bg-white p-6 sm:p-8 md:p-11 font-sans text-[11pt] leading-relaxed text-black shadow-lg space-y-4 break-words">
@@ -1834,7 +2061,7 @@ export function FichaOficialView({
 
         {/* CORPO DA MANIFESTAÇÃO: MODO TEXTO LIVRE COMPLETO OU MODO HÍBRIDO */}
         {modoTextoLivreAtivo ? (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-[11px] text-indigo-950">
               <span>
                 <strong>Modo Texto Livre Completo ativo:</strong> edite qualquer palavra ou parágrafo abaixo como em um editor de texto. Separe parágrafos com uma linha em branco.
@@ -1851,6 +2078,21 @@ export function FichaOficialView({
                 <RotateCcw className="h-3 w-3" />
                 <span>Sincronizar com os campos</span>
               </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs">
+              <label htmlFor="select-finalizacao-livre" className="font-bold text-[#0F3D6E]">
+                Trocar Finalização da Manifestação (Último Parágrafo):
+              </label>
+              <select
+                id="select-finalizacao-livre"
+                value={modeloFinalizacaoAtivo}
+                onChange={e => selecionarModeloFinalizacao(e.target.value as ModeloFinalizacaoManifestacaoId)}
+                className="min-w-[260px] flex-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0F3D6E]"
+              >
+                {MODELOS_FINALIZACAO_MANIFESTACAO.map(op => (
+                  <option key={op.id} value={op.id}>{op.rotulo}</option>
+                ))}
+              </select>
             </div>
             <textarea
               id="campo-corpo_livre_manifestacao"
@@ -2294,28 +2536,74 @@ export function FichaOficialView({
               )}
             </div>
 
-            {/* 5º PARÁGRAFO: ENCAMINHAMENTO AO CARTÓRIO COMPETENTE */}
-            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
-              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
-                {dados.paragrafo_encaminhamento_custom?.trim() && (
+            {/* FINALIZAÇÃO DA MANIFESTAÇÃO (ÚLTIMO PARÁGRAFO — SELECIONÁVEL CONFORME RESULTADO DA ANÁLISE) */}
+            <div className="group relative rounded-xl border border-blue-200/90 bg-blue-50/30 p-2.5 transition hover:border-blue-300 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-blue-200/70 pb-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="rounded bg-[#0F3D6E] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                    Finalização da Manifestação (Último Parágrafo)
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Atalhos das 6 opções de finalização">
+                    {MODELOS_FINALIZACAO_MANIFESTACAO.slice(0, 6).map(op => {
+                      const ativo = modeloFinalizacaoAtivo === op.id && !dados.paragrafo_encaminhamento_custom?.trim();
+                      return (
+                        <button
+                          key={op.id}
+                          type="button"
+                          onClick={() => selecionarModeloFinalizacao(op.id)}
+                          title={`${op.rotulo}\n\n"${op.descricao}"`}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition cursor-pointer ${
+                            ativo
+                              ? 'border-[#0F3D6E] bg-[#0F3D6E] text-white shadow-2xs'
+                              : 'border-blue-300 bg-white text-[#0F3D6E] hover:bg-blue-50'
+                          }`}
+                        >
+                          {op.rotuloCurto}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {dados.paragrafo_encaminhamento_custom?.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => limparCustomParagrafo('pEnc', 'paragrafo_encaminhamento_custom')}
+                      className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                    >
+                      <RotateCcw className="h-2.5 w-2.5" /> Usar modelo selecionado
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => limparCustomParagrafo('pEnc', 'paragrafo_encaminhamento_custom')}
-                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                    onClick={() =>
+                      alternarEdicaoParagrafo('pEnc', 'paragrafo_encaminhamento_custom', textoParagrafoEncaminhamentoPadrao)
+                    }
+                    className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
                   >
-                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                    <Edit3 className="h-2.5 w-2.5" />
+                    <span>{paragrafosEmEdicao.pEnc ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    alternarEdicaoParagrafo('pEnc', 'paragrafo_encaminhamento_custom', textoParagrafoEncaminhamentoPadrao)
-                  }
-                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="campo-modelo-finalizacao" className="text-[10.5px] font-bold text-[#1E293B] shrink-0">
+                  Escolher modelo de finalização:
+                </label>
+                <select
+                  id="campo-modelo-finalizacao"
+                  value={modeloFinalizacaoAtivo}
+                  onChange={e => selecionarModeloFinalizacao(e.target.value as ModeloFinalizacaoManifestacaoId)}
+                  className="min-w-[260px] flex-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0F3D6E] cursor-pointer"
                 >
-                  <Edit3 className="h-2.5 w-2.5" />
-                  <span>{paragrafosEmEdicao.pEnc ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
-                </button>
+                  {MODELOS_FINALIZACAO_MANIFESTACAO.map(op => (
+                    <option key={op.id} value={op.id}>
+                      {op.rotulo}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {paragrafosEmEdicao.pEnc || dados.paragrafo_encaminhamento_custom?.trim() ? (
@@ -2329,12 +2617,26 @@ export function FichaOficialView({
                 ) : (
                   <p
                     onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, pEnc: true }))}
-                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5 leading-7"
                   >
                     {dados.paragrafo_encaminhamento_custom}
                   </p>
                 )
-              ) : (
+              ) : modeloFinalizacaoAtivo === '7_complemento_cartorio_dinamico' ? (
+                <p className="indent-8 leading-7">
+                  Para complemento das informações encaminho os Autos ao digno{' '}
+                  <input
+                    id="campo-cartorio_encaminhamento"
+                    type="text"
+                    value={dados.cartorio_encaminhamento}
+                    onChange={e => atualizarCampo('cartorio_encaminhamento', e.target.value)}
+                    placeholder="___ Oficial de Registro de Imóveis da Capital"
+                    title="Cartório de encaminhamento"
+                    className={`${classeCampoInline} min-w-[250px] font-bold`}
+                  />
+                  .
+                </p>
+              ) : modeloFinalizacaoAtivo === '8_sugestao_origem_matricula' ? (
                 <p className="indent-8 leading-7">
                   Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno{' '}
                   <input
@@ -2356,6 +2658,16 @@ export function FichaOficialView({
                     className={`${classeCampoInline} min-w-[140px] font-bold underline`}
                   />
                   .
+                </p>
+              ) : (
+                <p
+                  onClick={() =>
+                    alternarEdicaoParagrafo('pEnc', 'paragrafo_encaminhamento_custom', textoParagrafoEncaminhamentoPadrao)
+                  }
+                  title="Clique para editar qualquer palavra desta finalização"
+                  className="indent-8 cursor-text rounded bg-white/80 px-2 py-1 leading-7 shadow-2xs"
+                >
+                  <Segmentos segmentos={segmentosFinalizacaoAtiva} />
                 </p>
               )}
             </div>
@@ -2380,12 +2692,24 @@ export function FichaOficialView({
                   rows={3}
                   value={dados.paragrafo_extra_custom || ''}
                   onChange={e => atualizarCampo('paragrafo_extra_custom', e.target.value)}
-                  placeholder="Digite aqui qualquer parágrafo ou esclarecimento adicional que deva constar antes do fecho da manifestação..."
+                  placeholder="Digite aqui qualquer parágrafo ou esclarecimento adicional que deva constar na manifestação..."
                   className="w-full rounded border border-amber-400 bg-white p-2 font-sans text-xs leading-relaxed text-black focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
                 />
               </div>
             ) : (
-              <div className="flex justify-end">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(dados.incluir_fecho_cortesia || dados.paragrafo_fecho_custom?.trim())}
+                    onChange={e => {
+                      atualizarCampo('incluir_fecho_cortesia', e.target.checked);
+                      if (!e.target.checked) atualizarCampo('paragrafo_fecho_custom', '');
+                    }}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-[#0F3D6E]"
+                  />
+                  <span>Adicionar linha opcional de cortesia (&ldquo;Era o que, respeitosamente, cumpria informar a V. Exa.&rdquo;)</span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setMostrarParagrafoExtra(true)}
@@ -2397,29 +2721,31 @@ export function FichaOficialView({
               </div>
             )}
 
-            {/* FECHO */}
-            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
-              <div className="indent-8 flex flex-wrap items-center justify-between gap-2">
-                {paragrafosEmEdicao.pFecho ? (
-                  <input
-                    type="text"
-                    value={dados.paragrafo_fecho_custom ?? textoFechoPadrao}
-                    onChange={e => atualizarCampo('paragrafo_fecho_custom', e.target.value)}
-                    className="flex-1 rounded border border-amber-400 bg-white px-2 py-1 font-sans text-xs text-black"
-                  />
-                ) : (
-                  <span>{dados.paragrafo_fecho_custom?.trim() || textoFechoPadrao}</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => alternarEdicaoParagrafo('pFecho', 'paragrafo_fecho_custom', textoFechoPadrao)}
-                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer opacity-80 group-hover:opacity-100"
-                >
-                  <Edit3 className="h-2.5 w-2.5" />
-                  <span>{paragrafosEmEdicao.pFecho ? 'OK' : 'Editar fecho'}</span>
-                </button>
+            {/* FECHO DE CORTESIA OPCIONAL */}
+            {(dados.incluir_fecho_cortesia || dados.paragrafo_fecho_custom?.trim()) && (
+              <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+                <div className="indent-8 flex flex-wrap items-center justify-between gap-2">
+                  {paragrafosEmEdicao.pFecho ? (
+                    <input
+                      type="text"
+                      value={dados.paragrafo_fecho_custom ?? textoFechoPadrao}
+                      onChange={e => atualizarCampo('paragrafo_fecho_custom', e.target.value)}
+                      className="flex-1 rounded border border-amber-400 bg-white px-2 py-1 font-sans text-xs text-black"
+                    />
+                  ) : (
+                    <span>{dados.paragrafo_fecho_custom?.trim() || textoFechoPadrao}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => alternarEdicaoParagrafo('pFecho', 'paragrafo_fecho_custom', textoFechoPadrao)}
+                    className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer opacity-80 group-hover:opacity-100"
+                  >
+                    <Edit3 className="h-2.5 w-2.5" />
+                    <span>{paragrafosEmEdicao.pFecho ? 'OK' : 'Editar fecho'}</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -4283,6 +4609,8 @@ function DialogoSobreposto({
 export interface Segmento {
   t: string;
   destaque?: boolean;
+  negrito?: boolean;
+  sublinhado?: boolean;
 }
 
 const TEXTO_CONFRONTACAO_PADRAO = 'conforme apuração nos autos';
@@ -4365,11 +4693,7 @@ export function montarMinuta(d: DadosManifestacao, saudacao?: string): MinutaMod
     },
   ];
 
-  const pEncaminhamentoPadrao: Segmento[] = [
-    { t: `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${cartorioEncaminhamento}, tendo em vista a transcrição de origem nº ` },
-    { t: matricula, destaque: true },
-    { t: '.' },
-  ];
+  const pEncaminhamentoPadrao: Segmento[] = obterSegmentosFinalizacaoPorModelo(d);
 
   const pFechoPadrao: Segmento[] = [{ t: 'Era o que, respeitosamente, cumpria informar a V. Exa.' }];
 
@@ -4408,9 +4732,11 @@ export function montarMinuta(d: DadosManifestacao, saudacao?: string): MinutaMod
         ? [d.paragrafo_contribuinte_custom?.trim() ? [{ t: d.paragrafo_contribuinte_custom.trim() }] : pContribuintePadrao]
         : []),
       d.paragrafo_anexos_custom?.trim() ? [{ t: d.paragrafo_anexos_custom.trim() }] : pAnexosPadrao,
-      d.paragrafo_encaminhamento_custom?.trim() ? [{ t: d.paragrafo_encaminhamento_custom.trim() }] : pEncaminhamentoPadrao,
       ...(d.paragrafo_extra_custom?.trim() ? [[{ t: d.paragrafo_extra_custom.trim() }]] : []),
-      d.paragrafo_fecho_custom?.trim() ? [{ t: d.paragrafo_fecho_custom.trim() }] : pFechoPadrao,
+      d.paragrafo_encaminhamento_custom?.trim() ? [{ t: d.paragrafo_encaminhamento_custom.trim() }] : pEncaminhamentoPadrao,
+      ...(d.incluir_fecho_cortesia || d.paragrafo_fecho_custom?.trim()
+        ? [d.paragrafo_fecho_custom?.trim() ? [{ t: d.paragrafo_fecho_custom.trim() }] : pFechoPadrao]
+        : []),
     ],
     local: d.local_data_manifestacao?.trim() || `São Paulo, ${obterDataPorExtenso()}.`,
     assinatura: {
@@ -4478,13 +4804,14 @@ export function minutaParaTexto(m: MinutaModelo): string {
 function Segmentos({ segmentos }: { segmentos: Segmento[] }) {
   return (
     <>
-      {segmentos.map((s, i) =>
-        s.destaque ? (
-          <span key={i} className="font-bold underline">{s.t}</span>
-        ) : (
-          <React.Fragment key={i}>{s.t}</React.Fragment>
-        )
-      )}
+      {segmentos.map((s, i) => {
+        const bold = Boolean(s.negrito ?? s.destaque);
+        const under = Boolean(s.sublinhado ?? s.destaque);
+        if (bold && under) return <span key={i} className="font-bold underline">{s.t}</span>;
+        if (bold) return <strong key={i} className="font-bold">{s.t}</strong>;
+        if (under) return <span key={i} className="underline">{s.t}</span>;
+        return <React.Fragment key={i}>{s.t}</React.Fragment>;
+      })}
     </>
   );
 }

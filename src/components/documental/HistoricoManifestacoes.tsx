@@ -417,7 +417,14 @@ export function HistoricoManifestacoes() {
 function Trechos({ segmentos }: { segmentos: Segmento[] }) {
   return (
     <>
-      {segmentos.map((s, i) => (s.destaque ? <strong key={i} className="font-bold underline">{s.t}</strong> : <span key={i}>{s.t}</span>))}
+      {segmentos.map((s, i) => {
+        const bold = Boolean(s.negrito ?? s.destaque);
+        const under = Boolean(s.sublinhado ?? s.destaque);
+        if (bold && under) return <strong key={i} className="font-bold underline">{s.t}</strong>;
+        if (bold) return <strong key={i} className="font-bold">{s.t}</strong>;
+        if (under) return <span key={i} className="underline">{s.t}</span>;
+        return <span key={i}>{s.t}</span>;
+      })}
     </>
   );
 }
