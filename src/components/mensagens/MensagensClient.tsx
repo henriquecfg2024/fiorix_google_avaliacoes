@@ -579,7 +579,7 @@ export function MensagensClient({
     : [];
 
   return (
-    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] text-white relative overflow-hidden font-sans p-3 sm:p-4 transition-colors">
+    <div className="h-screen w-full flex flex-col bg-[#070A12] text-white relative overflow-hidden font-sans p-3 sm:p-4 transition-colors">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/8 to-cyan-500/8 blur-3xl opacity-60" />

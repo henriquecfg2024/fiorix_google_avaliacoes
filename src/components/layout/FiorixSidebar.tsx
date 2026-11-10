@@ -2,10 +2,11 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Home, Loader2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Building2, ChevronLeft, Home, Loader2, LogOut } from "lucide-react";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
+import { handleSignOut } from "@/app/actions/auth";
 import {
   loadCurrentUserOnce,
   loadNavigationStatsOnce,
@@ -20,16 +21,32 @@ import { FiorixLogoIcon } from "@/components/layout/FiorixLogoIcon";
 
 export function FiorixSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [role, setRole] = useState<Role>("USER");
+  const [currentUser, setCurrentUser] = useState<{
+    name: string;
+    email: string;
+    role: string;
+  } | null>(null);
+  const [pendingCount, setPendingCount] = useState<number>(0);
   const [allowedItemIds, setAllowedItemIds] = useState<string[] | undefined>(undefined);
   const [firstAllowedHref, setFirstAllowedHref] = useState<string | undefined>(undefined);
   const [navResolved, setNavResolved] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+  const [userPopoverOpen, setUserPopoverOpen] = useState(false);
 
-  // Fetch navigation stats dynamically if needed, just like FiorixHeader did
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
+
+  const refreshStats = useCallback(() => {
+    fetchNavigationStatsFresh()
+      .then((stats) => {
+        setNavigationStats(stats);
+        setPendingCount(Number(stats.pendingReviewsCount || 0));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -40,7 +57,10 @@ export function FiorixSidebar() {
 
     loadCurrentUserOnce()
       .then((user) => {
-        if (user && user.role) setRole(user.role);
+        if (user) {
+          setCurrentUser(user);
+          if (user.role) setRole(user.role);
+        }
       })
       .catch(() => {});
 
@@ -57,25 +77,34 @@ export function FiorixSidebar() {
       });
 
     loadNavigationStatsOnce()
-      .then(setNavigationStats)
+      .then((stats) => {
+        setNavigationStats(stats);
+        setPendingCount(Number(stats.pendingReviewsCount || 0));
+      })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    const handleStatsUpdated = () => {
-      fetchNavigationStatsFresh().then(setNavigationStats).catch(() => {});
-    };
+    const handleStatsUpdated = () => refreshStats();
     window.addEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
     return () => window.removeEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
-  }, []);
+  }, [refreshStats]);
 
   // Resetar estado de navegação quando a rota muda
   useEffect(() => {
     setNavigatingTo(null);
-  }, [pathname]);
+    setUserPopoverOpen(false);
+    refreshStats();
+  }, [pathname, refreshStats]);
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
   const handleNavClick = useCallback((href: string) => {
-    // Não marcar se já está na mesma página
     if (href === pathname) return;
     setNavigatingTo(href);
   }, [pathname]);
@@ -91,7 +120,6 @@ export function FiorixSidebar() {
   const isActive = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
 
-    // Se o link possui parâmetros de busca (?tab=...)
     if (href.includes("?")) {
       const [baseHref, queryStr] = href.split("?");
       if (pathname !== baseHref) return false;
@@ -106,12 +134,10 @@ export function FiorixSidebar() {
       return false;
     }
 
-    // Se o link é /sistema/pessoas, mantém ativo em qualquer aba interna ou rota de RH
     if (href === "/sistema/pessoas" && (pathname?.startsWith("/sistema/pessoas") || pathname?.startsWith("/administracao/rh"))) {
       return true;
     }
 
-    // Evita que rotas-raiz de módulo ativem simultaneamente seus submenus
     if (href === "/cartorio-virtual" || href === "/gestao-documental") {
       return pathname === href;
     }
@@ -129,15 +155,18 @@ export function FiorixSidebar() {
 
   if (!mounted) return <div className="hidden lg:flex w-64 h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5" />;
 
-  const visibleGroups = filterNavigationByRole(role, allowedItemIds);
-  const defaultHomeRoute = getHomeRouteForRole(role);
+  const effectiveRole = (currentUser?.role as Role) || role;
+  const isVisitor = String(effectiveRole).toUpperCase() === "VISITANTE";
+  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO", "VISITANTE"].includes(String(effectiveRole).toUpperCase());
+  const visibleGroups = filterNavigationByRole(effectiveRole, allowedItemIds);
+  const defaultHomeRoute = getHomeRouteForRole(effectiveRole);
   const showInicioLink =
-    role === "MASTER"
+    effectiveRole === "MASTER"
       ? true
       : allowedItemIds !== undefined
         ? allowedItemIds.includes("inicio")
         : navResolved
-          ? !["COLABORADOR", "RH"].includes(String(role).toUpperCase())
+          ? !["COLABORADOR", "RH"].includes(String(effectiveRole).toUpperCase())
           : false;
   const homeRoute = allowedItemIds !== undefined ? "/dashboard" : defaultHomeRoute;
   const logoHref = showInicioLink
@@ -148,6 +177,55 @@ export function FiorixSidebar() {
         .map((i: any) => i.href)[0] ||
       "/minha-conta";
 
+  const renderUserMenuPopoverContent = () => (
+    <PopoverContent
+      side="right"
+      align="start"
+      sideOffset={12}
+      className="z-[160] w-60 rounded-xl border border-white/15 bg-[#0B1020] p-2.5 text-white shadow-2xl backdrop-blur-xl"
+    >
+      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-white/85">
+        <Building2 className="h-3.5 w-3.5 shrink-0 text-[#6366f1]" />
+        <span className="truncate">7º RI São Paulo</span>
+      </div>
+
+      <div className="mb-2 border-b border-white/8 px-2.5 pb-2.5">
+        <p className="truncate text-xs font-bold text-white">
+          {currentUser?.name || "Usuário"}
+        </p>
+        <p className="mt-0.5 truncate text-[10px] text-white/50">
+          {currentUser?.email}
+        </p>
+        <div className="mt-1.5">
+          <span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-300">
+            {currentUser?.role || effectiveRole || "USER"}
+          </span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setUserPopoverOpen(false);
+          router.push("/minha-conta");
+        }}
+        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+      >
+        <span>👤 Minha Conta</span>
+      </button>
+
+      <form action={handleSignOut} className="mt-1">
+        <button
+          type="submit"
+          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-red-400 transition hover:bg-red-500/10"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>Sair</span>
+        </button>
+      </form>
+    </PopoverContent>
+  );
+
   return (
     <TooltipProvider delay={0}>
       <aside
@@ -157,7 +235,7 @@ export function FiorixSidebar() {
       >
         {/* Logo & Toggle Section */}
         <div
-          className={`flex items-center h-16 border-b border-white/8 shrink-0 transition-all ${
+          className={`flex items-center h-14 border-b border-white/8 shrink-0 transition-all ${
             isCollapsed ? "justify-center px-2" : "justify-between px-3.5"
           }`}
         >
@@ -171,7 +249,7 @@ export function FiorixSidebar() {
                   title="Expandir menu (FIORIX - Gestão de Qualidade)"
                   aria-label="Expandir menu"
                 >
-                  <FiorixLogoIcon className="w-[38px] h-[38px] shrink-0 group-hover:scale-110 transition-transform" />
+                  <FiorixLogoIcon className="w-[36px] h-[36px] shrink-0 group-hover:scale-110 transition-transform" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">Expandir menu (FIORIX - Gestão de Qualidade)</TooltipContent>
@@ -187,7 +265,7 @@ export function FiorixSidebar() {
                 <img
                   src="/logo-fiorix.png"
                   alt="FIORIX Gestão de Qualidade"
-                  className="h-9 w-auto max-w-[185px] object-contain select-none group-hover:scale-[1.02] transition-transform"
+                  className="h-8 w-auto max-w-[180px] object-contain select-none group-hover:scale-[1.02] transition-transform"
                   draggable={false}
                 />
               </Link>
@@ -203,9 +281,155 @@ export function FiorixSidebar() {
           )}
         </div>
 
+        {/* Card Integrado da Serventia (7º RI São Paulo) + Usuário (CF) + Badges de Status */}
+        <div className={`shrink-0 border-b border-white/8 ${isCollapsed ? "px-2 py-2.5" : "px-3 py-2.5"}`}>
+          {isCollapsed ? (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-1.5 py-2 shadow-inner">
+              <Tooltip>
+                {/* @ts-expect-error Radix UI asChild type mismatch */}
+                <TooltipTrigger asChild>
+                  <div className="flex flex-col items-center gap-0.5 rounded-lg border border-white/8 bg-[#0B1020]/90 px-1.5 py-1 text-white/80 cursor-default">
+                    <Building2 className="h-3.5 w-3.5 text-[#6366f1]" />
+                    <span className="text-[8.5px] font-extrabold tracking-tight leading-none">7º RI</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">7º RI São Paulo</TooltipContent>
+              </Tooltip>
+
+              <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+                {/* @ts-expect-error Radix UI asChild type mismatch */}
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    title={`${currentUser?.name || "Menu do Usuário"} • 7º RI São Paulo`}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-xs font-bold text-white shadow-md ring-2 ring-white/10 transition-transform hover:scale-105 cursor-pointer"
+                  >
+                    {getInitials(currentUser?.name)}
+                  </button>
+                </PopoverTrigger>
+                {renderUserMenuPopoverContent()}
+              </Popover>
+
+              {isVisitor && (
+                <Tooltip>
+                  {/* @ts-expect-error Radix UI asChild type mismatch */}
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent("fiorix:toggle-visitor-banner"))}
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[9px] font-black text-amber-300 cursor-pointer"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">VISITANTE • ACESSO PROVISÓRIO</TooltipContent>
+                </Tooltip>
+              )}
+
+              {canViewReviews && pathname?.startsWith("/avaliacoes") && (
+                <Tooltip>
+                  {/* @ts-expect-error Radix UI asChild type mismatch */}
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
+                      href="/avaliacoes?status=PENDING"
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border text-[9px] font-black ${
+                        pendingCount > 0
+                          ? "border-red-500/30 bg-red-500/15 text-red-300"
+                          : "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                      }`}
+                    >
+                      {pendingCount > 0 ? pendingCount : "✓"}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-2.5 shadow-inner">
+              <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/8 bg-[#0B1020]/90 px-2.5 py-1.5 text-xs font-semibold text-white/85">
+                    <Building2 className="h-3.5 w-3.5 shrink-0 text-[#6366f1]" />
+                    <span className="truncate">7º RI São Paulo</span>
+                  </div>
+
+                  {/* @ts-expect-error Radix UI asChild type mismatch */}
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      title={currentUser?.name || "Menu do Usuário"}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-xs font-bold text-white shadow-md ring-2 ring-white/10 transition-transform hover:scale-105 cursor-pointer"
+                    >
+                      {getInitials(currentUser?.name)}
+                    </button>
+                  </PopoverTrigger>
+                </div>
+
+                {currentUser && (
+                  /* @ts-expect-error Radix UI asChild type mismatch */
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-white/[0.04] cursor-pointer"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[11px] font-bold text-white/90">
+                          {currentUser.name}
+                        </div>
+                        <div className="truncate text-[9.5px] text-white/45">
+                          {currentUser.email}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-indigo-300">
+                        {currentUser.role || "USER"}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                )}
+
+                {renderUserMenuPopoverContent()}
+              </Popover>
+
+              {isVisitor && (
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("fiorix:toggle-visitor-banner"))}
+                  title="Credencial de Visitante com acesso provisório e monitorado (clique para mostrar ou ocultar detalhes)"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-teal-500/15 px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-amber-200 transition-colors hover:border-amber-300/70 cursor-pointer"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span>VISITANTE • ACESSO PROVISÓRIO</span>
+                </button>
+              )}
+
+              {canViewReviews && pathname?.startsWith("/avaliacoes") && (
+                <Link
+                  prefetch={false}
+                  href="/avaliacoes?status=PENDING"
+                  className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10.5px] font-bold transition-all ${
+                    pendingCount > 0
+                      ? "border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                      : "border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      pendingCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-500"
+                    }`}
+                  />
+                  <span>{pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}</span>
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Navigation Section */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
-          {/* Home Link (exibido somente quando o menu INICIAL estiver ativo para o usuário) */}
+        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
           {showInicioLink && (
             <>
               {isCollapsed ? (
@@ -248,7 +472,7 @@ export function FiorixSidebar() {
                 </Link>
               )}
 
-              {!isCollapsed && <div className="h-4" />}
+              {!isCollapsed && <div className="h-2" />}
             </>
           )}
 
@@ -313,7 +537,6 @@ export function FiorixSidebar() {
                         <Link
                           key={item.href}
                           href={resolvedHref}
-        
                           className="block"
                           onClick={() => {
                             if (item.href === '/minha-it' && typeof window !== 'undefined') {
@@ -387,7 +610,7 @@ export function FiorixSidebar() {
 
             return (
               // @ts-expect-error Radix UI type mismatch
-              <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || (role === "RH" && key === "trabalho") ? key : undefined) as any}>
+              <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || (effectiveRole === "RH" && key === "trabalho") ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
                   <AccordionTrigger className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white hover:no-underline [&_[data-slot=accordion-trigger-icon]]:text-slate-400 dark:[&_[data-slot=accordion-trigger-icon]]:text-white/60 [&_[data-slot=accordion-trigger-icon]]:size-3.5 group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-slate-900 dark:group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-white">
                     <span className="truncate">{group.label}</span>
@@ -401,7 +624,6 @@ export function FiorixSidebar() {
                         <Link
                           key={item.href}
                           href={resolvedHref}
-        
                           className="block"
                           onClick={() => {
                             handleNavClick(resolvedHref);
@@ -453,7 +675,6 @@ export function FiorixSidebar() {
             );
           })}
         </div>
-
       </aside>
     </TooltipProvider>
   );
