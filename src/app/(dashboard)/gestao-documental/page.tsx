@@ -1,7 +1,6 @@
 import { DocumentSearch } from '@/components/documental/DocumentSearch';
 import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
-import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +39,6 @@ export default async function DocumentalPage() {
             {/* Alternador de Submenus */}
             <GestaoDocumentalAbas ativa="manifestacoes" />
           </div>
-
-          <BotaoVoltarTelaAnterior />
         </div>
 
         <DocumentSearch />
