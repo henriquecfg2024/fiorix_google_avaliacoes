@@ -878,11 +878,6 @@ export function ConstrutorRelatorioPersonalizadoClient({
         40,
         cursorRodapeY
       );
-      doc.text(
-        'Origem Oficial dos Dados: Sistema Registral WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa) sincronizado ao Cartório Virtual FIORIX.',
-        40,
-        cursorRodapeY + 11
-      );
 
       const dataStr = new Date().toISOString().slice(0, 10);
       const slugNome = (tituloRelatorioEfetivo || 'relatorio')
@@ -1350,8 +1345,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
     <p class="meta">
       Emitido em <strong>${escaparHtml(geradoEmStr)}</strong> por <strong>${escaparHtml(
       usuarioNomeInicial
-    )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s) (<span style="font-family:monospace;">${codigoRastreabilidade}</span>)<br/>
-      <strong>Origem Oficial dos Dados:</strong> Sistema Registral <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado ao Cartório Virtual FIORIX.
+    )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s) (<span style="font-family:monospace;">${codigoRastreabilidade}</span>)
     </p>
   </div>
 </body>
@@ -2404,16 +2398,12 @@ export function ConstrutorRelatorioPersonalizadoClient({
               </div>
             )}
 
-            {/* Informações de Emissão e Origem dos Dados no Rodapé */}
+            {/* Informações de Emissão no Rodapé */}
             <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-[11px] text-slate-600">
               <div>
                 Emitido em <strong>{relatorioGeradoSnapshot.geradoEm}</strong> por{' '}
                 <strong>{usuarioNomeInicial}</strong> · {relatorioGeradoSnapshot.filtrosResumo} ·{' '}
                 <strong>{relatorioGeradoSnapshot.totalRegistros}</strong> pedido(s) listado(s)
-                <br />
-                <strong>Origem Oficial dos Dados:</strong> Sistema Registral{' '}
-                <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado
-                ao Cartório Virtual FIORIX.
               </div>
             </div>
           </div>
