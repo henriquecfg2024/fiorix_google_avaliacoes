@@ -55,6 +55,13 @@ export const navigationGroups = {
         icon: History,
         description: "Trilha auditável de andamentos, ações humanas, lotes e anotações",
       },
+      {
+        id: "cv_relatorios",
+        label: "Relatório do Seu Jeito",
+        href: "/cartorio-virtual/relatorios",
+        icon: FileText,
+        description: "Construtor de relatórios personalizados integrados ao Webri",
+      },
     ],
   },
   documental: {

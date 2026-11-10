@@ -22,18 +22,21 @@ export default async function CartorioVirtualLayout({
     "/cartorio-virtual",
     "/cartorio-virtual/impressao",
     "/cartorio-virtual/historico",
+    "/cartorio-virtual/relatorios",
   ];
 
   if (isNavPermissionsFeatureEnabled()) {
-    const [allowPedidos, allowImpressao, allowHistorico] = await Promise.all([
+    const [allowPedidos, allowImpressao, allowHistorico, allowRelatorios] = await Promise.all([
       isRouteAllowedForUser("/cartorio-virtual", ctx.user),
       isRouteAllowedForUser("/cartorio-virtual/impressao", ctx.user),
       isRouteAllowedForUser("/cartorio-virtual/historico", ctx.user),
+      isRouteAllowedForUser("/cartorio-virtual/relatorios", ctx.user),
     ]);
     rotasPermitidas = [
       ...(allowPedidos ? ["/cartorio-virtual"] : []),
       ...(allowImpressao ? ["/cartorio-virtual/impressao"] : []),
       ...(allowHistorico ? ["/cartorio-virtual/historico"] : []),
+      ...(allowRelatorios ? ["/cartorio-virtual/relatorios"] : []),
     ];
   }
 

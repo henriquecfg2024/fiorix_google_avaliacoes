@@ -29,6 +29,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
 
 
       { id: 'cv_historico', label: 'Histórico de Operações', href: '/cartorio-virtual/historico', groupId: 'cartorioVirtual', groupLabel: 'Cartório Virtual', description: 'Trilha imutável de ações humanas, agentes virtuais e integrações' },
+      { id: 'cv_relatorios', label: 'Relatório do Seu Jeito', href: '/cartorio-virtual/relatorios', groupId: 'cartorioVirtual', groupLabel: 'Cartório Virtual', description: 'Construtor de relatórios personalizados integrados ao Webri' },
     ],
   },
   {

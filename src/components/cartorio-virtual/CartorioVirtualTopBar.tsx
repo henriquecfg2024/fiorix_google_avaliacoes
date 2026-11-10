@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Printer,
   History,
+  FileText,
   ShieldCheck,
   ChevronUp,
   ChevronDown,
@@ -52,6 +53,7 @@ const SUBMENUS = [
     exact: false,
   },
   { href: "/cartorio-virtual/historico", label: "ANDAMENTOS", icon: History, exact: false },
+  { href: "/cartorio-virtual/relatorios", label: "RELATÓRIO DO SEU JEITO", icon: FileText, exact: false },
 ];
 
 export function CartorioVirtualTopBar({
