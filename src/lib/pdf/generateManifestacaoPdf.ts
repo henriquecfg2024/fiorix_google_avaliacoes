@@ -5,6 +5,7 @@
  */
 import { jsPDF } from 'jspdf';
 import type { MinutaModelo, Segmento } from '@/components/documental/FichaOficialView';
+import { LOGO_7RI_MANIFESTACAO_DATA_URI } from '@/lib/documental/logo7riManifestacao';
 
 export interface InfoArquivamento {
   id: string;
@@ -34,12 +35,46 @@ interface Peca { t: string; destaque: boolean; espacoAntes: boolean }
 
 class EscritorPdf {
   y = MARGEM.topo;
-  constructor(public doc: jsPDF) {}
+  constructor(
+    public doc: jsPDF,
+    private timbreFallback?: MinutaModelo['timbre'],
+  ) {}
+
+  desenharLogotipoOficial() {
+    const larguraLogo = LARGURA_UTIL; // 165 mm
+    const alturaLogo = Number((larguraLogo * (197 / 926)).toFixed(2)); // ~35.10 mm
+    const yTopo = 12;
+    try {
+      this.doc.addImage(
+        LOGO_7RI_MANIFESTACAO_DATA_URI,
+        'PNG',
+        MARGEM.esquerda,
+        yTopo,
+        larguraLogo,
+        alturaLogo,
+      );
+      this.y = yTopo + alturaLogo + 5;
+    } catch {
+      if (this.timbreFallback) {
+        this.y = MARGEM.topo;
+        this.centralizado(
+          `${this.timbreFallback.numero} - ${this.timbreFallback.ordinal} ${this.timbreFallback.linha1} ${this.timbreFallback.linha3}`,
+          14,
+          true,
+        );
+        this.centralizado(this.timbreFallback.endereco, 8, false, 70);
+        this.y += 1.5;
+        this.doc.setLineWidth(0.5);
+        this.doc.line(MARGEM.esquerda, this.y, A4.largura - MARGEM.direita, this.y);
+        this.y += 7;
+      }
+    }
+  }
 
   garantirEspaco(altura: number) {
     if (this.y + altura > A4.altura - MARGEM.rodape) {
       this.doc.addPage();
-      this.y = MARGEM.topo;
+      this.desenharLogotipoOficial();
     }
   }
 
@@ -149,15 +184,10 @@ export function gerarPdfManifestacao(minuta: MinutaModelo, info?: InfoArquivamen
     subject: 'Manifestação de busca — 7º Oficial de Registro de Imóveis da Capital',
     creator: 'FIORIX — Gestão Documental',
   });
-  const w = new EscritorPdf(doc);
+  const w = new EscritorPdf(doc, minuta.timbre);
 
-  // Timbre
-  w.centralizado(`${minuta.timbre.numero} - ${minuta.timbre.ordinal} ${minuta.timbre.linha1} ${minuta.timbre.linha3}`, 14, true);
-  w.centralizado(minuta.timbre.endereco, 8, false, 70);
-  w.y += 1.5;
-  doc.setLineWidth(0.5);
-  doc.line(MARGEM.esquerda, w.y, A4.largura - MARGEM.direita, w.y);
-  w.y += 7;
+  // Logotipo Oficial do 7º Oficial de Registro de Imóveis da Capital - SP
+  w.desenharLogotipoOficial();
 
   // Cabeçalho
   const cab = minuta.cabecalho;

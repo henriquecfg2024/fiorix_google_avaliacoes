@@ -39,6 +39,11 @@ import {
   baixarDocManifestacao,
   baixarDocxManifestacao,
 } from '@/lib/documental/generateManifestacaoWord';
+import {
+  LOGO_7RI_MANIFESTACAO_DATA_URI,
+  LOGO_7RI_MANIFESTACAO_HEIGHT_PX,
+  LOGO_7RI_MANIFESTACAO_WIDTH_PX,
+} from '@/lib/documental/logo7riManifestacao';
 
 const POR_PAGINA = 25;
 
@@ -420,11 +425,14 @@ function Trechos({ segmentos }: { segmentos: Segmento[] }) {
 function FolhaMinuta({ m }: { m: MinutaModelo }) {
   return (
     <div className="mx-auto w-full max-w-[210mm] bg-white px-[18mm] py-[14mm] font-serif text-[13px] leading-relaxed text-black shadow-lg">
-      <div className="border-b-2 border-black pb-2 text-center">
-        <div className="text-[11px] font-bold tracking-[0.3em]">{m.timbre.linha1}</div>
-        <div className="text-xl font-bold">{m.timbre.numero} • {m.timbre.ordinal}</div>
-        <div className="text-[11px] font-bold tracking-[0.2em]">{m.timbre.linha3}</div>
-        <div className="mt-1 text-[10px]">{m.timbre.endereco}</div>
+      <div className="mb-5 flex flex-col items-center">
+        <img
+          src={LOGO_7RI_MANIFESTACAO_DATA_URI}
+          alt="7º Oficial de Registro de Imóveis da Capital - SP — Fone: 3218-0527 – R. Augusta, 356 – Consolação – Cep: 01304-000 – São Paulo – SP"
+          width={LOGO_7RI_MANIFESTACAO_WIDTH_PX}
+          height={LOGO_7RI_MANIFESTACAO_HEIGHT_PX}
+          className="h-auto w-full max-w-[680px] object-contain select-none"
+        />
       </div>
       <div className="mt-5 space-y-0.5 font-bold">
         <p>{m.cabecalho.processoRotulo} {m.cabecalho.processoValor}</p>

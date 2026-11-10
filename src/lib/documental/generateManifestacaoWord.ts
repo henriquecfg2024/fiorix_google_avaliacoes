@@ -5,6 +5,10 @@
  */
 import type { MinutaModelo, Segmento } from '@/components/documental/FichaOficialView';
 import type { InfoArquivamento } from '@/lib/pdf/generateManifestacaoPdf';
+import {
+  LOGO_7RI_MANIFESTACAO_DATA_URI,
+  obterBytesLogo7riManifestacao,
+} from '@/lib/documental/logo7riManifestacao';
 
 function escaparXml(texto: string): string {
   return (texto || '')
@@ -225,40 +229,28 @@ export function gerarDocxBytesManifestacao(
   const encoder = new TextEncoder();
   const paragrafosXml: string[] = [];
 
-  // 1. Timbre Oficial 7º RI
-  paragrafosXml.push(
-    xmlParagrafoSegmentos(
-      [{ t: `${minuta.timbre.numero} • ${minuta.timbre.ordinal} ${minuta.timbre.linha1} ${minuta.timbre.linha3}` }],
-      { boldAll: true, sizeHalfPt: 26, spaceAfterTwips: 40 },
-    ),
-  );
-  paragrafosXml.push(
-    `<w:p><w:pPr><w:spacing w:before="0" w:after="200"/><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="000000"/></w:pBdr></w:pPr>` +
-      xmlRun(`${minuta.timbre.endereco}   —   `, { sizeHalfPt: 16, color: '444444' }) +
-      xmlRun('Portaria Conjunta nº 1/26', { sizeHalfPt: 17, italic: true, color: '555555' }) +
-      `</w:p>`,
-  );
-
-  // 2. Cabeçalho do Processo
+  // 1. Cabeçalho do Processo (o Logotipo Oficial 7º RI vai no cabeçalho de página word/header1.xml, repetindo em todas as páginas)
   const cab = minuta.cabecalho;
   paragrafosXml.push(
-    `<w:p><w:pPr><w:spacing w:before="80" w:after="30"/></w:pPr>` +
-      xmlRun(`${cab.processoRotulo} `, { bold: true, sizeHalfPt: 21 }) +
-      xmlRun(cab.processoValor, { bold: false, sizeHalfPt: 21 }) +
+    `<w:p><w:pPr><w:spacing w:before="40" w:after="30"/></w:pPr>` +
+      xmlRun(`${cab.processoRotulo} `, { bold: true, sizeHalfPt: 22 }) +
+      xmlRun(cab.processoValor, { bold: true, sizeHalfPt: 22 }) +
       `</w:p>`,
   );
   paragrafosXml.push(
-    xmlParagrafoSegmentos([{ t: cab.vara }], { boldAll: true, sizeHalfPt: 21, spaceAfterTwips: 30 }),
+    xmlParagrafoSegmentos([{ t: cab.vara }], { boldAll: true, sizeHalfPt: 22, spaceAfterTwips: 30 }),
   );
   paragrafosXml.push(
     xmlParagrafoSegmentos([{ t: `${cab.interessadosRotulo} ${cab.interessadosValor}` }], {
       boldAll: true,
-      sizeHalfPt: 21,
+      sizeHalfPt: 22,
       spaceAfterTwips: 30,
     }),
   );
   paragrafosXml.push(
-    xmlParagrafoSegmentos([{ t: cab.natureza }], { boldAll: true, sizeHalfPt: 21, spaceAfterTwips: 220 }),
+    `<w:p><w:pPr><w:spacing w:before="0" w:after="240"/></w:pPr>` +
+      xmlRun(cab.natureza, { bold: true, underline: true, sizeHalfPt: 22 }) +
+      `</w:p>`,
   );
 
   // 3. Saudação
@@ -386,6 +378,56 @@ export function gerarDocxBytesManifestacao(
     }
   }
 
+  // Dimensões do logotipo oficial em EMUs (16.4 cm x 3.49 cm — proporção 926x197)
+  const logoCx = 5904000;
+  const logoCy = 1256035;
+
+  const header1Xml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
+    `xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ` +
+    `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
+    `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<w:p>` +
+    `<w:pPr><w:jc w:val="center"/><w:spacing w:before="0" w:after="120"/></w:pPr>` +
+    `<w:r>` +
+    `<w:drawing>` +
+    `<wp:inline distT="0" distB="0" distL="0" distR="0">` +
+    `<wp:extent cx="${logoCx}" cy="${logoCy}"/>` +
+    `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:docPr id="1" name="Logo7RI" descr="7º Oficial de Registro de Imóveis da Capital - SP"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic>` +
+    `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic>` +
+    `<pic:nvPicPr>` +
+    `<pic:cNvPr id="1" name="logo-7ri-manifestacao.png" descr="7º Oficial de Registro de Imóveis da Capital - SP"/>` +
+    `<pic:cNvPicPr/>` +
+    `</pic:nvPicPr>` +
+    `<pic:blipFill>` +
+    `<a:blip r:embed="rIdLogo7ri"/>` +
+    `<a:stretch><a:fillRect/></a:stretch>` +
+    `</pic:blipFill>` +
+    `<pic:spPr>` +
+    `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${logoCx}" cy="${logoCy}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+    `</pic:spPr>` +
+    `</pic:pic>` +
+    `</a:graphicData>` +
+    `</a:graphic>` +
+    `</wp:inline>` +
+    `</w:drawing>` +
+    `</w:r>` +
+    `</w:p>` +
+    `</w:hdr>`;
+
+  const header1RelsXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    `<Relationship Id="rIdLogo7ri" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo-7ri-manifestacao.png"/>` +
+    `</Relationships>`;
+
   const documentXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
@@ -393,8 +435,9 @@ export function gerarDocxBytesManifestacao(
     `<w:body>` +
     paragrafosXml.join('') +
     `<w:sectPr>` +
+    `<w:headerReference w:type="default" r:id="rId2"/>` +
     `<w:pgSz w:w="11906" w:h="16838"/>` +
-    `<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1418" w:header="709" w:footer="709" w:gutter="0"/>` +
+    `<w:pgMar w:top="2400" w:right="1134" w:bottom="1134" w:left="1418" w:header="567" w:footer="709" w:gutter="0"/>` +
     `</w:sectPr>` +
     `</w:body>` +
     `</w:document>`;
@@ -408,13 +451,23 @@ export function gerarDocxBytesManifestacao(
     `</w:docDefaults>` +
     `</w:styles>`;
 
+  const settingsXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+    `<w:view w:val="print"/>` +
+    `<w:zoom w:percent="100"/>` +
+    `</w:settings>`;
+
   const contentTypesXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
     `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>` +
     `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Default Extension="png" ContentType="image/png"/>` +
     `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>` +
     `<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>` +
+    `<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>` +
+    `<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>` +
     `</Types>`;
 
   const rootRelsXml =
@@ -427,13 +480,19 @@ export function gerarDocxBytesManifestacao(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
     `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>` +
+    `<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>` +
     `</Relationships>`;
 
   return empacotarZip([
     { nome: '[Content_Types].xml', dados: encoder.encode(contentTypesXml) },
     { nome: '_rels/.rels', dados: encoder.encode(rootRelsXml) },
     { nome: 'word/_rels/document.xml.rels', dados: encoder.encode(docRelsXml) },
+    { nome: 'word/_rels/header1.xml.rels', dados: encoder.encode(header1RelsXml) },
     { nome: 'word/styles.xml', dados: encoder.encode(stylesXml) },
+    { nome: 'word/settings.xml', dados: encoder.encode(settingsXml) },
+    { nome: 'word/header1.xml', dados: encoder.encode(header1Xml) },
+    { nome: 'word/media/logo-7ri-manifestacao.png', dados: obterBytesLogo7riManifestacao() },
     { nome: 'word/document.xml', dados: encoder.encode(documentXml) },
   ]);
 }
@@ -496,9 +555,7 @@ export function gerarDocHtmlManifestacao(
     `<style>\n` +
     `@page Section1 { size: 21.0cm 29.7cm; margin: 2.0cm 2.0cm 2.0cm 2.5cm; mso-header-margin: 1.25cm; mso-footer-margin: 1.25cm; }\n` +
     `div.Section1 { page: Section1; font-family: Arial, sans-serif; font-size: 11pt; color: #000000; line-height: 1.45; }\n` +
-    `.timbre { border-bottom: 2px solid #000000; padding-bottom: 6pt; margin-bottom: 14pt; }\n` +
-    `.timbre-titulo { font-size: 13pt; font-weight: bold; letter-spacing: 0.3pt; }\n` +
-    `.timbre-sub { font-size: 8.5pt; color: #444444; margin-top: 2pt; }\n` +
+    `.timbre { text-align: center; margin-bottom: 14pt; }\n` +
     `.cabecalho p { margin: 0 0 2pt 0; font-size: 10.5pt; }\n` +
     `.saudacao { font-weight: bold; margin: 14pt 0 12pt 0; font-size: 11pt; }\n` +
     `.paragrafo { text-align: justify; text-indent: 1.25cm; margin: 0 0 10pt 0; font-size: 11pt; }\n` +
@@ -510,14 +567,13 @@ export function gerarDocHtmlManifestacao(
     `<body>\n` +
     `<div class="Section1">\n` +
     `  <div class="timbre">\n` +
-    `    <div class="timbre-titulo">${escaparHtml(`${minuta.timbre.numero} • ${minuta.timbre.ordinal} ${minuta.timbre.linha1} ${minuta.timbre.linha3}`)}</div>\n` +
-    `    <div class="timbre-sub">${escaparHtml(minuta.timbre.endereco)} &nbsp;&mdash;&nbsp; <i>Portaria Conjunta nº 1/26</i></div>\n` +
+    `    <img src="${LOGO_7RI_MANIFESTACAO_DATA_URI}" width="620" height="132" alt="7º Oficial de Registro de Imóveis da Capital - SP" style="width:16.4cm;height:3.49cm;display:block;margin:0 auto;" />\n` +
     `  </div>\n` +
     `  <div class="cabecalho">\n` +
-    `    <p><b>${escaparHtml(minuta.cabecalho.processoRotulo)}</b> ${escaparHtml(minuta.cabecalho.processoValor)}</p>\n` +
+    `    <p><b>${escaparHtml(minuta.cabecalho.processoRotulo)} ${escaparHtml(minuta.cabecalho.processoValor)}</b></p>\n` +
     `    <p><b>${escaparHtml(minuta.cabecalho.vara)}</b></p>\n` +
     `    <p><b>${escaparHtml(minuta.cabecalho.interessadosRotulo)}</b> <b>${escaparHtml(minuta.cabecalho.interessadosValor)}</b></p>\n` +
-    `    <p><b>${escaparHtml(minuta.cabecalho.natureza)}</b></p>\n` +
+    `    <p><b><u>${escaparHtml(minuta.cabecalho.natureza)}</u></b></p>\n` +
     `  </div>\n` +
     `  <p class="saudacao">${escaparHtml(minuta.saudacao)}</p>\n` +
     `  ${corpoHtml}\n` +

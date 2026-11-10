@@ -42,6 +42,11 @@ import { formatCartorioPath, getRootInfo } from './DocumentSearch';
 import { extrairConfrontacoes, ConfrontacoesExtraidas, resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
 import { copiarTextoSeguro } from '@/lib/documental/pdfTransfer';
 import { baixarDocxManifestacao, baixarDocManifestacao } from '@/lib/documental/generateManifestacaoWord';
+import {
+  LOGO_7RI_MANIFESTACAO_DATA_URI,
+  LOGO_7RI_MANIFESTACAO_HEIGHT_PX,
+  LOGO_7RI_MANIFESTACAO_WIDTH_PX,
+} from '@/lib/documental/logo7riManifestacao';
 
 export interface DadosManifestacao {
   id_ficha: string;
@@ -1628,15 +1633,15 @@ export function FichaOficialView({
           : 'bg-white p-6 sm:p-8 md:p-10 border border-gray-300 rounded shadow-md text-black font-sans leading-relaxed text-[11pt] space-y-4 break-words'
       }
     >
-      {/* TIMBRE */}
-      <div className="border-b-2 border-black pb-2 mb-4">
-        <div className="text-base font-bold tracking-wide">
-          {minuta.timbre.numero} • {minuta.timbre.ordinal} {minuta.timbre.linha1} {minuta.timbre.linha3}
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-x-3">
-          <div className="text-[8pt] text-gray-600">{minuta.timbre.endereco}</div>
-          <div className="text-[8.5pt] italic text-gray-500">Portaria Conjunta nº 1/26</div>
-        </div>
+      {/* LOGOTIPO OFICIAL 7º RI */}
+      <div className="mb-5 flex flex-col items-center">
+        <img
+          src={LOGO_7RI_MANIFESTACAO_DATA_URI}
+          alt="7º Oficial de Registro de Imóveis da Capital - SP — Fone: 3218-0527 – R. Augusta, 356 – Consolação – Cep: 01304-000 – São Paulo – SP"
+          width={LOGO_7RI_MANIFESTACAO_WIDTH_PX}
+          height={LOGO_7RI_MANIFESTACAO_HEIGHT_PX}
+          className="h-auto w-full max-w-[680px] object-contain select-none"
+        />
       </div>
 
       {/* CABEÇALHO */}
@@ -1745,15 +1750,15 @@ export function FichaOficialView({
           </div>
         </div>
 
-        {/* TIMBRE OFICIAL */}
-        <div className="border-b-2 border-black pb-2 mb-4">
-          <div className="text-base font-bold tracking-wide">
-            {minuta.timbre.numero} • {minuta.timbre.ordinal} {minuta.timbre.linha1} {minuta.timbre.linha3}
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-x-3">
-            <div className="text-[8pt] text-gray-600">{minuta.timbre.endereco}</div>
-            <div className="text-[8.5pt] italic text-gray-500">Portaria Conjunta nº 1/26</div>
-          </div>
+        {/* LOGOTIPO OFICIAL 7º RI */}
+        <div className="mb-5 flex flex-col items-center">
+          <img
+            src={LOGO_7RI_MANIFESTACAO_DATA_URI}
+            alt="7º Oficial de Registro de Imóveis da Capital - SP — Fone: 3218-0527 – R. Augusta, 356 – Consolação – Cep: 01304-000 – São Paulo – SP"
+            width={LOGO_7RI_MANIFESTACAO_WIDTH_PX}
+            height={LOGO_7RI_MANIFESTACAO_HEIGHT_PX}
+            className="h-auto w-full max-w-[680px] object-contain select-none"
+          />
         </div>
 
         {/* CABEÇALHO EDITÁVEL DIRETO NO TEXTO */}
