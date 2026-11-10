@@ -26,11 +26,16 @@ import {
   Save,
   Archive,
   Download,
+  Globe,
+  MapPin,
+  ExternalLink,
+  Compass,
+  FolderOpen,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
 import { formatCartorioPath, getRootInfo } from './DocumentSearch';
-import { extrairConfrontacoes, ConfrontacoesExtraidas } from '@/lib/confrontacoes';
+import { extrairConfrontacoes, ConfrontacoesExtraidas, resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
 import { copiarTextoSeguro } from '@/lib/documental/pdfTransfer';
 
 export interface DadosManifestacao {
@@ -496,6 +501,26 @@ const CAMPOS_CONFRONTACAO: (keyof DadosManifestacao)[] = ['confrontante_lado_dir
 // Inicialização inteligente: se a inferência do OCR identificou subdistrito, escrevente, cartório ou confrontações, preenche automaticamente
 function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?: ArquivoOrigemFicha | null): DadosManifestacao {
   const sug = inferirSugestoesInteligentes(dadosIniciais, arquivoOrigem);
+  const dir = (dadosIniciais.confrontante_lado_direito && dadosIniciais.confrontante_lado_direito !== 'conforme apuração nos autos')
+    ? dadosIniciais.confrontante_lado_direito
+    : (sug.confrontacoes.ladoDireito || dadosIniciais.confrontante_lado_direito || '');
+  const esq = (dadosIniciais.confrontante_lado_esquerdo && dadosIniciais.confrontante_lado_esquerdo !== 'conforme apuração nos autos')
+    ? dadosIniciais.confrontante_lado_esquerdo
+    : (sug.confrontacoes.ladoEsquerdo || dadosIniciais.confrontante_lado_esquerdo || '');
+  const fun = (dadosIniciais.confrontante_fundos && dadosIniciais.confrontante_fundos !== 'conforme apuração nos autos')
+    ? dadosIniciais.confrontante_fundos
+    : (sug.confrontacoes.fundos || dadosIniciais.confrontante_fundos || '');
+
+  let anotacoes = dadosIniciais.anotacoes_ficha_oficial || '';
+  if (!anotacoes.trim() && (dir || esq || fun)) {
+    const linhas: string[] = [];
+    if (dadosIniciais.rua_olhar_confrontacao) linhas.push(`• Frente (Logradouro): ${dadosIniciais.rua_olhar_confrontacao}`);
+    if (dir) linhas.push(`• Lado Direito: ${dir}`);
+    if (esq) linhas.push(`• Lado Esquerdo: ${esq}`);
+    if (fun) linhas.push(`• Fundos: ${fun}`);
+    anotacoes = `CONFRONTAÇÕES APURADAS (PETIÇÃO INICIAL / MATRÍCULA):\n${linhas.join('\n')}`;
+  }
+
   return {
     ...dadosIniciais,
     subdistrito: (dadosIniciais.subdistrito && dadosIniciais.subdistrito !== 'ALTO DA MOÓCA')
@@ -510,15 +535,10 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
     escrevente_pasta: (dadosIniciais.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(dadosIniciais.escrevente_pasta))
       ? dadosIniciais.escrevente_pasta
       : sug.escrevente.valor,
-    confrontante_lado_direito: (dadosIniciais.confrontante_lado_direito && dadosIniciais.confrontante_lado_direito !== 'conforme apuração nos autos')
-      ? dadosIniciais.confrontante_lado_direito
-      : (sug.confrontacoes.ladoDireito || dadosIniciais.confrontante_lado_direito || ''),
-    confrontante_lado_esquerdo: (dadosIniciais.confrontante_lado_esquerdo && dadosIniciais.confrontante_lado_esquerdo !== 'conforme apuração nos autos')
-      ? dadosIniciais.confrontante_lado_esquerdo
-      : (sug.confrontacoes.ladoEsquerdo || dadosIniciais.confrontante_lado_esquerdo || ''),
-    confrontante_fundos: (dadosIniciais.confrontante_fundos && dadosIniciais.confrontante_fundos !== 'conforme apuração nos autos')
-      ? dadosIniciais.confrontante_fundos
-      : (sug.confrontacoes.fundos || dadosIniciais.confrontante_fundos || ''),
+    confrontante_lado_direito: dir,
+    confrontante_lado_esquerdo: esq,
+    confrontante_fundos: fun,
+    anotacoes_ficha_oficial: anotacoes,
   };
 }
 
@@ -947,6 +967,297 @@ export function FichaOficialView({
     }
   }
 
+  // ─── Localização de Plantas Fiscais em K:\IMAGENS\SETORES ────────────────
+  const [buscandoSetores, setBuscandoSetores] = useState(false);
+  const [arquivosSetores, setArquivosSetores] = useState<Livro2Match[] | null>(null);
+  const [erroSetores, setErroSetores] = useState<string | null>(null);
+  const [termoBuscadoSetores, setTermoBuscadoSetores] = useState('');
+
+  // ─── Consulta ao GEOSAMPA (WFS Lotes + Integração IPTU + Links Oficiais) ─
+  const [buscandoGeoSampa, setBuscandoGeoSampa] = useState(false);
+  const [erroGeoSampa, setErroGeoSampa] = useState<string | null>(null);
+  const [resultadoGeoSampa, setResultadoGeoSampa] = useState<{
+    setor: string | null;
+    quadra: string | null;
+    lote: string | null;
+    plantaSetor?: {
+      setor: string;
+      quadra: string;
+      lote?: string;
+      pastaSetor: string;
+      arquivoKen: string;
+      caminhoRelativo: string;
+      caminhoCompleto: string;
+      termoBusca: string;
+    } | null;
+    loteGeoSampa?: {
+      nr_contribuinte?: string;
+      nm_logradouro_completo?: string;
+      cd_numero_porta?: string;
+      qt_area_terreno?: number;
+      qt_area_construida?: number;
+      dc_tipo_uso_imovel?: string;
+      cd_cib?: string;
+    } | null;
+    iptuIntegracao?: Record<string, string> | null;
+    confrontantesGeoSampa?: {
+      frente: string;
+      ladoDireito: string;
+      ladoEsquerdo: string;
+      fundos: string;
+      vizinhos: Array<{
+        direcao: 'DIREITO' | 'ESQUERDO' | 'FUNDOS' | 'LINDEIRO';
+        lote: string;
+        sql: string;
+        logradouro: string;
+        numeroPorta: string;
+        areaTerreno?: number;
+        distanciaMetros: number;
+        descricaoFormatada: string;
+      }>;
+    } | null;
+    linksGeoSampa?: {
+      portalNovoGeoSampa: string;
+      mapaCamadasSetoresLotes: string;
+      mapaPadrao: string;
+      atalhoCompartilhado: string;
+      geoSampaClassicoSbc: string;
+    };
+  } | null>(null);
+
+  const plantaSetorCalculada = useMemo(
+    () =>
+      resultadoGeoSampa?.plantaSetor ||
+      resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel),
+    [resultadoGeoSampa?.plantaSetor, dados.contribuinte_sql, dados.imovel],
+  );
+
+  async function localizarPlantaSetorNoAcervo(termoCustom?: string) {
+    const info = resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel) || resultadoGeoSampa?.plantaSetor;
+    const queryBusca = (
+      termoCustom ||
+      info?.termoBusca ||
+      (dados.contribuinte_sql && !/^0+$/.test(dados.contribuinte_sql.replace(/[^\d]/g, '')) ? dados.contribuinte_sql : '') ||
+      ''
+    ).trim();
+
+    if (!queryBusca || queryBusca.length < 3) {
+      setErroSetores('Informe o SQL (ex.: 053.006.0049-0) ou o Setor/Quadra (ex.: 00053006 ou setor 053 quadra 006) para localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+      return;
+    }
+
+    setBuscandoSetores(true);
+    setErroSetores(null);
+    setTermoBuscadoSetores(queryBusca);
+
+    try {
+      const response = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId: connectorId || '',
+          type: 'search',
+          rootId: 'imagens',
+          query: queryBusca,
+          forceFresh: true,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Connector local indisponível.');
+
+      const deadline = Date.now() + 35000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 700));
+        const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+        const state = await res.json();
+        if (!res.ok) throw new Error(state.error);
+        if (state.status === 'complete' && state.result) {
+          const files: Livro2Match[] = state.result.files || [];
+          const plantas = files.filter(f => {
+            const rel = (f.relativePath || '').toLowerCase();
+            return rel.includes('setores') || /^00\d{6}\.(ken|tif|tiff)$/i.test(f.name || '');
+          });
+          setArquivosSetores(plantas.length > 0 ? plantas : files);
+          return;
+        }
+        if (state.status === 'failed') throw new Error('Falha na busca da Planta Fiscal pelo Connector local.');
+      }
+      throw new Error('Tempo limite excedido ao consultar K:\\IMAGENS\\SETORES.');
+    } catch (err) {
+      setArquivosSetores(null);
+      setErroSetores(err instanceof Error ? err.message : 'Falha ao localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+    } finally {
+      setBuscandoSetores(false);
+    }
+  }
+
+  const registrarConfrontacoesNasAnotacoes = (
+    override?: Partial<{
+      frente: string;
+      ladoDireito: string;
+      ladoEsquerdo: string;
+      fundos: string;
+      plantaFiscal: string;
+      sqlGeoSampa: string;
+    }>,
+  ) => {
+    setDados(prev => {
+      const frente = override?.frente ?? prev.rua_olhar_confrontacao ?? '';
+      const dir = override?.ladoDireito ?? prev.confrontante_lado_direito ?? '';
+      const esq = override?.ladoEsquerdo ?? prev.confrontante_lado_esquerdo ?? '';
+      const fun = override?.fundos ?? prev.confrontante_fundos ?? '';
+      const planta =
+        override?.plantaFiscal ??
+        plantaSetorCalculada?.caminhoCompleto ??
+        '';
+      const sqlRef = override?.sqlGeoSampa ?? prev.contribuinte_sql ?? '';
+
+      const linhas: string[] = ['CONFRONTAÇÕES DO IMÓVEL USUCAPIENDO:'];
+      if (frente) linhas.push(`• Frente (Logradouro): ${frente}`);
+      if (dir) linhas.push(`• Pelo Lado Direito: ${dir}`);
+      if (esq) linhas.push(`• Pelo Lado Esquerdo: ${esq}`);
+      if (fun) linhas.push(`• Aos Fundos: ${fun}`);
+      if (prev.matricula_transcricao) {
+        linhas.push(
+          `• Matrícula / Transcrição mencionada: ${prev.matricula_transcricao}${prev.cartorio_origem ? ` (${prev.cartorio_origem})` : ''}`,
+        );
+      }
+      if (planta) linhas.push(`• Planta Fiscal (Setores): ${planta}`);
+      if (sqlRef && !/^0+$/.test(sqlRef.replace(/[^\d]/g, ''))) {
+        linhas.push(`• SQL / GeoSampa: ${sqlRef}`);
+      }
+
+      const blocoNovo = linhas.join('\n');
+      const atual = (prev.anotacoes_ficha_oficial || '').trim();
+      const regexBlocoExistente = /CONFRONTAÇÕES (?:DO IMÓVEL USUCAPIENDO|APURADAS[^\n]*):[\s\S]*?(?=\n\n|$)/i;
+      const novasAnotacoes = !atual
+        ? blocoNovo
+        : regexBlocoExistente.test(atual)
+        ? atual.replace(regexBlocoExistente, blocoNovo)
+        : `${blocoNovo}\n\n${atual}`;
+
+      return sincronizarAnexos({
+        ...prev,
+        rua_olhar_confrontacao: frente || prev.rua_olhar_confrontacao,
+        confrontante_lado_direito: dir || prev.confrontante_lado_direito,
+        confrontante_lado_esquerdo: esq || prev.confrontante_lado_esquerdo,
+        confrontante_fundos: fun || prev.confrontante_fundos,
+        contribuinte_sql:
+          (!prev.contribuinte_sql || /^0+$/.test(prev.contribuinte_sql.replace(/[^\d]/g, ''))) && sqlRef
+            ? sqlRef
+            : prev.contribuinte_sql,
+        anotacoes_ficha_oficial: novasAnotacoes,
+      });
+    });
+  };
+
+  async function consultarGeoSampaConfrontacoes(silencioso = false) {
+    if (!dados.contribuinte_sql && !dados.imovel && !dados.rua_olhar_confrontacao) {
+      if (!silencioso) {
+        setErroGeoSampa('Informe o SQL ou o endereço do imóvel para realizar a consulta no GeoSampa.');
+      }
+      return;
+    }
+
+    setBuscandoGeoSampa(true);
+    setErroGeoSampa(null);
+    try {
+      const resp = await fetch('/api/gestao-documental/confrontacoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sql: dados.contribuinte_sql,
+          imovel: dados.imovel,
+          rua: dados.rua_olhar_confrontacao,
+          subdistrito: dados.subdistrito,
+          matricula: dados.matricula_transcricao,
+          textoAutos,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) {
+        throw new Error(json.error || 'Não foi possível consultar o GeoSampa.');
+      }
+      setResultadoGeoSampa(json);
+
+      // Se havia confrontações ainda em branco no formulário, preenche automaticamente com o que foi apurado nos autos ou no GeoSampa
+      const cg = json.confrontantesGeoSampa;
+      const ct = json.confrontacoesTextoAutos;
+      const dirSug = ct?.ladoDireito || cg?.ladoDireito || '';
+      const esqSug = ct?.ladoEsquerdo || cg?.ladoEsquerdo || '';
+      const funSug = ct?.fundos || cg?.fundos || '';
+      const sqlSug = json.loteGeoSampa?.nr_contribuinte || '';
+      const plantaSug = json.plantaSetor?.caminhoCompleto || '';
+
+      setDados(prev => {
+        const precisaDir = !prev.confrontante_lado_direito || prev.confrontante_lado_direito === 'conforme apuração nos autos';
+        const precisaEsq = !prev.confrontante_lado_esquerdo || prev.confrontante_lado_esquerdo === 'conforme apuração nos autos';
+        const precisaFun = !prev.confrontante_fundos || prev.confrontante_fundos === 'conforme apuração nos autos';
+        const novoDir = precisaDir && dirSug ? dirSug : prev.confrontante_lado_direito;
+        const novoEsq = precisaEsq && esqSug ? esqSug : prev.confrontante_lado_esquerdo;
+        const novoFun = precisaFun && funSug ? funSug : prev.confrontante_fundos;
+        const novoFrente = !prev.rua_olhar_confrontacao && cg?.frente ? cg.frente : prev.rua_olhar_confrontacao;
+        const novoSql =
+          (!prev.contribuinte_sql || /^0+$/.test(prev.contribuinte_sql.replace(/[^\d]/g, ''))) && sqlSug
+            ? sqlSug
+            : prev.contribuinte_sql;
+
+        let novasAnotacoes = prev.anotacoes_ficha_oficial || '';
+        if (!novasAnotacoes.trim() && (novoDir || novoEsq || novoFun || plantaSug)) {
+          const linhas: string[] = ['CONFRONTAÇÕES DO IMÓVEL USUCAPIENDO:'];
+          if (novoFrente) linhas.push(`• Frente (Logradouro): ${novoFrente}`);
+          if (novoDir) linhas.push(`• Pelo Lado Direito: ${novoDir}`);
+          if (novoEsq) linhas.push(`• Pelo Lado Esquerdo: ${novoEsq}`);
+          if (novoFun) linhas.push(`• Aos Fundos: ${novoFun}`);
+          if (prev.matricula_transcricao) {
+            linhas.push(`• Matrícula / Transcrição mencionada: ${prev.matricula_transcricao}`);
+          }
+          if (plantaSug) linhas.push(`• Planta Fiscal (Setores): ${plantaSug}`);
+          if (novoSql && !/^0+$/.test(novoSql.replace(/[^\d]/g, ''))) {
+            linhas.push(`• SQL / GeoSampa: ${novoSql}`);
+          }
+          novasAnotacoes = linhas.join('\n');
+        }
+
+        return sincronizarAnexos({
+          ...prev,
+          rua_olhar_confrontacao: novoFrente,
+          confrontante_lado_direito: novoDir,
+          confrontante_lado_esquerdo: novoEsq,
+          confrontante_fundos: novoFun,
+          contribuinte_sql: novoSql,
+          anotacoes_ficha_oficial: novasAnotacoes,
+        });
+      });
+
+      if (!silencioso) {
+        if (cg) {
+          setOrigemConfrontacoes(`GeoSampa (Setor ${json.setor} • Quadra ${json.quadra} • Lote ${json.lote})`);
+          mostrarAviso(`Consulta ao GeoSampa concluída: Setor ${json.setor} • Quadra ${json.quadra} • Lote ${json.lote} (${cg.vizinhos?.length || 0} lotes confrontantes lindeiros identificados).`);
+        } else {
+          mostrarAviso('Consulta concluída. Verifique os links diretos do GeoSampa e a Planta Fiscal.');
+        }
+      }
+    } catch (err) {
+      if (!silencioso) {
+        setErroGeoSampa(err instanceof Error ? err.message : 'Erro ao consultar o GeoSampa.');
+      }
+    } finally {
+      setBuscandoGeoSampa(false);
+    }
+  }
+
+  // Dispara consulta automática ao GeoSampa ao abrir a ficha quando houver SQL ou endereço do imóvel
+  const geoSampaAutoConsultadoRef = useRef<string>('');
+  useEffect(() => {
+    const chave = `${dados.id_ficha}|${dados.contribuinte_sql}|${dados.imovel}`;
+    if (geoSampaAutoConsultadoRef.current === chave) return;
+    if (dados.contribuinte_sql || dados.imovel || dados.rua_olhar_confrontacao) {
+      geoSampaAutoConsultadoRef.current = chave;
+      void consultarGeoSampaConfrontacoes(true);
+    }
+  }, [dados.id_ficha]);
+
   // ─── Minuta: fonte única para exibição, cópia e impressão ────────────────
   const minuta = useMemo(() => montarMinuta(dados, saudacaoJuiz), [dados, saudacaoJuiz]);
 
@@ -1205,13 +1516,24 @@ export function FichaOficialView({
 
       <div>
         <p style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: 0.8, margin: '0 0 6px', textTransform: 'uppercase' }}>Conferência e Anotações:</p>
+        {(dados.confrontante_lado_direito || dados.confrontante_lado_esquerdo || dados.confrontante_fundos || dados.rua_olhar_confrontacao) &&
+        !(dados.anotacoes_ficha_oficial || '').includes('CONFRONTAÇÕES') ? (
+          <div style={{ fontSize: 11.5, fontFamily: 'Arial, sans-serif', padding: '4px 6px', marginBottom: 6, border: '1px solid #888', background: '#fafafa' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: 2 }}>CONFRONTAÇÕES DO IMÓVEL USUCAPIENDO:</div>
+            {dados.rua_olhar_confrontacao ? <div>• <strong>Frente (Logradouro):</strong> {dados.rua_olhar_confrontacao}</div> : null}
+            {dados.confrontante_lado_direito ? <div>• <strong>Pelo Lado Direito:</strong> {dados.confrontante_lado_direito}</div> : null}
+            {dados.confrontante_lado_esquerdo ? <div>• <strong>Pelo Lado Esquerdo:</strong> {dados.confrontante_lado_esquerdo}</div> : null}
+            {dados.confrontante_fundos ? <div>• <strong>Aos Fundos:</strong> {dados.confrontante_fundos}</div> : null}
+            {plantaSetorCalculada ? <div>• <strong>Planta Fiscal (Setores):</strong> {plantaSetorCalculada.caminhoCompleto}</div> : null}
+          </div>
+        ) : null}
         {dados.anotacoes_ficha_oficial ? (
           <p style={{ fontSize: 12, fontFamily: 'Arial, sans-serif', minHeight: 40, padding: '2px 4px', margin: '0 0 6px', whiteSpace: 'pre-wrap', borderBottom: '1px dotted #777' }}>
             {dados.anotacoes_ficha_oficial}
           </p>
         ) : null}
         <div style={{ marginTop: 8 }}>
-          {Array.from({ length: dados.anotacoes_ficha_oficial ? 14 : 18 }).map((_, i) => (
+          {Array.from({ length: dados.anotacoes_ficha_oficial ? 12 : 16 }).map((_, i) => (
             <span key={i} style={{ display: 'block', borderBottom: '1px dotted #888', paddingTop: 20 }} />
           ))}
         </div>
@@ -1587,12 +1909,449 @@ export function FichaOficialView({
                   {/* LINHA HORIZONTAL PRETA GROSSA */}
                   <div className="my-4 h-1 bg-black" />
 
-                  {/* LINHAS PAUTADAS */}
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-1 font-sans text-[11px] font-bold uppercase tracking-wider">
-                      <label htmlFor="doc-anotacoes">Conferência e Anotações:</label>
+                  {/* CONFERÊNCIA E ANOTAÇÕES + CONFRONTAÇÕES DO IMÓVEL (4 FONTES) */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-[11px] font-bold uppercase tracking-wider">
+                      <label htmlFor="doc-anotacoes" className="flex items-center gap-1.5 text-black">
+                        <span>Conferência e Anotações:</span>
+                        <span className="rounded bg-[#1E293B] px-1.5 py-0.5 text-[9.5px] font-semibold text-white">
+                          Confrontações do Imóvel
+                        </span>
+                      </label>
                       <span className="font-normal text-gray-700">Anotações editáveis abaixo</span>
                     </div>
+
+                    {/* Painel Integrado de Confrontações do Imóvel Usucapiendo */}
+                    <div className="rounded-lg border border-gray-300 bg-[#FDFBF7] p-3 font-sans text-xs shadow-2xs space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                            <Compass className="h-3.5 w-3.5 text-[#0F3D6E]" />
+                            <span>Confrontações do Imóvel Elencado no Usucapião</span>
+                          </div>
+                          <p className="text-[10.5px] text-gray-600">
+                            Pesquisa integrada: Petição Inicial • Matrícula ({dados.matricula_transcricao || 'LV2/LV3'}) • Plantas Fiscais (<code className="font-mono">K:\IMAGENS\SETORES</code>) • GeoSampa
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => registrarConfrontacoesNasAnotacoes()}
+                          className="inline-flex items-center gap-1 rounded-md border border-[#1E293B] bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
+                          title="Insere ou atualiza as confrontações preenchidas dentro do campo de texto de Conferência e Anotações abaixo"
+                        >
+                          <Check className="h-3 w-3" />
+                          <span>Registrar Confrontações nas Anotações</span>
+                        </button>
+                      </div>
+
+                      {/* Campos das Confrontações (sincronizados com a Etapa 2 e com a Ficha Impressa) */}
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                            Frente / Logradouro (de quem da rua olha o imóvel)
+                          </span>
+                          <input
+                            type="text"
+                            value={dados.rua_olhar_confrontacao}
+                            onChange={e => atualizarCampo('rua_olhar_confrontacao', e.target.value)}
+                            placeholder="Ex.: Rua 47 / Rua Gaspar Rodrigues, nº 191"
+                            className={inputPainel}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                            Pelo Lado Direito
+                          </span>
+                          <input
+                            type="text"
+                            value={dados.confrontante_lado_direito}
+                            onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
+                            placeholder="Ex.: com o lote 11 (prédio nº ... / Matrícula nº ...)"
+                            className={inputPainel}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                            Pelo Lado Esquerdo
+                          </span>
+                          <input
+                            type="text"
+                            value={dados.confrontante_lado_esquerdo}
+                            onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
+                            placeholder="Ex.: com o lote 13 (prédio nº ... / Matrícula nº ...)"
+                            className={inputPainel}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-0.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">
+                            Aos Fundos
+                          </span>
+                          <input
+                            type="text"
+                            value={dados.confrontante_fundos}
+                            onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
+                            placeholder="Ex.: com o lote 25 da quadra ..."
+                            className={inputPainel}
+                          />
+                        </label>
+                      </div>
+
+                      {/* Barra de Ações das 4 Fontes de Pesquisa */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {/* 1. Petição Inicial */}
+                        <button
+                          type="button"
+                          onClick={preencherConfrontacoesPelosAutos}
+                          className={botaoOrigem}
+                          title="Procura e extrai as confrontações descritas na Petição Inicial e no Laudo Pericial do processo de usucapião"
+                        >
+                          <Wand2 className="h-3.5 w-3.5 text-[#0F3D6E]" />
+                          <span>1. Extrair da Petição Inicial</span>
+                        </button>
+
+                        {arquivoOrigem && onVisualizarDocumento ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onVisualizarDocumento({
+                                rootId: arquivoOrigem.rootId || 'processos',
+                                relativePath: arquivoOrigem.relativePath,
+                                name: arquivoOrigem.name,
+                                size: 0,
+                                modifiedAt: '',
+                              })
+                            }
+                            className={botaoOrigem}
+                            title={`Abrir os autos do processo (${arquivoOrigem.name}) para conferir a Petição Inicial e a Certidão de Matrícula`}
+                          >
+                            <Eye className="h-3.5 w-3.5 text-[#0F3D6E]" />
+                            <span>Ver Autos (PDF)</span>
+                          </button>
+                        ) : null}
+
+                        {/* 2. Matrícula mencionada no Processo */}
+                        <button
+                          type="button"
+                          onClick={() => void localizarNoLivro2()}
+                          disabled={buscandoLivro2}
+                          className={botaoOrigem}
+                          title="Localiza a imagem digitalizada (.KEN) da Matrícula/Transcrição mencionada no processo de usucapião em K:\IMAGENS\LV2 ou LV3"
+                        >
+                          {buscandoLivro2 ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0F3D6E]" />
+                          ) : (
+                            <ImageIcon className="h-3.5 w-3.5 text-[#0F3D6E]" />
+                          )}
+                          <span>2. Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
+                        </button>
+
+                        {/* 3. Plantas Fiscais em K:\IMAGENS\SETORES */}
+                        <button
+                          type="button"
+                          onClick={() => void localizarPlantaSetorNoAcervo()}
+                          disabled={buscandoSetores}
+                          className={botaoOrigem}
+                          title={
+                            plantaSetorCalculada
+                              ? `Localizar Planta Fiscal ${plantaSetorCalculada.caminhoCompleto}`
+                              : 'Localizar Planta Fiscal na pasta K:\\IMAGENS\\SETORES pelo Setor e Quadra'
+                          }
+                        >
+                          {buscandoSetores ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
+                          ) : (
+                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
+                          )}
+                          <span>
+                            3. Planta Fiscal (K:\IMAGENS\SETORES
+                            {plantaSetorCalculada ? ` • ${plantaSetorCalculada.arquivoKen}` : ''})
+                          </span>
+                        </button>
+
+                        {/* 4. Consulta GeoSampa + IPTU */}
+                        <button
+                          type="button"
+                          onClick={() => void consultarGeoSampaConfrontacoes(false)}
+                          disabled={buscandoGeoSampa}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#0F3D6E] bg-[#0F3D6E] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer disabled:opacity-50"
+                          title="Consulta automaticamente a quadra fiscal, lotes confrontantes lindeiros e dados de IPTU no GeoSampa"
+                        >
+                          {buscandoGeoSampa ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Globe className="h-3.5 w-3.5" />
+                          )}
+                          <span>4. Consultar GeoSampa + IPTU</span>
+                        </button>
+                      </div>
+
+                      {/* Atalhos Oficiais para o GEOSAMPA - Mapa Digital da Cidade de São Paulo */}
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-2.5 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#0F3D6E]">
+                            <MapPin className="h-3.5 w-3.5" />
+                            <span>GEOSAMPA — Mapa Digital da Cidade de São Paulo (Links Diretos)</span>
+                          </span>
+                          {resultadoGeoSampa?.setor && resultadoGeoSampa?.quadra ? (
+                            <span className="rounded bg-blue-100 px-2 py-0.5 font-mono text-[10px] font-bold text-[#0F3D6E]">
+                              Setor {resultadoGeoSampa.setor} • Quadra {resultadoGeoSampa.quadra}
+                              {resultadoGeoSampa.lote ? ` • Lote ${resultadoGeoSampa.lote}` : ''}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <a
+                            href="https://novogeosampa.prefeitura.sp.gov.br/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>GEOSAMPA - Mapa Digital da Cidade de São Paulo</span>
+                          </a>
+
+                          <a
+                            href={
+                              resultadoGeoSampa?.linksGeoSampa?.mapaCamadasSetoresLotes ||
+                              'https://novogeosampa.prefeitura.sp.gov.br/#map=9.49/-23.67359/-46.60345/0&layers=103/100/100/&basemap=5/100/100'
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                            title="Abre o Novo GeoSampa com a camada de Setores/Quadras/Lotes Fiscais ativa"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>
+                              {resultadoGeoSampa?.loteGeoSampa
+                                ? `Mapa do Lote (${resultadoGeoSampa.loteGeoSampa.nr_contribuinte || 'Camada 103'})`
+                                : 'Novo GeoSampa (Camada Setores/Lotes 103)'}
+                            </span>
+                          </a>
+
+                          <a
+                            href="https://novogeosampa.prefeitura.sp.gov.br/u/RCdgNKWQ"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>Novo GeoSampa (u/RCdgNKWQ)</span>
+                          </a>
+
+                          <a
+                            href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            <span>GeoSampa Clássico (_SBC.aspx)</span>
+                          </a>
+                        </div>
+
+                        {erroGeoSampa ? (
+                          <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+                            {erroGeoSampa}
+                          </div>
+                        ) : null}
+
+                        {/* Resultado da Consulta Automática ao GeoSampa (Lote + IPTU + Confrontantes Lindeiros) */}
+                        {resultadoGeoSampa?.confrontantesGeoSampa ? (
+                          <div className="rounded border border-blue-200 bg-white p-2.5 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-[11px] font-bold text-[#1E293B]">
+                                Confrontantes Lindeiros Apurados na Quadra Fiscal (GeoSampa):
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const cg = resultadoGeoSampa.confrontantesGeoSampa!;
+                                  registrarConfrontacoesNasAnotacoes({
+                                    frente: cg.frente || dados.rua_olhar_confrontacao,
+                                    ladoDireito: cg.ladoDireito || dados.confrontante_lado_direito,
+                                    ladoEsquerdo: cg.ladoEsquerdo || dados.confrontante_lado_esquerdo,
+                                    fundos: cg.fundos || dados.confrontante_fundos,
+                                    plantaFiscal: resultadoGeoSampa.plantaSetor?.caminhoCompleto,
+                                    sqlGeoSampa: resultadoGeoSampa.loteGeoSampa?.nr_contribuinte,
+                                  });
+                                  mostrarAviso('Confrontações do GeoSampa aplicadas nos campos e registradas em Conferência e Anotações!');
+                                }}
+                                className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer"
+                              >
+                                <Check className="h-3 w-3" />
+                                <span>Aplicar Confrontantes do GeoSampa na Ficha e Anotações</span>
+                              </button>
+                            </div>
+
+                            {resultadoGeoSampa.loteGeoSampa ? (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-700 border-b border-gray-100 pb-1.5">
+                                <span>
+                                  <strong>SQL:</strong> {resultadoGeoSampa.loteGeoSampa.nr_contribuinte || '—'}
+                                </span>
+                                <span>
+                                  <strong>Logradouro:</strong> {resultadoGeoSampa.loteGeoSampa.nm_logradouro_completo || '—'}
+                                  {resultadoGeoSampa.loteGeoSampa.cd_numero_porta
+                                    ? `, nº ${resultadoGeoSampa.loteGeoSampa.cd_numero_porta}`
+                                    : ''}
+                                </span>
+                                {resultadoGeoSampa.loteGeoSampa.qt_area_terreno ? (
+                                  <span>
+                                    <strong>Área Terreno:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_terreno} m²
+                                  </span>
+                                ) : null}
+                                {resultadoGeoSampa.loteGeoSampa.qt_area_construida ? (
+                                  <span>
+                                    <strong>Área Construída:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_construida} m²
+                                  </span>
+                                ) : null}
+                                {resultadoGeoSampa.iptuIntegracao?.['Tipo do Terreno'] ? (
+                                  <span>
+                                    <strong>Terreno:</strong> {resultadoGeoSampa.iptuIntegracao['Tipo do Terreno']}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
+
+                            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3 text-[11px]">
+                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Direito (GeoSampa)</div>
+                                <div className="font-semibold text-gray-900">
+                                  {resultadoGeoSampa.confrontantesGeoSampa.ladoDireito || 'Não identificado'}
+                                </div>
+                              </div>
+                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Esquerdo (GeoSampa)</div>
+                                <div className="font-semibold text-gray-900">
+                                  {resultadoGeoSampa.confrontantesGeoSampa.ladoEsquerdo || 'Não identificado'}
+                                </div>
+                              </div>
+                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Aos Fundos (GeoSampa)</div>
+                                <div className="font-semibold text-gray-900">
+                                  {resultadoGeoSampa.confrontantesGeoSampa.fundos || 'Não identificado'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Resultado da Busca na Pasta K:\IMAGENS\SETORES (Plantas Fiscais) */}
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-900">
+                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
+                            <span>
+                              Plantas Fiscais — Pasta <code className="font-mono">K:\IMAGENS\SETORES</code>
+                            </span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={termoBuscadoSetores}
+                              onChange={e => setTermoBuscadoSetores(e.target.value)}
+                              placeholder={plantaSetorCalculada?.termoBusca || 'Ex.: 053.006 ou 00053006'}
+                              className="w-40 rounded border border-emerald-300 bg-white px-2 py-0.5 font-mono text-[11px] text-gray-900 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void localizarPlantaSetorNoAcervo(termoBuscadoSetores || undefined)}
+                              disabled={buscandoSetores}
+                              className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
+                            >
+                              {buscandoSetores ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                              <span>Buscar em SETORES</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {plantaSetorCalculada ? (
+                          <div className="text-[11px] text-emerald-900">
+                            Planta fiscal esperada para o SQL/Imóvel:{' '}
+                            <code className="rounded bg-white px-1.5 py-0.5 font-mono font-bold text-emerald-950 border border-emerald-200">
+                              {plantaSetorCalculada.caminhoCompleto}
+                            </code>
+                          </div>
+                        ) : null}
+
+                        {erroSetores ? (
+                          <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+                            {erroSetores}
+                          </div>
+                        ) : null}
+
+                        {arquivosSetores && arquivosSetores.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {arquivosSetores.slice(0, 6).map(arq => (
+                              <div
+                                key={`${arq.rootId}:${arq.relativePath}`}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-200 bg-white px-2.5 py-1.5 text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-mono font-bold text-gray-900">{arq.name}</div>
+                                  <div className="truncate font-mono text-[10px] text-gray-500">
+                                    {formatCartorioPath(arq.rootId, arq.relativePath)}
+                                  </div>
+                                </div>
+                                {onVisualizarDocumento ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onVisualizarDocumento(arq)}
+                                    className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition cursor-pointer"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    <span>Abrir Planta Fiscal (.KEN)</span>
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : arquivosSetores && arquivosSetores.length === 0 ? (
+                          <div className="text-[11px] text-gray-600">
+                            Nenhuma planta fiscal localizada para o termo informado em <code className="font-mono">K:\IMAGENS\SETORES</code>.
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {/* Resultado da Busca da Matrícula no Livro 2 / Livro 3 quando acionada */}
+                      {erroLivro2 ? (
+                        <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+                          {erroLivro2}
+                        </div>
+                      ) : null}
+                      {arquivosLivro2 && arquivosLivro2.length > 0 ? (
+                        <div className="rounded-lg border border-gray-200 bg-white p-2 space-y-1.5">
+                          <div className="text-[10.5px] font-bold uppercase text-gray-600">
+                            Matrícula / Transcrição Localizada no Acervo ({termoBuscadoLivro2}):
+                          </div>
+                          {arquivosLivro2.slice(0, 4).map(arq => (
+                            <div
+                              key={`${arq.rootId}:${arq.relativePath}`}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-mono font-bold text-gray-900">{arq.name}</div>
+                                <div className="truncate font-mono text-[10px] text-gray-500">
+                                  {formatCartorioPath(arq.rootId, arq.relativePath)}
+                                </div>
+                              </div>
+                              {onVisualizarDocumento ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onVisualizarDocumento(arq)}
+                                  className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  <span>Visualizar Matrícula</span>
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+
                     <textarea
                       id="doc-anotacoes"
                       rows={6}
