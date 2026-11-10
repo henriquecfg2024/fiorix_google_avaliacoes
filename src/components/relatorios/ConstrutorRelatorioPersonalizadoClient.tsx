@@ -874,7 +874,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       doc.setFontSize(8);
       doc.setTextColor(71, 85, 105);
       doc.text(
-        `Emitido em ${new Date().toLocaleString('pt-BR')} por ${usuarioNomeInicial}   •   ${montarResumoFiltros()}   •   ${registrosAtivos.length} pedido(s) listado(s) (${codigoRastreioPdf})`,
+        `Emitido em ${new Date().toLocaleString('pt-BR')} por ${usuarioNomeInicial}   •   ${montarResumoFiltros()}   •   ${registrosAtivos.length} pedido(s) listado(s)`,
         40,
         cursorRodapeY
       );
@@ -1345,7 +1345,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
     <p class="meta">
       Emitido em <strong>${escaparHtml(geradoEmStr)}</strong> por <strong>${escaparHtml(
       usuarioNomeInicial
-    )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s) (<span style="font-family:monospace;">${codigoRastreabilidade}</span>)
+    )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s)
     </p>
   </div>
 </body>
