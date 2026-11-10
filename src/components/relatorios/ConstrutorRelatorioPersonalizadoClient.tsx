@@ -1421,53 +1421,6 @@ export function ConstrutorRelatorioPersonalizadoClient({
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white font-sans pb-14">
-      {/* Barra superior no padrão escuro do FIORIX */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#0B1020]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1520px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/cartorio-virtual"
-              className="inline-flex items-center gap-1.5 text-sm font-black tracking-tight text-cyan-400 hover:text-cyan-300 transition"
-            >
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              <span>Fiorix</span>
-            </Link>
-
-            <span className="text-xs text-slate-400">
-              <Link href="/cartorio-virtual" className="hover:underline text-slate-300">
-                Cartório Virtual
-              </Link>{' '}
-              / <strong className="font-semibold text-white">Relatório do Seu Jeito</strong>
-            </span>
-
-            <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-violet-300 border border-violet-500/30">
-              {possuiPeriodoSelecionado
-                ? `FIORIX Connector · Webri (${registrosReais.length} pedidos)`
-                : 'Conectado ao FIORIX Connector · Webri'}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/35 bg-violet-600/20 px-3 py-1.5 text-xs font-semibold text-violet-200">
-              <Database className="h-3.5 w-3.5 text-violet-300" />
-              <span>
-                {possuiPeriodoSelecionado
-                  ? `Dados Oficiais FIORIX Connector (${registrosReais.length})`
-                  : 'Dados Oficiais FIORIX Connector'}
-              </span>
-            </span>
-
-            <Link
-              href="/cartorio-virtual"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-[#111827] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 transition"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar</span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <main className="mx-auto max-w-[1600px] px-4 pt-4 lg:px-6 space-y-4">
         {/* Cabeçalho Principal Compacto para Monitor Horizontal (Tema Escuro FIORIX) */}
         <div className="flex flex-wrap items-center justify-between gap-3">
