@@ -351,6 +351,8 @@ export function DocumentSearch({
   const [fichaVersaoAnteriorId, setFichaVersaoAnteriorId] = useState<string | null>(null);
   // Card da fila oculto por padrão; o usuário pode exibi-lo (preferência persistida)
   const [filaVisivel, setFilaVisivel] = useState(false);
+  // Cards das 6 Pastas do Servidor sempre iniciam ocultos por padrão na tela de Manifestações
+  const [mostrarCardsPastasServidor, setMostrarCardsPastasServidor] = useState(false);
 
   async function recarregarFila() {
     try {
@@ -1743,78 +1745,105 @@ export function DocumentSearch({
           </div>
         </div>
 
-        {/* Linha 3: Cards Compactos das 6 Pastas do Servidor (Mesmo tamanho, cores e identificações da tela Visualizador) */}
-        <div className="bg-slate-950/90 px-3 py-2.5 space-y-2">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-xs font-bold text-slate-200">
-              Pastas do Servidor (VOL1, IMAGENS ou DEP)
-            </h3>
-            <span className="text-[10px] text-slate-500">
-              Clique em uma pasta para filtrar ou pesquise diretamente no campo acima
-            </span>
+        {/* Linha 3: Cards Compactos das 6 Pastas do Servidor (Sempre ocultos por padrão; expansíveis pelo botão Desocultar) */}
+        <div className="bg-slate-950/90 px-3 py-2 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setMostrarCardsPastasServidor(v => !v)}
+              aria-expanded={mostrarCardsPastasServidor}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200 hover:text-cyan-300 transition cursor-pointer"
+            >
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-cyan-400 transition-transform ${
+                  mostrarCardsPastasServidor ? '' : '-rotate-90'
+                }`}
+              />
+              <span>Pastas do Servidor (VOL1, IMAGENS ou DEP)</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              {mostrarCardsPastasServidor && (
+                <span className="text-[10px] text-slate-500 hidden sm:inline">
+                  Clique em uma pasta para filtrar ou pesquise diretamente no campo acima
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setMostrarCardsPastasServidor(v => !v)}
+                aria-expanded={mostrarCardsPastasServidor}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-slate-900/90 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:border-cyan-400/50 hover:text-cyan-200 transition cursor-pointer"
+              >
+                <Eye className="h-3 w-3 text-cyan-400" />
+                <span>{mostrarCardsPastasServidor ? 'Ocultar' : 'Desocultar'}</span>
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
-            {RAIZES_DOCUMENTAL.map(r => {
-              const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
-              const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
-              return (
-                <div
-                  key={`m-${r.id}`}
-                  onClick={() => {
-                    setPastaFiltro(
-                      selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
-                    );
-                    document.getElementById('campo-pesquisa-simples')?.focus();
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
+
+          {mostrarCardsPastasServidor && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+              {RAIZES_DOCUMENTAL.map(r => {
+                const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
+                const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
+                return (
+                  <div
+                    key={`m-${r.id}`}
+                    onClick={() => {
                       setPastaFiltro(
                         selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
                       );
-                    }
-                  }}
-                  title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
-                  className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
-                    selecionada
-                      ? 'border-cyan-400 bg-cyan-950/50 ring-1 ring-cyan-400/50 shadow-md shadow-cyan-950/50'
-                      : r.principal
-                      ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
-                      : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
-                  }`}
-                >
-                  <div
-                    className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
-                      r.principal
-                        ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
-                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      document.getElementById('campo-pesquisa-simples')?.focus();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        setPastaFiltro(
+                          selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
+                        );
+                      }
+                    }}
+                    title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
+                    className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
+                      selecionada
+                        ? 'border-cyan-400 bg-cyan-950/50 ring-1 ring-cyan-400/50 shadow-md shadow-cyan-950/50'
+                        : r.principal
+                        ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
+                        : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
                     }`}
                   >
-                    <HardDrive className="h-3.5 w-3.5" />
-                    <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
+                    <div
+                      className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
+                        r.principal
+                          ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}
+                    >
+                      <HardDrive className="h-3.5 w-3.5" />
+                      <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
+                      <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={e => toggleFavoritoBusca(r.id, '', r.rotuloCurto, e)}
+                      title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
+                      aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
+                      className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
+                        isFav
+                          ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
+                          : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
+                      }`}
+                    >
+                      <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
+                    </button>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
-                    <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={e => toggleFavoritoBusca(r.id, '', r.rotuloCurto, e)}
-                    title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
-                    aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
-                    className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
-                      isFav
-                        ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
-                        : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
-                    }`}
-                  >
-                    <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Filtros e tempos de pesquisa */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-white/10 pt-2 text-[11px]">
