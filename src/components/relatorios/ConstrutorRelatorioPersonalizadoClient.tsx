@@ -532,6 +532,19 @@ export function ConstrutorRelatorioPersonalizadoClient({
   const algumaColunaFinanceiraSelecionada =
     colunaValorDepositoSelecionada || colunaCotaSelecionada || colunaSaldoSelecionada;
 
+  const modeloSalvoSelecionado = useMemo(
+    () =>
+      modelosSalvos.find((m) => m.id === modeloSelecionadoId) ||
+      modelosSalvos[0] ||
+      null,
+    [modelosSalvos, modeloSelecionadoId]
+  );
+
+  const tituloRelatorioEfetivo = useMemo(
+    () => nomeModeloInput.trim() || modeloSalvoSelecionado?.nome?.trim() || '',
+    [nomeModeloInput, modeloSalvoSelecionado]
+  );
+
   const registroBaseFoco = registrosAtivos[0] || REGISTRO_EXEMPLO_VALIDACAO;
 
   const alternarVariavel = (id: ChaveVariavelRelatorio) => {
@@ -734,7 +747,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       await registrarAuditoriaGeracao('RELATORIO');
       const snapshot: RelatorioGeradoSnapshot = {
         geradoEm: new Date().toLocaleString('pt-BR'),
-        nomeModelo: nomeModeloInput.trim(),
+        nomeModelo: tituloRelatorioEfetivo,
         colunas: [...colunasSelecionadas],
         registros: [...registrosAtivos],
         totalRegistros: registrosAtivos.length,
@@ -792,7 +805,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
         colunasSelecionadas.map((id) => reg.valores[id] ?? '—')
       );
 
-      const tituloRelatorio = nomeModeloInput.trim();
+      const tituloRelatorio = tituloRelatorioEfetivo;
       const codigoRastreioPdf = `FRX-CV-${Date.now().toString(36).toUpperCase()}`;
 
       doc.setFont('helvetica', 'bold');
@@ -895,7 +908,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       );
 
       const dataStr = new Date().toISOString().slice(0, 10);
-      const slugNome = (nomeModeloInput.trim() || 'relatorio-personalizado')
+      const slugNome = (tituloRelatorioEfetivo || 'relatorio')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
@@ -999,10 +1012,10 @@ export function ConstrutorRelatorioPersonalizadoClient({
       }));
 
       const wb = XLSX.utils.book_new();
-      const nomeAba = (nomeModeloInput.trim() || 'Relatorio Personalizado').slice(0, 31);
+      const nomeAba = (tituloRelatorioEfetivo || 'Relatorio').slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, nomeAba);
       const dataStr = new Date().toISOString().slice(0, 10);
-      const slugNome = (nomeModeloInput.trim() || 'relatorio-personalizado')
+      const slugNome = (tituloRelatorioEfetivo || 'relatorio')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
@@ -1048,9 +1061,9 @@ export function ConstrutorRelatorioPersonalizadoClient({
     const colsParaImprimir = relatorioGeradoSnapshot
       ? relatorioGeradoSnapshot.colunas
       : colunasSelecionadas;
-    const tituloDoc = relatorioGeradoSnapshot
-      ? relatorioGeradoSnapshot.nomeModelo.trim()
-      : nomeModeloInput.trim();
+    const tituloDoc = (
+      relatorioGeradoSnapshot?.nomeModelo?.trim() || tituloRelatorioEfetivo
+    ).trim();
     const geradoEmStr = relatorioGeradoSnapshot
       ? relatorioGeradoSnapshot.geradoEm
       : new Date().toLocaleString('pt-BR');
@@ -1414,7 +1427,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
     registrosRelatorioGeradoFiltrados,
     registrosAtivos,
     colunasSelecionadas,
-    nomeModeloInput,
+    tituloRelatorioEfetivo,
     montarResumoFiltros,
     usuarioNomeInicial,
   ]);
@@ -1819,7 +1832,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
                   <h2 className="text-sm font-bold text-slate-900">
                     Prévia em tempo real —{' '}
                     <span className="text-violet-700">
-                      {nomeModeloInput.trim() || 'DIGITE AQUI O NOME DO SEU RELATÓRIO'}
+                      {tituloRelatorioEfetivo || 'DIGITE AQUI O NOME DO SEU RELATÓRIO'}
                     </span>
                   </h2>
                   <p className="text-[11px] text-slate-500">
@@ -2215,9 +2228,9 @@ export function ConstrutorRelatorioPersonalizadoClient({
                     7º Oficial de Registro de Imóveis de São Paulo/SP · Base Oficial WEBRI
                   </span>
                 </div>
-                {relatorioGeradoSnapshot.nomeModelo ? (
+                {(relatorioGeradoSnapshot.nomeModelo || tituloRelatorioEfetivo) ? (
                   <h2 className="text-lg font-extrabold text-slate-900">
-                    {relatorioGeradoSnapshot.nomeModelo}
+                    {relatorioGeradoSnapshot.nomeModelo || tituloRelatorioEfetivo}
                   </h2>
                 ) : null}
               </div>
