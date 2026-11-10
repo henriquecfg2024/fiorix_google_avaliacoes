@@ -734,7 +734,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       await registrarAuditoriaGeracao('RELATORIO');
       const snapshot: RelatorioGeradoSnapshot = {
         geradoEm: new Date().toLocaleString('pt-BR'),
-        nomeModelo: nomeModeloInput.trim() || 'Relatório Personalizado',
+        nomeModelo: nomeModeloInput.trim(),
         colunas: [...colunasSelecionadas],
         registros: [...registrosAtivos],
         totalRegistros: registrosAtivos.length,
@@ -792,8 +792,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
         colunasSelecionadas.map((id) => reg.valores[id] ?? '—')
       );
 
-      const tituloRelatorio =
-        nomeModeloInput.trim() || 'Relatório Personalizado';
+      const tituloRelatorio = nomeModeloInput.trim();
       const codigoRastreioPdf = `FRX-CV-${Date.now().toString(36).toUpperCase()}`;
 
       doc.setFont('helvetica', 'bold');
@@ -805,27 +804,17 @@ export function ConstrutorRelatorioPersonalizadoClient({
         28
       );
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42);
-      doc.text(tituloRelatorio, 40, 44);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(90, 95, 115);
-      doc.text(
-        `Emitido em: ${new Date().toLocaleString('pt-BR')}   •   Responsável: ${usuarioNomeInicial}   •   Registros: ${registrosAtivos.length}   •   Protocolo: ${codigoRastreioPdf}`,
-        40,
-        58
-      );
-      doc.text(
-        `Origem: Base Oficial do Sistema Registral WEBRI (Módulo de Certidões / ONR / Recepção)   •   ${montarResumoFiltros()}`,
-        40,
-        70
-      );
+      let startTabelaY = 38;
+      if (tituloRelatorio) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text(tituloRelatorio, 40, 44);
+        startTabelaY = 54;
+      }
 
       autoTable(doc, {
-        startY: 82,
+        startY: startTabelaY,
         head: [cabecalhos],
         body: linhas,
         styles: {
@@ -867,6 +856,21 @@ export function ConstrutorRelatorioPersonalizadoClient({
         );
         cursorRodapeY += 18;
       }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Emitido em ${new Date().toLocaleString('pt-BR')} por ${usuarioNomeInicial}   •   ${montarResumoFiltros()}   •   ${registrosAtivos.length} pedido(s) listado(s) (${codigoRastreioPdf})`,
+        40,
+        cursorRodapeY
+      );
+      doc.text(
+        'Origem Oficial dos Dados: Sistema Registral WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa) sincronizado ao Cartório Virtual FIORIX.',
+        40,
+        cursorRodapeY + 11
+      );
+      cursorRodapeY += 25;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
@@ -1045,8 +1049,8 @@ export function ConstrutorRelatorioPersonalizadoClient({
       ? relatorioGeradoSnapshot.colunas
       : colunasSelecionadas;
     const tituloDoc = relatorioGeradoSnapshot
-      ? relatorioGeradoSnapshot.nomeModelo
-      : nomeModeloInput.trim() || 'Relatório Personalizado';
+      ? relatorioGeradoSnapshot.nomeModelo.trim()
+      : nomeModeloInput.trim();
     const geradoEmStr = relatorioGeradoSnapshot
       ? relatorioGeradoSnapshot.geradoEm
       : new Date().toLocaleString('pt-BR');
@@ -1303,22 +1307,11 @@ export function ConstrutorRelatorioPersonalizadoClient({
     <span>Plataforma FIORIX · Governança Registral &amp; Cartório Virtual</span>
   </div>
 
-  <div class="header">
-    <div>
-      <span class="badge">Relatório Oficial Auditado · Base Registral WEBRI</span>
-      <h1>${escaparHtml(tituloDoc)}</h1>
-      <p class="meta">
-        Emitido em <strong>${escaparHtml(geradoEmStr)}</strong> por <strong>${escaparHtml(
-      usuarioNomeInicial
-    )}</strong> · ${escaparHtml(filtrosStr)}<br/>
-        <strong>Origem Oficial dos Dados:</strong> Sistema Registral <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado ao Cartório Virtual FIORIX.
-      </p>
-    </div>
-    <div style="text-align:right;font-size:9.5px;color:#475569;white-space:nowrap;">
-      <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s)<br/>
-      <span style="font-family:monospace;font-size:8.5px;color:#64748b;">${codigoRastreabilidade}</span>
-    </div>
-  </div>
+  ${
+    tituloDoc
+      ? `<div class="header"><div><h1>${escaparHtml(tituloDoc)}</h1></div></div>`
+      : ''
+  }
 
   <table>
     <thead>
@@ -1364,6 +1357,12 @@ export function ConstrutorRelatorioPersonalizadoClient({
   }
 
   <div class="origem-juridica">
+    <p class="meta" style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e2e8f0;">
+      Emitido em <strong>${escaparHtml(geradoEmStr)}</strong> por <strong>${escaparHtml(
+      usuarioNomeInicial
+    )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s) (<span style="font-family:monospace;">${codigoRastreabilidade}</span>)<br/>
+      <strong>Origem Oficial dos Dados:</strong> Sistema Registral <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado ao Cartório Virtual FIORIX.
+    </p>
     <div class="origem-juridica-titulo">
       Declaração de Origem, Integridade e Rastreabilidade Registral (Lei nº 6.015/1973 e Provimento CNJ nº 149/2023)
     </div>
@@ -2259,21 +2258,15 @@ export function ConstrutorRelatorioPersonalizadoClient({
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-[#FAF9FE] px-6 py-4">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Relatório Oficial Auditado · FIORIX</span>
-                  </div>
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                     7º Oficial de Registro de Imóveis de São Paulo/SP · Base Oficial WEBRI
                   </span>
                 </div>
-                <h2 className="text-lg font-extrabold text-slate-900">
-                  {relatorioGeradoSnapshot.nomeModelo}
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Emitido em <strong>{relatorioGeradoSnapshot.geradoEm}</strong> por{' '}
-                  <strong>{usuarioNomeInicial}</strong> · {relatorioGeradoSnapshot.filtrosResumo}
-                </p>
+                {relatorioGeradoSnapshot.nomeModelo ? (
+                  <h2 className="text-lg font-extrabold text-slate-900">
+                    {relatorioGeradoSnapshot.nomeModelo}
+                  </h2>
+                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -2481,8 +2474,17 @@ export function ConstrutorRelatorioPersonalizadoClient({
               </div>
             )}
 
-            {/* Declaração Jurídica e Técnica de Origem dos Dados */}
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-[11px] text-slate-600 space-y-1">
+            {/* Declaração Jurídica, Informações de Emissão e Origem dos Dados no Rodapé */}
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-[11px] text-slate-600 space-y-1.5">
+              <div className="pb-1.5 border-b border-slate-200 text-slate-600">
+                Emitido em <strong>{relatorioGeradoSnapshot.geradoEm}</strong> por{' '}
+                <strong>{usuarioNomeInicial}</strong> · {relatorioGeradoSnapshot.filtrosResumo} ·{' '}
+                <strong>{relatorioGeradoSnapshot.totalRegistros}</strong> pedido(s) listado(s)
+                <br />
+                <strong>Origem Oficial dos Dados:</strong> Sistema Registral{' '}
+                <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado
+                ao Cartório Virtual FIORIX.
+              </div>
               <div className="font-extrabold uppercase tracking-wider text-[10px] text-slate-800">
                 Declaração de Origem, Integridade e Rastreabilidade Registral (Lei nº 6.015/1973 e Provimento CNJ nº 149/2023)
               </div>
