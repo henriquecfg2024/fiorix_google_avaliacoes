@@ -302,8 +302,9 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
   return null;
 }
 
-// Nº de processo CNJ completo ou parcial: 1162956-97 | 1162956-97.2024 | 1162956-97.2024.8.26.0100
-const REGEX_PROCESSO_CNJ = /\b\d{7}-\d{2}(?:\.\d{4}(?:\.\d(?:\.\d{2}(?:\.\d{4})?)?)?)?\b/g;
+// Nº de processo CNJ completo ou parcial (com ou sem "." e "-"):
+// Ex.: 4121959-50.2026.8.26.0100 | 41219595020268260100 | 1162956-97 | 1162956-97.2024
+const REGEX_PROCESSO_CNJ = /\b(?:\d{7}-\d{2}(?:\.\d{4}(?:\.\d(?:\.\d{2}(?:\.\d{4})?)?)?)?|\d{7}\d{2}(?:19|20)\d{2}(?:\d\d{2}\d{4})?)\b/g;
 
 export function removerNumerosDeProcesso(query: string): string {
   return query.replace(REGEX_PROCESSO_CNJ, ' ');
@@ -526,10 +527,11 @@ export async function searchDocuments(
     if (buscaCruzada) {
       // Na busca cruzada, nº curto (matrícula, SQL) precisa aparecer isolado no caminho:
       // "7987" não pode casar com "1079875-..." de outro processo.
-      const digitos = /^\d{1,3}(?:\.\d{3})+$/.test(term) ? term.replace(/\./g, '') : term;
+      const digitos = /^[0-9.\-]+$/.test(term) ? term.replace(/[.\-]/g, '') : term;
       if (/^\d{1,8}$/.test(digitos)) {
         const semZeros = digitos.replace(/^0+/, '') || '0';
-        return new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(normRel);
+        const normSemPontosNumero = normRel.replace(/(\d)[.\-](\d)/g, '$1$2').replace(/(\d)[.\-](\d)/g, '$1$2');
+        return new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(normSemPontosNumero);
       }
     }
     if (normRel.includes(term)) return true;
