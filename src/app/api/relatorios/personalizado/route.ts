@@ -116,11 +116,27 @@ async function carregarRegistrosReaisWebri(params: {
     }
   }
 
+  // Regra oficial do Webri: ONR sempre possui o campo Magnético (ProtocoloEntidade / protocoloExterno) preenchido.
+  // Pedidos sem Magnético (null, vazio ou '0', ex.: 1.332.611) são estritamente PRESENCIAL (BALCAO).
   const canalUpper = (params.canalAtendimento || '').trim().toUpperCase();
   if (canalUpper === 'ONR') {
-    where.origem = 'ONR';
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      { protocoloExterno: { not: null } },
+      { NOT: { protocoloExterno: '' } },
+      { NOT: { protocoloExterno: '0' } },
+    ];
   } else if (canalUpper === 'PRESENCIAL' || canalUpper === 'BALCAO') {
-    where.origem = 'BALCAO';
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : []),
+      {
+        OR: [
+          { protocoloExterno: null },
+          { protocoloExterno: '' },
+          { protocoloExterno: '0' },
+        ],
+      },
+    ];
   }
 
   if (params.magnetico?.trim()) {
@@ -224,24 +240,61 @@ async function carregarRegistrosReaisWebri(params: {
       atendentesSet.add(atendenteRaw);
     }
 
-    // Regra oficial do Webri (dbo.tblWRICertidao):
+    // Regra oficial do Webri:
+    // - Todo pedido com Magnético (ProtocoloEntidade / protocoloExterno) preenchido é ONR (Eletrônico)
+    // - Todo pedido com Magnético vazio ou '0' é PRESENCIAL (BALCAO)
+    const protocoloLimpo =
+      p.protocoloExterno &&
+      p.protocoloExterno.trim() !== '' &&
+      p.protocoloExterno.trim() !== '0'
+        ? p.protocoloExterno.trim()
+        : null;
+    const ehOnrReal = Boolean(protocoloLimpo);
+
+    // Regra oficial do Webri (dbo.tblWRICertidaoCotas e dbo.tblWRICertidao):
     // - Depósito (valor_deposito) = VlrTotalDeposito + VlrTotalCompDep (armazenado em totalDeposito)
-    // - Cota (cota)               = VlrTotalCota (armazenado em totalCota)
+    // - Cota (cota)               = tblWRICertidaoCotas.VlrTotal = VlrCer1 + VlrCer2..10 = VlrTotalCota (armazenado em totalCota)
     // - Saldo (saldo)             = VlrSaldo = Depósito - Cota (armazenado em saldo)
-    const totalDepositoNum =
+    const oficiaisWebri = (valJson._valoresOficiaisWebri as Record<string, any>) || null;
+    const valorServicoPart = Number(valJson.valorServico ?? 0);
+    const valorDespesaPart = Number(valJson.valorDespesa ?? 0);
+    const cotaDePartes =
+      valorDespesaPart > 0
+        ? Math.round((valorServicoPart + valorDespesaPart) * 100) / 100
+        : 0;
+
+    const cotaSalvaNum =
+      valJson.totalCota !== undefined && valJson.totalCota !== null
+        ? Number(valJson.totalCota)
+        : 0;
+
+    const totalCotaNum =
+      cotaSalvaNum > 0
+        ? cotaSalvaNum
+        : oficiaisWebri?.totalCota !== undefined && oficiaisWebri?.totalCota !== null
+        ? Number(oficiaisWebri.totalCota)
+        : cotaDePartes;
+
+    const depSalvoNum =
       valJson.totalDeposito !== undefined && valJson.totalDeposito !== null
         ? Number(valJson.totalDeposito)
         : 0;
-    const totalCotaNum =
-      valJson.totalCota !== undefined && valJson.totalCota !== null
-        ? Number(valJson.totalCota)
-        : valJson.totalEmolumentos !== undefined && valJson.totalEmolumentos !== null
-        ? Number(valJson.totalEmolumentos)
-        : 0;
+
+    const totalDepositoNum =
+      cotaSalvaNum === 0 && oficiaisWebri?.totalDeposito !== undefined && oficiaisWebri?.totalDeposito !== null
+        ? Number(oficiaisWebri.totalDeposito)
+        : ehOnrReal && cotaSalvaNum === 0 && cotaDePartes > 0 && Math.abs(depSalvoNum - cotaDePartes) < 0.02
+        ? 0
+        : depSalvoNum;
+
     const saldoNum =
-      valJson.saldo !== undefined && valJson.saldo !== null
+      cotaSalvaNum === 0 && oficiaisWebri?.saldo !== undefined && oficiaisWebri?.saldo !== null
+        ? Number(oficiaisWebri.saldo)
+        : valJson.saldo !== undefined &&
+          valJson.saldo !== null &&
+          !(cotaSalvaNum === 0 && cotaDePartes > 0)
         ? Number(valJson.saldo)
-        : totalDepositoNum - totalCotaNum;
+        : Math.round((totalDepositoNum - totalCotaNum) * 100) / 100;
 
     const depositoCentavos = Number.isFinite(totalDepositoNum)
       ? Math.round(totalDepositoNum * 100)
@@ -264,12 +317,7 @@ async function carregarRegistrosReaisWebri(params: {
       ? 'Devolvido'
       : 'Aguardando conferência';
 
-    const canalLegivel =
-      p.origem === 'ONR'
-        ? 'ONR (Eletrônico)'
-        : p.origem === 'BALCAO'
-        ? 'PRESENCIAL'
-        : p.origem || '—';
+    const canalLegivel = ehOnrReal ? 'ONR (Eletrônico)' : 'PRESENCIAL';
 
     const dataPedidoIso = p.dataPedido
       ? p.dataPedido.toISOString().slice(0, 10)
@@ -279,12 +327,12 @@ async function carregarRegistrosReaisWebri(params: {
       id: p.id,
       numeroPedidoRaw: chaveUnicaPedido,
       dataPedidoIso,
-      origemRaw: p.origem || '',
+      origemRaw: ehOnrReal ? 'ONR' : 'BALCAO',
       depositoCentavos,
       cotaCentavos,
       saldoCentavos,
       valores: {
-        magnetico: p.protocoloExterno?.trim() || '—',
+        magnetico: protocoloLimpo || '—',
         pedido: formatarNumeroPedido(chaveUnicaPedido),
         nome_cliente: reqJson.nome ? String(reqJson.nome).trim() : '—',
         cpf_cnpj:

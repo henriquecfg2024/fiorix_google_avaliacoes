@@ -263,10 +263,9 @@ export async function sincronizarPedidosOficiaisWebriBatch(
           raw.DataFinalRetirada
       ) || null;
 
-    const ehOnr =
-      Boolean(protocoloExterno) ||
-      Number(raw.tipoPedido) === 5 ||
-      itensRaw.some((i) => [71, 69, 76, 63].includes(Number(i.naturezaCodigo)));
+    // Regra oficial do Webri: todo pedido do ONR tem preenchido o campo Magnético (ProtocoloEntidade / protocoloExterno).
+    // Pedidos com Magnético vazio ou '0' (ex.: 1.332.611, 1.332.898, 1.330.765) são sempre PRESENCIAL (BALCAO).
+    const ehOnr = Boolean(protocoloExterno);
 
     const origem = ehOnr ? "ONR" : "BALCAO";
     const canalRecebimento = ehOnr ? "EREG_ONR" : "RECEPCAO_WEBRI";
@@ -489,24 +488,66 @@ export async function sincronizarPedidosOficiaisWebriBatch(
 
     const valorServico = Number(raw.valorServico ?? 0);
     const valorDespesa = Number(raw.valorDespesa ?? 0);
-    const totalDeposito =
-      raw.totalDeposito !== undefined && raw.totalDeposito !== null
-        ? Number(raw.totalDeposito)
-        : Number(raw.VlrTotalDeposito ?? 0) + Number(raw.VlrTotalCompDep ?? 0);
-    const totalCota =
-      raw.totalCota !== undefined && raw.totalCota !== null
-        ? Number(raw.totalCota)
-        : Number(raw.VlrTotalCota ?? 0);
+
+    // Regra oficial do Webri (dbo.tblWRICertidaoCotas e dbo.tblWRICertidao):
+    // - Cota (totalCota) = tblWRICertidaoCotas.VlrTotal (VlrCer1 + VlrCer2..10) = tblWRICertidao.VlrTotalCota
+    // - Depósito (totalDeposito) = tblWRICertidao.VlrTotalDeposito + VlrTotalCompDep
+    // - Saldo (saldo) = tblWRICertidao.VlrSaldo = Depósito - Cota
+    // Caso o conector em execução em memória envie payload antigo (sem raw.totalCota definido),
+    // preserva valoresExistentes ou recompõe a Cota a partir de VlrTotCer1 (valorServico) + VlrTotCer2..7 (valorDespesa),
+    // impedindo que o serviço em memória sobrescreva a Cota com 0 ou o Depósito ONR com 76,54.
+    const payloadPossuiCotaExplicita =
+      raw.totalCota !== undefined && raw.totalCota !== null;
+
+    const oficiaisSalvos = (valoresExistentes._valoresOficiaisWebri || null) as Record<
+      string,
+      unknown
+    > | null;
+
+    const cotaCalculadaPartes =
+      raw.VlrTotalCota !== undefined && raw.VlrTotalCota !== null
+        ? Number(raw.VlrTotalCota)
+        : valorDespesa > 0
+        ? Math.round((valorServico + valorDespesa) * 100) / 100
+        : 0;
+
+    const totalCota = payloadPossuiCotaExplicita
+      ? Number(raw.totalCota)
+      : oficiaisSalvos?.totalCota !== undefined && oficiaisSalvos?.totalCota !== null
+      ? Number(oficiaisSalvos.totalCota)
+      : valoresExistentes.totalCota !== undefined &&
+        valoresExistentes.totalCota !== null &&
+        Number(valoresExistentes.totalCota) > 0
+      ? Number(valoresExistentes.totalCota)
+      : cotaCalculadaPartes;
+
+    const totalDeposito = payloadPossuiCotaExplicita
+      ? Number(raw.totalDeposito ?? 0)
+      : oficiaisSalvos?.totalDeposito !== undefined && oficiaisSalvos?.totalDeposito !== null
+      ? Number(oficiaisSalvos.totalDeposito)
+      : raw.VlrTotalDeposito !== undefined && raw.VlrTotalDeposito !== null
+      ? Math.round((Number(raw.VlrTotalDeposito) + Number(raw.VlrTotalCompDep ?? 0)) * 100) / 100
+      : ehOnr
+      ? 0
+      : Number(raw.totalDeposito ?? 0);
+
     const saldo =
       raw.saldo !== undefined && raw.saldo !== null
         ? Number(raw.saldo)
+        : oficiaisSalvos?.saldo !== undefined && oficiaisSalvos?.saldo !== null
+        ? Number(oficiaisSalvos.saldo)
         : raw.VlrSaldo !== undefined && raw.VlrSaldo !== null
         ? Number(raw.VlrSaldo)
         : Math.round((totalDeposito - totalCota) * 100) / 100;
+
     const previaCustas =
       raw.previaCustas !== undefined && raw.previaCustas !== null
         ? Number(raw.previaCustas)
-        : Number(raw.VlrTotTotal ?? valorServico);
+        : oficiaisSalvos?.previaCustas !== undefined && oficiaisSalvos?.previaCustas !== null
+        ? Number(oficiaisSalvos.previaCustas)
+        : valoresExistentes.previaCustas !== undefined && valoresExistentes.previaCustas !== null
+        ? Number(valoresExistentes.previaCustas)
+        : Number(raw.VlrTotTotal ?? 0);
 
     const observacaoOriginalLimpa = raw.observacoesOrigem
       ? String(raw.observacoesOrigem).trim()
@@ -569,6 +610,12 @@ export async function sincronizarPedidosOficiaisWebriBatch(
       totalCota,
       saldo,
       previaCustas,
+      _valoresOficiaisWebri: {
+        totalDeposito,
+        totalCota,
+        saldo,
+        previaCustas,
+      },
       moeda: "BRL",
       _webriMeta: webriMetaObj,
     };

@@ -634,13 +634,20 @@ export async function listarPedidosCartorioVirtual(
         const itensMetaArr: any[] = Array.isArray(webriMetaRaw?.itensMeta)
           ? webriMetaRaw.itensMeta
           : [];
+        const protocoloLimpo =
+          r.protocoloExterno &&
+          r.protocoloExterno.trim() !== "" &&
+          r.protocoloExterno.trim() !== "0"
+            ? r.protocoloExterno.trim()
+            : null;
+        const ehOnrReal = Boolean(protocoloLimpo);
         return {
           id: r.id,
           tenantId: r.tenantId,
           numeroPedido: r.numeroPedido,
-          protocoloExterno: r.protocoloExterno,
-          origem: (r.origem === "ONR" ? "ONR" : "BALCAO") as "ONR" | "BALCAO",
-          canalRecebimento: r.canalRecebimento,
+          protocoloExterno: protocoloLimpo,
+          origem: (ehOnrReal ? "ONR" : "BALCAO") as "ONR" | "BALCAO",
+          canalRecebimento: ehOnrReal ? "EREG_ONR" : "RECEPCAO_WEBRI",
           especieSolicitada: r.especieSolicitada,
           subtipoConfirmado: r.subtipoConfirmado,
           criterioSolicitacao: r.criterioSolicitacao as any,
@@ -652,10 +659,10 @@ export async function listarPedidosCartorioVirtual(
           horaPedidoBr: r.dataPedido.toLocaleTimeString("pt-BR"),
           prazoPrevistoIso: r.prazoPrevisto ? r.prazoPrevisto.toISOString() : null,
           prazoPrevistoBr: r.prazoPrevisto ? r.prazoPrevisto.toLocaleDateString("pt-BR") : null,
-          formaEntregaExibicao: r.origem === "ONR" ? "Meio Magnético (M) — ONR" : "Balcão",
+          formaEntregaExibicao: ehOnrReal ? "Meio Magnético (M) — ONR" : "Balcão",
           escreventeRecepcao:
             webriMetaRaw?.atendenteNome ||
-            (r.origem === "ONR" ? "Anne" : "WEBRI / Recepção"),
+            (ehOnrReal ? "Anne" : "WEBRI / Recepção"),
           versaoDadosFonteHash: r.versaoDadosFonteHash,
           dadosInvalidadosMudanca: r.dadosInvalidadosMudanca,
           pausadoPorAtoProcessamento: r.pausadoPorAtoProcessam,

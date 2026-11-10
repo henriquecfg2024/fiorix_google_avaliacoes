@@ -58,9 +58,12 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
     }
   };
 
-  const hasBacklog = Boolean(connector.pendingQueue && connector.pendingQueue > 0);
   const hasQuarantine = Boolean(connector.quarantinedQueue && connector.quarantinedQueue > 0);
   const hasFailedQueue = Boolean(connector.failedQueue && connector.failedQueue > 0);
+  const hasBacklog = Boolean(
+    connector.pendingQueue &&
+      (connector.pendingQueue > 1 || (connector.pendingQueue > 0 && hasFailedQueue))
+  );
   const gov = connector.subsystems?.sqliteAndResilience.governance;
 
   return (

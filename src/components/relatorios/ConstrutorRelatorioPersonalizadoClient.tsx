@@ -165,7 +165,7 @@ export const BIBLIOTECA_VARIAVEIS: DefinicaoVariavelRelatorio[] = [
     categoriaRotulo: 'FINANCEIRO',
     valorExemplo: 'R$ 76,54',
     statusMapeamentoWebri: 'DISPONIVEL',
-    origemWebriResumo: 'tblWRICertidao.VlrTotalCota',
+    origemWebriResumo: 'tblWRICertidaoCotas.VlrTotal / tblWRICertidao.VlrTotalCota',
   },
   {
     id: 'saldo',

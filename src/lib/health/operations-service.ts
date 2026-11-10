@@ -972,11 +972,17 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const liveFileServer = liveDoc?.fileServer ?? null;
   const liveRustCli = liveDoc?.searchEngine?.rustCli ?? null;
 
-  const queuePendingCount = Number(liveSqlite?.queue?.pending ?? latestTelemetry?.queuePending ?? 0);
+  const rawQueuePending = Number(liveSqlite?.queue?.pending ?? latestTelemetry?.queuePending ?? 0);
   const queueSendingCount = Number(liveSqlite?.queue?.sending ?? rawDetails?.queueSending ?? 0);
   const queueFailedCount = Number(liveSqlite?.queue?.failed ?? latestTelemetry?.queueFailed ?? 0);
   const queueQuarantinedCount = Number(liveSqlite?.queue?.quarantined ?? rawDetails?.queueQuarantined ?? 0);
   const queueCompletedCount = Number(liveSqlite?.queue?.completed ?? 0);
+  // Desconta lotes que estão apenas em trânsito normal (sending) e ignora lote único transitório sem erro
+  const netPendingAfterSending = Math.max(0, rawQueuePending - queueSendingCount);
+  const queuePendingCount =
+    netPendingAfterSending <= 1 && queueFailedCount === 0 && queueQuarantinedCount === 0
+      ? 0
+      : netPendingAfterSending;
 
   const subsystems: ConnectorSubsystemsSnapshot = {
     provenance: hasLiveSubsystems ? 'live' : 'calculated',
@@ -1389,10 +1395,15 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         extraUptimeFmt = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
       }
 
-      const extraPending = Number(extraSqlite?.queue?.pending ?? extraTel?.queuePending ?? 0);
+      const extraRawPending = Number(extraSqlite?.queue?.pending ?? extraTel?.queuePending ?? 0);
       const extraSending = Number(extraSqlite?.queue?.sending ?? extraDetails?.queueSending ?? 0);
       const extraFailed = Number(extraSqlite?.queue?.failed ?? extraTel?.queueFailed ?? 0);
       const extraQuarantined = Number(extraSqlite?.queue?.quarantined ?? extraDetails?.queueQuarantined ?? 0);
+      const extraNetPending = Math.max(0, extraRawPending - extraSending);
+      const extraPending =
+        extraNetPending <= 1 && extraFailed === 0 && extraQuarantined === 0
+          ? 0
+          : extraNetPending;
       const extraCursors =
         extraSqlite?.checkpoints?.bySource && typeof extraSqlite.checkpoints.bySource === 'object'
           ? (extraSqlite.checkpoints.bySource as Record<string, { cursorValue: string; updatedAt: string | null }>)
