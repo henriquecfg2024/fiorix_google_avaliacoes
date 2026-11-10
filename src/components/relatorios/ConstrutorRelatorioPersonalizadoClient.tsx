@@ -883,29 +883,6 @@ export function ConstrutorRelatorioPersonalizadoClient({
         40,
         cursorRodapeY + 11
       );
-      cursorRodapeY += 25;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.setTextColor(51, 65, 85);
-      doc.text(
-        'DECLARAÇÃO DE ORIGEM, INTEGRIDADE E RASTREABILIDADE (LEI Nº 6.015/1973 E PROVIMENTO CNJ Nº 149/2023):',
-        40,
-        cursorRodapeY
-      );
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.2);
-      doc.setTextColor(100, 116, 139);
-      doc.text(
-        'Documento administrativo e contábil extraído eletronicamente da base oficial do sistema registral WEBRI (SQL Server — Módulo de Certidões e Caixa),',
-        40,
-        cursorRodapeY + 11
-      );
-      doc.text(
-        `integrado e auditado pela plataforma FIORIX (Cartório Virtual), sem duplicidade de protocolo. Código de Rastreabilidade: ${codigoRastreioPdf}.`,
-        40,
-        cursorRodapeY + 21
-      );
 
       const dataStr = new Date().toISOString().slice(0, 10);
       const slugNome = (tituloRelatorioEfetivo || 'relatorio')
@@ -1370,25 +1347,12 @@ export function ConstrutorRelatorioPersonalizadoClient({
   }
 
   <div class="origem-juridica">
-    <p class="meta" style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e2e8f0;">
+    <p class="meta">
       Emitido em <strong>${escaparHtml(geradoEmStr)}</strong> por <strong>${escaparHtml(
       usuarioNomeInicial
     )}</strong> · ${escaparHtml(filtrosStr)} · <strong>${regsParaImprimir.length}</strong> pedido(s) listado(s) (<span style="font-family:monospace;">${codigoRastreabilidade}</span>)<br/>
       <strong>Origem Oficial dos Dados:</strong> Sistema Registral <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado ao Cartório Virtual FIORIX.
     </p>
-    <div class="origem-juridica-titulo">
-      Declaração de Origem, Integridade e Rastreabilidade Registral (Lei nº 6.015/1973 e Provimento CNJ nº 149/2023)
-    </div>
-    <p class="origem-juridica-texto">
-      Este instrumento administrativo e contábil foi extraído eletronicamente a partir dos assentamentos operacionais do sistema registral
-      <strong>WEBRI (Banco de Dados Oficial da Serventia — Módulo de Certidões, Recepção e Operador Nacional do Sistema de Registro Eletrônico de Imóveis — ONR)</strong>,
-      processado e auditado pela plataforma <strong>FIORIX — Gestão da Qualidade e Governança Cartorária</strong>, com apuração individualizada por número de pedido sem duplicidade de protocolo, para fins de conferência financeira, escrituração interna e controle oficial da serventia.
-    </p>
-    <div class="origem-juridica-rodape">
-      <span>ORIGEM TÉCNICA: SRVSQL\\WEBRI (dbo.tblWRICertidao) &rarr; FIORIX CARTÓRIO VIRTUAL</span>
-      <span>OPERADOR: ${escaparHtml(usuarioNomeInicial.toUpperCase())}</span>
-      <span>AUTENTICAÇÃO INTERNA: ${codigoRastreabilidade}</span>
-    </div>
   </div>
 </body>
 </html>`;
@@ -2440,9 +2404,9 @@ export function ConstrutorRelatorioPersonalizadoClient({
               </div>
             )}
 
-            {/* Declaração Jurídica, Informações de Emissão e Origem dos Dados no Rodapé */}
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-[11px] text-slate-600 space-y-1.5">
-              <div className="pb-1.5 border-b border-slate-200 text-slate-600">
+            {/* Informações de Emissão e Origem dos Dados no Rodapé */}
+            <div className="border-t border-slate-200 bg-slate-50 px-6 py-3 text-[11px] text-slate-600">
+              <div>
                 Emitido em <strong>{relatorioGeradoSnapshot.geradoEm}</strong> por{' '}
                 <strong>{usuarioNomeInicial}</strong> · {relatorioGeradoSnapshot.filtrosResumo} ·{' '}
                 <strong>{relatorioGeradoSnapshot.totalRegistros}</strong> pedido(s) listado(s)
@@ -2451,20 +2415,6 @@ export function ConstrutorRelatorioPersonalizadoClient({
                 <strong>WEBRI (SQL Server — Módulo de Certidões, ONR e Caixa)</strong> sincronizado
                 ao Cartório Virtual FIORIX.
               </div>
-              <div className="font-extrabold uppercase tracking-wider text-[10px] text-slate-800">
-                Declaração de Origem, Integridade e Rastreabilidade Registral (Lei nº 6.015/1973 e Provimento CNJ nº 149/2023)
-              </div>
-              <p className="leading-relaxed text-slate-600">
-                Instrumento administrativo e contábil extraído eletronicamente dos assentamentos oficiais do sistema registral{' '}
-                <strong className="text-slate-800">
-                  WEBRI (SQL Server — Módulo de Certidões, Caixa e Operador Nacional do Sistema de Registro Eletrônico de Imóveis — ONR)
-                </strong>
-                , integrado e auditado pela plataforma{' '}
-                <strong className="text-slate-800">
-                  FIORIX — Gestão da Qualidade e Governança Cartorária (Módulo Cartório Virtual)
-                </strong>
-                , com apuração individualizada por pedido único para fins de conferência financeira e controle oficial da serventia.
-              </p>
             </div>
           </div>
         </div>
