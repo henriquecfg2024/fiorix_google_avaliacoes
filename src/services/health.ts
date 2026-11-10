@@ -322,7 +322,6 @@ export class HealthManager {
           else if (r.status === 'quarantined') quarantinedQueue += Number(r.c || 0);
           else if (r.status === 'completed') completedQueue += Number(r.c || 0);
         }
-        pendingQueue += sendingQueue;
       } catch {
         // Ignored in test mocks
       }

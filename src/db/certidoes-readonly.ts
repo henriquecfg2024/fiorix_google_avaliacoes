@@ -63,6 +63,9 @@ export interface PedidoCompletoCartorioVirtualPayload {
   valorServico: number;
   valorDespesa: number;
   totalDeposito: number;
+  totalCota?: number;
+  saldo?: number;
+  previaCustas?: number;
   observacoesOrigem: string | null;
   descricaoDosItens: string | null;
   numRps?: number | null;
@@ -430,6 +433,7 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         c.VlrTotalDeposito,
         c.VlrTotalCompDep,
         c.VlrTotalCota,
+        c.VlrSaldo,
         c.ObservacaoPedido,
         c.DescricaoDosItens,
         c.NumRPS,
@@ -486,6 +490,32 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
       }
     } catch {
       // Caso dbo.tblSIPUsuarios ainda aguarde GRANT SELECT, segue normalmente sem interromper a sincronização
+    }
+
+    // 1.6. Consulta de Cotas em dbo.tblWRICertidaoCotas (com fallback para c.VlrTotalCota / VlrTotCer1..7 caso SELECT aguarde GRANT)
+    const mapaCotasPorPedido = new Map<number, number>();
+    try {
+      const cotasRes = await pool
+        .request()
+        .input('MinPedido', sql.Int, minPedido)
+        .input('MaxPedido', sql.Int, maxPedido)
+        .query(`
+          SELECT
+            FK_tblWRICertidoes_NrPedido AS NrPedido,
+            SUM(ISNULL(VlrTotal, 0)) AS VlrTotalCotas
+          FROM dbo.tblWRICertidaoCotas WITH (NOLOCK)
+          WHERE FK_tblWRICertidoes_NrPedido BETWEEN @MinPedido AND @MaxPedido
+             OR FK_tblWRICertidoes_NrPedido = 1321013
+          GROUP BY FK_tblWRICertidoes_NrPedido;
+        `);
+      for (const cRow of cotasRes.recordset || []) {
+        const nrPed = Number(cRow.NrPedido || 0);
+        if (nrPed > 0) {
+          mapaCotasPorPedido.set(nrPed, Number(cRow.VlrTotalCotas || 0));
+        }
+      }
+    } catch {
+      // Caso dbo.tblWRICertidaoCotas aguarde GRANT SELECT, utiliza c.VlrTotalCota / VlrTotCer1..7 de dbo.tblWRICertidao
     }
 
     // 2. Itens + Natureza + Endereço + Real (Matrícula)
@@ -813,7 +843,6 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
       const nr = Number(r.Pk_NrPedido);
       const v1 = Number(r.VlrTotCer1 || 0);
       const vTotal = Number(r.VlrTotTotal || 0);
-      const vCota = Number(r.VlrTotalCota || 0);
       const vComp = Number(r.VlrTotalCompDep || 0);
       const vDep = Number(r.VlrTotalDeposito || 0);
 
@@ -825,8 +854,21 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         Number(r.VlrTotCer6 || 0) +
         Number(r.VlrTotCer7 || 0);
 
+      const cotaDaTabelaCotas = mapaCotasPorPedido.get(nr);
+      const somaCer1a7 = v1 + valorDespesa;
+      const vCota =
+        cotaDaTabelaCotas !== undefined
+          ? cotaDaTabelaCotas
+          : Number(r.VlrTotalCota || 0) > 0
+          ? Number(r.VlrTotalCota)
+          : somaCer1a7;
+
       const valorServico = v1 > 0 ? v1 : vTotal || vCota || vComp || vDep || 0;
-      const totalDeposito = vComp || vDep || vTotal || vCota || valorServico + valorDespesa;
+      const totalDeposito = vDep + vComp;
+      const vSaldo =
+        r.VlrSaldo !== undefined && r.VlrSaldo !== null
+          ? Number(r.VlrSaldo)
+          : totalDeposito - vCota;
 
       const endReq = [
         limparTextoSql(r.EnderecoRequerente),
@@ -861,6 +903,9 @@ export async function extrairLoteCompletoCartorioVirtualReadOnly(params?: {
         valorServico: Math.round(valorServico * 100) / 100,
         valorDespesa: Math.round(valorDespesa * 100) / 100,
         totalDeposito: Math.round(totalDeposito * 100) / 100,
+        totalCota: Math.round(vCota * 100) / 100,
+        saldo: Math.round(vSaldo * 100) / 100,
+        previaCustas: Math.round(vTotal * 100) / 100,
         observacoesOrigem: limparTextoSql(r.ObservacaoPedido),
         descricaoDosItens: limparTextoSql(r.DescricaoDosItens),
         numRps: r.NumRPS != null && Number(r.NumRPS) > 0 ? Number(r.NumRPS) : null,

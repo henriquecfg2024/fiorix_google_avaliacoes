@@ -149,6 +149,12 @@ function resolveConfiguredDocumentRoots(): DocumentRoot[] {
   if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
     defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
   }
+  if (fsSync.existsSync('H:\\')) {
+    defaults.push({ id: 'vol1', path: 'H:\\' });
+  }
+  if (fsSync.existsSync('W:\\')) {
+    defaults.push({ id: 'deptos', path: 'W:\\' });
+  }
   return defaults;
 }
 
