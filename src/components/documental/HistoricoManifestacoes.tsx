@@ -9,8 +9,10 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Edit3,
   Eye,
   FilePlus2,
+  FileText,
   Loader2,
   RotateCw,
   Search,
@@ -18,7 +20,14 @@ import {
   ShieldAlert,
   X,
 } from 'lucide-react';
-import { ESCREVENTES_USUCAPIAO, type MinutaModelo, type Segmento } from './FichaOficialView';
+import {
+  criarDadosManifestacaoPadrao,
+  ESCREVENTES_USUCAPIAO,
+  minutaParaTexto,
+  montarMinuta,
+  type MinutaModelo,
+  type Segmento,
+} from './FichaOficialView';
 import {
   formatarDataHora,
   listarHistorico,
@@ -26,16 +35,21 @@ import {
   type ManifestacaoApi,
   type ManifestacaoCompletaApi,
 } from '@/lib/documental/manifestacoesClient';
+import {
+  baixarDocManifestacao,
+  baixarDocxManifestacao,
+} from '@/lib/documental/generateManifestacaoWord';
 
 const POR_PAGINA = 25;
 
 interface Filtros {
+  status: 'todas' | 'conferencia' | 'finalizada';
   busca: string;
   escrevente: string;
   de: string;
   ate: string;
 }
-const FILTROS_VAZIOS: Filtros = { busca: '', escrevente: '', de: '', ate: '' };
+const FILTROS_VAZIOS: Filtros = { status: 'todas', busca: '', escrevente: '', de: '', ate: '' };
 
 const campo =
   'w-full rounded-lg border border-white/15 bg-[#080D1A] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-cyan-500/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/30';
@@ -49,14 +63,47 @@ async function sha256Hex(texto: string): Promise<string | null> {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+function obterMinutaCompleta(m: ManifestacaoCompletaApi): MinutaModelo {
+  if (m.minuta) return m.minuta;
+  const dadosCompletos = { ...criarDadosManifestacaoPadrao(), ...(m.dados || {}) };
+  const saudacao = dadosCompletos.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza';
+  return montarMinuta(dadosCompletos, saudacao);
+}
+
+function obterInfoArquivamento(m: ManifestacaoCompletaApi) {
+  if (m.status === 'finalizada' && m.finalizadoEm) {
+    return {
+      id: m.id,
+      versao: m.versao,
+      finalizadoEm: m.finalizadoEm,
+      finalizadoPorNome: m.finalizadoPorNome,
+      hashSha256: m.hashSha256 || '',
+    };
+  }
+  return null;
+}
+
 async function baixarPdf(m: ManifestacaoCompletaApi) {
-  if (!m.minuta || !m.hashSha256 || !m.finalizadoEm) throw new Error('Esta manifestação não possui texto arquivado.');
+  const minutaAlvo = obterMinutaCompleta(m);
+  const infoAlvo = obterInfoArquivamento(m);
   const { baixarPdfManifestacao } = await import('@/lib/pdf/generateManifestacaoPdf');
   baixarPdfManifestacao(
-    m.minuta,
-    { id: m.id, versao: m.versao, finalizadoEm: m.finalizadoEm, finalizadoPorNome: m.finalizadoPorNome, hashSha256: m.hashSha256 },
-    m.numeroProcesso,
+    minutaAlvo,
+    infoAlvo,
+    m.numeroProcesso || m.dados?.numero_processo,
   );
+}
+
+function baixarDocx(m: ManifestacaoCompletaApi) {
+  const minutaAlvo = obterMinutaCompleta(m);
+  const infoAlvo = obterInfoArquivamento(m);
+  baixarDocxManifestacao(minutaAlvo, infoAlvo, m.numeroProcesso || m.dados?.numero_processo);
+}
+
+function baixarDoc(m: ManifestacaoCompletaApi) {
+  const minutaAlvo = obterMinutaCompleta(m);
+  const infoAlvo = obterInfoArquivamento(m);
+  baixarDocManifestacao(minutaAlvo, infoAlvo, m.numeroProcesso || m.dados?.numero_processo);
 }
 
 export function HistoricoManifestacoes() {
@@ -96,9 +143,11 @@ export function HistoricoManifestacoes() {
 
   async function completa(id: string): Promise<ManifestacaoCompletaApi> {
     const emCache = cacheRef.current.get(id);
-    if (emCache) return emCache;
+    if (emCache && emCache.status === 'finalizada') return emCache;
     const m = await obterManifestacaoApi(id);
-    cacheRef.current.set(id, m); // registros finalizados são imutáveis: cache seguro
+    if (m.status === 'finalizada') {
+      cacheRef.current.set(id, m); // registros finalizados são imutáveis: cache seguro
+    }
     return m;
   }
 
@@ -111,9 +160,18 @@ export function HistoricoManifestacoes() {
 
   const visualizar = (id: string) => executar(`ver:${id}`, async () => setAberta(await completa(id)));
   const baixar = (id: string) => executar(`pdf:${id}`, async () => baixarPdf(await completa(id)));
+  const exportarDocx = (id: string) => executar(`docx:${id}`, async () => {
+    baixarDocx(await completa(id));
+    setAviso('Arquivo Word (.docx) baixado com sucesso.');
+  });
+  const exportarDoc = (id: string) => executar(`doc:${id}`, async () => {
+    baixarDoc(await completa(id));
+    setAviso('Arquivo Word (.doc) baixado com sucesso.');
+  });
   const copiar = (id: string) => executar(`copiar:${id}`, async () => {
     const m = await completa(id);
-    await navigator.clipboard.writeText(m.textoFinal || '');
+    const texto = m.textoFinal || minutaParaTexto(obterMinutaCompleta(m));
+    await navigator.clipboard.writeText(texto);
     setAviso('Texto da manifestação copiado.');
   });
 
@@ -141,18 +199,20 @@ export function HistoricoManifestacoes() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Archive className="h-4 w-4 text-cyan-400" aria-hidden="true" />
-            <h2 id="historico-titulo" className="text-sm font-bold tracking-wide">Manifestações arquivadas</h2>
+            <h2 id="historico-titulo" className="text-sm font-bold tracking-wide">
+              Manifestações e Rascunhos Arquivados no FIORIX
+            </h2>
             <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-semibold text-slate-300">
               {total} registro(s)
             </span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Registros finalizados são imutáveis. Correções geram uma nova versão.
+            Consulte rascunhos salvos em edição ou manifestações finalizadas e baixe em .DOCX, .DOC ou PDF.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
-          <div className="md:col-span-5">
-            <label htmlFor="hist-busca" className={rotulo}>Processo, requerente, Tr/Mat, contribuinte ou imóvel</label>
+          <div className="md:col-span-4">
+            <label htmlFor="hist-busca" className={rotulo}>Processo (com ou sem pontos), requerente, Tr/Mat, SQL ou imóvel</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" aria-hidden="true" />
               <input
@@ -160,11 +220,24 @@ export function HistoricoManifestacoes() {
                 type="search"
                 value={rascunho.busca}
                 onChange={e => setRascunho(r => ({ ...r, busca: e.target.value }))}
-                placeholder="Ex.: 1012345-67.2024 ou nome do requerente"
+                placeholder="Ex.: 4121959-50.2026 ou 41219595020268260100"
                 maxLength={120}
                 className={`${campo} pl-8`}
               />
             </div>
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="hist-status" className={rotulo}>Situação</label>
+            <select
+              id="hist-status"
+              value={rascunho.status}
+              onChange={e => setRascunho(r => ({ ...r, status: e.target.value as Filtros['status'] }))}
+              className={campo}
+            >
+              <option value="todas">Todas (Rascunhos + Finalizadas)</option>
+              <option value="conferencia">Rascunhos Salvos (Em Edição)</option>
+              <option value="finalizada">Somente Finalizadas</option>
+            </select>
           </div>
           <div className="md:col-span-2">
             <label htmlFor="hist-escrevente" className={rotulo}>Escrevente</label>
@@ -178,12 +251,12 @@ export function HistoricoManifestacoes() {
               {ESCREVENTES_USUCAPIAO.map(nome => <option key={nome} value={nome}>{nome}</option>)}
             </select>
           </div>
-          <div className="md:col-span-2">
-            <label htmlFor="hist-de" className={rotulo}>Finalizada de</label>
+          <div className="md:col-span-1.5">
+            <label htmlFor="hist-de" className={rotulo}>De</label>
             <input id="hist-de" type="date" value={rascunho.de} onChange={e => setRascunho(r => ({ ...r, de: e.target.value }))} className={`${campo} [color-scheme:dark]`} />
           </div>
-          <div className="md:col-span-2">
-            <label htmlFor="hist-ate" className={rotulo}>até</label>
+          <div className="md:col-span-1.5">
+            <label htmlFor="hist-ate" className={rotulo}>Até</label>
             <input id="hist-ate" type="date" value={rascunho.ate} onChange={e => setRascunho(r => ({ ...r, ate: e.target.value }))} className={`${campo} [color-scheme:dark]`} />
           </div>
           <div className="flex items-end gap-2 md:col-span-1">
@@ -228,9 +301,9 @@ export function HistoricoManifestacoes() {
                 <th scope="col" className="px-3 py-2.5 font-bold">Requerente</th>
                 <th scope="col" className="px-3 py-2.5 font-bold">Tr/Mat</th>
                 <th scope="col" className="px-3 py-2.5 font-bold">Escrevente</th>
-                <th scope="col" className="px-3 py-2.5 font-bold">Finalizada em</th>
+                <th scope="col" className="px-3 py-2.5 font-bold">Salvo / Finalizado em</th>
                 <th scope="col" className="px-3 py-2.5 font-bold">Por</th>
-                <th scope="col" className="px-3 py-2.5 font-bold">Versão</th>
+                <th scope="col" className="px-3 py-2.5 font-bold">Situação / Versão</th>
                 <th scope="col" className="px-4 py-2.5 text-right font-bold">Ações</th>
               </tr>
             </thead>
@@ -240,42 +313,68 @@ export function HistoricoManifestacoes() {
               ) : itens.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
-                    Nenhuma manifestação arquivada{filtros.busca || filtros.escrevente || filtros.de || filtros.ate ? ' para os filtros informados' : ' até o momento'}.
-                    <span className="mt-1 block text-[11px] text-slate-500">Na Etapa 2 do Formulário, use “Finalizar Manifestação” para arquivar.</span>
+                    Nenhum rascunho ou manifestação localizado{filtros.busca || filtros.escrevente || filtros.de || filtros.ate ? ' para os filtros informados' : ' até o momento'}.
+                    <span className="mt-1 block text-[11px] text-slate-500">Use “Salvar Rascunho” ou “Finalizar Manifestação” na tela de Manifestação.</span>
                   </td>
                 </tr>
               ) : (
-                itens.map(m => (
-                  <tr key={m.id} className="border-b border-white/5 transition hover:bg-white/[0.03]">
-                    <td className="px-4 py-2.5 font-mono text-[12px] font-bold text-white">{m.numeroProcesso || '—'}</td>
-                    <td className="max-w-[240px] truncate px-3 py-2.5" title={m.requerente || ''}>{m.requerente || '—'}</td>
-                    <td className="px-3 py-2.5 font-mono">{m.matricula || '—'}</td>
-                    <td className="px-3 py-2.5">{m.escrevente || '—'}</td>
-                    <td className="whitespace-nowrap px-3 py-2.5">{formatarDataHora(m.finalizadoEm)}</td>
-                    <td className="max-w-[160px] truncate px-3 py-2.5" title={m.finalizadoPorNome || ''}>{m.finalizadoPorNome || '—'}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${m.versao > 1 ? 'border-amber-400/40 bg-amber-500/10 text-amber-200' : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'}`}>
-                        v{m.versao}{m.versao > 1 ? ' (correção)' : ''}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex justify-end gap-1.5">
-                        <button type="button" onClick={() => visualizar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Visualizar a manifestação arquivada">
-                          {acaoEmCurso === `ver:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />} Ver
-                        </button>
-                        <button type="button" onClick={() => baixar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Baixar PDF">
-                          {acaoEmCurso === `pdf:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} PDF
-                        </button>
-                        <button type="button" onClick={() => copiar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Copiar o texto">
-                          {acaoEmCurso === `copiar:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
-                        </button>
-                        <Link href={`/gestao-documental?reabrir=${m.id}`} className={botaoAcao} title="Abrir para correção (gera nova versão; a atual permanece arquivada)">
-                          <FilePlus2 className="h-3 w-3" /> Nova versão
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                itens.map(m => {
+                  const ehRascunho = m.status === 'conferencia';
+                  return (
+                    <tr key={m.id} className="border-b border-white/5 transition hover:bg-white/[0.03]">
+                      <td className="px-4 py-2.5 font-mono text-[12px] font-bold text-white">{m.numeroProcesso || '—'}</td>
+                      <td className="max-w-[240px] truncate px-3 py-2.5" title={m.requerente || ''}>{m.requerente || '—'}</td>
+                      <td className="px-3 py-2.5 font-mono">{m.matricula || '—'}</td>
+                      <td className="px-3 py-2.5">{m.escrevente || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5">{formatarDataHora(m.finalizadoEm || m.updatedAt)}</td>
+                      <td className="max-w-[160px] truncate px-3 py-2.5" title={m.finalizadoPorNome || m.atualizadoPorNome || m.criadoPorNome || ''}>
+                        {m.finalizadoPorNome || m.atualizadoPorNome || m.criadoPorNome || '—'}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {ehRascunho ? (
+                          <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                            📝 Rascunho Salvo
+                          </span>
+                        ) : (
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${m.versao > 1 ? 'border-amber-400/40 bg-amber-500/10 text-amber-200' : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'}`}>
+                            ✅ Finalizada v{m.versao}{m.versao > 1 ? ' (correção)' : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <button type="button" onClick={() => visualizar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Visualizar a manifestação">
+                            {acaoEmCurso === `ver:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />} Ver
+                          </button>
+                          <button type="button" onClick={() => exportarDocx(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Baixar em formato Word (.docx)">
+                            {acaoEmCurso === `docx:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3 text-blue-400" />} .DOCX
+                          </button>
+                          <button type="button" onClick={() => exportarDoc(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Baixar em formato Word (.doc)">
+                            {acaoEmCurso === `doc:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3 text-indigo-400" />} .DOC
+                          </button>
+                          <button type="button" onClick={() => baixar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Baixar PDF">
+                            {acaoEmCurso === `pdf:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} PDF
+                          </button>
+                          <button type="button" onClick={() => copiar(m.id)} disabled={acaoEmCurso !== null} className={botaoAcao} title="Copiar o texto">
+                            {acaoEmCurso === `copiar:${m.id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                          <Link
+                            href={`/gestao-documental?reabrir=${m.id}`}
+                            className={botaoAcao}
+                            title={
+                              ehRascunho
+                                ? 'Abrir rascunho na tela híbrida para continuar editando e finalizar'
+                                : 'Abrir para correção (gera nova versão; a atual permanece arquivada)'
+                            }
+                          >
+                            {ehRascunho ? <Edit3 className="h-3 w-3 text-amber-300" /> : <FilePlus2 className="h-3 w-3" />}
+                            <span>{ehRascunho ? 'Editar Rascunho' : 'Nova versão'}</span>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -300,6 +399,8 @@ export function HistoricoManifestacoes() {
           manifestacao={aberta}
           onFechar={() => setAberta(null)}
           onBaixar={() => executar(`pdf:${aberta.id}`, () => baixarPdf(aberta))}
+          onBaixarDocx={() => exportarDocx(aberta.id)}
+          onBaixarDoc={() => exportarDoc(aberta.id)}
           onCopiar={() => copiar(aberta.id)}
           baixando={acaoEmCurso === `pdf:${aberta.id}`}
         />
@@ -332,14 +433,29 @@ function FolhaMinuta({ m }: { m: MinutaModelo }) {
         <p>{m.cabecalho.natureza}</p>
       </div>
       <p className="mt-5 font-bold">{m.saudacao}</p>
-      {m.paragrafosAntes.map((p, i) => <p key={`a${i}`} className="mt-3 indent-12 text-justify"><Trechos segmentos={p} /></p>)}
-      <p className="mt-3 indent-12 text-justify">{m.introConfrontacoes}</p>
-      <div className="mt-1 space-y-0.5 pl-12">
-        {m.confrontacoes.map(c => <p key={c.campo}>{c.rotulo} <strong>{c.valor}</strong>{c.pontuacao}</p>)}
-      </div>
-      {m.paragrafosDepois.map((p, i) => <p key={`d${i}`} className="mt-3 indent-12 text-justify"><Trechos segmentos={p} /></p>)}
+      {m.corpoTextoLivre && m.corpoTextoLivre.trim().length > 0 ? (
+        <div className="space-y-3">
+          {m.corpoTextoLivre
+            .split(/\r?\n\s*\r?\n/)
+            .map(b => b.trim())
+            .filter(Boolean)
+            .map((bloco, idx) => (
+              <p key={`livre-${idx}`} className="mt-3 indent-12 text-justify whitespace-pre-line">{bloco}</p>
+            ))}
+        </div>
+      ) : (
+        <>
+          {m.paragrafosAntes.map((p, i) => <p key={`a${i}`} className="mt-3 indent-12 text-justify"><Trechos segmentos={p} /></p>)}
+          <p className="mt-3 indent-12 text-justify">{m.introConfrontacoes}</p>
+          <div className="mt-1 space-y-0.5 pl-12">
+            {m.confrontacoes.map(c => <p key={c.campo}>{c.rotulo} <strong>{c.valor}</strong>{c.pontuacao}</p>)}
+          </div>
+          {m.paragrafosDepois.map((p, i) => <p key={`d${i}`} className="mt-3 indent-12 text-justify"><Trechos segmentos={p} /></p>)}
+        </>
+      )}
       <p className="mt-6 text-right">{m.local}</p>
       <div className="mt-12 text-center">
+        <p className="mb-8 text-[12px]">{m.assinatura.titulo || 'O Oficial,'}</p>
         <div className="mx-auto w-64 border-t border-black" />
         <p className="font-bold">{m.assinatura.nome}</p>
         <p className="text-[12px]">{m.assinatura.cargo}</p>
@@ -352,12 +468,16 @@ function VisualizacaoArquivada({
   manifestacao: m,
   onFechar,
   onBaixar,
+  onBaixarDocx,
+  onBaixarDoc,
   onCopiar,
   baixando,
 }: {
   manifestacao: ManifestacaoCompletaApi;
   onFechar: () => void;
   onBaixar: () => void;
+  onBaixarDocx: () => void;
+  onBaixarDoc: () => void;
   onCopiar: () => void;
   baixando: boolean;
 }) {
@@ -366,6 +486,8 @@ function VisualizacaoArquivada({
   const fecharRef = useRef<HTMLButtonElement>(null);
   const onFecharRef = useRef(onFechar);
   onFecharRef.current = onFechar;
+  const minutaExibida = obterMinutaCompleta(m);
+  const ehRascunho = m.status === 'conferencia';
 
   useEffect(() => {
     fecharRef.current?.focus();
@@ -393,11 +515,17 @@ function VisualizacaoArquivada({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
           <div className="min-w-0">
             <h3 id="arquivada-titulo" className="truncate text-sm font-bold">
-              Manifestação arquivada — <span className="font-mono">{m.numeroProcesso || 'sem número'}</span>
-              <span className="ml-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">v{m.versao}</span>
+              {ehRascunho ? 'Rascunho salvo — ' : 'Manifestação arquivada — '}
+              <span className="font-mono">{m.numeroProcesso || 'sem número'}</span>
+              <span className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] ${ehRascunho ? 'border-amber-400/30 bg-amber-500/10 text-amber-200' : 'border-cyan-400/30 bg-cyan-500/10 text-cyan-200'}`}>
+                {ehRascunho ? 'Rascunho em Edição' : `v${m.versao}`}
+              </span>
             </h3>
             <p className="mt-0.5 text-[11px] text-slate-400">
-              Finalizada em {formatarDataHora(m.finalizadoEm)}{m.finalizadoPorNome ? ` por ${m.finalizadoPorNome}` : ''}
+              {ehRascunho ? `Salvo em ${formatarDataHora(m.updatedAt)}` : `Finalizada em ${formatarDataHora(m.finalizadoEm)}`}
+              {m.finalizadoPorNome || m.atualizadoPorNome || m.criadoPorNome
+                ? ` por ${m.finalizadoPorNome || m.atualizadoPorNome || m.criadoPorNome}`
+                : ''}
               {m.escrevente ? ` • Escrevente: ${m.escrevente}` : ''}
             </p>
           </div>
@@ -405,11 +533,18 @@ function VisualizacaoArquivada({
             <button type="button" onClick={() => { onCopiar(); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }} className={botaoAcao}>
               {copiado ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />} {copiado ? 'Copiado' : 'Copiar texto'}
             </button>
+            <button type="button" onClick={onBaixarDocx} className={botaoAcao} title="Salvar como arquivo Word (.docx)">
+              <FileText className="h-3 w-3 text-blue-400" /> Salvar .DOCX
+            </button>
+            <button type="button" onClick={onBaixarDoc} className={botaoAcao} title="Salvar como arquivo Word (.doc)">
+              <FileText className="h-3 w-3 text-indigo-400" /> Salvar .DOC
+            </button>
             <button type="button" onClick={onBaixar} disabled={baixando} className={botaoAcao}>
               {baixando ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />} Baixar PDF
             </button>
             <Link href={`/gestao-documental?reabrir=${m.id}`} className={botaoAcao}>
-              <FilePlus2 className="h-3 w-3" /> Nova versão
+              {ehRascunho ? <Edit3 className="h-3 w-3 text-amber-300" /> : <FilePlus2 className="h-3 w-3" />}
+              <span>{ehRascunho ? 'Editar e Finalizar' : 'Nova versão'}</span>
             </Link>
             <button ref={fecharRef} type="button" onClick={onFechar} className={botaoAcao} aria-label="Fechar">
               <X className="h-3.5 w-3.5" />
@@ -418,27 +553,31 @@ function VisualizacaoArquivada({
         </div>
 
         <div className="flex-1 overflow-y-auto bg-[#1E293B]/40 p-4 md:p-6">
-          {m.minuta ? (
-            <FolhaMinuta m={m.minuta} />
-          ) : (
-            <pre className="mx-auto max-w-[210mm] whitespace-pre-wrap bg-white p-8 font-serif text-[13px] text-black">{m.textoFinal}</pre>
-          )}
+          <FolhaMinuta m={minutaExibida} />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-2.5 text-[11px]">
-          {integridade === 'ok' && (
-            <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-300">
-              <ShieldCheck className="h-3.5 w-3.5" /> Integridade conferida: o texto corresponde ao registrado na finalização.
+          {ehRascunho ? (
+            <span className="inline-flex items-center gap-1.5 font-semibold text-amber-300">
+              📝 Este registro é um rascunho salvo no FIORIX. Clique em &ldquo;Editar e Finalizar&rdquo; para continuar a edição na tela híbrida.
             </span>
+          ) : (
+            <>
+              {integridade === 'ok' && (
+                <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-300">
+                  <ShieldCheck className="h-3.5 w-3.5" /> Integridade conferida: o texto corresponde ao registrado na finalização.
+                </span>
+              )}
+              {integridade === 'divergente' && (
+                <span className="inline-flex items-center gap-1.5 font-semibold text-rose-300">
+                  <ShieldAlert className="h-3.5 w-3.5" /> Atenção: o texto não corresponde ao SHA-256 registrado. Comunique a TI.
+                </span>
+              )}
+              {integridade === 'verificando' && <span className="text-slate-400"><Loader2 className="mr-1 inline h-3 w-3 animate-spin" />Conferindo integridade…</span>}
+              {integridade === 'indisponivel' && <span className="text-slate-400">Conferência de integridade indisponível neste navegador.</span>}
+              {m.hashSha256 && <span className="ml-auto break-all font-mono text-[10px] text-slate-500">SHA-256: {m.hashSha256}</span>}
+            </>
           )}
-          {integridade === 'divergente' && (
-            <span className="inline-flex items-center gap-1.5 font-semibold text-rose-300">
-              <ShieldAlert className="h-3.5 w-3.5" /> Atenção: o texto não corresponde ao SHA-256 registrado. Comunique a TI.
-            </span>
-          )}
-          {integridade === 'verificando' && <span className="text-slate-400"><Loader2 className="mr-1 inline h-3 w-3 animate-spin" />Conferindo integridade…</span>}
-          {integridade === 'indisponivel' && <span className="text-slate-400">Conferência de integridade indisponível neste navegador.</span>}
-          {m.hashSha256 && <span className="ml-auto break-all font-mono text-[10px] text-slate-500">SHA-256: {m.hashSha256}</span>}
         </div>
       </div>
     </div>

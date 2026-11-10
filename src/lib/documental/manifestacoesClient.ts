@@ -173,6 +173,7 @@ export async function obterManifestacaoApi(id: string): Promise<ManifestacaoComp
 }
 
 export interface FiltrosHistorico {
+  status?: 'conferencia' | 'finalizada' | 'todas';
   busca?: string;
   escrevente?: string;
   de?: string;
@@ -182,8 +183,9 @@ export interface FiltrosHistorico {
 }
 
 export async function listarHistorico(filtros: FiltrosHistorico): Promise<{ itens: ManifestacaoApi[]; total: number }> {
-  const params = new URLSearchParams({ status: 'finalizada' });
+  const params = new URLSearchParams({ status: filtros.status || 'todas' });
   for (const [k, v] of Object.entries(filtros)) {
+    if (k === 'status') continue;
     if (v !== undefined && v !== null && String(v).trim() !== '') params.set(k, String(v).trim());
   }
   return chamar(`${ENDPOINT}?${params.toString()}`);

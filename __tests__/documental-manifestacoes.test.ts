@@ -17,6 +17,8 @@ import { isSetorUsucapiao, requireDocumentAccess, requireManifestacaoAccess } fr
 import { finalizarManifestacaoInput, importarFilaLocalInput, listarManifestacoesQuery, salvarFichaInput } from '../src/lib/documental/contracts';
 import { calcularHashManifestacao } from '../src/lib/documental/manifestacoes';
 import { fichaIdValido, origemParaApi } from '../src/lib/documental/manifestacoesClient';
+import type { MinutaModelo } from '../src/components/documental/FichaOficialView';
+import { gerarDocHtmlManifestacao, gerarDocxBytesManifestacao } from '../src/lib/documental/generateManifestacaoWord';
 
 const dados = { id_ficha: 'FICHA-1730000000000', numero_processo: '1012345-67.2024.8.26.0100' };
 const textoValido = 'PROCESSO DIGITAL nº 1012345-67.2024.8.26.0100 — texto da manifestação finalizada.';
@@ -89,5 +91,61 @@ describe('manifestações: utilitários', () => {
     expect(origemParaApi(null)).toBeNull();
     expect(fichaIdValido('FICHA-123')).toBe(true);
     expect(fichaIdValido('../x')).toBe(false);
+  });
+
+  it('gera arquivos .docx e .doc válidos com as edições diretas da tela híbrida', () => {
+    const minutaHibrida: MinutaModelo = {
+      timbre: {
+        numero: '7',
+        ordinal: 'SÉTIMO',
+        linha1: 'OFICIAL DE REGISTRO',
+        linha3: 'DE IMÓVEIS',
+        endereco: 'Rua Líbero Badaró, 377 – 12º andar – Centro – CEP 01009-906 – São Paulo – SP',
+      },
+      cabecalho: {
+        processoRotulo: 'PROCESSO DIGITAL nº',
+        processoValor: '4152773-45.2026.8.26.0100',
+        vara: 'E. 2ª Vara de Registros Públicos da Capital.',
+        interessadosRotulo: 'INTERESSADOS:',
+        interessadosValor: 'LUCILENE FELIPE DE SENA CARVALHO',
+        natureza: 'USUCAPIÃO',
+      },
+      saudacao: 'Meritíssima Juíza',
+      paragrafosAntes: [
+        [{ t: 'Parágrafo 1 editado diretamente pelo escrevente na tela híbrida A4.' }],
+        [{ t: 'Segundo elementos constantes dos autos, o imóvel consta na ' }, { t: 'Matrícula 11.538', destaque: true }, { t: '.' }],
+      ],
+      introConfrontacoes: 'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:',
+      confrontacoes: [
+        { campo: 'confrontante_lado_direito', rotulo: '– pelo lado direito com', valor: 'lote 11', pontuacao: ';' },
+        { campo: 'confrontante_lado_esquerdo', rotulo: '– pelo lado esquerdo com', valor: 'lote 13', pontuacao: ';' },
+        { campo: 'confrontante_fundos', rotulo: '– e nos fundos com', valor: 'lote 25', pontuacao: '.' },
+      ],
+      paragrafosDepois: [
+        [{ t: 'Observação adicional inserida antes do fecho.' }],
+        [{ t: 'Era o que, respeitosamente, cumpria informar a V. Exa.' }],
+      ],
+      local: 'São Paulo, 10 de novembro de 2026.',
+      assinatura: {
+        titulo: 'O Oficial Substituto,',
+        nome: 'Ademar Fioranelli',
+        cargo: '7º Oficial de Registro de Imóveis da Capital – SP',
+      },
+    };
+
+    // Verifica geração do arquivo .docx (ZIP válido com assinatura PK\x03\x04)
+    const docxBytes = gerarDocxBytesManifestacao(minutaHibrida);
+    expect(docxBytes.byteLength).toBeGreaterThan(1000);
+    expect(docxBytes[0]).toBe(0x50); // 'P'
+    expect(docxBytes[1]).toBe(0x4b); // 'K'
+    expect(docxBytes[2]).toBe(0x03);
+    expect(docxBytes[3]).toBe(0x04);
+
+    // Verifica geração do arquivo .doc (HTML Word)
+    const docHtml = gerarDocHtmlManifestacao(minutaHibrida);
+    expect(docHtml).toContain('4152773-45.2026.8.26.0100');
+    expect(docHtml).toContain('LUCILENE FELIPE DE SENA CARVALHO');
+    expect(docHtml).toContain('Parágrafo 1 editado diretamente pelo escrevente na tela híbrida A4.');
+    expect(docHtml).toContain('O Oficial Substituto,');
   });
 });

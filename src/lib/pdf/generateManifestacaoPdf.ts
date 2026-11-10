@@ -142,7 +142,7 @@ function formatarDataHora(valor: string | Date): string {
   return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function gerarPdfManifestacao(minuta: MinutaModelo, info: InfoArquivamento): jsPDF {
+export function gerarPdfManifestacao(minuta: MinutaModelo, info?: InfoArquivamento | null): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   doc.setProperties({
     title: `Manifestação ${minuta.cabecalho.processoValor}`,
@@ -169,13 +169,29 @@ export function gerarPdfManifestacao(minuta: MinutaModelo, info: InfoArquivament
   w.paragrafo([{ t: minuta.saudacao }], { tamanho: 12.5, negritoTudo: true, espacoDepois: 5 });
 
   const RECUO = 15;
-  for (const p of minuta.paragrafosAntes) w.paragrafo(p, { recuo: RECUO, justificar: true });
-  w.paragrafo([{ t: minuta.introConfrontacoes }], { recuo: RECUO, justificar: true, espacoDepois: 1 });
-  for (const c of minuta.confrontacoes) {
-    w.paragrafo([{ t: `${c.rotulo} ${c.valor}${c.pontuacao}` }], { xInicial: MARGEM.esquerda + 20, espacoDepois: 0.5 });
+  const corpoLivre = (minuta as MinutaModelo & { corpoTextoLivre?: string | null }).corpoTextoLivre?.trim();
+  if (corpoLivre) {
+    for (const linha of corpoLivre.split(/\r?\n/)) {
+      const limpa = linha.trim();
+      if (!limpa) continue;
+      const ehTopico = /^[–\-•]/.test(limpa);
+      if (ehTopico) {
+        w.paragrafo([{ t: limpa }], { xInicial: MARGEM.esquerda + 20, espacoDepois: 0.8 });
+      } else {
+        w.paragrafo([{ t: limpa }], { recuo: RECUO, justificar: true });
+      }
+    }
+  } else {
+    for (const p of minuta.paragrafosAntes) w.paragrafo(p, { recuo: RECUO, justificar: true });
+    if (minuta.introConfrontacoes) {
+      w.paragrafo([{ t: minuta.introConfrontacoes }], { recuo: RECUO, justificar: true, espacoDepois: 1 });
+    }
+    for (const c of minuta.confrontacoes) {
+      w.paragrafo([{ t: `${c.rotulo} ${c.valor}${c.pontuacao}` }], { xInicial: MARGEM.esquerda + 20, espacoDepois: 0.5 });
+    }
+    w.y += 2.5;
+    for (const p of minuta.paragrafosDepois) w.paragrafo(p, { recuo: RECUO, justificar: true });
   }
-  w.y += 2.5;
-  for (const p of minuta.paragrafosDepois) w.paragrafo(p, { recuo: RECUO, justificar: true });
 
   // Local/data e assinatura
   w.y += 4;
@@ -191,39 +207,41 @@ export function gerarPdfManifestacao(minuta: MinutaModelo, info: InfoArquivament
   w.centralizado(minuta.assinatura.nome, 11.5, true);
   w.centralizado(minuta.assinatura.cargo, 8.5, false, 70);
 
-  // Rodapé de arquivamento em todas as páginas
-  const total = doc.getNumberOfPages();
-  const linha1 = pdfTexto(
-    `Manifestação arquivada no FIORIX em ${formatarDataHora(info.finalizadoEm)}` +
-    `${info.finalizadoPorNome ? ` por ${info.finalizadoPorNome}` : ''} - versão ${info.versao}`,
-  );
-  const linha2 = `SHA-256 do texto: ${info.hashSha256}`;
-  for (let pagina = 1; pagina <= total; pagina++) {
-    doc.setPage(pagina);
-    const yRodape = A4.altura - 14;
-    doc.setDrawColor(180);
-    doc.setLineWidth(0.2);
-    doc.line(MARGEM.esquerda, yRodape - 4, A4.largura - MARGEM.direita, yRodape - 4);
-    doc.setDrawColor(0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(90);
-    doc.text(linha1, MARGEM.esquerda, yRodape);
-    doc.text(linha2, MARGEM.esquerda, yRodape + 3.5);
-    doc.text(`Página ${pagina} de ${total}`, A4.largura - MARGEM.direita, yRodape, { align: 'right' });
-    doc.setTextColor(0);
+  // Rodapé de arquivamento em todas as páginas (quando arquivado)
+  if (info) {
+    const total = doc.getNumberOfPages();
+    const linha1 = pdfTexto(
+      `Manifestação arquivada no FIORIX em ${formatarDataHora(info.finalizadoEm)}` +
+      `${info.finalizadoPorNome ? ` por ${info.finalizadoPorNome}` : ''} - versão ${info.versao}`,
+    );
+    const linha2 = `SHA-256 do texto: ${info.hashSha256}`;
+    for (let pagina = 1; pagina <= total; pagina++) {
+      doc.setPage(pagina);
+      const yRodape = A4.altura - 14;
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.2);
+      doc.line(MARGEM.esquerda, yRodape - 4, A4.largura - MARGEM.direita, yRodape - 4);
+      doc.setDrawColor(0);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(90);
+      doc.text(linha1, MARGEM.esquerda, yRodape);
+      doc.text(linha2, MARGEM.esquerda, yRodape + 3.5);
+      doc.text(`Página ${pagina} de ${total}`, A4.largura - MARGEM.direita, yRodape, { align: 'right' });
+      doc.setTextColor(0);
+    }
   }
   return doc;
 }
 
 /** Nome do arquivo: Manifestacao_<processo>_v<versao>.pdf */
-export function nomeArquivoManifestacao(numeroProcesso: string | null | undefined, versao: number): string {
+export function nomeArquivoManifestacao(numeroProcesso: string | null | undefined, versao?: number | null): string {
   const base = (numeroProcesso || 'sem-numero').replace(/[^\w.-]+/g, '_').slice(0, 60);
-  return `Manifestacao_${base}_v${versao}.pdf`;
+  return `Manifestacao_${base}_${versao ? `v${versao}` : 'rascunho'}.pdf`;
 }
 
-export function baixarPdfManifestacao(minuta: MinutaModelo, info: InfoArquivamento, numeroProcesso?: string | null) {
-  gerarPdfManifestacao(minuta, info).save(nomeArquivoManifestacao(numeroProcesso, info.versao));
+export function baixarPdfManifestacao(minuta: MinutaModelo, info?: InfoArquivamento | null, numeroProcesso?: string | null) {
+  gerarPdfManifestacao(minuta, info).save(nomeArquivoManifestacao(numeroProcesso, info?.versao));
 }
 
 // Largura útil exportada para testes de layout

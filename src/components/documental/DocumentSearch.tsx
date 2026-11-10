@@ -47,9 +47,14 @@ import {
   DadosManifestacao,
   criarDadosManifestacaoPadrao,
   lerFilaFichasOficial,
+  montarMinuta,
   CHAVE_FILA_FICHAS_OFICIAL,
   type PayloadFinalizacao,
 } from './FichaOficialView';
+import {
+  baixarDocManifestacao,
+  baixarDocxManifestacao,
+} from '@/lib/documental/generateManifestacaoWord';
 import {
   alternarConferenciaFicha,
   carregarFilaConferencia,
@@ -407,7 +412,20 @@ export function DocumentSearch({
           const arquivo: Match | null = origem
             ? { rootId: origem.rootId || 'processos', relativePath: origem.relativePath, name: origem.name, size: 0, modifiedAt: '' }
             : null;
-          abrirFicha({ ...m.dados, id_ficha: `FICHA-${Date.now()}` }, arquivo, m.status === 'finalizada' ? m.id : null);
+          if (m.status === 'conferencia') {
+            abrirFicha(
+              { ...m.dados, id_ficha: m.fichaId || m.dados.id_ficha || `FICHA-${Date.now()}`, etapa_ativa_salva: 'manifestacao' },
+              arquivo,
+              null,
+              m.id,
+            );
+          } else {
+            abrirFicha(
+              { ...m.dados, id_ficha: `FICHA-${Date.now()}`, etapa_ativa_salva: 'manifestacao' },
+              arquivo,
+              m.id,
+            );
+          }
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Não foi possível reabrir a manifestação arquivada.');
         }
@@ -2276,6 +2294,38 @@ export function DocumentSearch({
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       <span>{processandoCard ? 'Salvando…' : isConferido ? 'Voltar p/ Aguardando' : 'Marcar Conferido'}</span>
                     </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const dadosMinuta = { ...criarDadosManifestacaoPadrao(), ...ficha.dados };
+                          const saudacao = dadosMinuta.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza';
+                          const min = montarMinuta(dadosMinuta, saudacao);
+                          baixarDocxManifestacao(min, null, ficha.numero_processo);
+                        }}
+                        className="inline-flex items-center gap-1 rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-900 hover:bg-blue-100 cursor-pointer"
+                        title="Salvar / Baixar Manifestação em formato Word (.docx)"
+                      >
+                        <FileText className="h-2.5 w-2.5 text-blue-700" />
+                        <span>.DOCX</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const dadosMinuta = { ...criarDadosManifestacaoPadrao(), ...ficha.dados };
+                          const saudacao = dadosMinuta.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza';
+                          const min = montarMinuta(dadosMinuta, saudacao);
+                          baixarDocManifestacao(min, null, ficha.numero_processo);
+                        }}
+                        className="inline-flex items-center gap-1 rounded border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
+                        title="Salvar / Baixar Manifestação em formato Word (.doc)"
+                      >
+                        <FileText className="h-2.5 w-2.5 text-indigo-700" />
+                        <span>.DOC</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 );

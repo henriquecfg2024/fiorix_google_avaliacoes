@@ -31,12 +31,17 @@ import {
   ExternalLink,
   Compass,
   FolderOpen,
+  FilePlus2,
+  FileText,
+  Edit3,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
 import { formatCartorioPath, getRootInfo } from './DocumentSearch';
 import { extrairConfrontacoes, ConfrontacoesExtraidas, resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
 import { copiarTextoSeguro } from '@/lib/documental/pdfTransfer';
+import { baixarDocxManifestacao, baixarDocManifestacao } from '@/lib/documental/generateManifestacaoWord';
 
 export interface DadosManifestacao {
   id_ficha: string;
@@ -74,6 +79,26 @@ export interface DadosManifestacao {
   status_conferencia?: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO';
   conferido_por_nome?: string | null;
   conferido_em?: string | null;
+  // Campos da tela híbrida da Manifestação e salvamento de rascunho no FIORIX
+  natureza_processo?: string;
+  saudacao_juiz?: string;
+  paragrafo_1_custom?: string;
+  paragrafo_2_custom?: string;
+  intro_confrontacoes_custom?: string;
+  paragrafo_competencia_custom?: string;
+  paragrafo_contribuinte_custom?: string;
+  paragrafo_anexos_custom?: string;
+  paragrafo_encaminhamento_custom?: string;
+  paragrafo_fecho_custom?: string;
+  paragrafo_extra_custom?: string;
+  corpo_livre_manifestacao?: string;
+  modo_edicao_manifestacao?: 'hibrido' | 'texto_livre';
+  local_data_manifestacao?: string;
+  assinatura_titulo?: string;
+  assinatura_nome?: string;
+  assinatura_cargo?: string;
+  rascunho_salvo_em?: string | null;
+  etapa_ativa_salva?: 'formulario' | 'manifestacao';
 }
 
 export const SUBDISTRITOS_7RI = [
@@ -628,8 +653,12 @@ export function FichaOficialView({
   // Calcula sugestões em tempo real com base no estado atual
   const sugestoes = useMemo(() => inferirSugestoesInteligentes(dados, arquivoOrigem), [dados, arquivoOrigem]);
 
-  const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao'>('formulario');
-  const [saudacaoJuiz, setSaudacaoJuiz] = useState<'Meritíssima Juíza' | 'MM. Juiz'>('Meritíssima Juíza');
+  const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao'>(() =>
+    dadosIniciais.etapa_ativa_salva === 'manifestacao' ? 'manifestacao' : 'formulario',
+  );
+  const [saudacaoJuiz, setSaudacaoJuiz] = useState<'Meritíssima Juíza' | 'MM. Juiz'>(() =>
+    dadosIniciais.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza',
+  );
   const [copiado, setCopiado] = useState(false);
   const [origemAberta, setOrigemAberta] = useState(false);
   const [painelRevisaoAberto, setPainelRevisaoAberto] = useState(false);
@@ -640,7 +669,39 @@ export function FichaOficialView({
   const [origemConfrontacoes, setOrigemConfrontacoes] = useState<string | null>(null);
   const [impressao, setImpressao] = useState<'formulario' | 'manifestacao' | null>(null);
   const [finalizando, setFinalizando] = useState(false);
+  const [salvandoRascunho, setSalvandoRascunho] = useState(false);
   const [arquivada, setArquivada] = useState<{ info: ManifestacaoArquivada; minuta: MinutaModelo; texto: string } | null>(null);
+  const [paragrafosEmEdicao, setParagrafosEmEdicao] = useState<Record<string, boolean>>({});
+  const [mostrarParagrafoExtra, setMostrarParagrafoExtra] = useState<boolean>(() => Boolean(dadosIniciais.paragrafo_extra_custom));
+  const [configuracoesRapidasAbertas, setConfiguracoesRapidasAbertas] = useState(true);
+
+  // Modal de Consulta de Rascunhos e Manifestações Salvas no FIORIX
+  const [modalRascunhosAberto, setModalRascunhosAberto] = useState(false);
+  const [carregandoRascunhos, setCarregandoRascunhos] = useState(false);
+  const [buscaRascunhos, setBuscaRascunhos] = useState('');
+  const [filtroRascunhos, setFiltroRascunhos] = useState<'TODOS' | 'RASCUNHO' | 'FINALIZADA'>('TODOS');
+  const [listaRascunhosSalvos, setListaRascunhosSalvos] = useState<
+    Array<{
+      id: string;
+      fichaId: string;
+      status: 'conferencia' | 'finalizada';
+      versao: number;
+      numeroProcesso: string | null;
+      requerente: string | null;
+      matricula: string | null;
+      subdistrito: string | null;
+      escrevente: string | null;
+      updatedAt: string;
+      finalizadoEm: string | null;
+      criadoPorNome: string | null;
+      atualizadoPorNome: string | null;
+      finalizadoPorNome: string | null;
+      hashSha256: string | null;
+      dados: DadosManifestacao;
+      minuta: MinutaModelo | null;
+      textoFinal: string | null;
+    }>
+  >([]);
 
   // Estados da Busca de Imagem no Livro 2 (K:\IMAGENS\LV2)
   const [buscandoLivro2, setBuscandoLivro2] = useState(false);
@@ -819,14 +880,55 @@ export function FichaOficialView({
     onNovoFormulario();
   };
 
-  const salvarNaFila = async (aviso = true) => {
-    if (!onSalvarNaFila) return;
+  const salvarNaFila = async (aviso = true, etapaPreferida?: 'formulario' | 'manifestacao') => {
+    setSalvandoRascunho(true);
+    const agoraIso = new Date().toISOString();
+    const dadosParaSalvar: DadosManifestacao = {
+      ...dados,
+      saudacao_juiz: dados.saudacao_juiz || saudacaoJuiz,
+      etapa_ativa_salva: etapaPreferida || abaAtiva,
+      rascunho_salvo_em: agoraIso,
+    };
+    setDados(dadosParaSalvar);
     try {
-      await onSalvarNaFila(dados);
-      if (aviso) mostrarAviso('Formulário salvo na fila “⏳ FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL” (banco do FIORIX). Ele pode ser reaberto em qualquer máquina do setor.');
+      // Backup local imediato
+      gravarFilaFichasOficial(incluirFichaNaFila(lerFilaFichasOficial(), dadosParaSalvar, arquivoOrigem));
+      if (onSalvarNaFila) {
+        await onSalvarNaFila(dadosParaSalvar);
+      } else {
+        const { salvarFichaConferencia } = await import('@/lib/documental/manifestacoesClient');
+        await salvarFichaConferencia(dadosParaSalvar, arquivoOrigem);
+      }
+      if (aviso) {
+        mostrarAviso(
+          'Rascunho salvo em local seguro no FIORIX! Disponível para consulta, edição e finalização a qualquer momento em qualquer estação.',
+        );
+      }
     } catch (err) {
-      mostrarAviso(err instanceof Error ? err.message : 'Não foi possível salvar o formulário na fila de conferência.', 9000);
+      mostrarAviso(err instanceof Error ? err.message : 'Não foi possível salvar o rascunho no FIORIX.', 9000);
+    } finally {
+      setSalvandoRascunho(false);
     }
+  };
+
+  const carregarRascunhosDoFiorix = async () => {
+    setCarregandoRascunhos(true);
+    try {
+      const res = await fetch('/api/gestao-documental/manifestacoes?status=todas&limite=150', { cache: 'no-store' });
+      const body = await res.json();
+      if (res.ok && Array.isArray(body.itens)) {
+        setListaRascunhosSalvos(body.itens);
+      }
+    } catch {
+      mostrarAviso('Não foi possível consultar a lista de rascunhos e manifestações salvas no momento.');
+    } finally {
+      setCarregandoRascunhos(false);
+    }
+  };
+
+  const abrirModalConsultaRascunhos = () => {
+    setModalRascunhosAberto(true);
+    void carregarRascunhosDoFiorix();
   };
 
   // ─── Confrontações a partir do texto dos autos ───────────────────────────
@@ -1327,13 +1429,120 @@ export function FichaOficialView({
   };
 
   const baixarPdfArquivado = async () => {
-    if (!arquivada) return;
     try {
       const { baixarPdfManifestacao } = await import('@/lib/pdf/generateManifestacaoPdf');
-      baixarPdfManifestacao(arquivada.minuta, arquivada.info, arquivada.info.numeroProcesso || dados.numero_processo);
+      const minutaAlvo = arquivada ? arquivada.minuta : minuta;
+      const infoAlvo = arquivada ? arquivada.info : null;
+      baixarPdfManifestacao(minutaAlvo, infoAlvo, arquivada?.info.numeroProcesso || dados.numero_processo);
     } catch {
       mostrarAviso('Não foi possível gerar o PDF neste navegador.');
     }
+  };
+
+  const baixarDocxAtual = () => {
+    try {
+      const minutaAlvo = arquivada && !alteradaAposArquivar ? arquivada.minuta : minuta;
+      const infoAlvo = arquivada && !alteradaAposArquivar ? arquivada.info : null;
+      baixarDocxManifestacao(minutaAlvo, infoAlvo, dados.numero_processo);
+      mostrarAviso('Arquivo Word (.docx) gerado e baixado com sucesso!');
+    } catch {
+      mostrarAviso('Não foi possível gerar o arquivo .docx neste navegador.');
+    }
+  };
+
+  const baixarDocAtual = () => {
+    try {
+      const minutaAlvo = arquivada && !alteradaAposArquivar ? arquivada.minuta : minuta;
+      const infoAlvo = arquivada && !alteradaAposArquivar ? arquivada.info : null;
+      baixarDocManifestacao(minutaAlvo, infoAlvo, dados.numero_processo);
+      mostrarAviso('Arquivo Word (.doc) gerado e baixado com sucesso!');
+    } catch {
+      mostrarAviso('Não foi possível gerar o arquivo .doc neste navegador.');
+    }
+  };
+
+  const modoTextoLivreAtivo = dados.modo_edicao_manifestacao === 'texto_livre';
+
+  const temEdicaoTextoPersonalizado = Boolean(
+    dados.paragrafo_1_custom?.trim() ||
+    dados.paragrafo_2_custom?.trim() ||
+    dados.intro_confrontacoes_custom?.trim() ||
+    dados.paragrafo_competencia_custom?.trim() ||
+    dados.paragrafo_contribuinte_custom?.trim() ||
+    dados.paragrafo_anexos_custom?.trim() ||
+    dados.paragrafo_encaminhamento_custom?.trim() ||
+    dados.paragrafo_extra_custom?.trim() ||
+    dados.paragrafo_fecho_custom?.trim() ||
+    dados.corpo_livre_manifestacao?.trim()
+  );
+
+  const alternarModoEdicaoManifestacao = (novoModo: 'hibrido' | 'texto_livre') => {
+    if (novoModo === 'texto_livre') {
+      const textoBase = dados.corpo_livre_manifestacao?.trim()
+        ? dados.corpo_livre_manifestacao
+        : gerarTextoCorpoPadrao(minuta);
+      setDados(prev => ({
+        ...prev,
+        modo_edicao_manifestacao: 'texto_livre',
+        corpo_livre_manifestacao: textoBase,
+      }));
+    } else {
+      setDados(prev => ({
+        ...prev,
+        modo_edicao_manifestacao: 'hibrido',
+      }));
+    }
+  };
+
+  const restaurarTextoPadraoManifestacao = () => {
+    setConfirmacao({
+      titulo: 'Restaurar redação automática da Manifestação?',
+      mensagem: (
+        <p>
+          As edições livres feitas diretamente nos parágrafos serão redefinidas para a redação padrão sincronizada com os campos do processo (OCR / GeoSampa / Acervo). Os dados dos campos (processo, matrícula, confrontações, folhas) serão mantidos.
+        </p>
+      ),
+      rotuloConfirmar: 'Restaurar redação padrão',
+      onConfirmar: () => {
+        setDados(prev => ({
+          ...prev,
+          modo_edicao_manifestacao: 'hibrido',
+          paragrafo_1_custom: '',
+          paragrafo_2_custom: '',
+          intro_confrontacoes_custom: '',
+          paragrafo_competencia_custom: '',
+          paragrafo_contribuinte_custom: '',
+          paragrafo_anexos_custom: '',
+          paragrafo_encaminhamento_custom: '',
+          paragrafo_extra_custom: '',
+          paragrafo_fecho_custom: '',
+          corpo_livre_manifestacao: '',
+        }));
+        setParagrafosEmEdicao({});
+        setMostrarParagrafoExtra(false);
+        mostrarAviso('Redação padrão restaurada e sincronizada com os campos.');
+      },
+    });
+  };
+
+  const carregarItemSalvoNoEditor = (item: (typeof listaRascunhosSalvos)[number]) => {
+    const preparados = prepararDadosIniciais(
+      { ...criarDadosManifestacaoPadrao(), ...item.dados, id_ficha: item.fichaId || item.dados.id_ficha },
+      arquivoOrigem,
+    );
+    baseRef.current = preparados;
+    setDados(preparados);
+    if (preparados.saudacao_juiz === 'MM. Juiz' || preparados.saudacao_juiz === 'Meritíssima Juíza') {
+      setSaudacaoJuiz(preparados.saudacao_juiz);
+    }
+    setMostrarParagrafoExtra(Boolean(preparados.paragrafo_extra_custom));
+    setParagrafosEmEdicao({});
+    setArquivada(null);
+    setModalRascunhosAberto(false);
+    setAbaAtiva('manifestacao');
+    mostrarAviso(
+      `Rascunho do processo ${item.numeroProcesso || preparados.numero_processo || item.fichaId} carregado no editor híbrido.`,
+    );
   };
 
   // Impressão isolada: somente a folha ativa, em retrato, sem os controles da aplicação
@@ -1440,30 +1649,819 @@ export function FichaOficialView({
 
       <div className="font-bold pt-2 mb-3">{minuta.saudacao}</div>
 
-      <div className="text-justify space-y-3 text-xs leading-normal">
-        {minuta.paragrafosAntes.map((p, i) => (
-          <p key={`a${i}`} className="indent-8"><Segmentos segmentos={p} /></p>
-        ))}
-        <p className="indent-8">{minuta.introConfrontacoes}</p>
-        <div className="pl-12 space-y-0.5">
-          {minuta.confrontacoes.map(c => (
-            <div key={c.campo}>{c.rotulo} {c.valor}{c.pontuacao}</div>
+      {minuta.corpoTextoLivre && minuta.corpoTextoLivre.trim().length > 0 ? (
+        <div className="text-justify space-y-3 text-xs leading-normal">
+          {minuta.corpoTextoLivre
+            .split(/\r?\n\s*\r?\n/)
+            .map(b => b.trim())
+            .filter(Boolean)
+            .map((bloco, idx) => (
+              <p key={`livre-${idx}`} className="indent-8 whitespace-pre-line">{bloco}</p>
+            ))}
+        </div>
+      ) : (
+        <div className="text-justify space-y-3 text-xs leading-normal">
+          {minuta.paragrafosAntes.map((p, i) => (
+            <p key={`a${i}`} className="indent-8"><Segmentos segmentos={p} /></p>
+          ))}
+          <p className="indent-8">{minuta.introConfrontacoes}</p>
+          <div className="pl-12 space-y-0.5">
+            {minuta.confrontacoes.map(c => (
+              <div key={c.campo}>{c.rotulo} {c.valor}{c.pontuacao}</div>
+            ))}
+          </div>
+          {minuta.paragrafosDepois.map((p, i) => (
+            <p key={`d${i}`} className="indent-8"><Segmentos segmentos={p} /></p>
           ))}
         </div>
-        {minuta.paragrafosDepois.map((p, i) => (
-          <p key={`d${i}`} className="indent-8"><Segmentos segmentos={p} /></p>
-        ))}
-      </div>
+      )}
 
       <div className="pt-6 text-right text-xs">{minuta.local}</div>
 
       <div className="pt-8 text-center">
-        <div className="text-xs mb-8">O Oficial,</div>
+        <div className="text-xs mb-8">{minuta.assinatura.titulo || 'O Oficial,'}</div>
         <div className="border-t border-black w-64 max-w-full mx-auto pt-1 font-bold text-xs">{minuta.assinatura.nome}</div>
         <div className="text-[10px] text-gray-500">{minuta.assinatura.cargo}</div>
       </div>
     </article>
   );
+
+  // ─── Folha A4 Híbrida e Interativa (Edição Direta no Texto) ──────────────
+  const classeCampoInline =
+    'inline-block rounded border-b border-dashed border-[#334155]/70 bg-amber-50/70 px-1.5 py-0.5 font-sans text-xs font-semibold text-[#0F172A] transition hover:bg-amber-100/80 focus:border-solid focus:border-[#0F172A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#64748B]/50';
+
+  const alternarEdicaoParagrafo = (
+    chave: string,
+    campoCustom: keyof DadosManifestacao,
+    textoGeradoPadrao: string,
+  ) => {
+    const aberto = Boolean(paragrafosEmEdicao[chave]);
+    if (!aberto && !String(dados[campoCustom] || '').trim()) {
+      atualizarCampo(campoCustom, textoGeradoPadrao as never);
+    }
+    setParagrafosEmEdicao(prev => ({ ...prev, [chave]: !aberto }));
+  };
+
+  const limparCustomParagrafo = (chave: string, campoCustom: keyof DadosManifestacao) => {
+    atualizarCampo(campoCustom, '' as never);
+    setParagrafosEmEdicao(prev => ({ ...prev, [chave]: false }));
+  };
+
+  const renderFolhaManifestacaoHibrida = () => {
+    const textoParagrafo1Padrao = `Em atenção ao r. despacho de fls. ${dados.fls_inicial || '___'}, cumpre-me informar a V. Exa. que, revendo os livros de transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste Cartório, tendo por base o perímetro constante do laudo pericial de fls. ${dados.fls_laudo || '___'}, referente ao imóvel localizado no Rol de Contribuintes da Prefeitura do Município de São Paulo, sob contribuinte nº ${dados.contribuinte_sql || '________'}, as mesmas resultaram ${dados.resultado_buscas || 'NEGATIVAS'}.`;
+    const textoParagrafo2Padrao = `Segundo elementos constantes dos autos, o imóvel usucapiendo consta ou fazia parte em nome de ${dados.titular_origem || '____________'}, objeto da ${dados.matricula_transcricao || 'Transcrição nº ___'} do ${dados.cartorio_origem || '___ Cartório de Registro de Imóveis da Capital'}, conforme certidão de fls. ${dados.fls_certidao_origem || '___'}.`;
+    const textoIntroConfrontacoesPadrao =
+      'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:';
+    const textoParagrafoCompetenciaPadrao = `Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir da Circunscrição atribuída ao 12º Registro de Imóveis da Capital, por força do Decreto Estadual nº 9.775, de ${dados.data_competencia_subdistrito || '___ de ________ de ____'}.`;
+    const textoParagrafoContribuintePadrao = `Cumpre ressaltar que o número de contribuinte (${dados.contribuinte_sql || '________'}) não se encontra averbado à margem da matrícula ou transcrição de origem nesta Serventia.`;
+    const textoParagrafoAnexosPadrao = `Encaminho cópia da planta do Setor Fiscal Municipal, certidão das transcrições nºs ${dados.transcricoes_anexas || 'conforme na certidão'} e matrículas nºs ${dados.matriculas_anexas || 'conforme na certidão'}, para que acompanhe a presente.`;
+    const textoParagrafoEncaminhamentoPadrao = `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${dados.cartorio_encaminhamento || '___ Cartório de Registro de Imóveis da Capital'}, tendo em vista a transcrição de origem nº ${dados.matricula_transcricao || '___'}.`;
+    const textoFechoPadrao = 'Era o que, respeitosamente, cumpria informar a V. Exa.';
+
+    return (
+      <article className="mx-auto max-w-[900px] rounded-xl border-2 border-gray-300 bg-white p-6 sm:p-8 md:p-11 font-sans text-[11pt] leading-relaxed text-black shadow-lg space-y-4 break-words">
+        {/* FAIXA DE ORIENTAÇÃO DE EDIÇÃO DIRETA NO A4 */}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/90 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-950">
+          <div className="flex items-center gap-2">
+            <Edit3 className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden="true" />
+            <span>
+              <strong>Folha A4 Híbrida e Editável:</strong> clique diretamente sobre qualquer campo destacado no texto (mesmo os preenchidos pelo OCR/IA do FIORIX) ou clique em{' '}
+              <span className="rounded border border-amber-400 bg-white px-1.5 py-0.5 font-semibold text-amber-900">✏️ Editar parágrafo</span>{' '}
+              para alterar livremente qualquer frase.
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {temEdicaoTextoPersonalizado && (
+              <button
+                type="button"
+                onClick={restaurarTextoPadraoManifestacao}
+                className="inline-flex items-center gap-1 rounded border border-amber-400 bg-white px-2 py-0.5 text-[10.5px] font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                title="Voltar todos os parágrafos para a redação automática sincronizada com os campos"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Restaurar redação automática</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* TIMBRE OFICIAL */}
+        <div className="border-b-2 border-black pb-2 mb-4">
+          <div className="text-base font-bold tracking-wide">
+            {minuta.timbre.numero} • {minuta.timbre.ordinal} {minuta.timbre.linha1} {minuta.timbre.linha3}
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-x-3">
+            <div className="text-[8pt] text-gray-600">{minuta.timbre.endereco}</div>
+            <div className="text-[8.5pt] italic text-gray-500">Portaria Conjunta nº 1/26</div>
+          </div>
+        </div>
+
+        {/* CABEÇALHO EDITÁVEL DIRETO NO TEXTO */}
+        <div className="text-xs space-y-1.5 mb-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <strong>{minuta.cabecalho.processoRotulo}</strong>
+            <input
+              type="text"
+              aria-label="Número do Processo Digital"
+              value={dados.numero_processo}
+              onChange={e => atualizarCampo('numero_processo', e.target.value)}
+              placeholder="0000000-00.0000.8.26.0100"
+              className={`${classeCampoInline} font-mono min-w-[230px]`}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <strong>E.</strong>
+            <input
+              type="text"
+              aria-label="Vara de Registros Públicos"
+              value={dados.vara}
+              onChange={e => atualizarCampo('vara', e.target.value)}
+              placeholder="1ª / 2ª"
+              className={`${classeCampoInline} w-16 text-center font-bold`}
+            />
+            <strong>Vara de Registros Públicos da Capital.</strong>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <strong>{minuta.cabecalho.interessadosRotulo}</strong>
+            <input
+              type="text"
+              aria-label="Interessados / Requerente"
+              value={dados.requerente}
+              onChange={e => atualizarCampo('requerente', e.target.value)}
+              placeholder="NOME DO REQUERENTE / INTERESSADO"
+              className={`${classeCampoInline} flex-1 min-w-[260px] font-bold uppercase`}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <input
+              type="text"
+              aria-label="Natureza do Processo"
+              value={dados.natureza_processo ?? 'USUCAPIÃO'}
+              onChange={e => atualizarCampo('natureza_processo', e.target.value)}
+              placeholder="USUCAPIÃO"
+              className={`${classeCampoInline} w-44 font-bold uppercase`}
+            />
+          </div>
+        </div>
+
+        {/* SAUDAÇÃO EDITÁVEL DIRETO NO TEXTO */}
+        <div className="pt-2 mb-3 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            list="opcoes-saudacao-juiz"
+            aria-label="Saudação ao Magistrado"
+            value={dados.saudacao_juiz ?? saudacaoJuiz}
+            onChange={e => {
+              const val = e.target.value;
+              atualizarCampo('saudacao_juiz', val);
+              if (val === 'Meritíssima Juíza' || val === 'MM. Juiz') {
+                setSaudacaoJuiz(val);
+              }
+            }}
+            className={`${classeCampoInline} font-bold text-sm min-w-[180px]`}
+          />
+          <datalist id="opcoes-saudacao-juiz">
+            <option value="Meritíssima Juíza" />
+            <option value="MM. Juiz" />
+            <option value="Excelentíssimo(a) Senhor(a) Doutor(a) Juiz(a) de Direito" />
+          </datalist>
+        </div>
+
+        {/* CORPO DA MANIFESTAÇÃO: MODO TEXTO LIVRE COMPLETO OU MODO HÍBRIDO */}
+        {modoTextoLivreAtivo ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-[11px] text-indigo-950">
+              <span>
+                <strong>Modo Texto Livre Completo ativo:</strong> edite qualquer palavra ou parágrafo abaixo como em um editor de texto. Separe parágrafos com uma linha em branco.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const gerado = gerarTextoCorpoPadrao(montarMinuta({ ...dados, modo_edicao_manifestacao: 'hibrido', corpo_livre_manifestacao: '' }, saudacaoJuiz));
+                  atualizarCampo('corpo_livre_manifestacao', gerado);
+                  mostrarAviso('Texto livre sincronizado novamente com os campos atuais.');
+                }}
+                className="inline-flex items-center gap-1 rounded border border-indigo-300 bg-white px-2 py-0.5 text-[10.5px] font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Sincronizar com os campos</span>
+              </button>
+            </div>
+            <textarea
+              id="campo-corpo_livre_manifestacao"
+              rows={18}
+              value={dados.corpo_livre_manifestacao || ''}
+              onChange={e => atualizarCampo('corpo_livre_manifestacao', e.target.value)}
+              placeholder="Digite ou edite livremente o corpo completo da Manifestação Oficial..."
+              className="w-full rounded-lg border border-[#64748B] bg-[#FFFDF9] p-4 font-sans text-xs leading-relaxed text-black shadow-inner focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
+            />
+          </div>
+        ) : (
+          <div className="text-justify space-y-3.5 text-xs leading-relaxed">
+            {/* 1º PARÁGRAFO */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                {dados.paragrafo_1_custom?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => limparCustomParagrafo('p1', 'paragrafo_1_custom')}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => alternarEdicaoParagrafo('p1', 'paragrafo_1_custom', textoParagrafo1Padrao)}
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.p1 ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
+                </button>
+              </div>
+
+              {paragrafosEmEdicao.p1 || dados.paragrafo_1_custom?.trim() ? (
+                paragrafosEmEdicao.p1 ? (
+                  <textarea
+                    rows={4}
+                    value={dados.paragrafo_1_custom || ''}
+                    onChange={e => atualizarCampo('paragrafo_1_custom', e.target.value)}
+                    className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
+                  />
+                ) : (
+                  <p
+                    onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, p1: true }))}
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                    title="Clique para editar este parágrafo personalizado"
+                  >
+                    {dados.paragrafo_1_custom}
+                  </p>
+                )
+              ) : (
+                <p className="indent-8 leading-7">
+                  Em atenção ao r. despacho de fls.{' '}
+                  <input
+                    id="campo-fls_inicial"
+                    type="text"
+                    value={dados.fls_inicial}
+                    onChange={e => atualizarCampo('fls_inicial', e.target.value)}
+                    placeholder="___"
+                    title="Folhas da petição inicial / despacho"
+                    className={`${classeCampoInline} font-mono w-24 text-center`}
+                  />
+                  , cumpre-me informar a V. Exa. que, revendo os livros de transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste Cartório, tendo por base o perímetro constante do laudo pericial de fls.{' '}
+                  <input
+                    id="campo-fls_laudo"
+                    type="text"
+                    value={dados.fls_laudo}
+                    onChange={e => atualizarCampo('fls_laudo', e.target.value)}
+                    placeholder="___"
+                    title="Folhas do laudo pericial / planta"
+                    className={`${classeCampoInline} font-mono w-24 text-center`}
+                  />
+                  , referente ao imóvel localizado no Rol de Contribuintes da Prefeitura do Município de São Paulo, sob contribuinte nº{' '}
+                  <input
+                    type="text"
+                    value={dados.contribuinte_sql}
+                    onChange={e => atualizarCampo('contribuinte_sql', e.target.value)}
+                    placeholder="000.000.0000-0"
+                    title="Número de contribuinte SQL / IPTU"
+                    className={`${classeCampoInline} font-mono w-36 text-center font-bold`}
+                  />
+                  , as mesmas resultaram{' '}
+                  <select
+                    id="campo-resultado_buscas"
+                    value={dados.resultado_buscas}
+                    onChange={e => atualizarCampo('resultado_buscas', e.target.value)}
+                    title="Resultado das buscas no 7º RI"
+                    className={`${classeCampoInline} font-bold uppercase cursor-pointer`}
+                  >
+                    <option value="NEGATIVAS">NEGATIVAS</option>
+                    <option value="POSITIVAS">POSITIVAS</option>
+                    <option value="PARCIALMENTE POSITIVAS">PARCIALMENTE POSITIVAS</option>
+                  </select>
+                  .
+                </p>
+              )}
+            </div>
+
+            {/* 2º PARÁGRAFO */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                {dados.paragrafo_2_custom?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => limparCustomParagrafo('p2', 'paragrafo_2_custom')}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => alternarEdicaoParagrafo('p2', 'paragrafo_2_custom', textoParagrafo2Padrao)}
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.p2 ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
+                </button>
+              </div>
+
+              {paragrafosEmEdicao.p2 || dados.paragrafo_2_custom?.trim() ? (
+                paragrafosEmEdicao.p2 ? (
+                  <textarea
+                    rows={3}
+                    value={dados.paragrafo_2_custom || ''}
+                    onChange={e => atualizarCampo('paragrafo_2_custom', e.target.value)}
+                    className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
+                  />
+                ) : (
+                  <p
+                    onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, p2: true }))}
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                    title="Clique para editar este parágrafo personalizado"
+                  >
+                    {dados.paragrafo_2_custom}
+                  </p>
+                )
+              ) : (
+                <p className="indent-8 leading-7">
+                  Segundo elementos constantes dos autos, o imóvel usucapiendo consta ou fazia parte em nome de{' '}
+                  <input
+                    type="text"
+                    value={dados.titular_origem}
+                    onChange={e => atualizarCampo('titular_origem', e.target.value)}
+                    placeholder="NOME DO TITULAR DE ORIGEM"
+                    title="Titular de origem (proprietário anterior)"
+                    className={`${classeCampoInline} min-w-[220px] font-bold underline`}
+                  />
+                  , objeto da{' '}
+                  <input
+                    type="text"
+                    value={dados.matricula_transcricao}
+                    onChange={e => atualizarCampo('matricula_transcricao', e.target.value)}
+                    placeholder="Matrícula / Transcrição nº ___"
+                    title="Matrícula ou Transcrição de origem"
+                    className={`${classeCampoInline} min-w-[160px] font-bold underline`}
+                  />{' '}
+                  do{' '}
+                  <input
+                    type="text"
+                    value={dados.cartorio_origem}
+                    onChange={e => atualizarCampo('cartorio_origem', e.target.value)}
+                    placeholder="___ Cartório de Registro de Imóveis da Capital"
+                    title="Cartório de origem"
+                    className={`${classeCampoInline} min-w-[240px]`}
+                  />
+                  , conforme certidão de fls.{' '}
+                  <input
+                    id="campo-fls_certidao_origem"
+                    type="text"
+                    value={dados.fls_certidao_origem}
+                    onChange={e => atualizarCampo('fls_certidao_origem', e.target.value)}
+                    placeholder="___"
+                    title="Folhas da certidão de origem"
+                    className={`${classeCampoInline} font-mono w-24 text-center`}
+                  />
+                  .
+                </p>
+              )}
+            </div>
+
+            {/* INTRODUÇÃO + CONFRONTAÇÕES EDITÁVEIS DIRETO NO TEXTO */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="indent-8 flex-1">
+                  {paragrafosEmEdicao.introConf ? (
+                    <input
+                      type="text"
+                      value={dados.intro_confrontacoes_custom ?? textoIntroConfrontacoesPadrao}
+                      onChange={e => atualizarCampo('intro_confrontacoes_custom', e.target.value)}
+                      className="w-full rounded border border-amber-400 bg-white px-2 py-1 font-sans text-xs text-black"
+                    />
+                  ) : (
+                    <span>{dados.intro_confrontacoes_custom?.trim() || textoIntroConfrontacoesPadrao}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    alternarEdicaoParagrafo('introConf', 'intro_confrontacoes_custom', textoIntroConfrontacoesPadrao)
+                  }
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer opacity-80 group-hover:opacity-100"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.introConf ? 'OK' : 'Editar frase'}</span>
+                </button>
+              </div>
+
+              <div className="pl-8 sm:pl-12 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="shrink-0">– pelo lado direito com</span>
+                  <input
+                    id="campo-confrontante_lado_direito"
+                    type="text"
+                    value={dados.confrontante_lado_direito}
+                    onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
+                    placeholder={TEXTO_CONFRONTACAO_PADRAO}
+                    className={`${classeCampoInline} flex-1 min-w-[260px]`}
+                  />
+                  <span>;</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="shrink-0">– pelo lado esquerdo com</span>
+                  <input
+                    id="campo-confrontante_lado_esquerdo"
+                    type="text"
+                    value={dados.confrontante_lado_esquerdo}
+                    onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
+                    placeholder={TEXTO_CONFRONTACAO_PADRAO}
+                    className={`${classeCampoInline} flex-1 min-w-[260px]`}
+                  />
+                  <span>;</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="shrink-0">– e nos fundos com</span>
+                  <input
+                    id="campo-confrontante_fundos"
+                    type="text"
+                    value={dados.confrontante_fundos}
+                    onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
+                    placeholder={TEXTO_CONFRONTACAO_PADRAO}
+                    className={`${classeCampoInline} flex-1 min-w-[260px]`}
+                  />
+                  <span>.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3º PARÁGRAFO: COMPETÊNCIA TERRITORIAL */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                {dados.paragrafo_competencia_custom?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => limparCustomParagrafo('pComp', 'paragrafo_competencia_custom')}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    alternarEdicaoParagrafo('pComp', 'paragrafo_competencia_custom', textoParagrafoCompetenciaPadrao)
+                  }
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.pComp ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
+                </button>
+              </div>
+
+              {paragrafosEmEdicao.pComp || dados.paragrafo_competencia_custom?.trim() ? (
+                paragrafosEmEdicao.pComp ? (
+                  <textarea
+                    rows={3}
+                    value={dados.paragrafo_competencia_custom || ''}
+                    onChange={e => atualizarCampo('paragrafo_competencia_custom', e.target.value)}
+                    className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
+                  />
+                ) : (
+                  <p
+                    onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, pComp: true }))}
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                  >
+                    {dados.paragrafo_competencia_custom}
+                  </p>
+                )
+              ) : (
+                <p className="indent-8 leading-7">
+                  Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir da Circunscrição atribuída ao 12º Registro de Imóveis da Capital, por força do Decreto Estadual nº 9.775, de{' '}
+                  <input
+                    type="text"
+                    value={dados.data_competencia_subdistrito}
+                    onChange={e => atualizarCampo('data_competencia_subdistrito', e.target.value)}
+                    placeholder="30 de novembro de 1.938"
+                    title="Data de competência territorial do Subdistrito"
+                    className={`${classeCampoInline} min-w-[180px] font-bold`}
+                  />
+                  .
+                </p>
+              )}
+            </div>
+
+            {/* PARÁGRAFO DE RESSALVA DO CONTRIBUINTE (OPCIONAL / EDITÁVEL) */}
+            {(dados.contribuinte_sql || dados.paragrafo_contribuinte_custom?.trim()) && (
+              <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-1.5 opacity-80 group-hover:opacity-100">
+                  <label className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={dados.contribuinte_nao_averbado !== false}
+                      onChange={e => atualizarCampo('contribuinte_nao_averbado', e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-gray-400 text-[#1E293B]"
+                    />
+                    <span>Incluir parágrafo de contribuinte SQL não averbado na origem</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    {dados.paragrafo_contribuinte_custom?.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => limparCustomParagrafo('pSql', 'paragrafo_contribuinte_custom')}
+                        className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5" /> Automático
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        alternarEdicaoParagrafo('pSql', 'paragrafo_contribuinte_custom', textoParagrafoContribuintePadrao)
+                      }
+                      className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                    >
+                      <Edit3 className="h-2.5 w-2.5" />
+                      <span>{paragrafosEmEdicao.pSql ? 'Concluir edição' : '✏️ Editar parágrafo'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {dados.contribuinte_nao_averbado !== false || dados.paragrafo_contribuinte_custom?.trim() ? (
+                  paragrafosEmEdicao.pSql || dados.paragrafo_contribuinte_custom?.trim() ? (
+                    paragrafosEmEdicao.pSql ? (
+                      <textarea
+                        rows={2}
+                        value={dados.paragrafo_contribuinte_custom || ''}
+                        onChange={e => atualizarCampo('paragrafo_contribuinte_custom', e.target.value)}
+                        className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black"
+                      />
+                    ) : (
+                      <p
+                        onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, pSql: true }))}
+                        className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                      >
+                        {dados.paragrafo_contribuinte_custom}
+                      </p>
+                    )
+                  ) : (
+                    <p className="indent-8 leading-7">
+                      Cumpre ressaltar que o número de contribuinte (
+                      <input
+                        type="text"
+                        value={dados.contribuinte_sql}
+                        onChange={e => atualizarCampo('contribuinte_sql', e.target.value)}
+                        className={`${classeCampoInline} font-mono w-36 text-center font-bold`}
+                      />
+                      ) <strong>não se encontra averbado</strong> à margem da matrícula ou transcrição de origem nesta Serventia.
+                    </p>
+                  )
+                ) : (
+                  <p className="indent-8 text-[11px] italic text-gray-400 line-through">
+                    {textoParagrafoContribuintePadrao} (ocultado na manifestação)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 4º PARÁGRAFO: ANEXOS (PLANTA + TRANSCRIÇÕES + MATRÍCULAS) */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                {dados.paragrafo_anexos_custom?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => limparCustomParagrafo('pAnexos', 'paragrafo_anexos_custom')}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    alternarEdicaoParagrafo('pAnexos', 'paragrafo_anexos_custom', textoParagrafoAnexosPadrao)
+                  }
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.pAnexos ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
+                </button>
+              </div>
+
+              {paragrafosEmEdicao.pAnexos || dados.paragrafo_anexos_custom?.trim() ? (
+                paragrafosEmEdicao.pAnexos ? (
+                  <textarea
+                    rows={3}
+                    value={dados.paragrafo_anexos_custom || ''}
+                    onChange={e => atualizarCampo('paragrafo_anexos_custom', e.target.value)}
+                    className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black"
+                  />
+                ) : (
+                  <p
+                    onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, pAnexos: true }))}
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                  >
+                    {dados.paragrafo_anexos_custom}
+                  </p>
+                )
+              ) : (
+                <p className="indent-8 leading-7">
+                  Encaminho cópia da planta do Setor Fiscal Municipal, certidão das transcrições nºs{' '}
+                  <input
+                    type="text"
+                    value={dados.transcricoes_anexas}
+                    onChange={e => atualizarCampo('transcricoes_anexas', e.target.value)}
+                    placeholder="conforme na certidão"
+                    title="Transcrições anexas (sincronizadas das confrontações ou editadas manualmente)"
+                    className={`${classeCampoInline} min-w-[170px] font-bold`}
+                  />{' '}
+                  e matrículas nºs{' '}
+                  <input
+                    type="text"
+                    value={dados.matriculas_anexas}
+                    onChange={e => atualizarCampo('matriculas_anexas', e.target.value)}
+                    placeholder="conforme na certidão"
+                    title="Matrículas anexas (sincronizadas das confrontações ou editadas manualmente)"
+                    className={`${classeCampoInline} min-w-[170px] font-bold`}
+                  />
+                  , para que acompanhe a presente.
+                </p>
+              )}
+            </div>
+
+            {/* 5º PARÁGRAFO: ENCAMINHAMENTO AO CARTÓRIO COMPETENTE */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="mb-1 flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100">
+                {dados.paragrafo_encaminhamento_custom?.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => limparCustomParagrafo('pEnc', 'paragrafo_encaminhamento_custom')}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <RotateCcw className="h-2.5 w-2.5" /> Automático
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    alternarEdicaoParagrafo('pEnc', 'paragrafo_encaminhamento_custom', textoParagrafoEncaminhamentoPadrao)
+                  }
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.pEnc ? 'Concluir edição do parágrafo' : '✏️ Editar parágrafo inteiro'}</span>
+                </button>
+              </div>
+
+              {paragrafosEmEdicao.pEnc || dados.paragrafo_encaminhamento_custom?.trim() ? (
+                paragrafosEmEdicao.pEnc ? (
+                  <textarea
+                    rows={3}
+                    value={dados.paragrafo_encaminhamento_custom || ''}
+                    onChange={e => atualizarCampo('paragrafo_encaminhamento_custom', e.target.value)}
+                    className="w-full rounded border border-amber-400 bg-white p-2.5 font-sans text-xs leading-relaxed text-black"
+                  />
+                ) : (
+                  <p
+                    onClick={() => setParagrafosEmEdicao(prev => ({ ...prev, pEnc: true }))}
+                    className="indent-8 cursor-text rounded bg-amber-50/40 px-1 py-0.5"
+                  >
+                    {dados.paragrafo_encaminhamento_custom}
+                  </p>
+                )
+              ) : (
+                <p className="indent-8 leading-7">
+                  Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno{' '}
+                  <input
+                    id="campo-cartorio_encaminhamento"
+                    type="text"
+                    value={dados.cartorio_encaminhamento}
+                    onChange={e => atualizarCampo('cartorio_encaminhamento', e.target.value)}
+                    placeholder="___ Cartório de Registro de Imóveis da Capital"
+                    title="Cartório sugerido para encaminhamento"
+                    className={`${classeCampoInline} min-w-[250px] font-bold`}
+                  />
+                  , tendo em vista a transcrição de origem nº{' '}
+                  <input
+                    type="text"
+                    value={dados.matricula_transcricao}
+                    onChange={e => atualizarCampo('matricula_transcricao', e.target.value)}
+                    placeholder="___"
+                    title="Transcrição / Matrícula de origem"
+                    className={`${classeCampoInline} min-w-[140px] font-bold underline`}
+                  />
+                  .
+                </p>
+              )}
+            </div>
+
+            {/* PARÁGRAFO EXTRA / OBSERVAÇÕES ADICIONAIS OPCIONAIS */}
+            {mostrarParagrafoExtra || dados.paragrafo_extra_custom?.trim() ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50/40 p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-[10.5px] font-bold text-amber-900">
+                  <span>Parágrafo / Observação Adicional na Manifestação:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      atualizarCampo('paragrafo_extra_custom', '');
+                      setMostrarParagrafoExtra(false);
+                    }}
+                    className="text-rose-700 hover:underline cursor-pointer"
+                  >
+                    Remover parágrafo adicional
+                  </button>
+                </div>
+                <textarea
+                  rows={3}
+                  value={dados.paragrafo_extra_custom || ''}
+                  onChange={e => atualizarCampo('paragrafo_extra_custom', e.target.value)}
+                  placeholder="Digite aqui qualquer parágrafo ou esclarecimento adicional que deva constar antes do fecho da manifestação..."
+                  className="w-full rounded border border-amber-400 bg-white p-2 font-sans text-xs leading-relaxed text-black focus:outline-none focus:ring-2 focus:ring-[#1E293B]"
+                />
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMostrarParagrafoExtra(true)}
+                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-gray-300 px-2.5 py-1 text-[10.5px] font-semibold text-gray-600 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                >
+                  <FilePlus2 className="h-3 w-3" />
+                  <span>+ Adicionar parágrafo / esclarecimento extra ao texto</span>
+                </button>
+              </div>
+            )}
+
+            {/* FECHO */}
+            <div className="group relative rounded-lg border border-transparent p-1.5 transition hover:border-gray-200 hover:bg-gray-50/50">
+              <div className="indent-8 flex flex-wrap items-center justify-between gap-2">
+                {paragrafosEmEdicao.pFecho ? (
+                  <input
+                    type="text"
+                    value={dados.paragrafo_fecho_custom ?? textoFechoPadrao}
+                    onChange={e => atualizarCampo('paragrafo_fecho_custom', e.target.value)}
+                    className="flex-1 rounded border border-amber-400 bg-white px-2 py-1 font-sans text-xs text-black"
+                  />
+                ) : (
+                  <span>{dados.paragrafo_fecho_custom?.trim() || textoFechoPadrao}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => alternarEdicaoParagrafo('pFecho', 'paragrafo_fecho_custom', textoFechoPadrao)}
+                  className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-100 cursor-pointer opacity-80 group-hover:opacity-100"
+                >
+                  <Edit3 className="h-2.5 w-2.5" />
+                  <span>{paragrafosEmEdicao.pFecho ? 'OK' : 'Editar fecho'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LOCAL E DATA EDITÁVEL */}
+        <div className="pt-6 text-right text-xs">
+          <input
+            type="text"
+            aria-label="Local e data da manifestação"
+            value={dados.local_data_manifestacao ?? minuta.local}
+            onChange={e => atualizarCampo('local_data_manifestacao', e.target.value)}
+            className={`${classeCampoInline} min-w-[230px] text-right`}
+          />
+        </div>
+
+        {/* ASSINATURA EDITÁVEL */}
+        <div className="pt-8 text-center space-y-1">
+          <div className="mb-6">
+            <input
+              type="text"
+              aria-label="Título da assinatura"
+              value={dados.assinatura_titulo ?? minuta.assinatura.titulo ?? 'O Oficial,'}
+              onChange={e => atualizarCampo('assinatura_titulo', e.target.value)}
+              className={`${classeCampoInline} w-44 text-center text-xs`}
+            />
+          </div>
+          <div className="border-t border-black w-72 max-w-full mx-auto pt-1.5">
+            <input
+              type="text"
+              aria-label="Nome do signatário"
+              value={dados.assinatura_nome ?? minuta.assinatura.nome}
+              onChange={e => atualizarCampo('assinatura_nome', e.target.value)}
+              className={`${classeCampoInline} w-64 text-center font-bold text-xs`}
+            />
+          </div>
+          <div>
+            <input
+              type="text"
+              aria-label="Cargo do signatário"
+              value={dados.assinatura_cargo ?? minuta.assinatura.cargo}
+              onChange={e => atualizarCampo('assinatura_cargo', e.target.value)}
+              className={`${classeCampoInline} w-72 text-center text-[10px] text-gray-600`}
+            />
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   // ─── Folha da Ficha de Conferência para impressão (layout do original) ───
   const linhaPontilhada = (altura = 18) => (
@@ -1804,12 +2802,25 @@ export function FichaOficialView({
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Limpar Formulário</span>
                     </button>
-                    {onSalvarNaFila && (
-                      <button type="button" onClick={() => salvarNaFila()} className={botaoClaro} title="Guardar na fila de formulários em conferência com o Oficial (banco do FIORIX, visível em todas as máquinas do setor)">
-                        <Save className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Salvar na Fila</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => void salvarNaFila(true, 'formulario')}
+                      disabled={salvandoRascunho}
+                      className={botaoClaro}
+                      title="Salvar rascunho em local seguro no banco do FIORIX (visível em todas as máquinas do setor)"
+                    >
+                      {salvandoRascunho ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Save className="h-3.5 w-3.5" aria-hidden="true" />}
+                      <span>{salvandoRascunho ? 'Salvando…' : 'Salvar Rascunho / Fila'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={abrirModalConsultaRascunhos}
+                      className={botaoClaro}
+                      title="Consultar, reabrir ou baixar rascunhos e manifestações salvas no FIORIX"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Consultar Rascunhos</span>
+                    </button>
                     <button type="button" onClick={imprimirFormularioOficial} className={`${botaoEscuro} gap-2 px-3 sm:px-4`}>
                       <Printer className="h-4 w-4 shrink-0 text-[#B8A082]" aria-hidden="true" />
                       <span className="hidden sm:inline">🖨️ Imprimir Formulário para Conferência do Oficial</span>
@@ -2369,156 +3380,291 @@ export function FichaOficialView({
                 </div>
               </div>
             ) : (
-              /* ETAPA 2: REVISÃO DO ESCREVENTE E GERAÇÃO DA MANIFESTAÇÃO OFICIAL */
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                {/* PAINEL ESQUERDO: CONFIGURAÇÕES */}
-                <div className="space-y-4 lg:col-span-5">
-                  <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-2xs">
-                    <h4 className="flex items-center justify-between gap-2 border-b pb-2 text-xs font-bold uppercase tracking-wider text-[#1E293B]">
-                      <span>Configurações da Manifestação</span>
-                      <span className="ml-auto text-[10px] font-normal normal-case tracking-normal text-gray-500">Portaria Conjunta nº 1/26</span>
+              /* ETAPA 2: TELA UNIFICADA E HÍBRIDA DA MANIFESTAÇÃO OFICIAL (EDIÇÃO DIRETA NO A4 + RASCUNHO + WORD .DOC/.DOCX) */
+              <div className="space-y-4">
+                {/* BARRA DE COMANDOS UNIFICADA DA MANIFESTAÇÃO HÍBRIDA */}
+                <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-2xs space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setGuiaAberto(true)}
-                        className="inline-flex items-center gap-1 rounded px-1 text-[10px] font-semibold normal-case tracking-normal text-[#334155] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
+                        onClick={() => setAbaAtiva('formulario')}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
                       >
-                        <BookOpen className="h-3 w-3" aria-hidden="true" /> Guia de competências
+                        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Voltar à Etapa 1</span>
                       </button>
-                    </h4>
 
-                    <div>
-                      <label htmlFor="campo-escrevente_pasta" className="mb-1 block text-[11px] font-bold text-gray-700">
-                        Pasta de Destino (Escrevente em {pastaUsucapiao}):
-                      </label>
-                      <select
-                        id="campo-escrevente_pasta"
-                        value={dados.escrevente_pasta}
-                        onChange={e => atualizarCampo('escrevente_pasta', e.target.value)}
-                        className="w-full rounded-lg border border-[#CBD5E1] bg-[#F8F7F4]/50 px-3 py-1.5 text-xs font-bold text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#64748B]"
+                      <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-[#F8F7F4] p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => alternarModoEdicaoManifestacao('hibrido')}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                            !modoTextoLivreAtivo
+                              ? 'bg-[#1E293B] text-white shadow-2xs'
+                              : 'text-gray-700 hover:bg-white'
+                          }`}
+                          title="Edite tanto os campos extraídos pelo OCR/IA diretamente nas frases quanto os parágrafos individualmente"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-[#B8A082]" aria-hidden="true" />
+                          <span>Modo Híbrido (Campos + Texto no A4)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => alternarModoEdicaoManifestacao('texto_livre')}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                            modoTextoLivreAtivo
+                              ? 'bg-[#1E293B] text-white shadow-2xs'
+                              : 'text-gray-700 hover:bg-white'
+                          }`}
+                          title="Edite o corpo inteiro da Manifestação livremente como em um editor de texto"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Texto Livre Completo</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setConfiguracoesRapidasAbertas(v => !v)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer"
+                        title="Mostrar ou recolher barra rápida de Pasta de Escrevente, Subdistrito e consulta de Matrícula no Livro 2"
                       >
-                        {!ESCREVENTES_USUCAPIAO.includes(dados.escrevente_pasta) && <option value={dados.escrevente_pasta}>{dados.escrevente_pasta || 'Selecione…'}</option>}
-                        {ESCREVENTES_USUCAPIAO.map(esc => (
-                          <option key={esc} value={esc}>{pastaUsucapiao}\{esc}</option>
-                        ))}
-                      </select>
+                        <SlidersHorizontal className="h-3.5 w-3.5 text-[#334155]" aria-hidden="true" />
+                        <span>{configuracoesRapidasAbertas ? 'Ocultar barra auxiliar' : 'Mostrar barra auxiliar'}</span>
+                      </button>
                     </div>
 
-                    <div>
-                      <label htmlFor="campo-subdistrito" className="mb-1 block text-[11px] font-bold text-gray-700">Subdistrito do Imóvel:</label>
-                      <select id="campo-subdistrito" value={dados.subdistrito} onChange={e => atualizarCampo('subdistrito', e.target.value)} className={selectPainel}>
-                        {!subdistritoValido && <option value={dados.subdistrito}>{dados.subdistrito || 'Selecione…'}</option>}
-                        {SUBDISTRITOS_7RI.map(sub => (
-                          <option key={sub.nome} value={sub.nome}>{sub.nome}</option>
-                        ))}
-                      </select>
-                      <div className="mt-1 text-[10px] text-gray-500">
-                        Competência: <strong>{dados.data_competencia_subdistrito || '—'}</strong> (Decreto Estadual nº 9.775/1938).
-                      </div>
-                    </div>
+                    {/* AÇÕES DE RASCUNHO, EXPORTAÇÃO (.DOCX / .DOC / PDF), IMPRESSÃO E FINALIZAÇÃO */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void salvarNaFila(true, 'manifestacao')}
+                        disabled={salvandoRascunho}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-400 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-950 shadow-2xs transition hover:bg-amber-100 cursor-pointer disabled:opacity-50"
+                        title="Salva o rascunho da Manifestação (incluindo todas as edições de texto feitas) em local seguro no banco de dados do FIORIX para consulta e finalização a qualquer momento"
+                      >
+                        {salvandoRascunho ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Save className="h-3.5 w-3.5 text-amber-800" aria-hidden="true" />}
+                        <span>{salvandoRascunho ? 'Salvando…' : '💾 Salvar Rascunho'}</span>
+                      </button>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label htmlFor="campo-fls_inicial" className={rotuloPainel}>Fls. Inicial:</label>
-                        <input id="campo-fls_inicial" type="text" value={dados.fls_inicial} onChange={e => atualizarCampo('fls_inicial', e.target.value)} className={`${inputPainel} font-mono`} />
-                      </div>
-                      <div>
-                        <label htmlFor="campo-fls_laudo" className={rotuloPainel}>Fls. Laudo Pericial:</label>
-                        <input id="campo-fls_laudo" type="text" value={dados.fls_laudo} onChange={e => atualizarCampo('fls_laudo', e.target.value)} className={`${inputPainel} font-mono`} />
-                      </div>
-                    </div>
+                      <button
+                        type="button"
+                        onClick={abrirModalConsultaRascunhos}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#CBD5E1] bg-[#F8F7F4] px-3 py-1.5 text-xs font-bold text-[#1E293B] shadow-2xs transition hover:bg-gray-200/70 cursor-pointer"
+                        title="Consultar todos os rascunhos e manifestações salvos em local seguro no FIORIX"
+                      >
+                        <FolderOpen className="h-3.5 w-3.5 text-[#0F3D6E]" aria-hidden="true" />
+                        <span>📂 Consultar Rascunhos / Salvos</span>
+                      </button>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label htmlFor="campo-fls_certidao_origem" className={rotuloPainel}>Fls. Certidão de Origem:</label>
-                        <input id="campo-fls_certidao_origem" type="text" value={dados.fls_certidao_origem} onChange={e => atualizarCampo('fls_certidao_origem', e.target.value)} className={`${inputPainel} font-mono`} />
-                      </div>
-                      <div>
-                        <label htmlFor="campo-resultado_buscas" className={rotuloPainel}>Resultado Buscas:</label>
-                        <select id="campo-resultado_buscas" value={dados.resultado_buscas} onChange={e => atualizarCampo('resultado_buscas', e.target.value)} className={`${inputPainel} font-bold text-[#1E293B]`}>
-                          <option value="NEGATIVAS">NEGATIVAS</option>
-                          <option value="POSITIVAS">POSITIVAS</option>
-                          <option value="PARCIALMENTE POSITIVAS">PARCIALMENTE POSITIVAS</option>
-                        </select>
-                      </div>
-                    </div>
+                      <button
+                        type="button"
+                        onClick={baixarDocxAtual}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-900 shadow-2xs transition hover:bg-blue-100 cursor-pointer"
+                        title="Salvar / Baixar a Manifestação Oficial em formato Microsoft Word (.docx)"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-blue-700" aria-hidden="true" />
+                        <span>.DOCX</span>
+                      </button>
 
-                    <div>
-                      <label htmlFor="campo-cartorio_encaminhamento" className={rotuloPainel}>Cartório de Encaminhamento:</label>
-                      <input id="campo-cartorio_encaminhamento" type="text" value={dados.cartorio_encaminhamento} onChange={e => atualizarCampo('cartorio_encaminhamento', e.target.value)} className={inputPainel} />
-                    </div>
+                      <button
+                        type="button"
+                        onClick={baixarDocAtual}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-900 shadow-2xs transition hover:bg-indigo-100 cursor-pointer"
+                        title="Salvar / Baixar a Manifestação Oficial em formato Word 97-2003 (.doc)"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-indigo-700" aria-hidden="true" />
+                        <span>.DOC</span>
+                      </button>
 
-                    <div>
-                      <label htmlFor="campo-saudacao" className={rotuloPainel}>Saudação:</label>
-                      <select id="campo-saudacao" value={saudacaoJuiz} onChange={e => setSaudacaoJuiz(e.target.value as 'Meritíssima Juíza' | 'MM. Juiz')} className={inputPainel}>
-                        <option value="Meritíssima Juíza">Meritíssima Juíza</option>
-                        <option value="MM. Juiz">MM. Juiz</option>
-                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void baixarPdfArquivado()}
+                        className={botaoClaro}
+                        title="Baixar a Manifestação Oficial em PDF"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>PDF</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={copiarManifestacao}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-gray-100 px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 cursor-pointer"
+                      >
+                        {copiado ? <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
+                        <span>{copiado ? 'Copiado' : 'Copiar'}</span>
+                      </button>
+
+                      <button type="button" onClick={imprimirManifestacaoOficial} className={botaoClaro}>
+                        <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Imprimir A4</span>
+                      </button>
+
+                      {onFinalizar && (!arquivada || alteradaAposArquivar) && (
+                        <button
+                          type="button"
+                          onClick={solicitarFinalizacao}
+                          disabled={finalizando}
+                          className={botaoEscuro}
+                          title="Finalizar e arquivar a manifestação em local seguro no banco do FIORIX"
+                        >
+                          {finalizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Archive className="h-3.5 w-3.5" aria-hidden="true" />}
+                          <span>{finalizando ? 'Arquivando…' : arquivada || versaoAnteriorId ? 'Finalizar nova versão' : 'Finalizar Manifestação'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* CONFRONTANTES E SINCRONIZAÇÃO AUTOMÁTICA */}
-                  <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-2xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#1E293B]">Confrontações (Planta Setor Fiscal)</h4>
-                      <button
-                        type="button"
-                        disabled={buscandoLivro2 || !dados.matricula_transcricao?.trim()}
-                        onClick={() => localizarNoLivro2()}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-purple-300 bg-purple-50 px-2.5 py-1 text-[11px] font-bold text-purple-800 shadow-2xs transition hover:bg-purple-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-                        title="Localizar a imagem digitalizada (.KEN) da matrícula de origem no acervo do Livro 2 (K:\IMAGENS\LV2)"
-                      >
-                        {buscandoLivro2 ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
-                        <span>{buscandoLivro2 ? 'Localizando no Livro 2…' : '🔎 Espiar Matrícula .KEN (LV2)'}</span>
-                      </button>
+                  {/* INDICADOR DE RASCUNHO SALVO NO FIORIX */}
+                  {dados.rascunho_salvo_em && !arquivada && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-1.5 text-[11px] text-amber-900">
+                      <span>
+                        🔒 <strong>Rascunho salvo em local seguro no FIORIX:</strong> última gravação em{' '}
+                        {new Date(dados.rascunho_salvo_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Você pode consultar e retomar este rascunho a qualquer momento em <strong>Consultar Rascunhos / Salvos</strong>, na aba <strong>Em Conferência</strong> ou no <strong>Histórico</strong>.
+                      </span>
                     </div>
+                  )}
 
-                    {(buscandoLivro2 || arquivosLivro2 || erroLivro2) && (
-                      <div aria-live="polite" className="rounded-lg border border-purple-200 bg-purple-50/40 p-3 text-xs text-gray-700">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5">
-                            <ImageIcon className="h-3.5 w-3.5 text-purple-700" aria-hidden="true" />
-                            Livro 2 · matrícula <strong className="font-mono text-gray-900">{termoBuscadoLivro2}</strong>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => { setArquivosLivro2(null); setErroLivro2(null); setTermoBuscadoLivro2(null); }}
-                            aria-label="Fechar resultado do Livro 2"
-                            className="rounded p-0.5 text-gray-500 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  {/* BARRA AUXILIAR COMPACTA: PASTA DE DESTINO, SUBDISTRITO, LIVRO 2 E AUTOS */}
+                  {configuracoesRapidasAbertas && (
+                    <div className="rounded-xl border border-gray-200 bg-[#F8F7F4] p-3 space-y-2.5">
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                          <label htmlFor="campo-escrevente_pasta" className="mb-1 block text-[10.5px] font-bold text-gray-700">
+                            Pasta de Destino ({pastaUsucapiao}):
+                          </label>
+                          <select
+                            id="campo-escrevente_pasta"
+                            value={dados.escrevente_pasta}
+                            onChange={e => atualizarCampo('escrevente_pasta', e.target.value)}
+                            className="w-full rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-xs font-bold text-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#64748B]"
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                            {!ESCREVENTES_USUCAPIAO.includes(dados.escrevente_pasta) && (
+                              <option value={dados.escrevente_pasta}>{dados.escrevente_pasta || 'Selecione…'}</option>
+                            )}
+                            {ESCREVENTES_USUCAPIAO.map(esc => (
+                              <option key={esc} value={esc}>{pastaUsucapiao}\{esc}</option>
+                            ))}
+                          </select>
                         </div>
-                        {buscandoLivro2 && (
-                          <p className="mt-2 flex items-center gap-2 text-gray-500">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-700" aria-hidden="true" />
-                            Consultando o acervo K:\IMAGENS\LV2 pelo Connector local…
-                          </p>
-                        )}
-                        {erroLivro2 && !buscandoLivro2 && (
-                          <p className="mt-2 text-rose-700">{erroLivro2} O preenchimento manual continua disponível.</p>
-                        )}
-                        {arquivosLivro2 && arquivosLivro2.length === 0 && !buscandoLivro2 && (
-                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-gray-500">
-                            <span>Nenhuma imagem desta matrícula foi localizada em K:\IMAGENS\LV2.</span>
-                            <div className="flex items-center gap-2">
-                              {onBuscarMatriculaNaLista && termoBuscadoLivro2 && (
-                                <button type="button" onClick={() => onBuscarMatriculaNaLista(termoBuscadoLivro2)} className="font-semibold text-[#1E293B] hover:underline">
-                                  Buscar na pesquisa
-                                </button>
-                              )}
-                              <button type="button" onClick={() => localizarNoLivro2(termoBuscadoLivro2 || undefined)} className="font-semibold text-purple-800 hover:underline">
-                                Buscar novamente
-                              </button>
-                            </div>
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between gap-1">
+                            <label htmlFor="campo-subdistrito" className="text-[10.5px] font-bold text-gray-700">
+                              Subdistrito do Imóvel:
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setGuiaAberto(true)}
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0F3D6E] hover:underline cursor-pointer"
+                            >
+                              <BookOpen className="h-3 w-3" aria-hidden="true" /> Guia
+                            </button>
                           </div>
-                        )}
-                        {arquivosLivro2 && arquivosLivro2.length > 0 && !buscandoLivro2 && (
-                          <>
-                            <ul className="mt-2 max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                          <select
+                            id="campo-subdistrito"
+                            value={dados.subdistrito}
+                            onChange={e => atualizarCampo('subdistrito', e.target.value)}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#64748B]"
+                          >
+                            {!subdistritoValido && <option value={dados.subdistrito}>{dados.subdistrito || 'Selecione…'}</option>}
+                            {SUBDISTRITOS_7RI.map(sub => (
+                              <option key={sub.nome} value={sub.nome}>{sub.nome}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex flex-col justify-end">
+                          <span className="mb-1 block text-[10.5px] font-bold text-gray-700">
+                            Consulta Rápida ao Acervo:
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={buscandoLivro2 || !dados.matricula_transcricao?.trim()}
+                              onClick={() => localizarNoLivro2()}
+                              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-purple-300 bg-purple-50 px-2.5 py-1.5 text-[11px] font-bold text-purple-800 shadow-2xs transition hover:bg-purple-100 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Localizar a imagem digitalizada (.KEN) da matrícula de origem no acervo do Livro 2 (K:\IMAGENS\LV2)"
+                            >
+                              {buscandoLivro2 ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
+                              <span>{buscandoLivro2 ? 'Localizando…' : '🔎 Matrícula .KEN (LV2)'}</span>
+                            </button>
+
+                            {textoAutosDisponivel && (
+                              <button
+                                type="button"
+                                onClick={preencherConfrontacoesPelosAutos}
+                                className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                title="Extrair confrontações do texto dos autos (petição / OCR)"
+                              >
+                                <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>Confrontações pelos Autos</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col justify-center rounded-lg border border-[#CBD5E1]/80 bg-white px-3 py-1.5 text-[11px]">
+                          <div className="flex items-center gap-1 font-bold text-[#1E293B]">
+                            <Sparkles className="h-3 w-3 text-[#334155]" aria-hidden="true" />
+                            <span>Anexos Sincronizados (4º Parágrafo):</span>
+                          </div>
+                          <div className="truncate text-[10.5px] text-gray-600">
+                            <strong>Transc.:</strong> <span className="font-mono">{dados.transcricoes_anexas || 'nenhuma'}</span> •{' '}
+                            <strong>Matr.:</strong> <span className="font-mono">{dados.matriculas_anexas || 'nenhuma'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* RESULTADO DO LIVRO 2 QUANDO ACIONADO NA ETAPA 2 */}
+                      {(buscandoLivro2 || arquivosLivro2 || erroLivro2) && (
+                        <div aria-live="polite" className="rounded-lg border border-purple-200 bg-purple-50/40 p-3 text-xs text-gray-700">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5">
+                              <ImageIcon className="h-3.5 w-3.5 text-purple-700" aria-hidden="true" />
+                              Livro 2 · matrícula <strong className="font-mono text-gray-900">{termoBuscadoLivro2}</strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => { setArquivosLivro2(null); setErroLivro2(null); setTermoBuscadoLivro2(null); }}
+                              aria-label="Fechar resultado do Livro 2"
+                              className="rounded p-0.5 text-gray-500 hover:text-gray-900"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          {buscandoLivro2 && (
+                            <p className="mt-2 flex items-center gap-2 text-gray-500">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-700" aria-hidden="true" />
+                              Consultando o acervo K:\IMAGENS\LV2 pelo Connector local…
+                            </p>
+                          )}
+                          {erroLivro2 && !buscandoLivro2 && (
+                            <p className="mt-2 text-rose-700">{erroLivro2} O preenchimento manual continua disponível.</p>
+                          )}
+                          {arquivosLivro2 && arquivosLivro2.length === 0 && !buscandoLivro2 && (
+                            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-gray-500">
+                              <span>Nenhuma imagem desta matrícula foi localizada em K:\IMAGENS\LV2.</span>
+                              <div className="flex items-center gap-2">
+                                {onBuscarMatriculaNaLista && termoBuscadoLivro2 && (
+                                  <button type="button" onClick={() => onBuscarMatriculaNaLista(termoBuscadoLivro2)} className="font-semibold text-[#1E293B] hover:underline">
+                                    Buscar na pesquisa
+                                  </button>
+                                )}
+                                <button type="button" onClick={() => localizarNoLivro2(termoBuscadoLivro2 || undefined)} className="font-semibold text-purple-800 hover:underline">
+                                  Buscar novamente
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {arquivosLivro2 && arquivosLivro2.length > 0 && !buscandoLivro2 && (
+                            <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto pr-1">
                               {arquivosLivro2.map(file => {
                                 const caminho = formatCartorioPath(file.rootId, file.relativePath);
                                 return (
-                                  <li key={`${file.rootId}:${file.relativePath}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-2">
+                                  <li key={`${file.rootId}:${file.relativePath}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
                                     <div className="min-w-0">
                                       <div className="truncate font-semibold text-gray-900" title={file.name}>{file.name}</div>
                                       <div className="truncate font-mono text-[11px] text-gray-500" title={caminho}>{caminho}</div>
@@ -2547,118 +3693,36 @@ export function FichaOficialView({
                                 );
                               })}
                             </ul>
-                            <p className="mt-2 text-[11px] text-gray-500">As imagens do Livro 2 são exibidas para conferência visual; o texto da matrícula não é extraído automaticamente.</p>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {([
-                      ['confrontante_lado_direito', 'Do Lado Direito:'],
-                      ['confrontante_lado_esquerdo', 'Do Lado Esquerdo:'],
-                      ['confrontante_fundos', 'Nos Fundos:'],
-                    ] as const).map(([campo, rotulo]) => (
-                      <div key={campo}>
-                        <label htmlFor={`campo-${campo}`} className={rotuloPainel}>{rotulo}</label>
-                        <input
-                          id={`campo-${campo}`}
-                          type="text"
-                          value={dados[campo]}
-                          onChange={e => atualizarCampo(campo, e.target.value)}
-                          placeholder={TEXTO_CONFRONTACAO_PADRAO}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 font-sans text-xs focus:outline-none focus:ring-2 focus:ring-[#64748B]"
-                        />
-                      </div>
-                    ))}
-
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      {textoAutosDisponivel ? (
-                        <button type="button" onClick={preencherConfrontacoesPelosAutos} className={botaoClaro} title="Extrair confrontações do texto dos autos (petição / OCR) já carregado">
-                          <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>Preencher pelos autos</span>
-                        </button>
-                      ) : <span />}
-                      {origemConfrontacoes && (
-                        <span className="text-[10px] text-gray-500">Último preenchimento automático: {origemConfrontacoes}.</span>
+                          )}
+                        </div>
                       )}
-                    </div>
-
-                    <div className="space-y-1.5 rounded-xl border border-[#CBD5E1]/80 bg-[#F8F7F4] p-3 text-xs">
-                      <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                        <Sparkles className="h-3.5 w-3.5 text-[#334155]" aria-hidden="true" />
-                        <span>Sincronização Automática (5º Parágrafo):</span>
-                      </div>
-                      <div className="text-[11px] text-[#1E293B]">
-                        <strong>Transcrições Anexas:</strong> <span className="font-mono">{dados.transcricoes_anexas || 'nenhuma'}</span>
-                      </div>
-                      <div className="text-[11px] text-[#1E293B]">
-                        <strong>Matrículas Anexas:</strong> <span className="font-mono">{dados.matriculas_anexas || 'nenhuma'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PAINEL DIREITO: PRÉ-VISUALIZAÇÃO A4 DA MANIFESTAÇÃO */}
-                <div className="min-w-0 space-y-4 lg:col-span-7">
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-gray-200 bg-white p-3.5 shadow-2xs">
-                    <div className="text-xs font-semibold text-gray-700">Pré-visualização A4 da Manifestação Oficial</div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => setAbaAtiva('formulario')} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition cursor-pointer">
-                        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Voltar à Etapa 1</span>
-                      </button>
-                      <button type="button" onClick={copiarManifestacao} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-200 cursor-pointer">
-                        {copiado ? <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
-                        <span>{copiado ? 'Copiado' : 'Copiar'}</span>
-                      </button>
-                      <button type="button" onClick={imprimirManifestacaoOficial} className={botaoClaro}>
-                        <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Imprimir A4</span>
-                      </button>
-                      {arquivada && (
-                        <button type="button" onClick={baixarPdfArquivado} className={botaoClaro} title="Baixar o PDF da manifestação arquivada">
-                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>Baixar PDF</span>
-                        </button>
-                      )}
-                      {onFinalizar && (!arquivada || alteradaAposArquivar) && (
-                        <button
-                          type="button"
-                          onClick={solicitarFinalizacao}
-                          disabled={finalizando}
-                          className={botaoEscuro}
-                          title="Arquivar a manifestação no banco do FIORIX (não poderá ser alterada depois)"
-                        >
-                          {finalizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Archive className="h-3.5 w-3.5" aria-hidden="true" />}
-                          <span>{finalizando ? 'Arquivando…' : arquivada || versaoAnteriorId ? 'Finalizar nova versão' : 'Finalizar Manifestação'}</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {versaoAnteriorId && !arquivada && (
-                    <div className="rounded-xl border border-[#CBD5E1] bg-[#F8F7F4] px-3.5 py-2.5 text-xs font-semibold text-[#1E293B]">
-                      Correção de manifestação já arquivada: ao finalizar, será gravada uma nova versão e a anterior permanece no Histórico.
                     </div>
                   )}
-                  {arquivada && (
-                    <div
-                      role="status"
-                      className={`flex flex-wrap items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
-                        alteradaAposArquivar ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900'
-                      }`}
-                    >
-                      {alteradaAposArquivar ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-                      <span>
-                        Arquivada no FIORIX em {new Date(arquivada.info.finalizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                        {arquivada.info.finalizadoPorNome ? ` por ${arquivada.info.finalizadoPorNome}` : ''} (versão {arquivada.info.versao}).
-                        {alteradaAposArquivar && ' O texto foi alterado depois do arquivamento: as alterações só ficam registradas se você finalizar uma nova versão.'}
-                      </span>
-                    </div>
-                  )}
-
-                  {renderFolhaManifestacao(false)}
                 </div>
+
+                {versaoAnteriorId && !arquivada && (
+                  <div className="rounded-xl border border-[#CBD5E1] bg-[#F8F7F4] px-3.5 py-2.5 text-xs font-semibold text-[#1E293B]">
+                    Correção de manifestação já arquivada: ao finalizar, será gravada uma nova versão e a anterior permanece no Histórico.
+                  </div>
+                )}
+                {arquivada && (
+                  <div
+                    role="status"
+                    className={`flex flex-wrap items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
+                      alteradaAposArquivar ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                    }`}
+                  >
+                    {alteradaAposArquivar ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+                    <span>
+                      Arquivada no FIORIX em {new Date(arquivada.info.finalizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                      {arquivada.info.finalizadoPorNome ? ` por ${arquivada.info.finalizadoPorNome}` : ''} (versão {arquivada.info.versao}).
+                      {alteradaAposArquivar && ' O texto foi alterado depois do arquivamento: as alterações só ficam registradas se você finalizar uma nova versão.'}
+                    </span>
+                  </div>
+                )}
+
+                {/* FOLHA A4 UNIFICADA E HÍBRIDA (EDIÇÃO DIRETA NO TEXTO) */}
+                {renderFolhaManifestacaoHibrida()}
               </div>
             )}
           </div>
@@ -2823,6 +3887,208 @@ export function FichaOficialView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Modal: Consultar Rascunhos e Manifestações Salvas no FIORIX ── */}
+      {modalRascunhosAberto && (
+        <DialogoSobreposto
+          titulo="📂 Rascunhos e Manifestações Salvos em Local Seguro no FIORIX"
+          onFechar={() => setModalRascunhosAberto(false)}
+          largura="max-w-4xl"
+        >
+          <div className="space-y-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-[#F8F7F4] p-2.5">
+              <div className="flex flex-1 min-w-[220px] items-center gap-2 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5">
+                <Search className="h-3.5 w-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={buscaRascunhos}
+                  onChange={e => setBuscaRascunhos(e.target.value)}
+                  placeholder="Filtrar por nº do processo (com ou sem pontos), requerente, matrícula ou escrevente..."
+                  className="w-full bg-transparent text-xs text-gray-900 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                {([
+                  ['TODOS', 'Todos'],
+                  ['RASCUNHO', 'Rascunhos (Em Edição)'],
+                  ['FINALIZADA', 'Finalizadas'],
+                ] as const).map(([id, rotulo]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setFiltroRascunhos(id)}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                      filtroRascunhos === id
+                        ? 'bg-[#1E293B] text-white'
+                        : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => void carregarRascunhosDoFiorix()}
+                  disabled={carregandoRascunhos}
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                >
+                  <RotateCcw className={`h-3 w-3 ${carregandoRascunhos ? 'animate-spin' : ''}`} />
+                  <span>Atualizar</span>
+                </button>
+              </div>
+            </div>
+
+            {carregandoRascunhos ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin text-[#1E293B]" />
+                <span>Consultando banco de dados seguro do FIORIX…</span>
+              </div>
+            ) : (
+              (() => {
+                const termoLimpo = buscaRascunhos.trim().toLowerCase();
+                const termoDigitos = termoLimpo.replace(/[.\-\/\s]/g, '');
+                const filtrados = listaRascunhosSalvos.filter(it => {
+                  if (filtroRascunhos === 'RASCUNHO' && it.status !== 'conferencia') return false;
+                  if (filtroRascunhos === 'FINALIZADA' && it.status !== 'finalizada') return false;
+                  if (!termoLimpo) return true;
+                  const alvo = [
+                    it.numeroProcesso,
+                    it.requerente,
+                    it.matricula,
+                    it.subdistrito,
+                    it.escrevente,
+                    it.dados?.numero_processo,
+                    it.dados?.requerente,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
+                  if (alvo.includes(termoLimpo)) return true;
+                  if (termoDigitos.length >= 3 && alvo.replace(/[.\-\/\s]/g, '').includes(termoDigitos)) return true;
+                  return false;
+                });
+
+                if (filtrados.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-gray-500">
+                      Nenhum rascunho ou manifestação localizado para o filtro informado.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="max-h-[58vh] space-y-2 overflow-y-auto pr-1">
+                    {filtrados.map(item => {
+                      const ehRascunho = item.status === 'conferencia';
+                      const minutaItem =
+                        item.minuta ||
+                        montarMinuta(
+                          { ...criarDadosManifestacaoPadrao(), ...item.dados },
+                          item.dados?.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza',
+                        );
+                      const infoItem =
+                        item.status === 'finalizada' && item.finalizadoEm
+                          ? {
+                              id: item.id,
+                              versao: item.versao,
+                              hashSha256: item.hashSha256 || '',
+                              finalizadoEm: item.finalizadoEm,
+                              finalizadoPorNome: item.finalizadoPorNome,
+                            }
+                          : null;
+                      const numProc = item.numeroProcesso || item.dados?.numero_processo || 'Processo sem número';
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-2xs hover:border-[#64748B]"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded border border-gray-200 bg-[#F8F7F4] px-2 py-0.5 font-mono text-xs font-bold text-[#1E293B]">
+                                {numProc}
+                              </span>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                  ehRascunho
+                                    ? 'border border-amber-300 bg-amber-50 text-amber-900'
+                                    : 'border border-emerald-300 bg-emerald-50 text-emerald-900'
+                                }`}
+                              >
+                                {ehRascunho ? '📝 Rascunho / Em Conferência' : `✅ Finalizada (v${item.versao})`}
+                              </span>
+                              {item.subdistrito && (
+                                <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                                  {item.subdistrito}
+                                </span>
+                              )}
+                            </div>
+                            <div className="truncate font-semibold text-gray-900">
+                              {item.requerente || item.dados?.requerente || 'Interessado a definir'}
+                            </div>
+                            <div className="text-[11px] text-gray-500">
+                              Matr./Transc.: <strong>{item.matricula || item.dados?.matricula_transcricao || '—'}</strong> • Escrevente:{' '}
+                              <strong>{item.escrevente || item.dados?.escrevente_pasta || '—'}</strong> • Atualizado em{' '}
+                              {new Date(item.updatedAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                              {item.atualizadoPorNome || item.criadoPorNome
+                                ? ` por ${item.atualizadoPorNome || item.criadoPorNome}`
+                                : ''}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => carregarItemSalvoNoEditor(item)}
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#1E293B] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#334155] cursor-pointer"
+                            >
+                              <Edit3 className="h-3.5 w-3.5 text-[#B8A082]" />
+                              <span>{ehRascunho ? 'Abrir e Editar Rascunho' : 'Abrir no Editor'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => baixarDocxManifestacao(minutaItem, infoItem, numProc)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-900 hover:bg-blue-100 cursor-pointer"
+                              title="Baixar arquivo Word (.docx)"
+                            >
+                              <FileText className="h-3.5 w-3.5 text-blue-700" />
+                              <span>.DOCX</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => baixarDocManifestacao(minutaItem, infoItem, numProc)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
+                              title="Baixar arquivo Word (.doc)"
+                            >
+                              <FileText className="h-3.5 w-3.5 text-indigo-700" />
+                              <span>.DOC</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const { baixarPdfManifestacao } = await import('@/lib/pdf/generateManifestacaoPdf');
+                                baixarPdfManifestacao(minutaItem, infoItem, numProc);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 cursor-pointer"
+                              title="Baixar arquivo PDF"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              <span>PDF</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </DialogoSobreposto>
       )}
 
       {/* ── Guia de competências ── */}
@@ -3032,12 +4298,76 @@ export interface MinutaModelo {
   confrontacoes: { campo: 'confrontante_lado_direito' | 'confrontante_lado_esquerdo' | 'confrontante_fundos'; rotulo: string; valor: string; pontuacao: string }[];
   paragrafosDepois: Segmento[][];
   local: string;
-  assinatura: { nome: string; cargo: string };
+  assinatura: { titulo?: string; nome: string; cargo: string };
+  corpoTextoLivre?: string | null;
 }
 
-export function montarMinuta(d: DadosManifestacao, saudacao: string): MinutaModelo {
+export function montarMinuta(d: DadosManifestacao, saudacao?: string): MinutaModelo {
   const matricula = d.matricula_transcricao || '_____';
   const cartorioEncaminhamento = d.cartorio_encaminhamento || d.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital';
+  const saudacaoBase = (d.saudacao_juiz || saudacao || 'Meritíssima Juíza').trim().replace(/:+$/, '');
+  const varaTexto = d.vara
+    ? /vara/i.test(d.vara)
+      ? d.vara.trim().startsWith('E.')
+        ? d.vara.trim()
+        : `E. ${d.vara.trim()}`
+      : `E. ${d.vara.trim()} Vara de Registros Públicos da Capital.`
+    : 'E. 1ª Vara de Registros Públicos da Capital.';
+
+  const p1Padrao: Segmento[] = [
+    {
+      t: `Em atenção ao r. despacho de fls. ${d.fls_inicial || '05/06'} e ${d.fls_laudo || '35/46'}, cumpre-me informar a V. Exa. que, revendo os livros de transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste Cartório, procedendo às buscas no Indicador Real e no Índice de Contribuintes da Prefeitura do Município de São Paulo, pelo contribuinte nº ${d.contribuinte_sql || '___________'}, as mesmas resultaram `,
+    },
+    { t: (d.resultado_buscas || 'NEGATIVAS').toUpperCase(), destaque: true },
+    { t: '.' },
+  ];
+
+  const p2Padrao: Segmento[] = [
+    { t: 'Segundo elementos constantes dos autos, o imóvel usucapiendo encontra-se transcrito em nome de ' },
+    { t: d.titular_origem || 'TITULAR A CONFERIR', destaque: true },
+    { t: ', sob nº ' },
+    { t: matricula, destaque: true },
+    {
+      t: ` do ${d.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital'}, conforme certidão de fls. ${d.fls_certidao_origem || '30/32'}.`,
+    },
+  ];
+
+  const pCompetenciaPadrao: Segmento[] = [
+    {
+      t: `Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir de ${d.data_competencia_subdistrito || '23 de dezembro de 1.938'}, por força do Decreto Estadual nº 9.775, de 30 de novembro de 1.938.`,
+    },
+  ];
+
+  const pContribuintePadrao: Segmento[] = [
+    {
+      t: `Cumpre salientar que não consta expressamente averbada na(s) matrícula(s) / transcrição(ões) encontrada(s) a inscrição do contribuinte municipal nº `,
+    },
+    {
+      t: d.contribuinte_sql || '___________',
+      destaque: true,
+    },
+    {
+      t: `, sendo indispensável que a correlação entre o lançamento fiscal e o fólio real decorra de confirmação pericial no local por perito nomeado por esse D. Juízo ou juntada de Certidão de Dados Cadastrais da Prefeitura do Município de São Paulo (PMSP).`,
+    },
+  ];
+
+  const pAnexosPadrao: Segmento[] = [
+    {
+      t:
+        d.transcricoes_anexas || d.matriculas_anexas
+          ? `Encaminho cópia da planta do Setor Fiscal Municipal, certidões das transcrições nºs ${d.transcricoes_anexas || '—'} e matrículas nºs ${d.matriculas_anexas || '—'}, para que acompanhe a presente.`
+          : 'Encaminho cópia da planta do Setor Fiscal Municipal, para que acompanhe a presente.',
+    },
+  ];
+
+  const pEncaminhamentoPadrao: Segmento[] = [
+    { t: `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${cartorioEncaminhamento}, tendo em vista a transcrição de origem nº ` },
+    { t: matricula, destaque: true },
+    { t: '.' },
+  ];
+
+  const pFechoPadrao: Segmento[] = [{ t: 'Era o que, respeitosamente, cumpria informar a V. Exa.' }];
+
   return {
     timbre: {
       linha1: 'OFICIAL',
@@ -3049,78 +4379,59 @@ export function montarMinuta(d: DadosManifestacao, saudacao: string): MinutaMode
     cabecalho: {
       processoRotulo: 'PROCESSO DIGITAL nº',
       processoValor: d.numero_processo || '____________________',
-      vara: `E. ${d.vara || '1ª'} Vara de Registros Públicos da Capital.`,
+      vara: varaTexto,
       interessadosRotulo: 'INTERESSADOS:',
       interessadosValor: (d.requerente || 'A IDENTIFICAR').toUpperCase(),
-      natureza: 'USUCAPIÃO',
+      natureza: d.natureza_processo?.trim() || 'USUCAPIÃO',
     },
-    saudacao: `${saudacao}:`,
+    saudacao: `${saudacaoBase}:`,
     paragrafosAntes: [
-      [
-        {
-          t: `Em atenção ao r. despacho de fls. ${d.fls_inicial || '05/06'} e ${d.fls_laudo || '35/46'}, cumpre-me informar a V. Exa. que, revendo os livros de transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste Cartório, procedendo às buscas no Indicador Real e no Índice de Contribuintes da Prefeitura do Município de São Paulo, pelo contribuinte nº ${d.contribuinte_sql || '___________'}, as mesmas resultaram `,
-        },
-        { t: (d.resultado_buscas || 'NEGATIVAS').toUpperCase(), destaque: true },
-        { t: '.' },
-      ],
-      [
-        { t: 'Segundo elementos constantes dos autos, o imóvel usucapiendo encontra-se transcrito em nome de ' },
-        { t: d.titular_origem || 'TITULAR A CONFERIR', destaque: true },
-        { t: ', sob nº ' },
-        { t: matricula, destaque: true },
-        {
-          t: ` do ${d.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital'}, conforme certidão de fls. ${d.fls_certidao_origem || '30/32'}.`,
-        },
-      ],
+      d.paragrafo_1_custom?.trim() ? [{ t: d.paragrafo_1_custom.trim() }] : p1Padrao,
+      d.paragrafo_2_custom?.trim() ? [{ t: d.paragrafo_2_custom.trim() }] : p2Padrao,
     ],
-    introConfrontacoes: 'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:',
+    introConfrontacoes:
+      d.intro_confrontacoes_custom?.trim() ||
+      'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:',
     confrontacoes: [
       { campo: 'confrontante_lado_direito', rotulo: '– pelo lado direito com', valor: d.confrontante_lado_direito || TEXTO_CONFRONTACAO_PADRAO, pontuacao: ';' },
       { campo: 'confrontante_lado_esquerdo', rotulo: '– pelo lado esquerdo com', valor: d.confrontante_lado_esquerdo || TEXTO_CONFRONTACAO_PADRAO, pontuacao: ';' },
       { campo: 'confrontante_fundos', rotulo: '– e aos fundos com', valor: d.confrontante_fundos || TEXTO_CONFRONTACAO_PADRAO, pontuacao: '.' },
     ],
     paragrafosDepois: [
-      [
-        {
-          t: `Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir de ${d.data_competencia_subdistrito || '23 de dezembro de 1.938'}, por força do Decreto Estadual nº 9.775, de 30 de novembro de 1.938.`,
-        },
-      ],
-      ...(d.contribuinte_nao_averbado !== false && d.contribuinte_sql ? [
-        [
-          {
-            t: `Cumpre salientar que não consta expressamente averbada na(s) matrícula(s) / transcrição(ões) encontrada(s) a inscrição do contribuinte municipal nº `,
-          },
-          {
-            t: d.contribuinte_sql,
-            destaque: true,
-          },
-          {
-            t: `, sendo indispensável que a correlação entre o lançamento fiscal e o fólio real decorra de confirmação pericial no local por perito nomeado por esse D. Juízo ou juntada de Certidão de Dados Cadastrais da Prefeitura do Município de São Paulo (PMSP).`,
-          },
-        ],
-      ] : []),
-      [
-        {
-          t:
-            d.transcricoes_anexas || d.matriculas_anexas
-              ? `Encaminho cópia da planta do Setor Fiscal Municipal, certidões das transcrições nºs ${d.transcricoes_anexas || '—'} e matrículas nºs ${d.matriculas_anexas || '—'}, para que acompanhe a presente.`
-              : 'Encaminho cópia da planta do Setor Fiscal Municipal, para que acompanhe a presente.',
-        },
-      ],
-      [
-        { t: `Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${cartorioEncaminhamento}, tendo em vista a transcrição de origem nº ` },
-        { t: matricula, destaque: true },
-        { t: '.' },
-      ],
-      [{ t: 'Era o que, respeitosamente, cumpria informar a V. Exa.' }],
+      d.paragrafo_competencia_custom?.trim() ? [{ t: d.paragrafo_competencia_custom.trim() }] : pCompetenciaPadrao,
+      ...(d.contribuinte_nao_averbado !== false && d.contribuinte_sql
+        ? [d.paragrafo_contribuinte_custom?.trim() ? [{ t: d.paragrafo_contribuinte_custom.trim() }] : pContribuintePadrao]
+        : []),
+      d.paragrafo_anexos_custom?.trim() ? [{ t: d.paragrafo_anexos_custom.trim() }] : pAnexosPadrao,
+      d.paragrafo_encaminhamento_custom?.trim() ? [{ t: d.paragrafo_encaminhamento_custom.trim() }] : pEncaminhamentoPadrao,
+      ...(d.paragrafo_extra_custom?.trim() ? [[{ t: d.paragrafo_extra_custom.trim() }]] : []),
+      d.paragrafo_fecho_custom?.trim() ? [{ t: d.paragrafo_fecho_custom.trim() }] : pFechoPadrao,
     ],
-    local: `São Paulo, ${obterDataPorExtenso()}.`,
-    assinatura: { nome: 'Ademar Fioranelli', cargo: '7º Oficial de Registro de Imóveis da Capital – SP' },
+    local: d.local_data_manifestacao?.trim() || `São Paulo, ${obterDataPorExtenso()}.`,
+    assinatura: {
+      titulo: d.assinatura_titulo?.trim() || 'O Oficial,',
+      nome: d.assinatura_nome?.trim() || 'Ademar Fioranelli',
+      cargo: d.assinatura_cargo?.trim() || '7º Oficial de Registro de Imóveis da Capital – SP',
+    },
+    corpoTextoLivre:
+      d.modo_edicao_manifestacao === 'texto_livre' && d.corpo_livre_manifestacao?.trim()
+        ? d.corpo_livre_manifestacao.trim()
+        : null,
   };
 }
 
 function textoSegmentos(segs: Segmento[]): string {
   return segs.map(s => s.t).join('');
+}
+
+export function gerarTextoCorpoPadrao(m: MinutaModelo): string {
+  const linhas: string[] = [];
+  m.paragrafosAntes.forEach(p => linhas.push(textoSegmentos(p), ''));
+  linhas.push(m.introConfrontacoes);
+  m.confrontacoes.forEach(c => linhas.push(`${c.rotulo} ${c.valor}${c.pontuacao}`));
+  linhas.push('');
+  m.paragrafosDepois.forEach(p => linhas.push(textoSegmentos(p), ''));
+  return linhas.join('\n').trim();
 }
 
 export function minutaParaTexto(m: MinutaModelo): string {
@@ -3139,12 +4450,23 @@ export function minutaParaTexto(m: MinutaModelo): string {
     m.saudacao,
     '',
   ];
-  m.paragrafosAntes.forEach(p => linhas.push(textoSegmentos(p), ''));
-  linhas.push(m.introConfrontacoes);
-  m.confrontacoes.forEach(c => linhas.push(`${c.rotulo} ${c.valor}${c.pontuacao}`));
-  linhas.push('');
-  m.paragrafosDepois.forEach(p => linhas.push(textoSegmentos(p), ''));
-  linhas.push(m.local, '', '___________________________________', m.assinatura.nome, m.assinatura.cargo);
+  if (m.corpoTextoLivre?.trim()) {
+    linhas.push(m.corpoTextoLivre.trim(), '');
+  } else {
+    m.paragrafosAntes.forEach(p => linhas.push(textoSegmentos(p), ''));
+    linhas.push(m.introConfrontacoes);
+    m.confrontacoes.forEach(c => linhas.push(`${c.rotulo} ${c.valor}${c.pontuacao}`));
+    linhas.push('');
+    m.paragrafosDepois.forEach(p => linhas.push(textoSegmentos(p), ''));
+  }
+  linhas.push(
+    m.local,
+    '',
+    m.assinatura.titulo || 'O Oficial,',
+    '___________________________________',
+    m.assinatura.nome,
+    m.assinatura.cargo,
+  );
   return linhas.join('\n');
 }
 
