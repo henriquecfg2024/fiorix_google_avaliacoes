@@ -528,8 +528,14 @@ export async function POST(req: Request) {
         listaAtual = [];
       }
 
+      const modeloExistente = listaAtual.find(
+        (m) =>
+          (body?.modeloId && String(m?.id) === String(body.modeloId)) ||
+          String(m?.nome || '').toLowerCase() === nomeModelo.toLowerCase()
+      );
+
       const novoModelo = {
-        id: `mod-${Date.now()}`,
+        id: modeloExistente?.id || `mod-${Date.now()}`,
         nome: nomeModelo,
         colunas: colunasPermitidas,
         autorId: user.id,
@@ -538,7 +544,9 @@ export async function POST(req: Request) {
       };
 
       const semMesmoNome = listaAtual.filter(
-        (m) => String(m?.nome || '').toLowerCase() !== nomeModelo.toLowerCase()
+        (m) =>
+          String(m?.id) !== String(novoModelo.id) &&
+          String(m?.nome || '').toLowerCase() !== nomeModelo.toLowerCase()
       );
       const novaLista = [novoModelo, ...semMesmoNome].slice(0, 30);
 

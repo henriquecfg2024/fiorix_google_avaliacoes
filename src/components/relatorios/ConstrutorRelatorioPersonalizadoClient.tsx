@@ -341,6 +341,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const [salvandoModelo, setSalvandoModelo] = useState(false);
   const [excluindoModelo, setExcluindoModelo] = useState(false);
+  const [colunasInicializadas, setColunasInicializadas] = useState(false);
 
   // Dados reais do Webri e filtros
   const [carregandoReais, setCarregandoReais] = useState(false);
@@ -416,16 +417,51 @@ export function ConstrutorRelatorioPersonalizadoClient({
         Array.isArray(data.atendentesDisponiveis) ? data.atendentesDisponiveis : []
       );
       if (Array.isArray(data.modelosSalvos)) {
-        const modelosFiltrados = data.modelosSalvos.map((m: ModeloSalvo) => ({
+        const modelosFiltrados: ModeloSalvo[] = data.modelosSalvos.map((m: ModeloSalvo) => ({
           ...m,
           colunas: (m.colunas || []).filter((c) => VARIAVEL_POR_ID.has(c)),
         }));
         setModelosSalvos(modelosFiltrados);
-        setModeloSelecionadoId((prev) =>
-          modelosFiltrados.some((m: ModeloSalvo) => m.id === prev)
-            ? prev
-            : modelosFiltrados[0]?.id || ''
-        );
+
+        let idSalvoLocal = '';
+        let colunasSalvasLocal: ChaveVariavelRelatorio[] = [];
+        try {
+          idSalvoLocal =
+            window.localStorage.getItem('fiorix:relatorio-personalizado:modelo-id') || '';
+          const rawCols = window.localStorage.getItem(
+            'fiorix:relatorio-personalizado:colunas-ordem'
+          );
+          if (rawCols) {
+            const parsedCols = JSON.parse(rawCols);
+            if (Array.isArray(parsedCols)) {
+              colunasSalvasLocal = parsedCols.filter((c) =>
+                VARIAVEL_POR_ID.has(c as ChaveVariavelRelatorio)
+              );
+            }
+          }
+        } catch {
+          // ignore localStorage errors
+        }
+
+        setModeloSelecionadoId((prev) => {
+          const candidato = prev || idSalvoLocal;
+          return modelosFiltrados.some((m) => m.id === candidato)
+            ? candidato
+            : modelosFiltrados[0]?.id || '';
+        });
+
+        setColunasInicializadas((jaInicializou) => {
+          if (!jaInicializou) {
+            const modAlvo =
+              modelosFiltrados.find((m) => m.id === idSalvoLocal) || modelosFiltrados[0];
+            if (colunasSalvasLocal.length > 0) {
+              setColunasSelecionadas(colunasSalvasLocal);
+            } else if (modAlvo && modAlvo.colunas.length > 0) {
+              setColunasSelecionadas(modAlvo.colunas);
+            }
+          }
+          return true;
+        });
       }
       if (Array.isArray(data.historicoGeracoes)) {
         setHistoricoGeracoes(data.historicoGeracoes);
@@ -553,6 +589,60 @@ export function ConstrutorRelatorioPersonalizadoClient({
 
   const registroBaseFoco = registrosAtivos[0] || REGISTRO_EXEMPLO_VALIDACAO;
 
+  const persistirOrdemColunas = useCallback(
+    async (novasColunas: ChaveVariavelRelatorio[], sincronizarModeloAtivo = true) => {
+      try {
+        window.localStorage.setItem(
+          'fiorix:relatorio-personalizado:colunas-ordem',
+          JSON.stringify(novasColunas)
+        );
+      } catch {
+        // ignore localStorage errors
+      }
+
+      setRelatorioGeradoSnapshot((prev) =>
+        prev ? { ...prev, colunas: [...novasColunas] } : null
+      );
+
+      if (!sincronizarModeloAtivo || novasColunas.length === 0) return;
+
+      const modAtivo =
+        modelosSalvos.find((m) => m.id === modeloSelecionadoId) || modelosSalvos[0];
+      const nomeParaSalvar = (nomeModeloInput.trim() || modAtivo?.nome?.trim() || '').trim();
+      if (!nomeParaSalvar) return;
+
+      setModelosSalvos((prev) =>
+        prev.map((m) =>
+          modAtivo && m.id === modAtivo.id ? { ...m, colunas: [...novasColunas] } : m
+        )
+      );
+
+      try {
+        const res = await fetch('/api/relatorios/personalizado', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'SALVAR_MODELO',
+            modeloId: modAtivo?.id,
+            nome: nomeParaSalvar,
+            colunas: novasColunas,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data?.sucesso && Array.isArray(data.modelosSalvos)) {
+          const listaLimpa = data.modelosSalvos.map((m: ModeloSalvo) => ({
+            ...m,
+            colunas: (m.colunas || []).filter((c) => VARIAVEL_POR_ID.has(c)),
+          }));
+          setModelosSalvos(listaLimpa);
+        }
+      } catch {
+        // falha silenciosa no auto-save; localStorage já garantiu a ordem local
+      }
+    },
+    [modelosSalvos, modeloSelecionadoId, nomeModeloInput]
+  );
+
   const alternarVariavel = (id: ChaveVariavelRelatorio) => {
     const def = VARIAVEL_POR_ID.get(id);
     if (!def) return;
@@ -561,9 +651,11 @@ export function ConstrutorRelatorioPersonalizadoClient({
       return;
     }
 
-    setColunasSelecionadas((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const novas = colunasSelecionadas.includes(id)
+      ? colunasSelecionadas.filter((item) => item !== id)
+      : [...colunasSelecionadas, id];
+    setColunasSelecionadas(novas);
+    persistirOrdemColunas(novas, true);
   };
 
   const selecionarTodasPermitidas = () => {
@@ -571,6 +663,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       (v) => v.id
     );
     setColunasSelecionadas(permitidas);
+    persistirOrdemColunas(permitidas, true);
     toast.success(`${permitidas.length} variáveis selecionadas.`);
   };
 
@@ -581,12 +674,11 @@ export function ConstrutorRelatorioPersonalizadoClient({
   const moverColuna = (index: number, direcao: -1 | 1) => {
     const destino = index + direcao;
     if (destino < 0 || destino >= colunasSelecionadas.length) return;
-    setColunasSelecionadas((prev) => {
-      const copia = [...prev];
-      const [item] = copia.splice(index, 1);
-      copia.splice(destino, 0, item);
-      return copia;
-    });
+    const copia = [...colunasSelecionadas];
+    const [item] = copia.splice(index, 1);
+    copia.splice(destino, 0, item);
+    setColunasSelecionadas(copia);
+    persistirOrdemColunas(copia, true);
   };
 
   const handleDropColuna = (indiceAlvo: number) => {
@@ -594,17 +686,20 @@ export function ConstrutorRelatorioPersonalizadoClient({
       setIndiceArrastando(null);
       return;
     }
-    setColunasSelecionadas((prev) => {
-      const copia = [...prev];
-      const [movido] = copia.splice(indiceArrastando, 1);
-      copia.splice(indiceAlvo, 0, movido);
-      return copia;
-    });
+    const copia = [...colunasSelecionadas];
+    const [movido] = copia.splice(indiceArrastando, 1);
+    copia.splice(indiceAlvo, 0, movido);
+    setColunasSelecionadas(copia);
     setIndiceArrastando(null);
+    persistirOrdemColunas(copia, true);
   };
 
   const handleSalvarModelo = async () => {
-    const nomeLimpo = nomeModeloInput.trim();
+    const nomeLimpo = (
+      nomeModeloInput.trim() ||
+      modeloSalvoSelecionado?.nome?.trim() ||
+      ''
+    ).trim();
     if (!nomeLimpo) {
       toast.error('Informe um nome para o modelo antes de salvar.');
       return;
@@ -621,6 +716,12 @@ export function ConstrutorRelatorioPersonalizadoClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'SALVAR_MODELO',
+          modeloId:
+            nomeModeloInput.trim() &&
+            modeloSalvoSelecionado &&
+            nomeModeloInput.trim().toLowerCase() !== modeloSalvoSelecionado.nome.trim().toLowerCase()
+              ? undefined
+              : modeloSalvoSelecionado?.id,
           nome: nomeLimpo,
           colunas: colunasSelecionadas,
         }),
@@ -637,8 +738,20 @@ export function ConstrutorRelatorioPersonalizadoClient({
       setModelosSalvos(listaLimpa);
       if (data.modelo?.id) {
         setModeloSelecionadoId(data.modelo.id);
+        try {
+          window.localStorage.setItem(
+            'fiorix:relatorio-personalizado:modelo-id',
+            data.modelo.id
+          );
+          window.localStorage.setItem(
+            'fiorix:relatorio-personalizado:colunas-ordem',
+            JSON.stringify(colunasSelecionadas)
+          );
+        } catch {
+          // ignore
+        }
       }
-      toast.success(`Modelo "${nomeLimpo}" salvo com ${colunasSelecionadas.length} coluna(s).`);
+      toast.success(`Modelo "${nomeLimpo}" salvo com ${colunasSelecionadas.length} coluna(s) na ordem escolhida.`);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao salvar modelo.');
     } finally {
@@ -668,6 +781,15 @@ export function ConstrutorRelatorioPersonalizadoClient({
 
     setColunasSelecionadas(colunasValidas);
     setNomeModeloInput(mod.nome);
+    try {
+      window.localStorage.setItem('fiorix:relatorio-personalizado:modelo-id', mod.id);
+      window.localStorage.setItem(
+        'fiorix:relatorio-personalizado:colunas-ordem',
+        JSON.stringify(colunasValidas)
+      );
+    } catch {
+      // ignore
+    }
     toast.success(`Modelo "${mod.nome}" aplicado (${colunasValidas.length} colunas).`);
   };
 
