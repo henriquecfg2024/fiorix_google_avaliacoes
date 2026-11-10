@@ -133,7 +133,7 @@ async function carregarRegistrosReaisWebri(params: {
   let pedidosDb = await prisma.fiorixCvPedido.findMany({
     where,
     orderBy: [{ dataPedido: 'desc' }, { numeroPedido: 'desc' }],
-    take: 500,
+    take: 5000,
   });
 
   // Se o colaborador autenticado estiver vinculado a um tenant secundário/homologação sem pedidos próprios,
@@ -152,7 +152,7 @@ async function carregarRegistrosReaisWebri(params: {
       pedidosDb = await prisma.fiorixCvPedido.findMany({
         where,
         orderBy: [{ dataPedido: 'desc' }, { numeroPedido: 'desc' }],
-        take: 500,
+        take: 5000,
       });
     }
   }

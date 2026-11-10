@@ -323,7 +323,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
   const [filtroCanalAtendimento, setFiltroCanalAtendimento] = useState<'' | 'ONR' | 'PRESENCIAL'>('');
   const [filtroMagnetico, setFiltroMagnetico] = useState('');
   const [filtroPedido, setFiltroPedido] = useState('');
-  const [limiteRegistros, setLimiteRegistros] = useState<number>(25);
+  const [limiteRegistros, setLimiteRegistros] = useState<number>(0);
 
   // Histórico de geração e modal/documento de Relatório Gerado
   const [historicoGeracoes, setHistoricoGeracoes] = useState<ItemHistoricoGeracao[]>([]);
@@ -1732,10 +1732,10 @@ export function ConstrutorRelatorioPersonalizadoClient({
                         onChange={(e) => setLimiteRegistros(Number(e.target.value))}
                         className="h-7 rounded-lg border border-violet-200 bg-[#F4F0FF] px-2 text-[11px] font-bold text-violet-800 focus:border-violet-400 focus:outline-none cursor-pointer"
                       >
+                        <option value={0}>Todos ({registrosBrutosFonte.length} pedidos)</option>
                         <option value={25}>25 pedidos</option>
                         <option value={50}>50 pedidos</option>
                         <option value={100}>100 pedidos</option>
-                        <option value={0}>Todos ({registrosBrutosFonte.length})</option>
                       </select>
                     </label>
                   )}
