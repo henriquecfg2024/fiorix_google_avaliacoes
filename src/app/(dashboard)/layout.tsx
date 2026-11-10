@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner';
 import { FiorixSidebar } from '@/components/layout/FiorixSidebar';
 import { FiorixTopbar } from '@/components/layout/FiorixTopbar';
 import { NavigationProgress } from '@/components/layout/NavigationProgress';
@@ -43,7 +42,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex-1 flex flex-col overflow-hidden print:h-auto print:overflow-visible print:w-full print:block">
         <div className="print:hidden">
-          <PwaInstallBanner />
           <FiorixTopbar />
         </div>
 
