@@ -580,6 +580,76 @@ export async function POST(req: Request) {
       });
     }
 
+    if (action === 'EXCLUIR_MODELO') {
+      const modeloId = String(body?.modeloId || '').trim();
+      if (!modeloId) {
+        return NextResponse.json(
+          { sucesso: false, erro: 'Informe o modelo a ser excluído.' },
+          { status: 400 }
+        );
+      }
+
+      const existente = await prisma.integrationConfig.findUnique({
+        where: {
+          tenantId_integrationId: {
+            tenantId: user.tenantId,
+            integrationId: MODELOS_PROVIDER_KEY,
+          },
+        },
+      });
+
+      let listaAtual: any[] = [];
+      try {
+        const parsed = existente?.encryptedConfig ? JSON.parse(existente.encryptedConfig) : null;
+        if (Array.isArray(parsed?.modelos)) {
+          listaAtual = parsed.modelos;
+        }
+      } catch {
+        listaAtual = [];
+      }
+
+      const modeloRemovido = listaAtual.find((m) => String(m?.id) === modeloId);
+      const novaLista = listaAtual.filter((m) => String(m?.id) !== modeloId);
+
+      await prisma.integrationConfig.upsert({
+        where: {
+          tenantId_integrationId: {
+            tenantId: user.tenantId,
+            integrationId: MODELOS_PROVIDER_KEY,
+          },
+        },
+        update: {
+          encryptedConfig: JSON.stringify({ modelos: novaLista }),
+        },
+        create: {
+          tenantId: user.tenantId,
+          integrationId: MODELOS_PROVIDER_KEY,
+          displayName: 'Modelos de Relatórios Personalizados',
+          isActive: true,
+          encryptedConfig: JSON.stringify({ modelos: novaLista }),
+        },
+      });
+
+      if (modeloRemovido) {
+        await recordAuditLog({
+          modulo: 'RELATORIOS_PERSONALIZADOS' as any,
+          acao: 'EXCLUSAO' as any,
+          registroId: modeloId,
+          registroDescricao: `Modelo de relatório excluído: "${modeloRemovido.nome || modeloId}"`,
+          detalhes: {
+            modeloId,
+            nomeModelo: modeloRemovido.nome || null,
+          },
+          userOverride: user,
+        });
+      }
+
+      return NextResponse.json({
+        sucesso: true,
+        modelosSalvos: novaLista,
+      });
+    }
+
     if (action === 'REGISTRAR_GERACAO') {
       const formato = String(body?.formato || 'RELATORIO').toUpperCase();
       const colunasBrutas: string[] = Array.isArray(body?.colunas) ? body.colunas : [];

@@ -22,6 +22,7 @@ import {
   History,
   Printer,
   CheckCircle2,
+  Trash2,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -339,6 +340,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
   const [modelosSalvos, setModelosSalvos] = useState<ModeloSalvo[]>([]);
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const [salvandoModelo, setSalvandoModelo] = useState(false);
+  const [excluindoModelo, setExcluindoModelo] = useState(false);
 
   // Dados reais do Webri e filtros
   const [carregandoReais, setCarregandoReais] = useState(false);
@@ -413,13 +415,17 @@ export function ConstrutorRelatorioPersonalizadoClient({
       setAtendentesDisponiveis(
         Array.isArray(data.atendentesDisponiveis) ? data.atendentesDisponiveis : []
       );
-      if (Array.isArray(data.modelosSalvos) && data.modelosSalvos.length > 0) {
+      if (Array.isArray(data.modelosSalvos)) {
         const modelosFiltrados = data.modelosSalvos.map((m: ModeloSalvo) => ({
           ...m,
           colunas: (m.colunas || []).filter((c) => VARIAVEL_POR_ID.has(c)),
         }));
         setModelosSalvos(modelosFiltrados);
-        setModeloSelecionadoId((prev) => prev || modelosFiltrados[0]?.id || '');
+        setModeloSelecionadoId((prev) =>
+          modelosFiltrados.some((m: ModeloSalvo) => m.id === prev)
+            ? prev
+            : modelosFiltrados[0]?.id || ''
+        );
       }
       if (Array.isArray(data.historicoGeracoes)) {
         setHistoricoGeracoes(data.historicoGeracoes);
@@ -663,6 +669,47 @@ export function ConstrutorRelatorioPersonalizadoClient({
     setColunasSelecionadas(colunasValidas);
     setNomeModeloInput(mod.nome);
     toast.success(`Modelo "${mod.nome}" aplicado (${colunasValidas.length} colunas).`);
+  };
+
+  const handleExcluirModelo = async () => {
+    const mod =
+      modelosSalvos.find((m) => m.id === modeloSelecionadoId) ||
+      modelosSalvos[0];
+    if (!mod) {
+      toast.error('Nenhum modelo salvo selecionado para excluir.');
+      return;
+    }
+
+    setExcluindoModelo(true);
+    try {
+      const res = await fetch('/api/relatorios/personalizado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'EXCLUIR_MODELO',
+          modeloId: mod.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.sucesso) {
+        throw new Error(data.erro || 'Não foi possível excluir o modelo.');
+      }
+
+      const listaLimpa = (data.modelosSalvos || []).map((m: ModeloSalvo) => ({
+        ...m,
+        colunas: (m.colunas || []).filter((c) => VARIAVEL_POR_ID.has(c)),
+      }));
+      setModelosSalvos(listaLimpa);
+      setModeloSelecionadoId(listaLimpa[0]?.id || '');
+      if (nomeModeloInput.trim() === mod.nome.trim()) {
+        setNomeModeloInput(listaLimpa[0]?.nome || '');
+      }
+      toast.success(`Modelo "${mod.nome}" excluído.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao excluir modelo.');
+    } finally {
+      setExcluindoModelo(false);
+    }
   };
 
   const montarResumoFiltros = useCallback(() => {
@@ -2036,7 +2083,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
                   />
                 </label>
 
-                <div className="md:col-span-4 flex flex-wrap items-center gap-2">
+                <div className="md:col-span-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     disabled={salvandoModelo || colunasSelecionadas.length === 0}
@@ -2062,7 +2109,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
                   </button>
                 </div>
 
-                <div className="md:col-span-3 space-y-1">
+                <div className="md:col-span-4 space-y-1">
                   <span className="block text-[11px] text-slate-400">
                     Modelos salvos anteriormente
                   </span>
@@ -2071,23 +2118,41 @@ export function ConstrutorRelatorioPersonalizadoClient({
                       Nenhum modelo salvo nesta prévia.
                     </p>
                   ) : (
-                    <select
-                      aria-label="Selecionar modelo salvo"
-                      value={modeloSelecionadoId}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setModeloSelecionadoId(id);
-                        const encontrado = modelosSalvos.find((m) => m.id === id);
-                        if (encontrado) handleAplicarModelo(encontrado);
-                      }}
-                      className="w-full h-9 rounded-xl border border-white/15 bg-[#070A12] px-2 text-xs text-slate-200"
-                    >
-                      {modelosSalvos.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nome} ({m.colunas.length} colunas · {m.atualizadoEm})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        aria-label="Selecionar modelo salvo"
+                        value={modeloSelecionadoId}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          setModeloSelecionadoId(id);
+                          const encontrado = modelosSalvos.find((m) => m.id === id);
+                          if (encontrado) handleAplicarModelo(encontrado);
+                        }}
+                        className="w-full min-w-0 h-9 rounded-xl border border-white/15 bg-[#070A12] px-2 text-xs text-slate-200"
+                      >
+                        {modelosSalvos.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.nome} ({m.colunas.length} colunas · {m.atualizadoEm})
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        disabled={excluindoModelo || modelosSalvos.length === 0}
+                        onClick={handleExcluirModelo}
+                        title="Excluir modelo selecionado"
+                        aria-label="Excluir modelo selecionado"
+                        className="inline-flex h-9 shrink-0 items-center gap-1 rounded-xl border border-rose-500/35 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 hover:border-rose-400/60 hover:text-rose-100 disabled:opacity-40 cursor-pointer transition"
+                      >
+                        {excluindoModelo ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-300" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                        )}
+                        <span>Excluir</span>
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
