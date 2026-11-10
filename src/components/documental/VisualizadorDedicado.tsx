@@ -1009,23 +1009,161 @@ export function VisualizadorDedicado({
 
     return (
       <div className="flex-1 min-h-0 flex flex-col bg-slate-950">
-        {/* Barra de endereço estilo Windows Explorer + Seletor de Pasta (VOL1, IMAGENS ou DEP) */}
+        {/* Barra de Pesquisa em Destaque + Seletor de Pasta (VOL1, IMAGENS ou DEP) */}
         <div className="border-b border-white/10 bg-[#0B1020] px-3 py-2 space-y-2">
-          {/* Linha 1: Seletor rápido da pasta a ser pesquisada (Todas, VOL1, IMAGENS, DEP) + Favoritos rápidos */}
+          {/* Linha 1 (DESTAQUE PRINCIPAL): Campo de Pesquisa amplo e visível + Endereço compacto */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Bloco de Pesquisa em Alto Destaque */}
+            <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+              <div className="relative flex-1 flex items-center h-10 rounded-xl border-2 border-cyan-400/75 bg-[#060C1C] shadow-md shadow-cyan-950/50 focus-within:border-cyan-300 focus-within:ring-2 focus-within:ring-cyan-400/30 transition">
+                <div className="flex items-center gap-1.5 pl-3 pr-2 text-cyan-300 select-none pointer-events-none border-r border-cyan-500/25">
+                  <Search className="h-4 w-4 text-cyan-400 shrink-0" />
+                  <span className="hidden md:inline text-[10px] font-extrabold uppercase tracking-wider text-cyan-300">
+                    Pesquisar
+                  </span>
+                </div>
+                <input
+                  id="explorador-principal-busca"
+                  type="text"
+                  value={filtroPasta}
+                  onChange={e => setFiltroPasta(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && executarPesquisa()}
+                  placeholder={
+                    raizAtual
+                      ? `Digite matrícula, processo ou arquivo em ${segmentos[segmentos.length - 1] || raizAtual.sigla}…`
+                      : 'Digite o nº da matrícula, processo ou nome do arquivo para pesquisar…'
+                  }
+                  aria-label="Filtrar ou pesquisar arquivos"
+                  className="w-full h-full bg-transparent pl-2.5 pr-8 text-xs sm:text-sm font-medium text-white placeholder:text-slate-300/75 focus:outline-none"
+                />
+                {isSearching ? (
+                  <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-400" />
+                ) : filtroPasta ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroPasta('');
+                      setResultadosBusca(null);
+                    }}
+                    aria-label="Limpar filtro"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={executarPesquisa}
+                disabled={isSearching || filtroPasta.trim().length < 2}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/50 bg-blue-600 hover:bg-blue-500 px-4 sm:px-5 text-xs sm:text-sm font-bold text-white shadow-md shadow-blue-950/60 transition disabled:opacity-50 cursor-pointer"
+              >
+                <Search className="h-4 w-4" />
+                <span>{isSearching ? 'Buscando…' : 'Pesquisar'}</span>
+              </button>
+            </div>
+
+            {/* Navegação de endereço compacta à direita */}
+            <div className="flex items-center gap-1.5 w-full lg:w-auto">
+              <button
+                type="button"
+                onClick={subirPasta}
+                disabled={!pastaAtual}
+                title="Subir um nível"
+                aria-label="Subir um nível"
+                className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => pastaAtual && abrirPasta(pastaAtual.rootId, pastaAtual.relativePath, true)}
+                disabled={!pastaAtual || carregandoPasta}
+                title="Atualizar pasta"
+                aria-label="Atualizar pasta"
+                className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${carregandoPasta ? 'animate-spin' : ''}`} />
+              </button>
+              <nav
+                aria-label="Endereço da pasta"
+                className="flex-1 lg:flex-initial lg:max-w-[300px] h-8 flex items-center gap-0.5 overflow-x-auto rounded-lg border border-white/10 bg-slate-950 px-2 font-mono text-[11px] whitespace-nowrap"
+              >
+                <button type="button" onClick={irParaAcervo} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                  <HardDrive className="h-3.5 w-3.5 text-amber-400" />
+                  Acervo
+                </button>
+                {raizAtual && pastaAtual && (
+                  <>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                    <button type="button" onClick={() => abrirPasta(pastaAtual.rootId, '')} className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                      {raizAtual.caminho}
+                    </button>
+                  </>
+                )}
+                {pastaAtual && segmentos.map((seg, i) => (
+                  <React.Fragment key={`m-${i}-${seg}`}>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+                    <button
+                      type="button"
+                      onClick={() => abrirPasta(pastaAtual.rootId, segmentos.slice(0, i + 1).join('\\'))}
+                      className={`rounded px-1.5 py-0.5 transition hover:bg-slate-800 hover:text-white ${i === segmentos.length - 1 ? 'text-amber-300 font-semibold' : 'text-slate-300'}`}
+                    >
+                      {seg}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </nav>
+
+              {pastaAtual && (
+                <button
+                  type="button"
+                  onClick={e => toggleFavorito(pastaAtual.rootId, pastaAtual.relativePath, undefined, e)}
+                  title={
+                    pastaAtualFavorita
+                      ? 'Retirar esta pasta dos Favoritos'
+                      : 'Colocar esta pasta nos Favoritos (acesso rápido)'
+                  }
+                  className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition ${
+                    pastaAtualFavorita
+                      ? 'border-amber-500/60 bg-amber-950/70 text-amber-200 hover:bg-amber-900/70'
+                      : 'border-white/15 bg-slate-900 text-slate-300 hover:border-amber-500/40 hover:text-amber-200'
+                  }`}
+                >
+                  <Star className={`h-3.5 w-3.5 ${pastaAtualFavorita ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
+                  <span className="hidden xl:inline">{pastaAtualFavorita ? 'Favorita' : 'Favoritar'}</span>
+                </button>
+              )}
+
+              {documentoAtivo && (
+                <button
+                  type="button"
+                  onClick={() => setExploradorAberto(false)}
+                  className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-cyan-500/40 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/60 transition"
+                  title="Voltar ao documento aberto"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Voltar ao documento
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Linha 2: Seletor rápido da pasta a ser pesquisada (Todas, VOL1, IMAGENS, DEP) + Favoritos rápidos */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold text-slate-400 mr-1">Pasta da pesquisa:</span>
               <button
                 type="button"
                 onClick={irParaAcervo}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition ${
                   !pastaAtual
                     ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
                     : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-slate-600 hover:text-white'
                 }`}
                 title="Pesquisar em todas as pastas do acervo (VOL1, IMAGENS e DEP)"
               >
-                <HardDrive className="h-3.5 w-3.5 text-cyan-400" />
+                <HardDrive className="h-3 w-3 text-cyan-400" />
                 <span>Todas</span>
               </button>
               {UNIDADES_PRINCIPAIS.map(u => {
@@ -1036,7 +1174,7 @@ export function VisualizadorDedicado({
                     key={`sel-${u.id}`}
                     type="button"
                     onClick={() => abrirPasta(u.id, '')}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition ${
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold transition ${
                       selecionada
                         ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
                         : dentroDaUnidade
@@ -1045,9 +1183,9 @@ export function VisualizadorDedicado({
                     }`}
                     title={`Selecionar e pesquisar na pasta ${u.rotulo} — ${u.descricao}`}
                   >
-                    <Folder className="h-3.5 w-3.5 text-amber-400 fill-amber-400/20" />
+                    <Folder className="h-3 w-3 text-amber-400 fill-amber-400/20" />
                     <span>{u.sigla}</span>
-                    <span className="font-mono text-[10px] opacity-75">({u.caminho.replace('\\', '')})</span>
+                    <span className="font-mono text-[9px] opacity-75">({u.caminho.replace('\\', '')})</span>
                   </button>
                 );
               })}
@@ -1099,122 +1237,6 @@ export function VisualizadorDedicado({
               </div>
             )}
           </div>
-
-          {/* Linha 2: Endereço + Favoritar pasta atual + Campo de Pesquisa */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={subirPasta}
-              disabled={!pastaAtual}
-              title="Subir um nível"
-              aria-label="Subir um nível"
-              className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
-            >
-              <ArrowUp className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => pastaAtual && abrirPasta(pastaAtual.rootId, pastaAtual.relativePath, true)}
-              disabled={!pastaAtual || carregandoPasta}
-              title="Atualizar pasta"
-              aria-label="Atualizar pasta"
-              className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 bg-slate-900 text-slate-300 hover:text-white hover:border-slate-600 transition disabled:opacity-40"
-            >
-              <RefreshCw className={`h-4 w-4 ${carregandoPasta ? 'animate-spin' : ''}`} />
-            </button>
-            <nav
-              aria-label="Endereço da pasta"
-              className="flex-1 min-w-[200px] h-8 flex items-center gap-0.5 overflow-x-auto rounded-lg border border-white/10 bg-slate-950 px-2 font-mono text-[11px] whitespace-nowrap"
-            >
-              <button type="button" onClick={irParaAcervo} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
-                <HardDrive className="h-3.5 w-3.5 text-amber-400" />
-                Acervo
-              </button>
-              {raizAtual && pastaAtual && (
-                <>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
-                  <button type="button" onClick={() => abrirPasta(pastaAtual.rootId, '')} className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-800 hover:text-white transition">
-                    {raizAtual.caminho}
-                  </button>
-                </>
-              )}
-              {pastaAtual && segmentos.map((seg, i) => (
-                <React.Fragment key={`m-${i}-${seg}`}>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
-                  <button
-                    type="button"
-                    onClick={() => abrirPasta(pastaAtual.rootId, segmentos.slice(0, i + 1).join('\\'))}
-                    className={`rounded px-1.5 py-0.5 transition hover:bg-slate-800 hover:text-white ${i === segmentos.length - 1 ? 'text-amber-300 font-semibold' : 'text-slate-300'}`}
-                  >
-                    {seg}
-                  </button>
-                </React.Fragment>
-              ))}
-            </nav>
-
-            {pastaAtual && (
-              <button
-                type="button"
-                onClick={e => toggleFavorito(pastaAtual.rootId, pastaAtual.relativePath, undefined, e)}
-                title={
-                  pastaAtualFavorita
-                    ? 'Retirar esta pasta dos Favoritos'
-                    : 'Colocar esta pasta nos Favoritos (acesso rápido)'
-                }
-                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition ${
-                  pastaAtualFavorita
-                    ? 'border-amber-500/60 bg-amber-950/70 text-amber-200 hover:bg-amber-900/70'
-                    : 'border-white/15 bg-slate-900 text-slate-300 hover:border-amber-500/40 hover:text-amber-200'
-                }`}
-              >
-                <Star className={`h-3.5 w-3.5 ${pastaAtualFavorita ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
-                <span className="hidden md:inline">{pastaAtualFavorita ? 'Favorita' : 'Favoritar pasta'}</span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-                <input
-                  id="explorador-principal-busca"
-                  type="text"
-                  value={filtroPasta}
-                  onChange={e => setFiltroPasta(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && executarPesquisa()}
-                  placeholder={raizAtual ? `Pesquisar em ${segmentos[segmentos.length - 1] || raizAtual.sigla}…` : 'Pesquisar em todas as pastas…'}
-                  aria-label="Filtrar ou pesquisar arquivos"
-                  className="w-full h-8 rounded-lg border border-white/15 bg-slate-900 pl-8 pr-8 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                />
-                {isSearching ? (
-                  <RefreshCw className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-amber-400" />
-                ) : filtroPasta ? (
-                  <button type="button" onClick={() => { setFiltroPasta(''); setResultadosBusca(null); }} aria-label="Limpar filtro" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-white">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={executarPesquisa}
-                disabled={isSearching || filtroPasta.trim().length < 2}
-                className="h-8 shrink-0 rounded-lg border border-amber-500/40 bg-amber-700 hover:bg-amber-600 px-3 text-xs font-semibold text-white transition disabled:opacity-50"
-              >
-                {isSearching ? 'Buscando…' : 'Pesquisar'}
-              </button>
-            </div>
-
-            {documentoAtivo && (
-              <button
-                type="button"
-                onClick={() => setExploradorAberto(false)}
-                className="inline-flex items-center gap-1.5 h-8 rounded-lg border border-cyan-500/40 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/60 transition"
-                title="Voltar ao documento aberto"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Voltar ao documento
-              </button>
-            )}
-          </div>
         </div>
 
         {/* Conteúdo */}
@@ -1252,18 +1274,18 @@ export function VisualizadorDedicado({
               )}
             </div>
           ) : !pastaAtual ? (
-            <div className="space-y-6">
-              {/* Seção 1: Pastas Favoritas (pesquisadas frequentemente) */}
+            <div className="space-y-3">
+              {/* Seção 1: Pastas Favoritas compactas (pesquisadas frequentemente) */}
               {pastasFavoritas.length > 0 && (
-                <div className="space-y-2.5">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      <h3 className="text-sm font-bold text-slate-100">Pastas Favoritas (Pesquisa Frequente)</h3>
+                    <div className="flex items-center gap-1.5">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      <h3 className="text-xs font-bold text-slate-200">Pastas Favoritas</h3>
                     </div>
-                    <span className="text-[11px] text-slate-500">Clique na estrela ★ para retirar ou adicionar pastas</span>
+                    <span className="text-[10px] text-slate-500">Clique na estrela ★ para retirar ou adicionar pastas</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
                     {pastasFavoritas.map(fav => (
                       <div
                         key={`fav-card-${fav.id}`}
@@ -1271,24 +1293,24 @@ export function VisualizadorDedicado({
                         role="button"
                         tabIndex={0}
                         onKeyDown={e => e.key === 'Enter' && abrirPasta(fav.rootId, fav.relativePath)}
-                        className="group flex items-center gap-3 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-950/25 via-slate-900 to-slate-950 p-3 text-left transition hover:border-amber-400/60 hover:bg-slate-900/90 cursor-pointer"
+                        className="group flex items-center gap-2 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-950/25 via-slate-900 to-slate-950 px-2.5 py-2 text-left transition hover:border-amber-400/60 hover:bg-slate-900/90 cursor-pointer"
                       >
-                        <div className="h-10 w-10 shrink-0 rounded-lg bg-amber-500/15 text-amber-300 flex flex-col items-center justify-center border border-amber-500/30">
-                          <Folder className="h-4 w-4 fill-amber-400/30" />
-                          <span className="font-mono text-[8px] font-black">{fav.unidade}</span>
+                        <div className="h-8 w-8 shrink-0 rounded-lg bg-amber-500/15 text-amber-300 flex flex-col items-center justify-center border border-amber-500/30">
+                          <Folder className="h-3.5 w-3.5 fill-amber-400/30" />
+                          <span className="font-mono text-[7px] font-black leading-none">{fav.unidade}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold text-slate-100 truncate group-hover:text-amber-200">{fav.rotulo}</p>
-                          <p className="font-mono text-[10px] text-slate-400 truncate">{fav.caminhoExibicao}</p>
+                          <p className="text-[11px] font-bold text-slate-100 truncate group-hover:text-amber-200">{fav.rotulo}</p>
+                          <p className="font-mono text-[9px] text-slate-400 truncate">{fav.caminhoExibicao}</p>
                         </div>
                         <button
                           type="button"
                           onClick={e => toggleFavorito(fav.rootId, fav.relativePath, fav.rotulo, e)}
                           title="Retirar pasta dos favoritos"
                           aria-label={`Retirar ${fav.rotulo} dos favoritos`}
-                          className="h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border border-amber-500/30 bg-amber-950/50 text-amber-400 hover:bg-rose-950/70 hover:border-rose-500/40 hover:text-rose-300 transition"
+                          className="h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border border-amber-500/30 bg-amber-950/50 text-amber-400 hover:bg-rose-950/70 hover:border-rose-500/40 hover:text-rose-300 transition"
                         >
-                          <Star className="h-4 w-4 fill-amber-400" />
+                          <Star className="h-3 w-3 fill-amber-400" />
                         </button>
                       </div>
                     ))}
@@ -1296,13 +1318,17 @@ export function VisualizadorDedicado({
                 </div>
               )}
 
-              {/* Seção 2: Unidades Principais (VOL1, IMAGENS e DEP) */}
-              <div className="space-y-2.5">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-100">Selecionar Pasta do Servidor (VOL1, IMAGENS ou DEP)</h3>
-                  <p className="text-[11px] text-slate-500">Escolha uma unidade de rede (\\SrvFiles) ou subpasta para navegar, pesquisar e favoritar (☆).</p>
+              {/* Seção 2: Unidades e Pastas do Servidor em cards compactos */}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-xs font-bold text-slate-200">
+                    Pastas do Servidor (VOL1, IMAGENS ou DEP)
+                  </h3>
+                  <span className="text-[10px] text-slate-500">
+                    Clique em uma pasta para navegar ou pesquise diretamente no campo acima
+                  </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
                   {RAIZES.map(r => {
                     const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
                     return (
@@ -1312,35 +1338,35 @@ export function VisualizadorDedicado({
                         role="button"
                         tabIndex={0}
                         onKeyDown={e => e.key === 'Enter' && abrirPasta(r.id, '')}
-                        className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 cursor-pointer ${
+                        title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
+                        className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
                           r.principal
-                            ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-950/40'
-                            : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-950/40'
+                            ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
+                            : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
                         }`}
                       >
-                        <div className={`h-12 w-12 shrink-0 rounded-xl flex flex-col items-center justify-center ${
-                          r.principal ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-amber-500/10 text-amber-400'
+                        <div className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
+                          r.principal ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         }`}>
-                          <HardDrive className="h-5 w-5" />
-                          <span className="font-mono text-[9px] font-black mt-0.5">{r.sigla}</span>
+                          <HardDrive className="h-3.5 w-3.5" />
+                          <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-100">{r.rotulo}</p>
-                          <p className="font-mono text-[11px] text-slate-400 truncate">{r.caminho}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{r.descricao}</p>
+                          <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
+                          <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
                         </div>
                         <button
                           type="button"
                           onClick={e => toggleFavorito(r.id, '', r.rotuloCurto, e)}
                           title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
                           aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
-                          className={`h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-lg border transition ${
+                          className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
                             isFav
                               ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
                               : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
                           }`}
                         >
-                          <Star className={`h-4 w-4 ${isFav ? 'fill-amber-400' : ''}`} />
+                          <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
                         </button>
                       </div>
                     );
@@ -1563,7 +1589,8 @@ export function VisualizadorDedicado({
         </div>
       </div>
 
-      {/* 2. BARRA DE FERRAMENTAS DEDICADA */}
+      {/* 2. BARRA DE FERRAMENTAS DEDICADA (visível quando há documento aberto) */}
+      {temDocumento && (
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-[#0E1526] px-3 sm:px-4 py-2 text-xs shrink-0">
         {/* Esquerda: Alternar Barra Lateral e Sessão do Cartório */}
         <div className="flex items-center gap-2">
@@ -1791,6 +1818,7 @@ export function VisualizadorDedicado({
           )}
         </div>
       </div>
+      )}
 
       {/* 3. CORPO CENTRAL: PAINEL LATERAL + CANVAS SIPLAN */}
       <div className="flex-1 flex overflow-hidden bg-slate-950/80 relative">
