@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import fsSync, { promises as fs } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
@@ -430,6 +431,127 @@ export async function checkDirectMatriculaFiles(
   return matches;
 }
 
+// Localização direta ultrarrápida de Plantas Fiscais de Setores/Quadras (K:\IMAGENS\SETORES\00SSS000\00SSSQQQ.KEN).
+export async function checkDirectSetorFiles(
+  canonicalRoot: string,
+  rootId: string,
+  query: string,
+): Promise<DocumentMatch[]> {
+  if (rootId === 'livro2') return [];
+  const matches: DocumentMatch[] = [];
+  const consultaSemProcesso = removerNumerosDeProcesso(query);
+  const paresSetorQuadra = new Set<string>();
+  const setoresIsolados = new Set<string>();
+
+  // 1. SQL formatado ou parcial: SSS.QQQ.LLLL-D ou SSS.QQQ
+  const sqlMatches = consultaSemProcesso.match(/\b(\d{3})\.(\d{3})(?:\.\d{4}(?:-\d)?)?\b/g);
+  if (sqlMatches) {
+    for (const sm of sqlMatches) {
+      const m = sm.match(/^(\d{3})\.(\d{3})/);
+      if (m && (m[1] !== '000' || m[2] !== '000')) {
+        paresSetorQuadra.add(`${m[1]}:${m[2]}`);
+      }
+    }
+  }
+
+  // 2. Código direto da planta fiscal: 00SSSQQQ (8 dígitos começando com 00) ou SQL 10/11 dígitos contínuos
+  const digitosApenas = consultaSemProcesso.replace(/[^\d]/g, '');
+  if ((/setor|quadra|planta|sql|iptu/i.test(query) || /^\d{3}\.\d{3}/.test(consultaSemProcesso.trim())) && (digitosApenas.length === 10 || digitosApenas.length === 11)) {
+    const s = digitosApenas.slice(0, 3);
+    const q = digitosApenas.slice(3, 6);
+    if (s !== '000' || q !== '000') {
+      paresSetorQuadra.add(`${s}:${q}`);
+    }
+  }
+  const codPlantaMatch = consultaSemProcesso.match(/\b00(\d{3})(\d{3})(?:\.ken)?\b/i);
+  if (codPlantaMatch) {
+    const [, s, q] = codPlantaMatch;
+    if (q === '000') setoresIsolados.add(s);
+    else paresSetorQuadra.add(`${s}:${q}`);
+  }
+
+  // 3. Menção textual: "setor 053 quadra 006" ou "setor 053"
+  const textoSetorQuadra = consultaSemProcesso.match(/setor(?:\s+fiscal)?\s*[:nºo°.\s]*(\d{1,3})(?:[\s,;/\-]+quadra(?:\s+fiscal)?\s*[:nºo°.\s]*(\d{1,3}))?/i);
+  if (textoSetorQuadra) {
+    const s = textoSetorQuadra[1].padStart(3, '0');
+    if (textoSetorQuadra[2]) {
+      const q = textoSetorQuadra[2].padStart(3, '0');
+      paresSetorQuadra.add(`${s}:${q}`);
+    } else {
+      setoresIsolados.add(s);
+    }
+  }
+
+  const seenPaths = new Set<string>();
+  for (const par of paresSetorQuadra) {
+    const [setor, quadra] = par.split(':');
+    const pastaSetor = `00${setor}000`;
+    const nomeBase = `00${setor}${quadra}`;
+    const candidateRels = [
+      path.join('SETORES', pastaSetor, `${nomeBase}.KEN`),
+      path.join('SETORES', pastaSetor, `${nomeBase}.TIF`),
+      path.join(pastaSetor, `${nomeBase}.KEN`),
+    ];
+    for (const rel of candidateRels) {
+      const lower = rel.toLowerCase();
+      if (seenPaths.has(lower)) continue;
+      seenPaths.add(lower);
+      try {
+        const stat = await fs.stat(path.join(canonicalRoot, rel));
+        if (stat.isFile()) {
+          matches.push({
+            rootId,
+            relativePath: rel,
+            name: path.basename(rel),
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            matricula: `Planta Fiscal Setor ${setor} • Quadra ${quadra}`,
+          });
+        }
+      } catch {}
+    }
+  }
+
+  // Se encontrou apenas o Setor ou a quadra exata não tinha arquivo individual, lista até 20 plantas do Setor
+  const setoresParaListar = new Set<string>(setoresIsolados);
+  if (matches.length === 0) {
+    for (const par of paresSetorQuadra) {
+      setoresParaListar.add(par.split(':')[0]);
+    }
+  }
+  for (const setor of setoresParaListar) {
+    const pastaSetor = `00${setor}000`;
+    const dirCandidates = [path.join(canonicalRoot, 'SETORES', pastaSetor), path.join(canonicalRoot, pastaSetor)];
+    for (const dirPath of dirCandidates) {
+      try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        for (const entry of entries.slice(0, 25)) {
+          if (!entry.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
+          const full = path.join(dirPath, entry.name);
+          const rel = path.relative(canonicalRoot, full);
+          const lower = rel.toLowerCase();
+          if (seenPaths.has(lower)) continue;
+          seenPaths.add(lower);
+          const stat = await fs.stat(full);
+          const qMatch = entry.name.match(/^00\d{3}(\d{3})\./i);
+          const qLabel = qMatch ? ` • Quadra ${qMatch[1]}` : '';
+          matches.push({
+            rootId,
+            relativePath: rel,
+            name: entry.name,
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            matricula: `Planta Fiscal Setor ${setor}${qLabel}`,
+          });
+        }
+        if (matches.length > 0) break;
+      } catch {}
+    }
+  }
+
+  return matches;
+}
+
 interface IndexedDocEntry {
   relativePath: string;
   name: string;
@@ -551,10 +673,19 @@ export async function searchDocuments(
     const ehAcervoImagens = root.id === 'imagens' || root.id === 'livro2';
     const ehPastaSemImagens = root.id === 'minutas' || root.id === 'processos';
 
-    // 1. Busca direta ultrarrápida para matrículas .KEN (apenas em acervos que podem conter imagens)
+    // 1. Busca direta ultrarrápida para Plantas Fiscais (K:\IMAGENS\SETORES) e Matrículas .KEN (LV2/LV3)
     const criteriosResolvidosDireto = new Set<number>();
     for (let i = 0; i < criterios.length && !ehPastaSemImagens; i++) {
       try {
+        const setorMatches = await checkDirectSetorFiles(canonical, root.id, criterios[i].texto);
+        for (const sm of setorMatches) {
+          const key = `${sm.rootId}:${sm.relativePath.toLowerCase()}`;
+          chavesExplicitas.add(key);
+          criteriosResolvidosDireto.add(i);
+          if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+            result.files.push(sm);
+          }
+        }
         const directMatches = await checkDirectMatriculaFiles(canonical, root.id, criterios[i].texto);
         for (const m of directMatches) {
           const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
@@ -1087,24 +1218,45 @@ export interface ConfrontacoesExtraidas {
 
 export function limparConfrontante(valor: string): string {
   if (!valor) return '';
-  let limpo = valor.trim();
+  let limpo = valor
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // Remove pontuações iniciais e traços
-  limpo = limpo.replace(/^[\s\-–—:;.]+|[\s\-–—:;.]+$/g, '').trim();
+  limpo = limpo.replace(/^[\s\-–—:;."']+|[\s\-–—:;."']+$/g, '').trim();
 
   // Remove prefixos direcionais redundantes caso venham no texto capturado
-  limpo = limpo.replace(/^(?:pelo\s+lado\s+direito|do\s+lado\s+direito|lado\s+direito|à\s+direita|a\s+direita|direita)\s*(?:com)?/i, '');
-  limpo = limpo.replace(/^(?:pelo\s+lado\s+esquerdo|do\s+lado\s+esquerdo|lado\s+esquerdo|à\s+esquerda|a\s+esquerda|esquerda)\s*(?:com)?/i, '');
+  limpo = limpo.replace(/^(?:pelo\s+lado\s+direito|do\s+lado\s+direito|ao\s+lado\s+direito|lado\s+direito|pela\s+direita|à\s+direita|a\s+direita|direita)\s*(?:com)?/i, '');
+  limpo = limpo.replace(/^(?:pelo\s+lado\s+esquerdo|do\s+lado\s+esquerdo|ao\s+lado\s+esquerdo|lado\s+esquerdo|pela\s+esquerda|à\s+esquerda|a\s+esquerda|esquerda)\s*(?:com)?/i, '');
   limpo = limpo.replace(/^(?:e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|pelos\s+fundos|e\s+fundos|fundos)\s*(?:com)?/i, '');
   limpo = limpo.replace(/^[:\s\-–—]+/, '').trim();
 
-  // Remove menções subsequentes a outras direções que possam ter sido engolidas pela captura
-  limpo = limpo.replace(/\s+(?:,\s*)?(?:pelo\s+lado|do\s+lado|lado|e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|e\s+fundos|\bfundos\b|esquerdo|direito|à\s+esquerda|à\s+direita).*$/i, '').trim();
+  // Remove cláusulas intermediárias de ponto de vista ("de quem da rua olha para o imóvel, confronta com...")
+  limpo = limpo.replace(
+    /^(?:de\s+quem\s+(?:da\s+rua|do\s+im[óo]vel|de\s+frente|de\s+dentro|da\s+via\s+p[úu]blica)\s+olha\s+(?:para\s+)?(?:o\s+im[óo]vel|a\s+rua|o\s+terreno|o\s+lote)[,\s]*)/i,
+    '',
+  ).trim();
+  limpo = limpo.replace(
+    /^(?:mede\s+[0-9.,]+\s*(?:m|metros|ms)?(?:\s+da\s+frente\s+aos\s+fundos)?[,\s]*(?:e\s+)?)/i,
+    '',
+  ).trim();
+  limpo = limpo.replace(
+    /^(?:confronta(?:ndo)?(?:\s+com|\s+como)?|confina(?:ndo)?(?:\s+com)?|divide(?:\s+com)?|limita(?:-se)?(?:\s+com)?|com\s+o\s+im[óo]vel|como\s+im[óo]vel|com|como|:)\s*/i,
+    (m) => (/im[óo]vel/i.test(m) ? 'com o imóvel ' : ''),
+  ).trim();
+
+  // Remove menções subsequentes a outras direções ou rodapés de página do TJSP
+  limpo = limpo.replace(
+    /\s+(?:,\s*)?(?:[234]\.\s*(?:ao\s+lado|a\s+frente|aos\s+fundos)|pelo\s+lado|do\s+lado|ao\s+lado|e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|e\s+fundos|\bfundos\b|lado\s+esquerdo|lado\s+direito|à\s+esquerda|à\s+direita|processo\s+\d{7}-\d{2}|para\s+conferir\s+o\s+original).*$/i,
+    '',
+  ).trim();
 
   // Remove traços ou pontuações finais remanescentes
   limpo = limpo.replace(/[\s\-–—:;.,]+$/, '').trim();
 
-  if (!limpo) return '';
+  if (!limpo || /^de\s+quem\s+da\s+rua/i.test(limpo)) return '';
 
   // Padroniza com 'com ' se não iniciar com 'com '
   if (!/^com\b/i.test(limpo)) {
@@ -1116,38 +1268,136 @@ export function limparConfrontante(valor: string): string {
 export function extrairConfrontacoes(texto: string): ConfrontacoesExtraidas {
   if (!texto) return { ladoDireito: '', ladoEsquerdo: '', fundos: '' };
 
+  const norm = texto
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\s+/g, ' ');
+
   let ladoDireito = '';
   let ladoEsquerdo = '';
   let fundos = '';
 
+  const prefixoOlhar = `(?:de\\s+quem\\s+(?:da\\s+rua|do\\s+im[óo]vel|de\\s+frente|de\\s+dentro)\\s+olha\\s+(?:para\\s+)?(?:o\\s+im[óo]vel|a\\s+rua|o\\s+terreno)[,\\s]*)?`;
+  const prefixoMedida = `(?:mede\\s+[0-9.,]+\\s*(?:m|metros|ms)?(?:\\s+da\\s+frente\\s+aos\\s+fundos)?[,\\s]*(?:e\\s+)?)?`;
+  const prefixoVerbo = `(?:confronta(?:ndo)?(?:\\s+com|\\s+como)?|confina(?:ndo)?(?:\\s+com)?|divide(?:\\s+com)?|limita(?:-se)?(?:\\s+com)?|com|como|:)?`;
+
   // 1. Lado Direito
-  const matchDir = texto.match(
-    /(?:pelo\s+lado\s+direito|do\s+lado\s+direito|lado\s+direito|à\s+direita|a\s+direita|\bdireito\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:,\s*(?:pelo\s+lado|do\s+lado|e\s+aos|aos\s+fundos|e\s+pelos|e\s+nos|lado\s+esquerdo|esquerdo|à\s+esquerda)|;\s*|\n|\r|$))/i
+  const regexDir = new RegExp(
+    `(?:pelo\\s+lado\\s+direito|do\\s+lado\\s+direito|ao\\s+lado\\s+direito|lado\\s+direito|pela\\s+direita|à\\s+direita|a\\s+direita|\\bdireito\\b)\\s*${prefixoOlhar}\\s*${prefixoMedida}\\s*${prefixoVerbo}\\s*([^;]{2,160}?)(?=(?:,\\s*(?:pelo\\s+lado|do\\s+lado|ao\\s+lado|pela\\s+esquerda|e\\s+aos|aos\\s+fundos|e\\s+pelos|e\\s+nos|lado\\s+esquerdo|esquerdo|à\\s+esquerda)|;\\s*|\\.(?:\\s+[A-Z0-9]|$)|\\s+[234]\\.\\s+|$))`,
+    'i',
   );
-  if (matchDir) {
-    ladoDireito = limparConfrontante(matchDir[1] || matchDir[0]);
+  const matchDir = norm.match(regexDir);
+  if (matchDir && matchDir[1]) {
+    ladoDireito = limparConfrontante(matchDir[1]);
+  }
+  if (!ladoDireito) {
+    const invDir = norm.match(/([^.;]{5,120}?)\s*\(\s*confrontante\s+(?:da\s+direita|do\s+lado\s+direito|lado\s+direito)\s*\)/i);
+    if (invDir && invDir[1]) ladoDireito = limparConfrontante(invDir[1]);
   }
 
   // 2. Lado Esquerdo
-  const matchEsq = texto.match(
-    /(?:pelo\s+lado\s+esquerdo|do\s+lado\s+esquerdo|lado\s+esquerdo|à\s+esquerda|a\s+esquerda|\besquerdo\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:,\s*(?:pelo\s+lado|do\s+lado|e\s+aos|aos\s+fundos|e\s+pelos|e\s+nos|e\s+fundos|fundos)|;\s*|\s+e\s+(?:aos\s+|nos\s+|pelos\s+)?fundos|\n|\r|$))/i
+  const regexEsq = new RegExp(
+    `(?:pelo\\s+lado\\s+esquerdo|do\\s+lado\\s+esquerdo|ao\\s+lado\\s+esquerdo|lado\\s+esquerdo|pela\\s+esquerda|à\\s+esquerda|a\\s+esquerda|\\besquerdo\\b)\\s*${prefixoOlhar}\\s*${prefixoMedida}\\s*${prefixoVerbo}\\s*([^;]{2,160}?)(?=(?:,\\s*(?:pelo\\s+lado|do\\s+lado|ao\\s+lado|e\\s+aos|aos\\s+fundos|e\\s+pelos|e\\s+nos|e\\s+fundos|fundos)|;\\s*|\\s+e\\s+(?:aos\\s+|nos\\s+|pelos\\s+)?fundos|\\.(?:\\s+[A-Z0-9]|$)|\\s+[34]\\.\\s+|$))`,
+    'i',
   );
-  if (matchEsq) {
-    ladoEsquerdo = limparConfrontante(matchEsq[1] || matchEsq[0]);
+  const matchEsq = norm.match(regexEsq);
+  if (matchEsq && matchEsq[1]) {
+    ladoEsquerdo = limparConfrontante(matchEsq[1]);
+  }
+  if (!ladoEsquerdo) {
+    const invEsq = norm.match(/([^.;]{5,120}?)\s*\(\s*confrontante\s+(?:da\s+esquerda|do\s+lado\s+esquerdo|lado\s+esquerdo)\s*\)/i);
+    if (invEsq && invEsq[1]) ladoEsquerdo = limparConfrontante(invEsq[1]);
   }
 
   // 3. Fundos
-  const matchFundos = texto.match(
-    /(?:e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|pelos\s+fundos|e\s+fundos|\bfundos\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:;\s*|\.|\n|\r|$))/i
+  const regexFundos = new RegExp(
+    `(?:e\\s+aos\\s+fundos|aos\\s+fundos|e\\s+nos\\s+fundos|nos\\s+fundos|e\\s+pelos\\s+fundos|pelos\\s+fundos|e\\s+fundos|\\bfundos\\b(?=\\s*(?::|com\\b|confronta|confina|divide|mede)))\\s*${prefixoOlhar}\\s*${prefixoMedida}\\s*${prefixoVerbo}\\s*([^;.]{2,160}?)(?=(?:;\\s*|\\.(?:\\s|$)|$))`,
+    'i',
   );
-  if (matchFundos) {
-    fundos = limparConfrontante(matchFundos[1] || matchFundos[0]);
+  const matchFundos = norm.match(regexFundos);
+  if (matchFundos && matchFundos[1]) {
+    fundos = limparConfrontante(matchFundos[1]);
+  }
+  if (!fundos) {
+    const invFundos = norm.match(/([^.;]{5,120}?)\s*\(\s*confrontante\s+(?:dos\s+fundos|de\s+fundos|fundos)\s*\)/i);
+    if (invFundos && invFundos[1]) fundos = limparConfrontante(invFundos[1]);
   }
 
   return { ladoDireito, ladoEsquerdo, fundos };
 }
 
-export function enrichPetitionData(data: Record<string, any>, relativePath?: string): Record<string, any> {
+async function lerTextoCacheOcrRecente(filePath: string, numeroProcesso?: string): Promise<string> {
+  const chunks: string[] = [];
+  try {
+    const tmpDir = os.tmpdir();
+    const entries = await fs.readdir(tmpDir);
+    const cacheFiles = entries.filter(n => /^fiorix_ocr_peticao_[0-9a-f]+\.json$/i.test(n));
+    const stats = await Promise.all(
+      cacheFiles.map(async name => {
+        try {
+          const full = path.join(tmpDir, name);
+          const st = await fs.stat(full);
+          return { full, mtimeMs: st.mtimeMs };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const valid = stats.filter((x): x is { full: string; mtimeMs: number } => Boolean(x));
+    valid.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const cnjDigits = (numeroProcesso || '').replace(/[^\d]/g, '');
+
+    for (const item of valid.slice(0, 6)) {
+      try {
+        const raw = await fs.readFile(item.full, 'utf8');
+        if (cnjDigits && cnjDigits.length >= 15 && !raw.replace(/[^\d]/g, '').includes(cnjDigits.slice(0, 13))) {
+          // Se não é o cache recém-gerado nos últimos 45s e não contém o CNJ do processo, ignora
+          if (Date.now() - item.mtimeMs > 45_000) continue;
+        }
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.paginas === 'object') {
+          const pageNums = Object.keys(parsed.paginas)
+            .map(k => parseInt(k, 10))
+            .filter(n => !isNaN(n))
+            .sort((a, b) => a - b);
+          for (const p of pageNums) {
+            chunks.push(`[Pág. ${p}] ${String(parsed.paginas[String(p)] || '')}`);
+          }
+          if (chunks.length > 0) break;
+        }
+      } catch {}
+    }
+  } catch {}
+
+  if (chunks.length === 0 && filePath.toLowerCase().endsWith('.pdf')) {
+    try {
+      const handle = await fs.open(filePath, 'r');
+      const buf = Buffer.alloc(Math.min(512 * 1024, (await handle.stat()).size));
+      const { bytesRead } = await handle.read(buf, 0, buf.length, 0);
+      await handle.close();
+      const rawLatin = buf.subarray(0, bytesRead).toString('latin1');
+      const streamRegex = /stream\r?\n([\s\S]*?)endstream/g;
+      let m: RegExpExecArray | null;
+      let count = 0;
+      while ((m = streamRegex.exec(rawLatin)) !== null && count < 25) {
+        count++;
+        try {
+          const decomp = zlib.inflateSync(Buffer.from(m[1], 'binary')).toString('latin1');
+          chunks.push(decomp);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  return chunks.join('\n');
+}
+
+export function enrichPetitionData(
+  data: Record<string, any>,
+  relativePath?: string,
+  extraFullText?: string,
+): Record<string, any> {
   const result = { ...data };
 
   // Limpa ruídos comuns capturados pelo OCR em ofícios de resposta do próprio 7º RI
@@ -1176,11 +1426,14 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
     if (cnjMatch) result.numero_processo = cnjMatch[1];
   }
 
+  const origensTxt = Array.isArray(result.origem_campos)
+    ? result.origem_campos.map((o: any) => o?.trecho || '').join(' ')
+    : '';
+
   if (!result.vara || !String(result.vara).trim()) {
-    const origensTxt = Array.isArray(result.origem_campos)
-      ? result.origem_campos.map((o: any) => o?.trecho || '').join(' ')
-      : '';
-    const varaMatch = origensTxt.match(/(\d{1,2}\s*[ªaº°]?\s*Vara(?:\s+(?:C[íi]vel|de\s+Registros\s+P[úu]blicos|da\s+Fazenda\s+P[úu]blica))?(?:\s+(?:da\s+Comarca\s+)?de\s+[A-ZÀ-Úa-zà-ú\s]{3,25})?)/i);
+    const varaMatch = (origensTxt + ' ' + (extraFullText || '')).match(
+      /(\d{1,2}\s*[ªaº°]?\s*Vara(?:\s+(?:C[íi]vel|de\s+Registros\s+P[úu]blicos|da\s+Fazenda\s+P[úu]blica))?(?:\s+(?:da\s+Comarca\s+)?de\s+[A-ZÀ-Úa-zà-ú\s]{3,25})?)/i,
+    );
     if (varaMatch) {
       result.vara = varaMatch[1].replace(/\s+/g, ' ').trim();
     }
@@ -1193,6 +1446,8 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
     result.matricula_transcricao,
     result.titular_origem,
     result.requerente,
+    origensTxt,
+    extraFullText,
     relativePath,
   ].filter(Boolean).join(' ');
 
@@ -1264,7 +1519,7 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
     result.escrevente_pasta = 'CFALANGA';
   }
 
-  // Confrontações do Imóvel (Lado direito, esquerdo e fundos)
+  // Confrontações do Imóvel (Petição Inicial e Matrícula/Certidão nos autos)
   const conf = extrairConfrontacoes(rawText);
   if (!result.confrontante_lado_direito || result.confrontante_lado_direito === 'conforme apuração nos autos') {
     result.confrontante_lado_direito = conf.ladoDireito || result.confrontante_lado_direito || '';
@@ -1274,6 +1529,42 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
   }
   if (!result.confrontante_fundos || result.confrontante_fundos === 'conforme apuração nos autos') {
     result.confrontante_fundos = conf.fundos || result.confrontante_fundos || '';
+  }
+
+  if (Array.isArray(result.origem_campos)) {
+    const pgPadrao = Number(result.pagina_inicial_detectada) || 1;
+    const adicionarOrigem = (campo: string, valor: string) => {
+      if (!valor || result.origem_campos.some((o: any) => o?.campo === campo)) return;
+      result.origem_campos.push({
+        campo,
+        pagina: pgPadrao,
+        trecho: `[Petição Inicial / Matrícula nos Autos] ${valor}`,
+        confianca: 'alta',
+      });
+    };
+    adicionarOrigem('confrontante_lado_direito', result.confrontante_lado_direito);
+    adicionarOrigem('confrontante_lado_esquerdo', result.confrontante_lado_esquerdo);
+    adicionarOrigem('confrontante_fundos', result.confrontante_fundos);
+  }
+
+  // Preenche o campo Conferência e Anotações com as confrontações apuradas caso esteja em branco
+  if (!result.anotacoes_ficha_oficial || !String(result.anotacoes_ficha_oficial).trim()) {
+    const linhasConfrontacao: string[] = [];
+    if (result.rua_olhar_confrontacao) {
+      linhasConfrontacao.push(`• Frente (Logradouro): ${result.rua_olhar_confrontacao}`);
+    }
+    if (result.confrontante_lado_direito) {
+      linhasConfrontacao.push(`• Lado Direito: ${result.confrontante_lado_direito}`);
+    }
+    if (result.confrontante_lado_esquerdo) {
+      linhasConfrontacao.push(`• Lado Esquerdo: ${result.confrontante_lado_esquerdo}`);
+    }
+    if (result.confrontante_fundos) {
+      linhasConfrontacao.push(`• Fundos: ${result.confrontante_fundos}`);
+    }
+    if (linhasConfrontacao.length > 0) {
+      result.anotacoes_ficha_oficial = `CONFRONTAÇÕES APURADAS (PETIÇÃO INICIAL / MATRÍCULA):\n${linhasConfrontacao.join('\n')}`;
+    }
   }
 
   return result;
@@ -1379,7 +1670,8 @@ export async function extractPdfPetitionResilient(
       pageEnd: options?.pageEnd,
       timeoutMs: 90000,
     })) as Record<string, any>;
-    return enrichPetitionData(cliResult, relativePath);
+    const textoCache = await lerTextoCacheOcrRecente(filePath, cliResult?.numero_processo);
+    return enrichPetitionData(cliResult, relativePath, textoCache);
   } catch (firstErr) {
     // Se o PDF for grande e não havia recorte de páginas explícito, tenta apenas as 18 páginas iniciais
     if (!options?.pageStart && !options?.pageEnd) {
@@ -1389,7 +1681,8 @@ export async function extractPdfPetitionResilient(
           pageEnd: 18,
           timeoutMs: 60000,
         })) as Record<string, any>;
-        return enrichPetitionData(retryResult, relativePath);
+        const textoCache = await lerTextoCacheOcrRecente(filePath, retryResult?.numero_processo);
+        return enrichPetitionData(retryResult, relativePath, textoCache);
       } catch {
         // segue para fallback em JS puro abaixo
       }
@@ -1399,6 +1692,7 @@ export async function extractPdfPetitionResilient(
     const cnjMatch = relativePath.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
     const numProcesso = cnjMatch ? cnjMatch[1] : '';
     const matDetectada = extrairNumeroMatricula(relativePath) || '';
+    const textoCache = await lerTextoCacheOcrRecente(filePath, numProcesso);
     const fallbackData: Record<string, any> = {
       id_ficha: `FICHA-${Date.now()}`,
       buscas_feitas_em: new Date().toLocaleDateString('pt-BR'),
@@ -1434,7 +1728,7 @@ export async function extractPdfPetitionResilient(
       extracao_parcial_aviso: String((firstErr as any)?.message || 'Extração parcial automática'),
     };
     cliMetrics.petitionsExtractedTotal++;
-    return enrichPetitionData(fallbackData, relativePath);
+    return enrichPetitionData(fallbackData, relativePath, textoCache);
   }
 }
 
