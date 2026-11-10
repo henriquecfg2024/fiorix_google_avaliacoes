@@ -39,6 +39,8 @@ export type ChaveVariavelRelatorio =
   | 'atendente'
   | 'canal_atendimento'
   | 'valor_deposito'
+  | 'cota'
+  | 'saldo'
   | 'forma_pagamento'
   | 'status'
   | 'data_pedido'
@@ -154,7 +156,25 @@ export const BIBLIOTECA_VARIAVEIS: DefinicaoVariavelRelatorio[] = [
     categoriaRotulo: 'FINANCEIRO',
     valorExemplo: 'R$ 76,54',
     statusMapeamentoWebri: 'DISPONIVEL',
-    origemWebriResumo: 'tblWRICertidao.VlrTotalDeposito / VlrTotTotal',
+    origemWebriResumo: 'tblWRICertidao.VlrTotalDeposito + VlrTotalCompDep',
+  },
+  {
+    id: 'cota',
+    rotulo: 'Cota',
+    categoriaId: 'financeiro',
+    categoriaRotulo: 'FINANCEIRO',
+    valorExemplo: 'R$ 76,54',
+    statusMapeamentoWebri: 'DISPONIVEL',
+    origemWebriResumo: 'tblWRICertidao.VlrTotalCota',
+  },
+  {
+    id: 'saldo',
+    rotulo: 'Saldo',
+    categoriaId: 'financeiro',
+    categoriaRotulo: 'FINANCEIRO',
+    valorExemplo: 'R$ 0,00',
+    statusMapeamentoWebri: 'DISPONIVEL',
+    origemWebriResumo: 'tblWRICertidao.VlrSaldo',
   },
   {
     id: 'forma_pagamento',
@@ -217,6 +237,8 @@ const COLUNAS_INICIAIS_PADRAO: ChaveVariavelRelatorio[] = [
   'atendente',
   'data_pedido',
   'valor_deposito',
+  'cota',
+  'saldo',
   'data_retirada',
 ];
 
@@ -227,6 +249,8 @@ const REGISTRO_EXEMPLO_VALIDACAO: RegistroRelatorioPersonalizadoDTO = {
   dataPedidoIso: '2026-11-09',
   origemRaw: 'ONR',
   depositoCentavos: 7654,
+  cotaCentavos: 7654,
+  saldoCentavos: 0,
   valores: {
     magnetico: 'S26110255021D',
     pedido: '1.332.477',
@@ -236,6 +260,8 @@ const REGISTRO_EXEMPLO_VALIDACAO: RegistroRelatorioPersonalizadoDTO = {
     atendente: 'Anne',
     canal_atendimento: 'ONR (Eletrônico)',
     valor_deposito: 'R$ 76,54',
+    cota: 'R$ 76,54',
+    saldo: 'R$ 0,00',
     forma_pagamento: '—',
     status: '—',
     data_pedido: '09/11/2026',
@@ -272,6 +298,10 @@ interface RelatorioGeradoSnapshot {
   totalRegistros: number;
   totalDepositosCentavos: number;
   totalDepositosFormatado: string;
+  totalCotasCentavos: number;
+  totalCotasFormatado: string;
+  totalSaldosCentavos: number;
+  totalSaldosFormatado: string;
   filtrosResumo: string;
 }
 
@@ -438,13 +468,33 @@ export function ConstrutorRelatorioPersonalizadoClient({
 
   const amostraPrevia = registrosAtivos;
 
-  // Soma exata em centavos dos registros filtrados/exibidos na tabela (ex.: 25 pedidos x R$ 76,54 = R$ 1.913,50)
+  // Soma exata em centavos dos registros filtrados/exibidos na tabela
   const totalDepositosCentavosAtivo = useMemo(() => {
     if (modoFonteDados === 'EXEMPLO') {
-      return 7654; // R$ 76,54 exatos conforme especificação
+      return 7654;
     }
     return registrosAtivos.reduce(
       (acc, item) => acc + (item.depositoCentavos ?? 0),
+      0
+    );
+  }, [modoFonteDados, registrosAtivos]);
+
+  const totalCotasCentavosAtivo = useMemo(() => {
+    if (modoFonteDados === 'EXEMPLO') {
+      return 7654;
+    }
+    return registrosAtivos.reduce(
+      (acc, item) => acc + (item.cotaCentavos ?? 0),
+      0
+    );
+  }, [modoFonteDados, registrosAtivos]);
+
+  const totalSaldosCentavosAtivo = useMemo(() => {
+    if (modoFonteDados === 'EXEMPLO') {
+      return 0;
+    }
+    return registrosAtivos.reduce(
+      (acc, item) => acc + (item.saldoCentavos ?? 0),
       0
     );
   }, [modoFonteDados, registrosAtivos]);
@@ -458,7 +508,29 @@ export function ConstrutorRelatorioPersonalizadoClient({
     });
   }, [totalDepositosCentavosAtivo]);
 
+  const totalCotasFormatado = useMemo(() => {
+    return (totalCotasCentavosAtivo / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [totalCotasCentavosAtivo]);
+
+  const totalSaldosFormatado = useMemo(() => {
+    return (totalSaldosCentavosAtivo / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [totalSaldosCentavosAtivo]);
+
   const colunaValorDepositoSelecionada = colunasSelecionadas.includes('valor_deposito');
+  const colunaCotaSelecionada = colunasSelecionadas.includes('cota');
+  const colunaSaldoSelecionada = colunasSelecionadas.includes('saldo');
+  const algumaColunaFinanceiraSelecionada =
+    colunaValorDepositoSelecionada || colunaCotaSelecionada || colunaSaldoSelecionada;
 
   const registroBaseFoco = registrosAtivos[0] || REGISTRO_EXEMPLO_VALIDACAO;
 
@@ -668,6 +740,10 @@ export function ConstrutorRelatorioPersonalizadoClient({
         totalRegistros: registrosAtivos.length,
         totalDepositosCentavos: totalDepositosCentavosAtivo,
         totalDepositosFormatado,
+        totalCotasCentavos: totalCotasCentavosAtivo,
+        totalCotasFormatado,
+        totalSaldosCentavos: totalSaldosCentavosAtivo,
+        totalSaldosFormatado,
         filtrosResumo: montarResumoFiltros(),
       };
       setRelatorioGeradoSnapshot(snapshot);
@@ -770,12 +846,22 @@ export function ConstrutorRelatorioPersonalizadoClient({
       const finalTabelaY = (doc as any).lastAutoTable?.finalY || 120;
       let cursorRodapeY = finalTabelaY + 20;
 
-      if (colunaValorDepositoSelecionada) {
+      if (algumaColunaFinanceiraSelecionada) {
+        const resumosPdf: string[] = [];
+        if (colunaValorDepositoSelecionada) {
+          resumosPdf.push(`Total Depósitos: ${totalDepositosFormatado}`);
+        }
+        if (colunaCotaSelecionada) {
+          resumosPdf.push(`Total Cota: ${totalCotasFormatado}`);
+        }
+        if (colunaSaldoSelecionada) {
+          resumosPdf.push(`Saldo Total: ${totalSaldosFormatado}`);
+        }
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
+        doc.setFontSize(10.5);
         doc.setTextColor(15, 118, 110);
         doc.text(
-          `Valor total dos depósitos (${registrosAtivos.length} pedido(s) único(s)): ${totalDepositosFormatado}`,
+          `Totais (${registrosAtivos.length} pedido(s) único(s)):   ${resumosPdf.join('   •   ')}`,
           40,
           cursorRodapeY
         );
@@ -849,17 +935,25 @@ export function ConstrutorRelatorioPersonalizadoClient({
           if (colId === 'valor_deposito') {
             return reg.depositoCentavos !== null ? reg.depositoCentavos / 100 : '—';
           }
+          if (colId === 'cota') {
+            return reg.cotaCentavos !== null ? reg.cotaCentavos / 100 : '—';
+          }
+          if (colId === 'saldo') {
+            return reg.saldoCentavos !== null ? reg.saldoCentavos / 100 : '—';
+          }
           // Mantém identificadores (Magnético, Pedido, CPF/CNPJ) estritamente como texto
           return String(reg.valores[colId] ?? '—');
         });
         aoa.push(linha);
       }
 
-      if (colunaValorDepositoSelecionada) {
+      if (algumaColunaFinanceiraSelecionada) {
         aoa.push([]);
         const linhaTotal = colunasSelecionadas.map((colId, idx) => {
-          if (idx === 0) return 'Valor total dos depósitos';
           if (colId === 'valor_deposito') return totalDepositosCentavosAtivo / 100;
+          if (colId === 'cota') return totalCotasCentavosAtivo / 100;
+          if (colId === 'saldo') return totalSaldosCentavosAtivo / 100;
+          if (idx === 0) return 'Totais consolidados do relatório';
           return '';
         });
         aoa.push(linhaTotal);
@@ -875,7 +969,10 @@ export function ConstrutorRelatorioPersonalizadoClient({
           const cell = ws[cellRef];
           if (!cell) continue;
           const colId = colunasSelecionadas[C];
-          if (colId === 'valor_deposito' && typeof cell.v === 'number') {
+          if (
+            (colId === 'valor_deposito' || colId === 'cota' || colId === 'saldo') &&
+            typeof cell.v === 'number'
+          ) {
             cell.t = 'n';
             cell.z = 'R$ #,##0.00';
           } else if (
@@ -968,6 +1065,28 @@ export function ConstrutorRelatorioPersonalizadoClient({
       maximumFractionDigits: 2,
     });
 
+    const somaCotaCentavosImpressao = regsParaImprimir.reduce(
+      (acc, item) => acc + (item.cotaCentavos ?? 0),
+      0
+    );
+    const somaCotaFormatadaImpressao = (somaCotaCentavosImpressao / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    const somaSaldoCentavosImpressao = regsParaImprimir.reduce(
+      (acc, item) => acc + (item.saldoCentavos ?? 0),
+      0
+    );
+    const somaSaldoFormatadaImpressao = (somaSaldoCentavosImpressao / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
     const escaparHtml = (texto: string) =>
       String(texto ?? '')
         .replace(/&/g, '&amp;')
@@ -989,9 +1108,21 @@ export function ConstrutorRelatorioPersonalizadoClient({
           .map((colId) => {
             const val = reg.valores[colId] ?? '—';
             const isDep = colId === 'valor_deposito' && val !== '—';
-            return `<td style="${
-              isDep ? 'font-weight:700;color:#047857;' : val === '—' ? 'color:#94a3b8;' : ''
-            }">${escaparHtml(val)}</td>`;
+            const isCota = colId === 'cota' && val !== '—';
+            const isSaldo = colId === 'saldo' && val !== '—';
+            const isNeg = isSaldo && (reg.saldoCentavos ?? 0) < 0;
+            const styleStr = isDep
+              ? 'font-weight:700;color:#047857;'
+              : isCota
+              ? 'font-weight:700;color:#6d28d9;'
+              : isNeg
+              ? 'font-weight:700;color:#dc2626;'
+              : isSaldo
+              ? 'font-weight:700;color:#0f172a;'
+              : val === '—'
+              ? 'color:#94a3b8;'
+              : '';
+            return `<td style="${styleStr}">${escaparHtml(val)}</td>`;
           })
           .join('');
         return `<tr><td style="text-align:center;color:#64748b;font-family:monospace;">${
@@ -1000,7 +1131,10 @@ export function ConstrutorRelatorioPersonalizadoClient({
       })
       .join('');
 
-    const mostrarRodapeDeposito = colsParaImprimir.includes('valor_deposito');
+    const mostrarRodapeFinanceiro =
+      colsParaImprimir.includes('valor_deposito') ||
+      colsParaImprimir.includes('cota') ||
+      colsParaImprimir.includes('saldo');
     const codigoRastreabilidade = `FRX-CV-${Date.now().toString(36).toUpperCase()}`;
 
     const htmlImpressao = `<!DOCTYPE html>
@@ -1196,13 +1330,35 @@ export function ConstrutorRelatorioPersonalizadoClient({
   </table>
 
   ${
-    mostrarRodapeDeposito
+    mostrarRodapeFinanceiro
       ? `<div class="footer-total">
           <div>
-            <div class="footer-title">Valor total dos depósitos do relatório</div>
-            <div class="footer-sub">Somatório consolidado de ${regsParaImprimir.length} pedido(s) único(s)</div>
+            <div class="footer-title">Resumo financeiro consolidado do relatório</div>
+            <div class="footer-sub">Somatório de ${regsParaImprimir.length} pedido(s) único(s)</div>
           </div>
-          <div class="footer-value">${escaparHtml(somaFormatadaImpressao)}</div>
+          <div style="display:flex;gap:18px;align-items:center;">
+            ${
+              colsParaImprimir.includes('valor_deposito')
+                ? `<div style="text-align:right;"><div style="font-size:9px;color:#475569;font-weight:700;">TOTAL DEPÓSITOS</div><div class="footer-value">${escaparHtml(
+                    somaFormatadaImpressao
+                  )}</div></div>`
+                : ''
+            }
+            ${
+              colsParaImprimir.includes('cota')
+                ? `<div style="text-align:right;"><div style="font-size:9px;color:#475569;font-weight:700;">TOTAL COTA</div><div class="footer-value" style="color:#6d28d9;">${escaparHtml(
+                    somaCotaFormatadaImpressao
+                  )}</div></div>`
+                : ''
+            }
+            ${
+              colsParaImprimir.includes('saldo')
+                ? `<div style="text-align:right;"><div style="font-size:9px;color:#475569;font-weight:700;">SALDO TOTAL</div><div class="footer-value" style="color:${
+                    somaSaldoCentavosImpressao < 0 ? '#dc2626' : '#0f172a'
+                  };">${escaparHtml(somaSaldoFormatadaImpressao)}</div></div>`
+                : ''
+            }
+          </div>
         </div>`
       : ''
   }
@@ -1804,12 +1960,21 @@ export function ConstrutorRelatorioPersonalizadoClient({
                           {colunasSelecionadas.map((colId) => {
                             const val = reg.valores[colId] ?? '—';
                             const ehDeposito = colId === 'valor_deposito' && val !== '—';
+                            const ehCota = colId === 'cota' && val !== '—';
+                            const ehSaldo = colId === 'saldo' && val !== '—';
+                            const saldoNegativo = ehSaldo && (reg.saldoCentavos ?? 0) < 0;
                             return (
                               <td
                                 key={colId}
                                 className={`px-4 py-3 whitespace-nowrap ${
                                   ehDeposito
                                     ? 'font-bold text-emerald-700'
+                                    : ehCota
+                                    ? 'font-bold text-violet-700'
+                                    : saldoNegativo
+                                    ? 'font-bold text-rose-600'
+                                    : ehSaldo
+                                    ? 'font-bold text-slate-800'
                                     : val === '—'
                                     ? 'text-slate-400'
                                     : 'font-medium text-slate-800'
@@ -1826,14 +1991,14 @@ export function ConstrutorRelatorioPersonalizadoClient({
                 </div>
               )}
 
-              {/* Rodapé claro da Prévia: Valor total dos depósitos (somente quando há registros carregados) */}
-              {colunaValorDepositoSelecionada &&
+              {/* Rodapé claro da Prévia: Totais financeiros (Depósito, Cota e Saldo) */}
+              {algumaColunaFinanceiraSelecionada &&
                 colunasSelecionadas.length > 0 &&
                 registrosAtivos.length > 0 && (
-                  <div className="border-t border-violet-200 bg-[#F4F0FF] px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="border-t border-violet-200 bg-[#F4F0FF] px-5 py-4 flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <div className="text-xs font-extrabold text-slate-900">
-                        Valor total dos depósitos
+                        Resumo financeiro do relatório
                       </div>
                       <div className="text-[11px] text-slate-600">
                         Somatório dos registros do relatório ({registrosAtivos.length}{' '}
@@ -1845,8 +2010,43 @@ export function ConstrutorRelatorioPersonalizadoClient({
                       </div>
                     </div>
 
-                    <div className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight">
-                      {totalDepositosFormatado}
+                    <div className="flex flex-wrap items-center gap-6">
+                      {colunaValorDepositoSelecionada && (
+                        <div className="text-right">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Total de Depósitos
+                          </span>
+                          <span className="text-lg sm:text-xl font-extrabold text-emerald-700 tracking-tight">
+                            {totalDepositosFormatado}
+                          </span>
+                        </div>
+                      )}
+
+                      {colunaCotaSelecionada && (
+                        <div className="text-right">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Total de Cota
+                          </span>
+                          <span className="text-lg sm:text-xl font-extrabold text-violet-700 tracking-tight">
+                            {totalCotasFormatado}
+                          </span>
+                        </div>
+                      )}
+
+                      {colunaSaldoSelecionada && (
+                        <div className="text-right">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Saldo Total
+                          </span>
+                          <span
+                            className={`text-lg sm:text-xl font-extrabold tracking-tight ${
+                              totalSaldosCentavosAtivo < 0 ? 'text-rose-600' : 'text-slate-900'
+                            }`}
+                          >
+                            {totalSaldosFormatado}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2196,12 +2396,21 @@ export function ConstrutorRelatorioPersonalizadoClient({
                         {relatorioGeradoSnapshot.colunas.map((colId) => {
                           const val = reg.valores[colId] ?? '—';
                           const ehDeposito = colId === 'valor_deposito' && val !== '—';
+                          const ehCota = colId === 'cota' && val !== '—';
+                          const ehSaldo = colId === 'saldo' && val !== '—';
+                          const saldoNegativo = ehSaldo && (reg.saldoCentavos ?? 0) < 0;
                           return (
                             <td
                               key={colId}
                               className={`px-4 py-2.5 whitespace-nowrap ${
                                 ehDeposito
                                   ? 'font-bold text-emerald-700'
+                                  : ehCota
+                                  ? 'font-bold text-violet-700'
+                                  : saldoNegativo
+                                  ? 'font-bold text-rose-600'
+                                  : ehSaldo
+                                  ? 'font-bold text-slate-800'
                                   : val === '—'
                                   ? 'text-slate-400'
                                   : 'font-medium text-slate-800'
@@ -2219,18 +2428,55 @@ export function ConstrutorRelatorioPersonalizadoClient({
             </div>
 
             {/* Rodapé do Relatório Gerado */}
-            {relatorioGeradoSnapshot.colunas.includes('valor_deposito') && (
-              <div className="border-t border-violet-200 bg-[#F4F0FF] px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            {(relatorioGeradoSnapshot.colunas.includes('valor_deposito') ||
+              relatorioGeradoSnapshot.colunas.includes('cota') ||
+              relatorioGeradoSnapshot.colunas.includes('saldo')) && (
+              <div className="border-t border-violet-200 bg-[#F4F0FF] px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="text-xs font-extrabold text-slate-900">
-                    Valor total dos depósitos do relatório
+                    Resumo financeiro consolidado do relatório
                   </div>
                   <div className="text-[11px] text-slate-600">
                     Somatório consolidado de {relatorioGeradoSnapshot.totalRegistros} pedido(s) único(s)
                   </div>
                 </div>
-                <div className="text-2xl font-extrabold text-emerald-700">
-                  {relatorioGeradoSnapshot.totalDepositosFormatado}
+                <div className="flex flex-wrap items-center gap-6">
+                  {relatorioGeradoSnapshot.colunas.includes('valor_deposito') && (
+                    <div className="text-right">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Total de Depósitos
+                      </span>
+                      <span className="text-xl font-extrabold text-emerald-700">
+                        {relatorioGeradoSnapshot.totalDepositosFormatado}
+                      </span>
+                    </div>
+                  )}
+                  {relatorioGeradoSnapshot.colunas.includes('cota') && (
+                    <div className="text-right">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Total de Cota
+                      </span>
+                      <span className="text-xl font-extrabold text-violet-700">
+                        {relatorioGeradoSnapshot.totalCotasFormatado}
+                      </span>
+                    </div>
+                  )}
+                  {relatorioGeradoSnapshot.colunas.includes('saldo') && (
+                    <div className="text-right">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Saldo Total
+                      </span>
+                      <span
+                        className={`text-xl font-extrabold ${
+                          relatorioGeradoSnapshot.totalSaldosCentavos < 0
+                            ? 'text-rose-600'
+                            : 'text-slate-900'
+                        }`}
+                      >
+                        {relatorioGeradoSnapshot.totalSaldosFormatado}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

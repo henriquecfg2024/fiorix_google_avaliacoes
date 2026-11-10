@@ -159,6 +159,9 @@ export interface ValoresFinanceirosPedido {
   valorServico: number;
   valorDespesa: number;
   totalDeposito: number;
+  totalCota?: number;
+  saldo?: number;
+  previaCustas?: number;
   moeda: "BRL";
 }
 

@@ -62,6 +62,8 @@ export interface RegistroRelatorioPersonalizadoDTO {
   dataPedidoIso: string;
   origemRaw: 'ONR' | 'BALCAO' | string;
   depositoCentavos: number | null;
+  cotaCentavos: number | null;
+  saldoCentavos: number | null;
   valores: {
     magnetico: string;
     pedido: string;
@@ -71,6 +73,8 @@ export interface RegistroRelatorioPersonalizadoDTO {
     atendente: string;
     canal_atendimento: string;
     valor_deposito: string;
+    cota: string;
+    saldo: string;
     forma_pagamento: string;
     status: string;
     data_pedido: string;
@@ -92,6 +96,10 @@ async function carregarRegistrosReaisWebri(params: {
   registros: RegistroRelatorioPersonalizadoDTO[];
   totalDepositosCentavos: number;
   totalDepositosFormatado: string;
+  totalCotasCentavos: number;
+  totalCotasFormatado: string;
+  totalSaldosCentavos: number;
+  totalSaldosFormatado: string;
   atendentesDisponiveis: string[];
 }> {
   const where: any = {
@@ -216,33 +224,34 @@ async function carregarRegistrosReaisWebri(params: {
       atendentesSet.add(atendenteRaw);
     }
 
-    // Cálculo fiel do depósito:
-    // Se for pedido ONR com VlrTotTotal = 0 e saldo negativo (ex.: Saída de Certidão com Saldo a Devolver), o depósito efetivo é 0.
+    // Regra oficial do Webri (dbo.tblWRICertidao):
+    // - Depósito (valor_deposito) = VlrTotalDeposito + VlrTotalCompDep (armazenado em totalDeposito)
+    // - Cota (cota)               = VlrTotalCota (armazenado em totalCota)
+    // - Saldo (saldo)             = VlrSaldo = Depósito - Cota (armazenado em saldo)
     const totalDepositoNum =
       valJson.totalDeposito !== undefined && valJson.totalDeposito !== null
         ? Number(valJson.totalDeposito)
-        : null;
-    const totalEmolumentosNum =
-      valJson.totalEmolumentos !== undefined && valJson.totalEmolumentos !== null
+        : 0;
+    const totalCotaNum =
+      valJson.totalCota !== undefined && valJson.totalCota !== null
+        ? Number(valJson.totalCota)
+        : valJson.totalEmolumentos !== undefined && valJson.totalEmolumentos !== null
         ? Number(valJson.totalEmolumentos)
-        : null;
+        : 0;
     const saldoNum =
-      valJson.saldo !== undefined && valJson.saldo !== null ? Number(valJson.saldo) : 0;
+      valJson.saldo !== undefined && valJson.saldo !== null
+        ? Number(valJson.saldo)
+        : totalDepositoNum - totalCotaNum;
 
-    let valorDepositoEfetivo = totalDepositoNum;
-    if (
-      p.origem === 'ONR' &&
-      totalEmolumentosNum !== null &&
-      totalEmolumentosNum === 0 &&
-      saldoNum < 0
-    ) {
-      valorDepositoEfetivo = 0;
-    }
-
-    const depositoCentavos =
-      valorDepositoEfetivo !== null && Number.isFinite(valorDepositoEfetivo)
-        ? Math.round(valorDepositoEfetivo * 100)
-        : null;
+    const depositoCentavos = Number.isFinite(totalDepositoNum)
+      ? Math.round(totalDepositoNum * 100)
+      : 0;
+    const cotaCentavos = Number.isFinite(totalCotaNum)
+      ? Math.round(totalCotaNum * 100)
+      : 0;
+    const saldoCentavos = Number.isFinite(saldoNum)
+      ? Math.round(saldoNum * 100)
+      : 0;
 
     const dataRetiradaRaw =
       webriMeta.dataRetiradaBr ||
@@ -272,6 +281,8 @@ async function carregarRegistrosReaisWebri(params: {
       dataPedidoIso,
       origemRaw: p.origem || '',
       depositoCentavos,
+      cotaCentavos,
+      saldoCentavos,
       valores: {
         magnetico: p.protocoloExterno?.trim() || '—',
         pedido: formatarNumeroPedido(chaveUnicaPedido),
@@ -284,6 +295,8 @@ async function carregarRegistrosReaisWebri(params: {
         atendente: atendenteRaw || '—',
         canal_atendimento: canalLegivel,
         valor_deposito: depositoCentavos !== null ? formatarMoedaBr(depositoCentavos) : '—',
+        cota: cotaCentavos !== null ? formatarMoedaBr(cotaCentavos) : '—',
+        saldo: saldoCentavos !== null ? formatarMoedaBr(saldoCentavos) : '—',
         forma_pagamento: '—',
         status: statusLegivel,
         data_pedido: formatarDataBr(p.dataPedido),
@@ -306,11 +319,23 @@ async function carregarRegistrosReaisWebri(params: {
     (acc, item) => acc + (item.depositoCentavos ?? 0),
     0
   );
+  const totalCotasCentavos = registrosFiltrados.reduce(
+    (acc, item) => acc + (item.cotaCentavos ?? 0),
+    0
+  );
+  const totalSaldosCentavos = registrosFiltrados.reduce(
+    (acc, item) => acc + (item.saldoCentavos ?? 0),
+    0
+  );
 
   return {
     registros: registrosFiltrados,
     totalDepositosCentavos,
     totalDepositosFormatado: formatarMoedaBr(totalDepositosCentavos),
+    totalCotasCentavos,
+    totalCotasFormatado: formatarMoedaBr(totalCotasCentavos),
+    totalSaldosCentavos,
+    totalSaldosFormatado: formatarMoedaBr(totalSaldosCentavos),
     atendentesDisponiveis: Array.from(atendentesSet).sort((a, b) =>
       a.localeCompare(b, 'pt-BR')
     ),
@@ -395,6 +420,10 @@ export async function GET(req: Request) {
       totalRegistros: dados.registros.length,
       totalDepositosCentavos: dados.totalDepositosCentavos,
       totalDepositosFormatado: dados.totalDepositosFormatado,
+      totalCotasCentavos: dados.totalCotasCentavos,
+      totalCotasFormatado: dados.totalCotasFormatado,
+      totalSaldosCentavos: dados.totalSaldosCentavos,
+      totalSaldosFormatado: dados.totalSaldosFormatado,
       atendentesDisponiveis: dados.atendentesDisponiveis,
       registros: dados.registros,
       modelosSalvos,

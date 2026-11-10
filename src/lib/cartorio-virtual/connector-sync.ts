@@ -489,7 +489,24 @@ export async function sincronizarPedidosOficiaisWebriBatch(
 
     const valorServico = Number(raw.valorServico ?? 0);
     const valorDespesa = Number(raw.valorDespesa ?? 0);
-    const totalDeposito = Number(raw.totalDeposito ?? valorServico + valorDespesa);
+    const totalDeposito =
+      raw.totalDeposito !== undefined && raw.totalDeposito !== null
+        ? Number(raw.totalDeposito)
+        : Number(raw.VlrTotalDeposito ?? 0) + Number(raw.VlrTotalCompDep ?? 0);
+    const totalCota =
+      raw.totalCota !== undefined && raw.totalCota !== null
+        ? Number(raw.totalCota)
+        : Number(raw.VlrTotalCota ?? 0);
+    const saldo =
+      raw.saldo !== undefined && raw.saldo !== null
+        ? Number(raw.saldo)
+        : raw.VlrSaldo !== undefined && raw.VlrSaldo !== null
+        ? Number(raw.VlrSaldo)
+        : Math.round((totalDeposito - totalCota) * 100) / 100;
+    const previaCustas =
+      raw.previaCustas !== undefined && raw.previaCustas !== null
+        ? Number(raw.previaCustas)
+        : Number(raw.VlrTotTotal ?? valorServico);
 
     const observacaoOriginalLimpa = raw.observacoesOrigem
       ? String(raw.observacoesOrigem).trim()
@@ -549,6 +566,9 @@ export async function sincronizarPedidosOficiaisWebriBatch(
       valorServico,
       valorDespesa,
       totalDeposito,
+      totalCota,
+      saldo,
+      previaCustas,
       moeda: "BRL",
       _webriMeta: webriMetaObj,
     };
