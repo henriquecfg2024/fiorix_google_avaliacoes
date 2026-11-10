@@ -76,12 +76,12 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = ${type} AND "rootId" = ${rootId} AND "relativePath" = ${relativePath} AND status = 'complete'
             AND (
-              ("pageStart" IS NOT DISTINCT FROM ${pageStart} AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd})
-              OR (${pageStart} IS NOT NULL AND ${pageEnd} IS NOT NULL AND "pageStart" IS NULL AND "pageEnd" IS NULL)
+              ("pageStart" IS NOT DISTINCT FROM ${pageStart}::int AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd}::int)
+              OR (${pageStart}::int IS NOT NULL AND ${pageEnd}::int IS NOT NULL AND "pageStart" IS NULL AND "pageEnd" IS NULL)
             )
             AND "expiresAt" > NOW()
           ORDER BY
-            CASE WHEN "pageStart" IS NOT DISTINCT FROM ${pageStart} AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd} THEN 0 ELSE 1 END ASC,
+            CASE WHEN "pageStart" IS NOT DISTINCT FROM ${pageStart}::int AND "pageEnd" IS NOT DISTINCT FROM ${pageEnd}::int THEN 0 ELSE 1 END ASC,
             "createdAt" DESC
           LIMIT 1
         `;
@@ -163,7 +163,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
     }
     const id = randomUUID();
     await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", "expiresAt")
-      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}, ${pageEnd}, NOW() + INTERVAL '3 minutes')`;
+      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}::int, ${pageEnd}::int, NOW() + INTERVAL '3 minutes')`;
     return { id, status: 'queued', cached: false };
   });
 }
@@ -203,7 +203,7 @@ export async function finishSearch(id: string, tenantId: string, connectorId: st
   const expiracaoCurta = failed || ehChunkEfemero;
   return prisma.$executeRaw`UPDATE "DocumentSearchRequest" SET status = ${failed ? 'failed' : 'complete'},
     result = ${result === null ? null : JSON.stringify(result)}::jsonb,
-    "expiresAt" = CASE WHEN ${expiracaoCurta} THEN NOW() + INTERVAL '2 minutes' ELSE NOW() + INTERVAL '24 hours' END
+    "expiresAt" = CASE WHEN ${expiracaoCurta}::boolean THEN NOW() + INTERVAL '2 minutes' ELSE NOW() + INTERVAL '24 hours' END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
       AND status = 'running' AND "expiresAt" > NOW()`;
 }
