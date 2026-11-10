@@ -812,7 +812,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
       doc.setFontSize(8.5);
       doc.setTextColor(109, 40, 217);
       doc.text(
-        '7º OFICIAL DE REGISTRO DE IMÓVEIS DE SÃO PAULO/SP  •  PLATAFORMA FIORIX / CARTÓRIO VIRTUAL',
+        '7º OFICIAL DE REGISTRO DE IMÓVEIS DE SÃO PAULO/SP  •  PLATAFORMA FIORIX',
         40,
         28
       );
@@ -1317,7 +1317,7 @@ export function ConstrutorRelatorioPersonalizadoClient({
 <body>
   <div class="institucional-topbar">
     <span>7º Oficial de Registro de Imóveis da Comarca da Capital — São Paulo/SP</span>
-    <span>Plataforma FIORIX · Governança Registral &amp; Cartório Virtual</span>
+    <span>Plataforma FIORIX</span>
   </div>
 
   ${
