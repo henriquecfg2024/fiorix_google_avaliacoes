@@ -37,7 +37,11 @@ async function autenticar(): Promise<AuthenticatedUser> {
  * Histórico (/gestao-documental/historico) ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
  */
 export async function requireDocumentAccess(
-  requiredRoute?: '/gestao-documental' | '/gestao-documental/visualizador' | '/gestao-documental/historico'
+  requiredRoute?:
+    | '/gestao-documental'
+    | '/gestao-documental/visualizador'
+    | '/gestao-documental/historico'
+    | '/gestao-documental/conferencia'
 ) {
   const user = await autenticar();
 
@@ -45,19 +49,25 @@ export async function requireDocumentAccess(
     const allowed =
       requiredRoute === '/gestao-documental'
         ? await isRouteAllowedForUser('/gestao-documental', user)
-        : requiredRoute === '/gestao-documental/historico'
-          ? await isRouteAllowedForUser('/gestao-documental/historico', user)
-          : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
-            (await isRouteAllowedForUser('/gestao-documental', user)) ||
-            (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
-            (await isRouteAllowedForUser('/cartorio-virtual', user));
+        : requiredRoute === '/gestao-documental/conferencia'
+          ? (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+            (await isRouteAllowedForUser('/gestao-documental', user))
+          : requiredRoute === '/gestao-documental/historico'
+            ? await isRouteAllowedForUser('/gestao-documental/historico', user)
+            : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+              (await isRouteAllowedForUser('/gestao-documental', user)) ||
+              (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+              (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
+              (await isRouteAllowedForUser('/cartorio-virtual', user));
 
     if (!allowed) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');
     }
   } else {
     const perfisPermitidos =
-      requiredRoute === '/gestao-documental' || requiredRoute === '/gestao-documental/historico'
+      requiredRoute === '/gestao-documental' ||
+      requiredRoute === '/gestao-documental/historico' ||
+      requiredRoute === '/gestao-documental/conferencia'
         ? PERFIS_GESTAO
         : [...PERFIS_GESTAO, 'COLABORADOR'];
     if (!perfisPermitidos.includes(String(user.role)) && !isSetorUsucapiao(user.departamento)) {

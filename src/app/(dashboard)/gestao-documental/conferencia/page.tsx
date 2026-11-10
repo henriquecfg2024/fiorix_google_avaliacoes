@@ -1,0 +1,51 @@
+import { DocumentSearch } from '@/components/documental/DocumentSearch';
+import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
+import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
+import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
+
+export const dynamic = 'force-dynamic';
+
+export default async function ConferenciaDocumentalPage() {
+  try {
+    await requireDocumentAccess('/gestao-documental/conferencia');
+  } catch (error) {
+    if (!(error instanceof DocumentAccessError)) throw error;
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-semibold">Em Conferência</h1>
+        <p className="mt-4 text-slate-300">{error.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-16 font-sans">
+      {/* Ambient Glow (Padrão FIORIX) */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500/8 via-indigo-500/8 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">GESTÃO DOCUMENTAL</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">EM CONFERÊNCIA</span>
+              <h1 className="sr-only">Formulários em Conferência com o Oficial</h1>
+            </div>
+
+            {/* Alternador de Submenus */}
+            <GestaoDocumentalAbas ativa="conferencia" />
+          </div>
+
+          <BotaoVoltarTelaAnterior />
+        </div>
+
+        <DocumentSearch modo="conferencia" />
+      </div>
+    </div>
+  );
+}

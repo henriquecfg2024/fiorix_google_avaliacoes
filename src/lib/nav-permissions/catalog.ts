@@ -59,6 +59,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupLabel: 'GESTÃO DOCUMENTAL',
         description: 'Histórico de manifestações finalizadas e arquivadas',
       },
+      {
+        id: 'conferencia_documental',
+        label: 'Em Conferência',
+        href: '/gestao-documental/conferencia',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Formulários físicos impressos em conferência com o Oficial',
+      },
     ],
   },
   {

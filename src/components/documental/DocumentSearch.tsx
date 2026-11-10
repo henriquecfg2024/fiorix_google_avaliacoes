@@ -29,6 +29,7 @@ import {
   Folder,
 } from 'lucide-react';
 import {
+  RAIZES_DOCUMENTAL,
   UNIDADES_PRINCIPAIS,
   arquivoPertenceAPasta,
   lerPastasFavoritas,
@@ -281,7 +282,11 @@ function fmtMB(bytes: number): string {
   return `${(bytes / 1048576).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`;
 }
 
-export function DocumentSearch() {
+export function DocumentSearch({
+  modo = 'manifestacoes',
+}: {
+  modo?: 'manifestacoes' | 'conferencia';
+} = {}) {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [connectorId, setConnectorId] = useState('');
   const [query, setQuery] = useState('');
@@ -1407,535 +1412,633 @@ export function DocumentSearch() {
       )}
 
       <div className={fichaAberta ? 'hidden' : 'space-y-4'}>
-      {/* Card Principal de Pesquisa (Padrão FIORIX) — barra compacta para dar destaque aos resultados */}
-      <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-3 text-white shadow-sm backdrop-blur-xl">
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            id="seletor-servidor-cartorio"
-            value={connectorId}
-            onChange={event => {
-              setConnectorId(event.target.value);
-              if (error.includes('sem sinal')) setError('');
-            }}
-            disabled={busy || !!processandoAcao}
-            title="Servidor do cartório"
-            aria-label="Servidor do cartório"
-            className="h-9 min-w-0 flex-1 sm:flex-none sm:max-w-[210px] rounded-lg border border-white/15 bg-[#080D1A] px-2.5 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-          >
-            {connectors.length === 0 ? (
-              <option value="" disabled className="bg-[#0B1020] text-slate-400">
-                Localizando servidores…
-              </option>
-            ) : (
-              connectors.map(connector => {
-                const online = isConnectorOnline(connector);
-                return (
-                  <option key={connector.id} value={connector.id} className="bg-[#0B1020] text-white">
-                    {online ? '🟢' : '🔴'} {connector.name} {online ? '' : '(Sem sinal)'}
-                  </option>
-                );
-              })
-            )}
-          </select>
-
-          {/* Formulário: Busca Simples (na mesma linha no desktop; linha inteira no mobile) */}
-          {searchMode === 'simples' ? (
-            <form onSubmit={handleSearchSimples} className="order-3 sm:order-none flex w-full sm:w-auto sm:min-w-[260px] sm:flex-1 items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
-                <input
-                  id="campo-pesquisa-simples"
-                  value={query}
-                  onChange={event => setQuery(event.target.value)}
-                  minLength={2}
-                  maxLength={120}
-                  placeholder="Processo, matrícula ou nome de arquivo..."
-                  aria-label="Pesquisar processo, matrícula ou nome de arquivo"
-                  required
-                  disabled={busy || !!processandoAcao}
-                  className="block h-10 sm:h-9 w-full rounded-lg border border-white/15 bg-[#080D1A] pl-9 pr-3 text-base sm:text-sm text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
-                />
-              </div>
-              {historicoBuscas.length > 0 && (
-                <button
-                  type="button"
-                  onClick={voltarTelaAnterior}
-                  title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
-                  aria-label="Voltar para tela anterior"
-                  className="inline-flex h-10 w-10 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
-                >
-                  <ArrowLeft className="h-4 w-4 text-slate-300" />
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex h-10 sm:h-9 shrink-0 items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-600 hover:bg-blue-500 px-3.5 sm:px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span className="font-mono">{formatTempoMMSS(tempoBuscaDecorrido)}</span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4 text-white" />
-                    <span>Pesquisar</span>
-                  </>
-                )}
-              </button>
-            </form>
-          ) : (
-            <p className="order-3 sm:order-none w-full sm:w-auto min-w-0 sm:flex-1 text-[11px] leading-snug sm:truncate text-white/45" title="Cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.">
-              <Layers className="mr-1 inline h-3 w-3 text-amber-300" />
-              Busca cruzada: cruza os termos em nomes de arquivo e diretórios.
-            </p>
-          )}
-
-          {/* Abas: Busca Simples vs Busca Cruzada (Segmented Control discreto com cores distintas) */}
-          <div className="inline-flex h-9 shrink-0 items-center rounded-lg border border-slate-700/70 bg-[#080D1A] p-0.5" role="tablist" aria-label="Tipo de busca">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={searchMode === 'simples'}
-              onClick={() => setSearchMode('simples')}
-              title="Busca simples"
-              className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-medium transition ${
-                searchMode === 'simples'
-                  ? 'bg-slate-800 text-slate-100 border border-slate-600/70 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Search className={`h-3.5 w-3.5 ${searchMode === 'simples' ? 'text-sky-400' : 'text-slate-400'}`} />
-              <span>Simples</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={searchMode === 'cruzada'}
-              onClick={() => setSearchMode('cruzada')}
-              title="Busca cruzada (multicritérios)"
-              className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-medium transition ${
-                searchMode === 'cruzada'
-                  ? 'bg-amber-950/70 text-amber-200 border border-amber-600/50 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className={`h-3.5 w-3.5 ${searchMode === 'cruzada' ? 'text-amber-400' : 'text-slate-400'}`} />
-              <span>Cruzada</span>
-            </button>
+      {modo === 'manifestacoes' && (
+      /* Card Principal de Pesquisa + Pastas do Servidor — Mesma formatação visual, tamanhos, cores e identificações do Visualizador */
+      <div className="rounded-2xl border border-white/10 bg-[#0B1020] text-white shadow-2xl overflow-hidden">
+        {/* Barra Superior de Identificação + Seletor do Servidor + Modo de Busca */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900/90 px-4 py-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold text-white leading-tight truncate">
+                Pesquisa de Processos e Manifestações
+              </h2>
+              <p className="text-[11px] text-slate-400 truncate">
+                Selecione uma pasta ou pesquise uma matrícula / processo
+              </p>
+            </div>
           </div>
 
-          {/* Aviso de privacidade (antes um banner) */}
-          <span
-            className="hidden sm:inline-flex h-9 w-6 shrink-0 items-center justify-center text-slate-500 hover:text-slate-400 transition"
-            title="Busca pontual e análise local via motor Rust/CLI e Mammoth integrado. Nenhum arquivo original deixa a rede interna do cartório."
-            aria-label="Processamento local: nenhum arquivo original deixa a rede interna do cartório"
-            role="img"
-          >
-            <HardDrive className="h-4 w-4" />
-          </span>
-        </div>
-
-        {/* Formulário: Busca Cruzada Multi-Critérios */}
-        {searchMode === 'cruzada' && (
-          <form onSubmit={handleSearchCruzada} className="mt-2 flex flex-wrap items-center gap-2 animate-in fade-in duration-200">
-            <input
-              value={cruzadaProcesso}
-              onChange={event => setCruzadaProcesso(event.target.value)}
-              placeholder="Processo / CNJ"
-              aria-label="Processo Judicial / CNJ"
-              title="Processo Judicial / CNJ (ex.: 1035968-12 ou 0000001)"
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              id="seletor-servidor-cartorio"
+              value={connectorId}
+              onChange={event => {
+                setConnectorId(event.target.value);
+                if (error.includes('sem sinal')) setError('');
+              }}
               disabled={busy || !!processandoAcao}
-              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
-            />
-            <input
-              value={cruzadaMatricula}
-              onChange={event => setCruzadaMatricula(event.target.value)}
-              placeholder="Matrícula / Transcrição"
-              aria-label="Matrícula ou Transcrição"
-              title="Matrícula ou Transcrição (ex.: 123.456 ou 45.890)"
-              disabled={busy || !!processandoAcao}
-              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
-            />
-            <input
-              value={cruzadaContribuinte}
-              onChange={event => setCruzadaContribuinte(event.target.value)}
-              placeholder="Contribuinte (SQL / IPTU)"
-              aria-label="Contribuinte (SQL / IPTU)"
-              title="Contribuinte (SQL / IPTU) (ex.: 012.345.6789-1)"
-              disabled={busy || !!processandoAcao}
-              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
-            />
-            <input
-              value={cruzadaRequerente}
-              onChange={event => setCruzadaRequerente(event.target.value)}
-              placeholder="Requerente / Parte"
-              aria-label="Requerente ou Parte"
-              title="Requerente ou Parte (ex.: Basilio, Ficticia)"
-              disabled={busy || !!processandoAcao}
-              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
-            />
-            <div className="flex w-full sm:w-auto shrink-0 items-center justify-end gap-2">
-              {historicoBuscas.length > 0 && (
-                <button
-                  type="button"
-                  onClick={voltarTelaAnterior}
-                  title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
-                  aria-label="Voltar para tela anterior"
-                  className="inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
-                >
-                  <ArrowLeft className="h-4 w-4 text-slate-300" />
-                </button>
+              title="Servidor do cartório"
+              aria-label="Servidor do cartório"
+              className="h-8 min-w-0 max-w-[210px] rounded-lg border border-white/15 bg-slate-950 px-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+            >
+              {connectors.length === 0 ? (
+                <option value="" disabled className="bg-slate-950 text-slate-400">
+                  Localizando servidores…
+                </option>
+              ) : (
+                connectors.map(connector => {
+                  const online = isConnectorOnline(connector);
+                  return (
+                    <option key={connector.id} value={connector.id} className="bg-slate-950 text-white">
+                      {online ? '🟢' : '🔴'} {connector.name} {online ? '' : '(Sem sinal)'}
+                    </option>
+                  );
+                })
               )}
+            </select>
+
+            {/* Abas: Busca Simples vs Busca Cruzada */}
+            <div className="inline-flex h-8 shrink-0 items-center rounded-lg border border-slate-700/70 bg-slate-950 p-0.5" role="tablist" aria-label="Tipo de busca">
               <button
-                type="submit"
-                disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex h-10 sm:h-9 flex-1 sm:flex-initial justify-center items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-700 hover:bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
+                type="button"
+                role="tab"
+                aria-selected={searchMode === 'simples'}
+                onClick={() => setSearchMode('simples')}
+                title="Busca simples"
+                className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-semibold transition ${
+                  searchMode === 'simples'
+                    ? 'bg-cyan-950/80 text-cyan-200 border border-cyan-500/50 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
               >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span>Pesquisando…</span>
-                  </>
-                ) : (
-                  <>
-                    <Layers className="h-4 w-4 text-emerald-200" />
-                    <span>Buscar</span>
-                  </>
-                )}
+                <Search className={`h-3.5 w-3.5 ${searchMode === 'simples' ? 'text-cyan-400' : 'text-slate-400'}`} />
+                <span>Simples</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={searchMode === 'cruzada'}
+                onClick={() => setSearchMode('cruzada')}
+                title="Busca cruzada (multicritérios)"
+                className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-semibold transition ${
+                  searchMode === 'cruzada'
+                    ? 'bg-amber-950/70 text-amber-200 border border-amber-600/50 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Layers className={`h-3.5 w-3.5 ${searchMode === 'cruzada' ? 'text-amber-400' : 'text-slate-400'}`} />
+                <span>Cruzada</span>
               </button>
             </div>
-          </form>
-        )}
 
-        {/* Seleção de Pasta da Pesquisa (VOL1, IMAGENS ou DEP) e Pastas Favoritas */}
-        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2.5 text-[11px]">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-semibold text-white/60 mr-0.5">Pasta da pesquisa:</span>
             <button
               type="button"
-              onClick={() => setPastaFiltro(null)}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 font-semibold transition ${
-                !pastaFiltro
-                  ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
-                  : 'border-white/10 bg-[#080D1A] text-slate-300 hover:border-slate-600 hover:text-white'
-              }`}
-              title="Pesquisar em todas as pastas (VOL1, IMAGENS e DEP)"
+              onClick={abrirNovoFormulario}
+              title="Abrir formulário de manifestação em branco"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/60 hover:bg-cyan-900/70 px-2.5 text-xs font-semibold text-cyan-300 transition cursor-pointer"
             >
-              <HardDrive className="h-3 w-3 text-cyan-400" />
-              <span>Todas</span>
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Novo Formulário</span>
             </button>
-            {UNIDADES_PRINCIPAIS.map(u => {
-              const ativo = pastaFiltro?.rootId === u.id && !pastaFiltro.relativePath;
-              const isFav = verificarPastaFavorita(pastasFavoritas, u.id, '');
-              return (
-                <div
-                  key={`ds-unit-${u.id}`}
-                  className={`inline-flex items-center rounded-lg border transition ${
-                    ativo
-                      ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
-                      : 'border-white/10 bg-[#080D1A] text-slate-300 hover:border-amber-500/40 hover:text-white'
-                  }`}
-                >
+          </div>
+        </div>
+
+        {/* Barra de Pesquisa em Alto Destaque + Seletor de Pasta (idêntico ao Visualizador) */}
+        <div className="border-b border-white/10 bg-[#0B1020] px-3 py-2.5 space-y-2">
+          {searchMode === 'simples' ? (
+            <form onSubmit={handleSearchSimples} className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                <div className="relative flex-1 flex items-center h-10 rounded-xl border-2 border-cyan-400/75 bg-[#060C1C] shadow-md shadow-cyan-950/50 focus-within:border-cyan-300 focus-within:ring-2 focus-within:ring-cyan-400/30 transition">
+                  <div className="flex items-center gap-1.5 pl-3 pr-2 text-cyan-300 select-none pointer-events-none border-r border-cyan-500/25">
+                    <Search className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <span className="hidden md:inline text-[10px] font-extrabold uppercase tracking-wider text-cyan-300">
+                      Pesquisar
+                    </span>
+                  </div>
+                  <input
+                    id="campo-pesquisa-simples"
+                    type="text"
+                    value={query}
+                    onChange={event => setQuery(event.target.value)}
+                    minLength={2}
+                    maxLength={120}
+                    placeholder={
+                      pastaFiltro
+                        ? `Digite matrícula, processo ou arquivo em ${pastaFiltro.rotulo}…`
+                        : 'Digite o nº da matrícula, processo ou nome do arquivo para pesquisar…'
+                    }
+                    aria-label="Pesquisar processo, matrícula ou nome de arquivo"
+                    required
+                    disabled={busy || !!processandoAcao}
+                    className="w-full h-full bg-transparent pl-2.5 pr-8 text-xs sm:text-sm font-medium text-white placeholder:text-slate-300/75 focus:outline-none"
+                  />
+                  {busy ? (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-400" />
+                  ) : query ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      aria-label="Limpar pesquisa"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+
+                {historicoBuscas.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setPastaFiltro(ativo ? null : { rootId: u.id, relativePath: '', rotulo: u.rotuloCurto })}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 font-bold"
-                    title={`Selecionar pasta ${u.rotulo} — ${u.descricao}`}
+                    onClick={voltarTelaAnterior}
+                    title={`Voltar para pesquisa anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
+                    aria-label="Voltar para pesquisa anterior"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/60 bg-amber-950/60 text-amber-300 hover:bg-amber-900/70 hover:text-white transition active:scale-95"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={busy || !connectorId || !!processandoAcao}
+                  className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-blue-400/50 bg-blue-600 hover:bg-blue-500 px-4 sm:px-5 text-xs sm:text-sm font-bold text-white shadow-md shadow-blue-950/60 transition disabled:opacity-50 cursor-pointer"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span className="font-mono">{formatTempoMMSS(tempoBuscaDecorrido)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 text-white" />
+                      <span>Pesquisar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSearchCruzada} className="flex flex-wrap items-center gap-2 animate-in fade-in duration-200">
+              <input
+                value={cruzadaProcesso}
+                onChange={event => setCruzadaProcesso(event.target.value)}
+                placeholder="Processo / CNJ"
+                aria-label="Processo Judicial / CNJ"
+                title="Processo Judicial / CNJ (ex.: 1035968-12 ou 0000001)"
+                disabled={busy || !!processandoAcao}
+                className="h-10 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
+              />
+              <input
+                value={cruzadaMatricula}
+                onChange={event => setCruzadaMatricula(event.target.value)}
+                placeholder="Matrícula / Transcrição"
+                aria-label="Matrícula ou Transcrição"
+                title="Matrícula ou Transcrição (ex.: 123.456 ou 45.890)"
+                disabled={busy || !!processandoAcao}
+                className="h-10 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
+              />
+              <input
+                value={cruzadaContribuinte}
+                onChange={event => setCruzadaContribuinte(event.target.value)}
+                placeholder="Contribuinte (SQL / IPTU)"
+                aria-label="Contribuinte (SQL / IPTU)"
+                title="Contribuinte (SQL / IPTU) (ex.: 012.345.6789-1)"
+                disabled={busy || !!processandoAcao}
+                className="h-10 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
+              />
+              <input
+                value={cruzadaRequerente}
+                onChange={event => setCruzadaRequerente(event.target.value)}
+                placeholder="Requerente / Parte"
+                aria-label="Requerente ou Parte"
+                title="Requerente ou Parte (ex.: Basilio, Ficticia)"
+                disabled={busy || !!processandoAcao}
+                className="h-10 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
+              />
+              <div className="flex w-full sm:w-auto shrink-0 items-center justify-end gap-2">
+                {historicoBuscas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={voltarTelaAnterior}
+                    title={`Voltar para pesquisa anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
+                    aria-label="Voltar para pesquisa anterior"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-400/60 bg-amber-950/60 text-amber-300 hover:bg-amber-900/70 hover:text-white transition active:scale-95"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={busy || !connectorId || !!processandoAcao}
+                  className="inline-flex h-10 flex-1 sm:flex-initial justify-center items-center gap-1.5 rounded-xl border border-blue-400/50 bg-blue-600 hover:bg-blue-500 px-5 text-xs sm:text-sm font-bold text-white shadow-md shadow-blue-950/60 disabled:opacity-50 transition cursor-pointer"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span>Pesquisando…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 text-white" />
+                      <span>Pesquisar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Linha 2: Seletor rápido da pasta a ser pesquisada (Todas, VOL1, IMAGENS, DEP) + Favoritos rápidos */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-400 mr-1">Pasta da pesquisa:</span>
+              <button
+                type="button"
+                onClick={() => setPastaFiltro(null)}
+                className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition ${
+                  !pastaFiltro
+                    ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
+                    : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-slate-600 hover:text-white'
+                }`}
+                title="Pesquisar em todas as pastas do acervo (VOL1, IMAGENS e DEP)"
+              >
+                <HardDrive className="h-3 w-3 text-cyan-400" />
+                <span>Todas</span>
+              </button>
+              {UNIDADES_PRINCIPAIS.map(u => {
+                const selecionada = pastaFiltro?.rootId === u.id && !pastaFiltro.relativePath;
+                return (
+                  <button
+                    key={`ds-unit-${u.id}`}
+                    type="button"
+                    onClick={() => setPastaFiltro(selecionada ? null : { rootId: u.id, relativePath: '', rotulo: u.rotuloCurto })}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold transition ${
+                      selecionada
+                        ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
+                        : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                    }`}
+                    title={`Selecionar e pesquisar na pasta ${u.rotulo} — ${u.descricao}`}
                   >
                     <Folder className="h-3 w-3 text-amber-400 fill-amber-400/20" />
                     <span>{u.sigla}</span>
-                    <span className="font-mono text-[10px] opacity-70">({u.caminho.replace('\\', '')})</span>
+                    <span className="font-mono text-[9px] opacity-75">({u.caminho.replace('\\', '')})</span>
                   </button>
+                );
+              })}
+            </div>
+
+            {pastasFavoritas.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300/90">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  Favoritos:
+                </span>
+                {pastasFavoritas.map(fav => {
+                  const ativo =
+                    pastaFiltro &&
+                    pastaFiltro.rootId === fav.rootId &&
+                    pastaFiltro.relativePath === fav.relativePath;
+                  return (
+                    <div
+                      key={`ds-fav-${fav.id}`}
+                      className={`inline-flex items-center rounded-lg border text-[11px] transition ${
+                        ativo
+                          ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
+                          : 'border-amber-500/25 bg-slate-900/90 text-slate-200 hover:border-amber-500/50'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPastaFiltro(
+                            ativo
+                              ? null
+                              : { rootId: fav.rootId, relativePath: fav.relativePath, rotulo: fav.rotulo },
+                          )
+                        }
+                        title={`Filtrar pesquisa pela pasta favorita ${fav.caminhoExibicao}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
+                      >
+                        <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
+                          {fav.unidade}
+                        </span>
+                        <span className="max-w-[150px] truncate">{fav.rotulo}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => toggleFavoritoBusca(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                        title={`Retirar "${fav.rotulo}" dos favoritos`}
+                        className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
+                      >
+                        <Star className="h-3 w-3 fill-amber-400" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Linha 3: Cards Compactos das 6 Pastas do Servidor (Mesmo tamanho, cores e identificações da tela Visualizador) */}
+        <div className="bg-slate-950/90 px-3 py-2.5 space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-xs font-bold text-slate-200">
+              Pastas do Servidor (VOL1, IMAGENS ou DEP)
+            </h3>
+            <span className="text-[10px] text-slate-500">
+              Clique em uma pasta para filtrar ou pesquise diretamente no campo acima
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+            {RAIZES_DOCUMENTAL.map(r => {
+              const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
+              const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
+              return (
+                <div
+                  key={`m-${r.id}`}
+                  onClick={() => {
+                    setPastaFiltro(
+                      selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
+                    );
+                    document.getElementById('campo-pesquisa-simples')?.focus();
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      setPastaFiltro(
+                        selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
+                      );
+                    }
+                  }}
+                  title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
+                  className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
+                    selecionada
+                      ? 'border-cyan-400 bg-cyan-950/50 ring-1 ring-cyan-400/50 shadow-md shadow-cyan-950/50'
+                      : r.principal
+                      ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
+                      : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
+                  }`}
+                >
+                  <div
+                    className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
+                      r.principal
+                        ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}
+                  >
+                    <HardDrive className="h-3.5 w-3.5" />
+                    <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
+                    <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
+                  </div>
                   <button
                     type="button"
-                    onClick={e => toggleFavoritoBusca(u.id, '', u.rotuloCurto, e)}
-                    title={isFav ? `Retirar ${u.sigla} dos favoritos` : `Colocar ${u.sigla} nos favoritos`}
-                    className="px-1.5 py-1 border-l border-white/10 text-slate-400 hover:text-amber-300 transition"
+                    onClick={e => toggleFavoritoBusca(r.id, '', r.rotuloCurto, e)}
+                    title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
+                    aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
+                    className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
+                      isFav
+                        ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
+                        : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
+                    }`}
                   >
-                    <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
                   </button>
                 </div>
               );
             })}
           </div>
 
-          {pastasFavoritas.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 font-semibold text-amber-300/90">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                Favoritos:
+          {/* Filtros e tempos de pesquisa */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-white/10 pt-2 text-[11px]">
+            <button
+              type="button"
+              id="toggle-filtros-pesquisa"
+              onClick={() => setMostrarOpcoesOcr(!mostrarOpcoesOcr)}
+              aria-expanded={mostrarOpcoesOcr}
+              className="inline-flex items-center gap-1 font-semibold text-white/65 hover:text-cyan-300 transition"
+            >
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarOpcoesOcr ? '' : '-rotate-90'}`} />
+              <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Filtros</span>
+              <span className="font-normal text-white/40">
+                · OCR {ocrModoPagina === 'padrao' ? 'automático' : ocrModoPagina === 'personalizado' ? `págs ${ocrPaginaInicio} a ${ocrPaginaFim}` : 'ampliado (1 a 40)'}
               </span>
-              {pastasFavoritas.map(fav => {
-                const ativo =
-                  pastaFiltro &&
-                  pastaFiltro.rootId === fav.rootId &&
-                  pastaFiltro.relativePath === fav.relativePath;
-                return (
-                  <div
-                    key={`ds-fav-${fav.id}`}
-                    className={`inline-flex items-center rounded-lg border transition ${
-                      ativo
-                        ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
-                        : 'border-amber-500/25 bg-[#080D1A] text-slate-200 hover:border-amber-500/50'
-                    }`}
+            </button>
+
+            {busy ? (
+              <span className="inline-flex items-center gap-1 text-white/55">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                Pesquisando… <strong className="font-mono text-cyan-300">{formatTempoMMSS(tempoBuscaDecorrido)}</strong>
+              </span>
+            ) : temposBusca.length > 0 ? (
+              <button
+                type="button"
+                id="toggle-tempos-pesquisa"
+                onClick={() => setMostrarTemposBusca(v => !v)}
+                aria-expanded={mostrarTemposBusca}
+                className="inline-flex items-center gap-1 font-semibold text-white/65 hover:text-cyan-300 transition"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarTemposBusca ? '' : '-rotate-90'}`} />
+                <History className="h-3.5 w-3.5 text-cyan-400" />
+                <span>
+                  Última pesquisa: <strong className="text-white/85">{fmtDuracaoBusca(temposBusca[0].ms)}</strong> · {temposBusca[0].resultados} resultado(s)
+                  {temposBusca[0].cache && <span className="font-normal text-cyan-400/70"> · cache</span>}
+                </span>
+              </button>
+            ) : null}
+          </div>
+
+          {mostrarTemposBusca && !busy && temposBusca.length > 0 && (
+            <ul id="historico-tempos-busca" className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 animate-in slide-in-from-top-1 duration-200">
+              {temposBusca.map((t, i) => (
+                <li key={`${t.quando}-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => { setSearchMode('simples'); setQuery(t.termo); executeSearch(t.termo); }}
+                    title={`Repetir pesquisa "${t.termo}"`}
+                    className="w-full rounded-lg border border-white/10 bg-[#080D1A] px-2.5 py-1.5 text-left text-[11px] transition hover:border-cyan-500/40"
                   >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPastaFiltro(
-                          ativo
-                            ? null
-                            : { rootId: fav.rootId, relativePath: fav.relativePath, rotulo: fav.rotulo },
-                        )
-                      }
-                      title={`Filtrar pesquisa pela pasta favorita ${fav.caminhoExibicao}`}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
-                    >
-                      <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
-                        {fav.unidade}
-                      </span>
-                      <span className="max-w-[150px] truncate">{fav.rotulo}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={e => toggleFavoritoBusca(fav.rootId, fav.relativePath, fav.rotulo, e)}
-                      title={`Retirar "${fav.rotulo}" dos favoritos`}
-                      className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
-                    >
-                      <Star className="h-3 w-3 fill-amber-400" />
-                    </button>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-semibold text-white/85">{t.termo || '(sem termo)'}</span>
+                      <span className="shrink-0 font-mono font-bold text-cyan-300">{fmtDuracaoBusca(t.ms)}</span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-white/40">
+                      <span>{fmtQuandoBusca(t.quando)}</span>
+                      <span>{t.resultados} resultado(s)</span>
+                      {t.cache && <span className="text-cyan-400/70">cache</span>}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {mostrarOpcoesOcr && (
+            <div className="space-y-2 rounded-lg border border-white/10 bg-[#080D1A] px-3 py-2.5 animate-in slide-in-from-top-1 duration-200">
+              <p className="text-[11px] leading-relaxed text-white/50">
+                Busca recursiva em <strong className="text-white/75">W:\USUCAPIAO</strong> (minutas dos escreventes),{' '}
+                <strong className="text-white/75">H:\PROCESSOS - ENVIADOS POR E-MAIL</strong> e{' '}
+                <strong className="text-white/75">K:\IMAGENS\LV2</strong>. Processamento local: nenhum arquivo original deixa a rede do cartório.
+              </p>
+              <div className="flex flex-wrap items-center gap-4 text-xs">
+                <span className="font-semibold text-white/70">OCR dos PDFs:</span>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="padrao"
+                    checked={ocrModoPagina === 'padrao'}
+                    onChange={() => setOcrModoPagina('padrao')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Automático — Petição Inicial (Rápido)</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="personalizado"
+                    checked={ocrModoPagina === 'personalizado'}
+                    onChange={() => setOcrModoPagina('personalizado')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Intervalo personalizado</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="todas"
+                    checked={ocrModoPagina === 'todas'}
+                    onChange={() => setOcrModoPagina('todas')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Arquivo completo</span>
+                </label>
+
+                {ocrModoPagina === 'personalizado' && (
+                  <div className="inline-flex items-center gap-2 pl-3 border-l border-white/15">
+                    <span className="text-white/50">De pág:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={ocrPaginaInicio}
+                      onChange={e => setOcrPaginaInicio(parseInt(e.target.value) || 1)}
+                      className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
+                    />
+                    <span className="text-white/50">até:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={ocrPaginaFim}
+                      onChange={e => setOcrPaginaFim(parseInt(e.target.value) || 1)}
+                      className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
+                    />
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
           )}
         </div>
+      </div>
+      )}
 
-        {/* Filtros e tempos de pesquisa (como no app original) */}
-        <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-white/5 pt-2 text-[11px]">
-          <button
-            type="button"
-            id="toggle-filtros-pesquisa"
-            onClick={() => setMostrarOpcoesOcr(!mostrarOpcoesOcr)}
-            aria-expanded={mostrarOpcoesOcr}
-            className="inline-flex items-center gap-1 font-semibold text-white/65 hover:text-cyan-300 transition"
-          >
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarOpcoesOcr ? '' : '-rotate-90'}`} />
-            <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Filtros</span>
-            <span className="font-normal text-white/40">
-              · OCR {ocrModoPagina === 'padrao' ? 'automático' : ocrModoPagina === 'personalizado' ? `págs ${ocrPaginaInicio} a ${ocrPaginaFim}` : 'ampliado (1 a 40)'}
+      {/* ABA DEDICADA: FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL */}
+      {modo === 'conferencia' && (
+      <div id="fila-fichas-oficial" className="rounded-2xl border border-[#E2E8F0] bg-[#F5F2ED] text-[#1E293B] shadow-md p-5 transition-all">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-300/80">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+            <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
+              ⏳ FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL ({fichasPendentes.length})
+            </h2>
+            <span className="text-xs text-slate-600">
+              (Formulários físicos impressos aguardando retorno de Dr. Ademar Fioranelli — fila compartilhada entre as máquinas do setor)
             </span>
-          </button>
-
-          {busy ? (
-            <span className="inline-flex items-center gap-1 text-white/55">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-              Pesquisando… <strong className="font-mono text-cyan-300">{formatTempoMMSS(tempoBuscaDecorrido)}</strong>
-            </span>
-          ) : temposBusca.length > 0 ? (
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              id="toggle-tempos-pesquisa"
-              onClick={() => setMostrarTemposBusca(v => !v)}
-              aria-expanded={mostrarTemposBusca}
-              className="inline-flex items-center gap-1 font-semibold text-white/65 hover:text-cyan-300 transition"
+              onClick={abrirNovoFormulario}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600/30 bg-cyan-700 hover:bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
+              title="Criar novo formulário de manifestação em branco"
             >
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarTemposBusca ? '' : '-rotate-90'}`} />
-              <History className="h-3.5 w-3.5 text-cyan-400" />
-              <span>
-                Última pesquisa: <strong className="text-white/85">{fmtDuracaoBusca(temposBusca[0].ms)}</strong> · {temposBusca[0].resultados} resultado(s)
-                {temposBusca[0].cache && <span className="font-normal text-cyan-400/70"> · cache</span>}
-              </span>
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Novo Formulário</span>
             </button>
-          ) : null}
-        </div>
-
-        {mostrarTemposBusca && !busy && temposBusca.length > 0 && (
-          <ul id="historico-tempos-busca" className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 animate-in slide-in-from-top-1 duration-200">
-            {temposBusca.map((t, i) => (
-              <li key={`${t.quando}-${i}`}>
-                <button
-                  type="button"
-                  onClick={() => { setSearchMode('simples'); setQuery(t.termo); executeSearch(t.termo); }}
-                  title={`Repetir pesquisa "${t.termo}"`}
-                  className="w-full rounded-lg border border-white/10 bg-[#080D1A] px-2.5 py-1.5 text-left text-[11px] transition hover:border-cyan-500/40"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-semibold text-white/85">{t.termo || '(sem termo)'}</span>
-                    <span className="shrink-0 font-mono font-bold text-cyan-300">{fmtDuracaoBusca(t.ms)}</span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-white/40">
-                    <span>{fmtQuandoBusca(t.quando)}</span>
-                    <span>{t.resultados} resultado(s)</span>
-                    {t.cache && <span className="text-cyan-400/70">cache</span>}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {mostrarOpcoesOcr && (
-          <div className="mt-2 space-y-2 rounded-lg border border-white/10 bg-[#080D1A] px-3 py-2.5 animate-in slide-in-from-top-1 duration-200">
-            <p className="text-[11px] leading-relaxed text-white/50">
-              Busca recursiva em <strong className="text-white/75">W:\USUCAPIAO</strong> (minutas dos escreventes),{' '}
-              <strong className="text-white/75">H:\PROCESSOS - ENVIADOS POR E-MAIL</strong> e{' '}
-              <strong className="text-white/75">K:\IMAGENS\LV2</strong>. Processamento local: nenhum arquivo original deixa a rede do cartório.
-            </p>
-            <div className="flex flex-wrap items-center gap-4 text-xs">
-              <span className="font-semibold text-white/70">OCR dos PDFs:</span>
-              <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <input
-                  type="radio"
-                  name="ocrModo"
-                  value="padrao"
-                  checked={ocrModoPagina === 'padrao'}
-                  onChange={() => setOcrModoPagina('padrao')}
-                  className="text-cyan-500 focus:ring-0"
-                />
-                <span>Automático — Petição Inicial (Rápido)</span>
-              </label>
-
-              <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <input
-                  type="radio"
-                  name="ocrModo"
-                  value="personalizado"
-                  checked={ocrModoPagina === 'personalizado'}
-                  onChange={() => setOcrModoPagina('personalizado')}
-                  className="text-cyan-500 focus:ring-0"
-                />
-                <span>Intervalo personalizado</span>
-              </label>
-
-              <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <input
-                  type="radio"
-                  name="ocrModo"
-                  value="todas"
-                  checked={ocrModoPagina === 'todas'}
-                  onChange={() => setOcrModoPagina('todas')}
-                  className="text-cyan-500 focus:ring-0"
-                />
-                <span>Arquivo completo</span>
-              </label>
-
-              {ocrModoPagina === 'personalizado' && (
-                <div className="inline-flex items-center gap-2 pl-3 border-l border-white/15">
-                  <span className="text-white/50">De pág:</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={9999}
-                    value={ocrPaginaInicio}
-                    onChange={e => setOcrPaginaInicio(parseInt(e.target.value) || 1)}
-                    className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
-                  />
-                  <span className="text-white/50">até:</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={9999}
-                    value={ocrPaginaFim}
-                    onChange={e => setOcrPaginaFim(parseInt(e.target.value) || 1)}
-                    className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* FILA DE FICHAS EM CONFERÊNCIA COM O OFICIAL */}
-      <div id="fila-fichas-oficial" className={`rounded-2xl border border-[#E2E8F0] bg-[#F5F2ED] text-[#1E293B] shadow-sm transition-all ${filaVisivel ? 'p-4' : 'px-4 py-2'}`}>
-        <div className={`flex flex-wrap items-center justify-between gap-2 ${filaVisivel ? 'mb-2.5' : ''}`}>
-          <button
-            type="button"
-            id="toggle-fila-fichas-oficial"
-            onClick={alternarFilaVisivel}
-            aria-expanded={filaVisivel}
-            aria-controls="fila-fichas-oficial-conteudo"
-            title={filaVisivel ? 'Ocultar formulários em conferência' : 'Mostrar formulários em conferência'}
-            className="group flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
-          >
-            <ChevronDown className={`h-4 w-4 shrink-0 text-[#64748B] transition-transform ${filaVisivel ? '' : '-rotate-90'}`} />
-            <h3 className="text-xs font-bold uppercase tracking-wider">
-              ⏳ FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL ({fichasPendentes.length})
-            </h3>
-            {filaVisivel ? (
-              <span className="text-[10px] text-gray-500">(Formulários físicos impressos aguardando retorno de Dr. Ademar Fioranelli — fila compartilhada entre as máquinas do setor)</span>
-            ) : (
-              <span className="text-[10px] font-semibold text-[#64748B] group-hover:text-[#1E293B]">Mostrar</span>
-            )}
-          </button>
-          {filaVisivel && (
             <button
               type="button"
               onClick={() => { setFilaCarregando(true); void recarregarFila(); }}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-[#475569] hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-[#475569] shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
               title="Atualizar a fila (inclui formulários salvos em outras máquinas)"
             >
-              <RotateCw className={`h-3 w-3 ${filaCarregando ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <RotateCw className={`h-3.5 w-3.5 ${filaCarregando ? 'animate-spin' : ''}`} aria-hidden="true" />
               Atualizar
             </button>
+          </div>
+        </div>
+        <div id="fila-fichas-oficial-conteudo">
+          {filaErro && (
+            <p role="alert" className="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{filaErro}</p>
+          )}
+          {filaCarregando && fichasPendentes.length === 0 ? (
+            <p className="py-6 text-center text-xs italic text-gray-500">Carregando a fila de conferência…</p>
+          ) : fichasPendentes.length === 0 ? (
+            <p className="py-6 text-center text-xs italic text-gray-500">Nenhum formulário aguardando conferência do Oficial no momento.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {fichasPendentes.map(ficha => (
+                <div
+                  key={ficha.registroId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => reabrirFichaDaFila(ficha)}
+                  onKeyDown={e => { if (e.key === 'Enter') reabrirFichaDaFila(ficha); }}
+                  title="Reabrir formulário para revisão e geração da manifestação oficial"
+                  className="group flex cursor-pointer items-start justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-[#94A3B8] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded border border-[#CBD5E1] bg-[#F8F7F4] px-1.5 py-0.5 font-mono text-xs font-bold">{ficha.numero_processo}</span>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">{ficha.subdistrito}</span>
+                    </div>
+                    <div className="mt-1 truncate text-xs font-semibold text-gray-800" title={ficha.requerente}>{ficha.requerente}</div>
+                    <div className="mt-0.5 truncate text-[10px] text-gray-500" title={ficha.imovel}>
+                      Tr/Mat: {ficha.matricula_transcricao} • {ficha.data_criacao}
+                    </div>
+                    {(ficha.atualizadoPorNome || ficha.criadoPorNome) && (
+                      <div className="mt-0.5 truncate text-[10px] font-semibold text-gray-600">
+                        Salvo por {ficha.atualizadoPorNome || ficha.criadoPorNome}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); void removerFichaDaFila(ficha); }}
+                    className="shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-[#F8F4F0] hover:text-[#44403C]"
+                    title="Remover formulário da fila de pendentes"
+                    aria-label="Remover formulário da fila"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-        {filaVisivel && (
-        <div id="fila-fichas-oficial-conteudo">
-        {filaErro && (
-          <p role="alert" className="mb-2 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-800">{filaErro}</p>
-        )}
-        {filaCarregando && fichasPendentes.length === 0 ? (
-          <p className="py-1 text-xs italic text-gray-500">Carregando a fila de conferência…</p>
-        ) : fichasPendentes.length === 0 ? (
-          <p className="py-1 text-xs italic text-gray-500">Nenhum formulário aguardando conferência do Oficial no momento.</p>
-        ) : (
-          <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-            {fichasPendentes.map(ficha => (
-              <div
-                key={ficha.registroId}
-                role="button"
-                tabIndex={0}
-                onClick={() => reabrirFichaDaFila(ficha)}
-                onKeyDown={e => { if (e.key === 'Enter') reabrirFichaDaFila(ficha); }}
-                title="Reabrir formulário para revisão e geração da manifestação oficial"
-                className="group flex cursor-pointer items-start justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3 transition hover:border-[#94A3B8] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded border border-[#CBD5E1] bg-[#F8F7F4] px-1.5 py-0.5 font-mono text-xs font-bold">{ficha.numero_processo}</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">{ficha.subdistrito}</span>
-                  </div>
-                  <div className="mt-1 truncate text-xs font-semibold text-gray-800" title={ficha.requerente}>{ficha.requerente}</div>
-                  <div className="mt-0.5 truncate text-[10px] text-gray-500" title={ficha.imovel}>
-                    Tr/Mat: {ficha.matricula_transcricao} • {ficha.data_criacao}
-                  </div>
-                  {(ficha.atualizadoPorNome || ficha.criadoPorNome) && (
-                    <div className="mt-0.5 truncate text-[10px] font-semibold text-gray-600">
-                      Salvo por {ficha.atualizadoPorNome || ficha.criadoPorNome}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); void removerFichaDaFila(ficha); }}
-                  className="shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-[#F8F4F0] hover:text-[#44403C]"
-                  title="Remover formulário da fila de pendentes"
-                  aria-label="Remover formulário da fila"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        </div>
-        )}
       </div>
+      )}
 
       {error && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-[#0B1020]/95 p-4 text-xs text-rose-200 shadow-sm backdrop-blur-xl">

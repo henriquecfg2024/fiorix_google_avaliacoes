@@ -11,7 +11,7 @@ interface BotaoVoltarTelaAnteriorProps {
 
 export function BotaoVoltarTelaAnterior({
   fallbackHref = '/cartorio-virtual',
-  className = 'inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95 cursor-pointer',
+  className = 'group inline-flex items-center gap-2.5 rounded-xl border-2 border-amber-400/85 bg-gradient-to-r from-amber-500/25 via-amber-500/20 to-amber-600/25 hover:from-amber-500/40 hover:to-amber-500/30 px-4 py-2 text-xs sm:text-sm font-extrabold uppercase tracking-wide text-amber-100 hover:text-white transition-all shadow-lg shadow-amber-950/50 ring-2 ring-amber-400/20 hover:ring-amber-300/40 active:scale-95 cursor-pointer',
   label = 'Voltar à Tela Anterior',
 }: BotaoVoltarTelaAnteriorProps) {
   const router = useRouter();
@@ -53,10 +53,12 @@ export function BotaoVoltarTelaAnterior({
     <button
       type="button"
       onClick={handleVoltar}
-      title="Voltar à tela anterior"
+      title="Clique para voltar à tela anterior"
       className={className}
     >
-      <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" />
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 shadow-sm group-hover:-translate-x-0.5 transition-transform">
+        <ArrowLeft className="h-4 w-4 stroke-[2.75]" />
+      </span>
       <span>{label}</span>
     </button>
   );

@@ -1,33 +1,37 @@
 import Link from 'next/link';
-import { FileText, Eye, Archive } from 'lucide-react';
+import { FileText, Eye, Archive, Clock } from 'lucide-react';
 import { requireAuth } from '@/lib/auth-helpers';
 import { isNavPermissionsFeatureEnabled, isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
-type Aba = 'manifestacoes' | 'visualizador' | 'historico';
+type Aba = 'manifestacoes' | 'visualizador' | 'historico' | 'conferencia';
 
 const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] = [
   { id: 'manifestacoes', href: '/gestao-documental', rotulo: 'Manifestações', Icone: FileText },
   { id: 'visualizador', href: '/gestao-documental/visualizador', rotulo: 'Visualizador', Icone: Eye },
   { id: 'historico', href: '/gestao-documental/historico', rotulo: 'Histórico', Icone: Archive },
+  { id: 'conferencia', href: '/gestao-documental/conferencia', rotulo: 'Em Conferência', Icone: Clock },
 ];
 
-/** Alternador de submenus da Gestão Documental (Manifestações / Visualizador / Histórico). */
+/** Alternador de submenus da Gestão Documental (Manifestações / Visualizador / Histórico / Em Conferência). */
 export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
   let podeManifestacoes = true;
   let podeVisualizador = true;
   let podeHistorico = true;
+  let podeConferencia = true;
 
   try {
     const user = await requireAuth();
     if (isNavPermissionsFeatureEnabled()) {
-      const [allowManif, allowVis, allowHist] = await Promise.all([
+      const [allowManif, allowVis, allowHist, allowConf] = await Promise.all([
         isRouteAllowedForUser('/gestao-documental', user),
         isRouteAllowedForUser('/gestao-documental/visualizador', user),
         isRouteAllowedForUser('/gestao-documental/historico', user),
+        isRouteAllowedForUser('/gestao-documental/conferencia', user),
       ]);
       podeManifestacoes = allowManif;
       podeVisualizador = allowVis;
       podeHistorico = allowHist;
+      podeConferencia = allowConf || allowManif;
     }
   } catch {
     // Em caso de falha na sessão, exibe apenas a aba ativa
@@ -38,6 +42,7 @@ export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
     if (aba.id === 'manifestacoes') return podeManifestacoes;
     if (aba.id === 'visualizador') return podeVisualizador;
     if (aba.id === 'historico') return podeHistorico;
+    if (aba.id === 'conferencia') return podeConferencia;
     return true;
   });
 
