@@ -121,10 +121,21 @@ export const importarFilaLocalInput = z.object({
   }).strict()).max(200),
 }).strict();
 
-export const manifestacaoInput = z.discriminatedUnion('acao', [salvarFichaInput, finalizarManifestacaoInput, importarFilaLocalInput]);
+export const conferirFichaInput = z.object({
+  acao: z.literal('conferir_ficha'),
+  registroId: z.string().uuid(),
+  statusConferencia: z.enum(['AGUARDANDO_CONFERENCIA', 'CONFERIDO']),
+}).strict();
+
+export const manifestacaoInput = z.discriminatedUnion('acao', [
+  salvarFichaInput,
+  finalizarManifestacaoInput,
+  importarFilaLocalInput,
+  conferirFichaInput,
+]);
 
 export const listarManifestacoesQuery = z.object({
-  status: z.enum(['conferencia', 'finalizada']).default('finalizada'),
+  status: z.enum(['conferencia', 'finalizada', 'todas']).default('finalizada'),
   busca: z.string().trim().max(120).optional(),
   escrevente: z.string().trim().max(120).optional(),
   de: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

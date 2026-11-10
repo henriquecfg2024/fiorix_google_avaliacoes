@@ -66,6 +66,9 @@ export interface DadosManifestacao {
   pagina_final_detectada: number;
   total_paginas_pdf: number;
   origem_campos?: OrigemCampoUI[];
+  status_conferencia?: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO';
+  conferido_por_nome?: string | null;
+  conferido_em?: string | null;
 }
 
 export const SUBDISTRITOS_7RI = [
@@ -567,6 +570,7 @@ export function FichaOficialView({
   onSalvarNaFila,
   onNovoFormulario,
   onFinalizar,
+  onAlternarConferencia,
   versaoAnteriorId = null,
 }: {
   dadosIniciais: DadosManifestacao;
@@ -582,6 +586,8 @@ export function FichaOficialView({
   onNovoFormulario?: () => void;
   /** Finaliza e arquiva a Manifestação no banco do FIORIX (registro imutável). */
   onFinalizar?: (payload: PayloadFinalizacao) => Promise<ManifestacaoArquivada>;
+  /** Altera o carimbo de conferência (AGUARDANDO CONFERÊNCIA <-> CONFERIDO). */
+  onAlternarConferencia?: (novoStatus: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO') => void | Promise<void>;
   /** Quando a ficha é correção de uma manifestação já arquivada (nova versão). */
   versaoAnteriorId?: string | null;
 }) {
@@ -1422,8 +1428,49 @@ export function FichaOficialView({
               <div className="space-y-6">
                 {/* AÇÕES DESTA ETAPA */}
                 <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/90 p-3.5 shadow-xs backdrop-blur">
-                  <div className="min-w-[14rem] flex-1 text-xs text-gray-800">
-                    <strong>Orientações:</strong> Imprima a folha de conferência física para conferência e visto do Oficial <strong>Dr. Ademar Fioranelli</strong>.
+                  <div className="min-w-[14rem] flex-1 space-y-1.5 text-xs text-gray-800">
+                    <div>
+                      <strong>Orientações:</strong> Imprima a folha de conferência física para conferência e visto do Oficial ou seu Substituto.
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {dados.status_conferencia === 'CONFERIDO' || arquivada ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border-2 border-blue-600 bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-blue-700 shadow-2xs">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+                          <span>CONFERIDO</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-md border-2 border-red-600 bg-red-50 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-red-700 shadow-2xs">
+                          <span>AGUARDANDO CONFERÊNCIA</span>
+                        </span>
+                      )}
+                      {onAlternarConferencia && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const novo = dados.status_conferencia === 'CONFERIDO' ? 'AGUARDANDO_CONFERENCIA' : 'CONFERIDO';
+                            await onAlternarConferencia(novo);
+                            setDados(prev => ({ ...prev, status_conferencia: novo }));
+                            mostrarAviso(
+                              novo === 'CONFERIDO'
+                                ? 'Selo atualizado para CONFERIDO (azul) e arquivado para fiscalização.'
+                                : 'Selo retornado para AGUARDANDO CONFERÊNCIA (vermelho).',
+                            );
+                          }}
+                          className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                            dados.status_conferencia === 'CONFERIDO'
+                              ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
+                              : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-2xs'
+                          }`}
+                        >
+                          <Check className="h-3 w-3" />
+                          <span>
+                            {dados.status_conferencia === 'CONFERIDO'
+                              ? 'Voltar para Aguardando Conferência'
+                              : 'Realizar Conferência (Marcar CONFERIDO)'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button

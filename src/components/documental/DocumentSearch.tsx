@@ -37,6 +37,8 @@ import {
   alternarPastaFavoritaNoStorage,
   verificarPastaFavorita,
   EVENTO_FAVORITOS_ATUALIZADOS,
+  normalizarTermoPesquisaDocumental,
+  chaveCachePesquisaDocumental,
   type RaizId,
   type PastaFavorita,
 } from '@/lib/documental/pastasFavoritas';
@@ -49,6 +51,7 @@ import {
   type PayloadFinalizacao,
 } from './FichaOficialView';
 import {
+  alternarConferenciaFicha,
   carregarFilaConferencia,
   finalizarManifestacaoApi,
   importarFilaAntiga,
@@ -347,6 +350,10 @@ export function DocumentSearch({
   const [fichasPendentes, setFichasPendentes] = useState<FichaEmConferencia[]>([]);
   const [filaCarregando, setFilaCarregando] = useState(true);
   const [filaErro, setFilaErro] = useState('');
+  const [fichaRegistroId, setFichaRegistroId] = useState<string | null>(null);
+  const [conferindoIds, setConferindoIds] = useState<Record<string, boolean>>({});
+  const [filtroStatusConferencia, setFiltroStatusConferencia] = useState<'TODOS' | 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO'>('TODOS');
+  const [buscaFiscalizacao, setBuscaFiscalizacao] = useState('');
   // Quando a ficha aberta é correção de uma manifestação arquivada (Histórico › Nova versão)
   const [fichaVersaoAnteriorId, setFichaVersaoAnteriorId] = useState<string | null>(null);
   // Card da fila oculto por padrão; o usuário pode exibi-lo (preferência persistida)
@@ -463,11 +470,35 @@ export function DocumentSearch({
     return limpo;
   }
 
-  function abrirFicha(dados: DadosManifestacao, arquivo: Match | null, versaoAnteriorId: string | null = null) {
-    setFichaAberta(normalizarDadosExtraidos(dados, arquivo));
+  function abrirFicha(
+    dados: DadosManifestacao,
+    arquivo: Match | null,
+    versaoAnteriorId: string | null = null,
+    registroIdExistente: string | null = null,
+  ) {
+    const normalizada: DadosManifestacao = {
+      ...normalizarDadosExtraidos(dados, arquivo),
+      status_conferencia: dados.status_conferencia === 'CONFERIDO' ? 'CONFERIDO' : 'AGUARDANDO_CONFERENCIA',
+    };
+    setFichaAberta(normalizada);
     setFichaAbertaFile(arquivo);
     setFichaVersaoAnteriorId(versaoAnteriorId);
+    setFichaRegistroId(registroIdExistente);
     setFichaSessao(s => s + 1);
+
+    // Toda vez que o colaborador gerar o formulário de MANIFESTAÇÃO, classifica e arquiva
+    // automaticamente como AGUARDANDO CONFERÊNCIA (selo vermelho) para fiscalização.
+    if (!registroIdExistente && (arquivo || normalizada.numero_processo?.trim())) {
+      void (async () => {
+        try {
+          const salva = await salvarFichaConferencia(normalizada, arquivo);
+          setFichaRegistroId(salva.id);
+          await recarregarFila();
+        } catch {
+          /* se falhar o auto-salvamento silencioso, o botão Salvar na Fila permanece disponível */
+        }
+      })();
+    }
   }
 
   function abrirNovoFormulario() {
@@ -476,13 +507,51 @@ export function DocumentSearch({
 
   async function salvarFichaNaFila(dados: DadosManifestacao) {
     // Erros sobem para o formulário, que exibe o aviso ao usuário
-    await salvarFichaConferencia(dados, fichaAbertaFile);
+    const salva = await salvarFichaConferencia(
+      {
+        ...dados,
+        status_conferencia: dados.status_conferencia === 'CONFERIDO' ? 'CONFERIDO' : 'AGUARDANDO_CONFERENCIA',
+      },
+      fichaAbertaFile,
+    );
+    setFichaRegistroId(salva.id);
+    await recarregarFila();
+  }
+
+  async function alternarConferenciaCard(ficha: FichaEmConferencia) {
+    const novoStatus = ficha.statusConferencia === 'CONFERIDO' ? 'AGUARDANDO_CONFERENCIA' : 'CONFERIDO';
+    setConferindoIds(prev => ({ ...prev, [ficha.registroId]: true }));
+    try {
+      const atualizada = await alternarConferenciaFicha(ficha.registroId, novoStatus);
+      setFichasPendentes(prev => prev.map(item => (item.registroId === ficha.registroId ? atualizada : item)));
+      setFilaErro('');
+    } catch (err) {
+      setFilaErro(err instanceof Error ? err.message : 'Não foi possível atualizar o carimbo de conferência.');
+    } finally {
+      setConferindoIds(prev => ({ ...prev, [ficha.registroId]: false }));
+    }
+  }
+
+  async function alternarConferenciaFichaAberta(
+    novoStatus: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO',
+  ) {
+    let regId = fichaRegistroId;
+    if (!regId && fichaAberta) {
+      const salva = await salvarFichaConferencia(
+        { ...fichaAberta, status_conferencia: novoStatus },
+        fichaAbertaFile,
+      );
+      regId = salva.id;
+      setFichaRegistroId(regId);
+    }
+    if (!regId) return;
+    await alternarConferenciaFicha(regId, novoStatus);
     await recarregarFila();
   }
 
   async function finalizarFicha(payload: PayloadFinalizacao) {
     const arquivada = await finalizarManifestacaoApi(payload);
-    // A ficha finalizada sai da fila de conferência
+    // Recarrega a lista mantendo todos os formulários arquivados para fiscalização
     void recarregarFila();
     return arquivada;
   }
@@ -501,7 +570,18 @@ export function DocumentSearch({
     const arquivo: Match | null = ficha.arquivoOrigem
       ? { rootId: ficha.arquivoOrigem.rootId || 'processos', relativePath: ficha.arquivoOrigem.relativePath, name: ficha.arquivoOrigem.name, size: 0, modifiedAt: '' }
       : null;
-    abrirFicha({ ...ficha.dados, id_ficha: ficha.id }, arquivo);
+    abrirFicha(
+      {
+        ...ficha.dados,
+        id_ficha: ficha.id,
+        status_conferencia: ficha.statusConferencia,
+        conferido_por_nome: ficha.conferidoPorNome || undefined,
+        conferido_em: ficha.conferidoEm || undefined,
+      },
+      arquivo,
+      null,
+      ficha.registroId,
+    );
   }
   const [assinaturaAberta, setAssinaturaAberta] = useState<{ nome: string; analise: AnaliseAssinaturaPdf } | null>(null);
   const [documentoAberto, setDocumentoAberto] = useState<DocumentTextResult | null>(null);
@@ -836,7 +916,8 @@ export function DocumentSearch({
     abort.current?.abort();
     const inicioBusca = performance.now();
     setDuracaoJobMs(null);
-    const cacheKey = `${connectorId}:${trimmed.toLowerCase()}`;
+    const queryNormalizada = normalizarTermoPesquisaDocumental(trimmed);
+    const cacheKey = `${connectorId}:${chaveCachePesquisaDocumental(trimmed)}`;
     if (!forceFresh && searchCacheRef.current.has(cacheKey)) {
       const cached = searchCacheRef.current.get(cacheKey)!;
       setJob(cached);
@@ -860,7 +941,7 @@ export function DocumentSearch({
     try {
       const response = await fetch('/api/gestao-documental', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectorId, type: 'search', query: trimmed, forceFresh }), signal: controller.signal,
+        body: JSON.stringify({ connectorId, type: 'search', query: queryNormalizada, forceFresh }), signal: controller.signal,
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
@@ -1407,6 +1488,7 @@ export function DocumentSearch({
             visualizarDocumento(file);
           }}
           onSalvarNaFila={salvarFichaNaFila}
+          onAlternarConferencia={alternarConferenciaFichaAberta}
           onNovoFormulario={abrirNovoFormulario}
           onFinalizar={finalizarFicha}
           versaoAnteriorId={fichaVersaoAnteriorId}
@@ -1653,100 +1735,10 @@ export function DocumentSearch({
             </form>
           )}
 
-          {/* Linha 2: Seletor rápido da pasta a ser pesquisada (Todas, VOL1, IMAGENS, DEP) + Favoritos rápidos */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 mr-1">Pasta da pesquisa:</span>
-              <button
-                type="button"
-                onClick={() => setPastaFiltro(null)}
-                className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition ${
-                  !pastaFiltro
-                    ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
-                    : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-slate-600 hover:text-white'
-                }`}
-                title="Pesquisar em todas as pastas do acervo (VOL1, IMAGENS e DEP)"
-              >
-                <HardDrive className="h-3 w-3 text-cyan-400" />
-                <span>Todas</span>
-              </button>
-              {UNIDADES_PRINCIPAIS.map(u => {
-                const selecionada = pastaFiltro?.rootId === u.id && !pastaFiltro.relativePath;
-                return (
-                  <button
-                    key={`ds-unit-${u.id}`}
-                    type="button"
-                    onClick={() => setPastaFiltro(selecionada ? null : { rootId: u.id, relativePath: '', rotulo: u.rotuloCurto })}
-                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold transition ${
-                      selecionada
-                        ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
-                        : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-amber-500/40 hover:text-white'
-                    }`}
-                    title={`Selecionar e pesquisar na pasta ${u.rotulo} — ${u.descricao}`}
-                  >
-                    <Folder className="h-3 w-3 text-amber-400 fill-amber-400/20" />
-                    <span>{u.sigla}</span>
-                    <span className="font-mono text-[9px] opacity-75">({u.caminho.replace('\\', '')})</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {pastasFavoritas.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300/90">
-                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                  Favoritos:
-                </span>
-                {pastasFavoritas.map(fav => {
-                  const ativo =
-                    pastaFiltro &&
-                    pastaFiltro.rootId === fav.rootId &&
-                    pastaFiltro.relativePath === fav.relativePath;
-                  return (
-                    <div
-                      key={`ds-fav-${fav.id}`}
-                      className={`inline-flex items-center rounded-lg border text-[11px] transition ${
-                        ativo
-                          ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
-                          : 'border-amber-500/25 bg-slate-900/90 text-slate-200 hover:border-amber-500/50'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPastaFiltro(
-                            ativo
-                              ? null
-                              : { rootId: fav.rootId, relativePath: fav.relativePath, rotulo: fav.rotulo },
-                          )
-                        }
-                        title={`Filtrar pesquisa pela pasta favorita ${fav.caminhoExibicao}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
-                      >
-                        <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
-                          {fav.unidade}
-                        </span>
-                        <span className="max-w-[150px] truncate">{fav.rotulo}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={e => toggleFavoritoBusca(fav.rootId, fav.relativePath, fav.rotulo, e)}
-                        title={`Retirar "${fav.rotulo}" dos favoritos`}
-                        className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
-                      >
-                        <Star className="h-3 w-3 fill-amber-400" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* Seletor rápido da pasta + Favoritos + Cards Compactos das 6 Pastas do Servidor (Sempre ocultos por padrão; expansíveis pelo botão Desocultar) */}
         </div>
 
-        {/* Linha 3: Cards Compactos das 6 Pastas do Servidor (Sempre ocultos por padrão; expansíveis pelo botão Desocultar) */}
-        <div className="bg-slate-950/90 px-3 py-2 space-y-2">
+        <div className="bg-slate-950/90 px-3 py-2 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
@@ -1759,7 +1751,12 @@ export function DocumentSearch({
                   mostrarCardsPastasServidor ? '' : '-rotate-90'
                 }`}
               />
-              <span>Pastas do Servidor (VOL1, IMAGENS ou DEP)</span>
+              <span>Pastas do Servidor e Favoritos (VOL1, IMAGENS ou DEP)</span>
+              {pastaFiltro && (
+                <span className="rounded-md border border-cyan-500/40 bg-cyan-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-300">
+                  Filtro ativo: {pastaFiltro.rotulo}
+                </span>
+              )}
             </button>
 
             <div className="flex items-center gap-2">
@@ -1781,67 +1778,159 @@ export function DocumentSearch({
           </div>
 
           {mostrarCardsPastasServidor && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
-              {RAIZES_DOCUMENTAL.map(r => {
-                const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
-                const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
-                return (
-                  <div
-                    key={`m-${r.id}`}
-                    onClick={() => {
-                      setPastaFiltro(
-                        selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
+            <div className="space-y-2.5 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-400 mr-1">Pasta da pesquisa:</span>
+                  <button
+                    type="button"
+                    onClick={() => setPastaFiltro(null)}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-semibold transition ${
+                      !pastaFiltro
+                        ? 'border-cyan-500/60 bg-cyan-950/70 text-cyan-200 shadow-sm'
+                        : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-slate-600 hover:text-white'
+                    }`}
+                    title="Pesquisar em todas as pastas do acervo (VOL1, IMAGENS e DEP)"
+                  >
+                    <HardDrive className="h-3 w-3 text-cyan-400" />
+                    <span>Todas</span>
+                  </button>
+                  {UNIDADES_PRINCIPAIS.map(u => {
+                    const selecionada = pastaFiltro?.rootId === u.id && !pastaFiltro.relativePath;
+                    return (
+                      <button
+                        key={`ds-unit-${u.id}`}
+                        type="button"
+                        onClick={() => setPastaFiltro(selecionada ? null : { rootId: u.id, relativePath: '', rotulo: u.rotuloCurto })}
+                        className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-bold transition ${
+                          selecionada
+                            ? 'border-amber-500/70 bg-amber-950/70 text-amber-200 shadow-sm'
+                            : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                        }`}
+                        title={`Selecionar e pesquisar na pasta ${u.rotulo} — ${u.descricao}`}
+                      >
+                        <Folder className="h-3 w-3 text-amber-400 fill-amber-400/20" />
+                        <span>{u.sigla}</span>
+                        <span className="font-mono text-[9px] opacity-75">({u.caminho.replace('\\', '')})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {pastasFavoritas.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300/90">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      Favoritos:
+                    </span>
+                    {pastasFavoritas.map(fav => {
+                      const ativo =
+                        pastaFiltro &&
+                        pastaFiltro.rootId === fav.rootId &&
+                        pastaFiltro.relativePath === fav.relativePath;
+                      return (
+                        <div
+                          key={`ds-fav-${fav.id}`}
+                          className={`inline-flex items-center rounded-lg border text-[11px] transition ${
+                            ativo
+                              ? 'border-amber-400/70 bg-amber-950/80 text-amber-100 shadow-sm'
+                              : 'border-amber-500/25 bg-slate-900/90 text-slate-200 hover:border-amber-500/50'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPastaFiltro(
+                                ativo
+                                  ? null
+                                  : { rootId: fav.rootId, relativePath: fav.relativePath, rotulo: fav.rotulo },
+                              )
+                            }
+                            title={`Filtrar pesquisa pela pasta favorita ${fav.caminhoExibicao}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 font-medium hover:text-white"
+                          >
+                            <span className="rounded bg-amber-500/20 px-1 font-mono text-[9px] font-bold text-amber-300">
+                              {fav.unidade}
+                            </span>
+                            <span className="max-w-[150px] truncate">{fav.rotulo}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={e => toggleFavoritoBusca(fav.rootId, fav.relativePath, fav.rotulo, e)}
+                            title={`Retirar "${fav.rotulo}" dos favoritos`}
+                            className="px-1.5 py-0.5 text-amber-400 hover:text-rose-300 transition border-l border-white/10"
+                          >
+                            <Star className="h-3 w-3 fill-amber-400" />
+                          </button>
+                        </div>
                       );
-                      document.getElementById('campo-pesquisa-simples')?.focus();
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+                {RAIZES_DOCUMENTAL.map(r => {
+                  const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
+                  const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
+                  return (
+                    <div
+                      key={`m-${r.id}`}
+                      onClick={() => {
                         setPastaFiltro(
                           selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
                         );
-                      }
-                    }}
-                    title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
-                    className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
-                      selecionada
-                        ? 'border-cyan-400 bg-cyan-950/50 ring-1 ring-cyan-400/50 shadow-md shadow-cyan-950/50'
-                        : r.principal
-                        ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
-                        : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
-                    }`}
-                  >
-                    <div
-                      className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
-                        r.principal
-                          ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        document.getElementById('campo-pesquisa-simples')?.focus();
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          setPastaFiltro(
+                            selecionada ? null : { rootId: r.id, relativePath: '', rotulo: r.rotuloCurto || r.rotulo },
+                          );
+                        }
+                      }}
+                      title={`${r.rotulo} (${r.caminho}) — ${r.descricao}`}
+                      className={`group flex items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition hover:-translate-y-0.5 cursor-pointer ${
+                        selecionada
+                          ? 'border-cyan-400 bg-cyan-950/50 ring-1 ring-cyan-400/50 shadow-md shadow-cyan-950/50'
+                          : r.principal
+                          ? 'border-cyan-500/30 bg-gradient-to-br from-slate-900 via-[#0D1528] to-slate-950 hover:border-cyan-400/60 hover:shadow-md hover:shadow-cyan-950/40'
+                          : 'border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 hover:border-amber-500/50 hover:shadow-md hover:shadow-amber-950/40'
                       }`}
                     >
-                      <HardDrive className="h-3.5 w-3.5" />
-                      <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
+                      <div
+                        className={`h-8 w-8 shrink-0 rounded-lg flex flex-col items-center justify-center ${
+                          r.principal
+                            ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        }`}
+                      >
+                        <HardDrive className="h-3.5 w-3.5" />
+                        <span className="font-mono text-[8px] font-black leading-none mt-0.5">{r.sigla}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
+                        <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={e => toggleFavoritoBusca(r.id, '', r.rotuloCurto, e)}
+                        title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
+                        aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
+                        className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
+                          isFav
+                            ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
+                            : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
+                        }`}
+                      >
+                        <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
+                      </button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-100 truncate">{r.rotuloCurto || r.rotulo}</p>
-                      <p className="font-mono text-[10px] text-slate-400 truncate">{r.caminho}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={e => toggleFavoritoBusca(r.id, '', r.rotuloCurto, e)}
-                      title={isFav ? 'Retirar dos favoritos' : 'Colocar nos favoritos'}
-                      aria-label={isFav ? `Retirar ${r.rotulo} dos favoritos` : `Favoritar ${r.rotulo}`}
-                      className={`h-6 w-6 shrink-0 inline-flex items-center justify-center rounded-md border transition ${
-                        isFav
-                          ? 'border-amber-500/50 bg-amber-950/60 text-amber-400'
-                          : 'border-white/10 bg-slate-900/80 text-slate-500 hover:border-amber-500/40 hover:text-amber-300'
-                      }`}
-                    >
-                      <Star className={`h-3 w-3 ${isFav ? 'fill-amber-400' : ''}`} />
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1984,16 +2073,31 @@ export function DocumentSearch({
       </div>
       )}
 
-      {/* ABA DEDICADA: FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL */}
-      {modo === 'conferencia' && (
+      {/* ABA DEDICADA: FORMULÁRIOS EM CONFERÊNCIA E ARQUIVO DE FISCALIZAÇÃO */}
+      {modo === 'conferencia' && (() => {
+        const totalAguardando = fichasPendentes.filter(f => f.statusConferencia !== 'CONFERIDO').length;
+        const totalConferidos = fichasPendentes.filter(f => f.statusConferencia === 'CONFERIDO').length;
+        const termoFiscal = buscaFiscalizacao.trim().toLowerCase();
+        const termoFiscalSemPont = termoFiscal.replace(/[.\-\s]/g, '');
+        const fichasFiltradas = fichasPendentes.filter(ficha => {
+          if (filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' && ficha.statusConferencia === 'CONFERIDO') return false;
+          if (filtroStatusConferencia === 'CONFERIDO' && ficha.statusConferencia !== 'CONFERIDO') return false;
+          if (!termoFiscal) return true;
+          const alvo = `${ficha.numero_processo} ${ficha.requerente} ${ficha.matricula_transcricao} ${ficha.subdistrito} ${ficha.imovel} ${ficha.criadoPorNome} ${ficha.atualizadoPorNome} ${ficha.conferidoPorNome}`.toLowerCase();
+          if (alvo.includes(termoFiscal)) return true;
+          if (termoFiscalSemPont.length >= 2 && alvo.replace(/[.\-\s]/g, '').includes(termoFiscalSemPont)) return true;
+          return false;
+        });
+
+        return (
       <div id="fila-fichas-oficial" className="rounded-2xl border border-[#E2E8F0] bg-[#F5F2ED] text-[#1E293B] shadow-md p-5 transition-all">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-300/80">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
             <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
-              ⏳ FORMULÁRIOS EM CONFERÊNCIA COM O OFICIAL ({fichasPendentes.length})
+              ⏳ FORMULÁRIOS EM CONFERÊNCIA E FISCALIZAÇÃO ({fichasPendentes.length})
             </h2>
             <span className="text-xs text-slate-600">
-              (Formulários físicos impressos aguardando retorno de Dr. Ademar Fioranelli — fila compartilhada entre as máquinas do setor)
+              (Formulários arquivados para conferência e fiscalização pelo Oficial ou seu Substituto — compartilhados entre as máquinas do setor)
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -2010,39 +2114,131 @@ export function DocumentSearch({
               type="button"
               onClick={() => { setFilaCarregando(true); void recarregarFila(); }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-[#475569] shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
-              title="Atualizar a fila (inclui formulários salvos em outras máquinas)"
+              title="Atualizar a lista de formulários arquivados (inclui formulários salvos em outras máquinas)"
             >
               <RotateCw className={`h-3.5 w-3.5 ${filaCarregando ? 'animate-spin' : ''}`} aria-hidden="true" />
               Atualizar
             </button>
           </div>
         </div>
+
+        {/* Filtros de Fiscalização (Todos / Aguardando Conferência / Conferidos) + Busca com ou sem . e - */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setFiltroStatusConferencia('TODOS')}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                filtroStatusConferencia === 'TODOS'
+                  ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <span>Todos Arquivados</span>
+              <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px]">{fichasPendentes.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroStatusConferencia('AGUARDANDO_CONFERENCIA')}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition cursor-pointer ${
+                filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
+                  ? 'border-red-600 bg-red-600 text-white shadow-xs'
+                  : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-current" />
+              <span>Aguardando Conferência ({totalAguardando})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltroStatusConferencia('CONFERIDO')}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition cursor-pointer ${
+                filtroStatusConferencia === 'CONFERIDO'
+                  ? 'border-blue-600 bg-blue-600 text-white shadow-xs'
+                  : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-current" />
+              <span>Conferido ({totalConferidos})</span>
+            </button>
+          </div>
+          <div className="relative min-w-[240px] flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={buscaFiscalizacao}
+              onChange={e => setBuscaFiscalizacao(e.target.value)}
+              placeholder="Pesquisar processo (com ou sem . e -), requerente ou matrícula..."
+              className="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+            />
+            {buscaFiscalizacao && (
+              <button
+                type="button"
+                onClick={() => setBuscaFiscalizacao('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Limpar filtro"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div id="fila-fichas-oficial-conteudo">
           {filaErro && (
             <p role="alert" className="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{filaErro}</p>
           )}
           {filaCarregando && fichasPendentes.length === 0 ? (
-            <p className="py-6 text-center text-xs italic text-gray-500">Carregando a fila de conferência…</p>
-          ) : fichasPendentes.length === 0 ? (
-            <p className="py-6 text-center text-xs italic text-gray-500">Nenhum formulário aguardando conferência do Oficial no momento.</p>
+            <p className="py-6 text-center text-xs italic text-gray-500">Carregando formulários arquivados para conferência e fiscalização…</p>
+          ) : fichasFiltradas.length === 0 ? (
+            <p className="py-6 text-center text-xs italic text-gray-500">Nenhum formulário encontrado para o filtro selecionado.</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {fichasPendentes.map(ficha => (
+              {fichasFiltradas.map(ficha => {
+                const isConferido = ficha.statusConferencia === 'CONFERIDO';
+                const processandoCard = Boolean(conferindoIds[ficha.registroId]);
+                return (
                 <div
                   key={ficha.registroId}
                   role="button"
                   tabIndex={0}
                   onClick={() => reabrirFichaDaFila(ficha)}
                   onKeyDown={e => { if (e.key === 'Enter') reabrirFichaDaFila(ficha); }}
-                  title="Reabrir formulário para revisão e geração da manifestação oficial"
-                  className="group flex cursor-pointer items-start justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-[#94A3B8] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
+                  title="Abrir formulário para conferência, revisão ou fiscalização"
+                  className={`group flex cursor-pointer items-start justify-between gap-3 rounded-xl border-2 bg-white p-3.5 transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B] ${
+                    isConferido
+                      ? 'border-blue-200 hover:border-blue-400'
+                      : 'border-red-200 hover:border-red-400'
+                  }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="rounded border border-[#CBD5E1] bg-[#F8F7F4] px-1.5 py-0.5 font-mono text-xs font-bold">{ficha.numero_processo}</span>
                       <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">{ficha.subdistrito}</span>
+                      {/* Carimbo Oficial nos Cards: Vermelho (AGUARDANDO CONFERÊNCIA) ou Azul (CONFERIDO) */}
+                      {isConferido ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md border-2 border-blue-600 bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-700 shadow-xs"
+                          title={
+                            ficha.conferidoPorNome
+                              ? `Conferido por ${ficha.conferidoPorNome}${ficha.conferidoEm ? ` em ${new Date(ficha.conferidoEm).toLocaleString('pt-BR')}` : ''}`
+                              : 'Formulário conferido pelo Oficial Substituto'
+                          }
+                        >
+                          <CheckCircle2 className="h-3 w-3 text-blue-600 shrink-0" />
+                          <span>CONFERIDO</span>
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md border-2 border-red-600 bg-red-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-700 shadow-xs"
+                          title="Formulário gerado pelo colaborador aguardando conferência pelo Oficial Substituto"
+                        >
+                          <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse shrink-0" />
+                          <span>AGUARDANDO CONFERÊNCIA</span>
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-1 truncate text-xs font-semibold text-gray-800" title={ficha.requerente}>{ficha.requerente}</div>
+                    <div className="mt-1.5 truncate text-xs font-semibold text-gray-800" title={ficha.requerente}>{ficha.requerente}</div>
                     <div className="mt-0.5 truncate text-[10px] text-gray-500" title={ficha.imovel}>
                       Tr/Mat: {ficha.matricula_transcricao} • {ficha.data_criacao}
                     </div>
@@ -2051,23 +2247,45 @@ export function DocumentSearch({
                         Salvo por {ficha.atualizadoPorNome || ficha.criadoPorNome}
                       </div>
                     )}
+                    {isConferido && ficha.conferidoPorNome && (
+                      <div className="mt-0.5 truncate text-[10px] font-bold text-blue-700">
+                        Conferido por {ficha.conferidoPorNome}
+                        {ficha.conferidoEm ? ` • ${new Date(ficha.conferidoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); void removerFichaDaFila(ficha); }}
-                    className="shrink-0 rounded-lg p-1.5 text-gray-400 transition hover:bg-[#F8F4F0] hover:text-[#44403C]"
-                    title="Remover formulário da fila de pendentes"
-                    aria-label="Remover formulário da fila"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={processandoCard}
+                      onClick={e => {
+                        e.stopPropagation();
+                        void alternarConferenciaCard(ficha);
+                      }}
+                      className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition shadow-xs cursor-pointer disabled:opacity-50 ${
+                        isConferido
+                          ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
+                          : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      title={
+                        isConferido
+                          ? 'Retornar carimbo para AGUARDANDO CONFERÊNCIA (vermelho)'
+                          : 'Realizar conferência e trocar carimbo para CONFERIDO (azul)'
+                      }
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>{processandoCard ? 'Salvando…' : isConferido ? 'Voltar p/ Aguardando' : 'Marcar Conferido'}</span>
+                    </button>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       </div>
-      )}
+        );
+      })()}
 
       {error && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-[#0B1020]/95 p-4 text-xs text-rose-200 shadow-sm backdrop-blur-xl">

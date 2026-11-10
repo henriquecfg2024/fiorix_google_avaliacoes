@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
+import { normalizarTermoPesquisaDocumental } from '@/lib/documental/pastasFavoritas';
 
 export interface SearchJob {
   id: string;
@@ -34,7 +35,7 @@ export interface CreateJobOptions {
 
 export async function createJob(tenantId: string, userId: string, connectorId: string, options: CreateJobOptions): Promise<JobResponse | null> {
   const type = options.type || 'search';
-  const query = options.query ?? null;
+  const query = options.query ? normalizarTermoPesquisaDocumental(options.query) : null;
   const rootId = options.rootId ?? null;
   const relativePath = options.relativePath ?? null;
   const pageStart = options.pageStart ?? null;
@@ -51,7 +52,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       if (type === 'search' && query) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
-            AND type = 'search' AND query = ${query}`;
+            AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', ''))`;
       } else if ((type === 'extract_petition' || type === 'analyze_signatures' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
@@ -65,7 +66,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
           SELECT id, result FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
-            AND type = 'search' AND query = ${query} AND status = 'complete'
+            AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', '')) AND status = 'complete'
             AND "expiresAt" > NOW()
           ORDER BY "createdAt" DESC LIMIT 1
         `;

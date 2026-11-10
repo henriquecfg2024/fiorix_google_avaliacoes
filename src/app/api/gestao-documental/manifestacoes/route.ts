@@ -5,6 +5,7 @@ import { listarManifestacoesQuery, manifestacaoInput } from '@/lib/documental/co
 import { isSameOriginRequest } from '@/lib/documental/origin';
 import {
   ManifestacaoError,
+  conferirFichaManifestacao,
   finalizarManifestacao,
   importarFilaLocal,
   listarManifestacoes,
@@ -66,6 +67,15 @@ export async function POST(req: Request) {
     if (entrada.acao === 'salvar_fila') {
       const ficha = await salvarFichaEmConferencia(user.tenantId, usuario, entrada);
       return reply({ ficha });
+    }
+    if (entrada.acao === 'conferir_ficha') {
+      const manifestacao = await conferirFichaManifestacao(
+        user.tenantId,
+        usuario,
+        entrada.registroId,
+        entrada.statusConferencia,
+      );
+      return reply({ manifestacao });
     }
     if (entrada.acao === 'finalizar') {
       const manifestacao = await finalizarManifestacao(user.tenantId, usuario, entrada);

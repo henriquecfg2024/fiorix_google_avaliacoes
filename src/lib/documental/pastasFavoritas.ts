@@ -1,5 +1,3 @@
-'use client';
-
 export type RaizId = 'vol1' | 'imagens' | 'deptos' | 'livro2' | 'processos' | 'minutas';
 
 export interface DefinicaoRaizDocumental {
@@ -294,4 +292,66 @@ export function alternarPastaFavoritaNoStorage(
   salvarPastasFavoritas(novos);
   return { favoritos: novos, adicionada: true };
 }
+
+/**
+ * Normaliza números de processo CNJ, matrículas e termos de pesquisa digitados
+ * com "." e "-" ou sem "." e "-" (ex.: "4121959-50.2026.8.26.0100" e "41219595020268260100")
+ * para que produzam exatamente a mesma busca e o mesmo resultado.
+ */
+export function normalizarTermoPesquisaDocumental(raw: string): string {
+  const texto = (raw || '').trim();
+  if (!texto) return '';
+
+  const normalizarToken = (token: string): string => {
+    const t = token.trim();
+    if (!t) return t;
+    const limpo = t.replace(/[.\-]/g, '');
+
+    // 1. Processo CNJ completo de 20 dígitos (ex.: 41219595020268260100 -> 4121959-50.2026.8.26.0100)
+    const m20 = limpo.match(/^(\d{7})(\d{2})((?:19|20)\d{2})(\d)(\d{2})(\d{4})$/);
+    if (m20) {
+      return `${m20[1]}-${m20[2]}.${m20[3]}.${m20[4]}.${m20[5]}.${m20[6]}`;
+    }
+
+    // 2. Processo CNJ parcial com ano (13 dígitos: NNNNNNNDDAAAA -> NNNNNNN-DD.AAAA)
+    const m13 = limpo.match(/^(\d{7})(\d{2})((?:19|20)\d{2})$/);
+    if (m13) {
+      return `${m13[1]}-${m13[2]}.${m13[3]}`;
+    }
+
+    // 3. Processo CNJ parcial de 9 dígitos (NNNNNNNDD -> NNNNNNN-DD)
+    const m9 = limpo.match(/^(\d{7})(\d{2})$/);
+    if (m9) {
+      return `${m9[1]}-${m9[2]}`;
+    }
+
+    // 4. Número de matrícula ou protocolo até 8 dígitos com pontos/traços (ex.: 123.456 -> 123456)
+    if (/^\d{1,8}$/.test(limpo) && /^[0-9.\-]+$/.test(t)) {
+      return limpo;
+    }
+
+    return t;
+  };
+
+  return texto
+    .split('|')
+    .map(parte =>
+      parte
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(normalizarToken)
+        .join(' '),
+    )
+    .filter(Boolean)
+    .join(' | ');
+}
+
+/** Chave canônica (sem "." e "-") para cache de pesquisas. */
+export function chaveCachePesquisaDocumental(raw: string): string {
+  return normalizarTermoPesquisaDocumental(raw)
+    .toLowerCase()
+    .replace(/[.\-]/g, '');
+}
+
 

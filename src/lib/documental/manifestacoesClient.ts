@@ -43,12 +43,16 @@ export interface ManifestacaoCompletaApi extends ManifestacaoApi {
   textoFinal: string | null;
 }
 
-/** Ficha da fila com os dados de quem salvou (compartilhada entre as máquinas). */
+/** Ficha da fila com os dados de quem salvou e status de conferência (compartilhada e arquivada para fiscalização). */
 export interface FichaEmConferencia extends FichaOficialPendente {
-  /** id da linha no banco (usado para remover) */
+  /** id da linha no banco */
   registroId: string;
   criadoPorNome: string | null;
   atualizadoPorNome: string | null;
+  statusConferencia: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO';
+  conferidoPorNome: string | null;
+  conferidoEm: string | null;
+  statusBanco: 'conferencia' | 'finalizada';
 }
 
 async function chamar<T>(url: string, init?: RequestInit): Promise<T> {
@@ -82,7 +86,12 @@ export function formatarDataHora(iso: string | null | undefined): string {
 }
 
 function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
-  const dados = (m.dados || {}) as DadosManifestacao;
+  const dados = (m.dados || {}) as DadosManifestacao & {
+    status_conferencia?: string;
+    conferido_por_nome?: string | null;
+    conferido_em?: string | null;
+  };
+  const ehConferido = m.status === 'finalizada' || dados.status_conferencia === 'CONFERIDO';
   return {
     id: m.fichaId,
     registroId: m.id,
@@ -96,13 +105,17 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
     arquivoOrigem: m.arquivoOrigem,
     criadoPorNome: m.criadoPorNome,
     atualizadoPorNome: m.atualizadoPorNome,
+    statusConferencia: ehConferido ? 'CONFERIDO' : 'AGUARDANDO_CONFERENCIA',
+    conferidoPorNome: dados.conferido_por_nome || m.finalizadoPorNome || null,
+    conferidoEm: formatarDataHora(dados.conferido_em || m.finalizadoEm),
+    statusBanco: m.status,
   };
 }
 
-/** Fila "Formulários em Conferência com o Oficial" (todas as máquinas). */
+/** Fila e acervo de "Formulários em Conferência com o Oficial" (inclui aguardando conferência e conferidos para fiscalização). */
 export async function carregarFilaConferencia(): Promise<FichaEmConferencia[]> {
-  // Para a fila, a API já devolve os dados do formulário junto com o resumo
-  const { itens } = await chamar<{ itens: ManifestacaoCompletaApi[] }>(`${ENDPOINT}?status=conferencia&limite=200`);
+  // Traz tanto os formulários em conferência quanto os já conferidos/finalizados para fiscalização permanente
+  const { itens } = await chamar<{ itens: ManifestacaoCompletaApi[] }>(`${ENDPOINT}?status=todas&limite=200`);
   return itens.filter(m => m.dados).map(paraFicha);
 }
 
@@ -115,6 +128,18 @@ export async function salvarFichaConferencia(dados: DadosManifestacao, origem?: 
     arquivoOrigem: origemParaApi(origem),
   });
   return ficha;
+}
+
+export async function alternarConferenciaFicha(
+  registroId: string,
+  statusConferencia: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO',
+): Promise<FichaEmConferencia> {
+  const { manifestacao } = await postar<{ manifestacao: ManifestacaoCompletaApi }>({
+    acao: 'conferir_ficha',
+    registroId,
+    statusConferencia,
+  });
+  return paraFicha(manifestacao);
 }
 
 export async function removerFichaConferencia(registroId: string): Promise<void> {

@@ -57,7 +57,7 @@ export interface EntradaFinalizacao extends EntradaFicha {
 }
 
 export interface FiltrosManifestacao {
-  status: StatusManifestacao;
+  status: StatusManifestacao | 'todas';
   busca?: string;
   escrevente?: string;
   de?: string; // AAAA-MM-DD
@@ -130,7 +130,15 @@ export async function salvarFichaEmConferencia(
   entrada: EntradaFicha,
 ): Promise<ManifestacaoResumo> {
   const campos = camposIndexados(entrada.dados);
-  const dadosJson = JSON.stringify(entrada.dados);
+  const statusConferencia =
+    entrada.dados.status_conferencia === 'CONFERIDO'
+      ? 'CONFERIDO'
+      : 'AGUARDANDO_CONFERENCIA';
+  const dadosEnriquecidos = {
+    ...entrada.dados,
+    status_conferencia: statusConferencia,
+  };
+  const dadosJson = JSON.stringify(dadosEnriquecidos);
   const origemJson = entrada.arquivoOrigem ? JSON.stringify(entrada.arquivoOrigem) : null;
   return prisma.$transaction(async tx => {
     await bloquear(tx, tenantId, campos.numeroProcesso || entrada.fichaId);
@@ -156,13 +164,69 @@ export async function salvarFichaEmConferencia(
   });
 }
 
+export async function conferirFichaManifestacao(
+  tenantId: string,
+  usuario: UsuarioManifestacao,
+  registroId: string,
+  statusConferencia: 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO',
+): Promise<ManifestacaoCompleta> {
+  const rows = await prisma.$queryRaw<Array<{ id: string; dados: Prisma.JsonValue }>>`
+    SELECT "id", "dados" FROM "DocumentManifestacao"
+    WHERE "tenantId" = ${tenantId} AND "id" = ${registroId}
+    LIMIT 1`;
+  if (!rows.length) {
+    throw new ManifestacaoError(404, 'Formulário não encontrado para conferência.');
+  }
+
+  const dadosAtuais = (rows[0].dados && typeof rows[0].dados === 'object' ? (rows[0].dados as Record<string, unknown>) : {});
+  const agoraIso = new Date().toISOString();
+  const nomeConf = nomeUsuario(usuario);
+  const novosDados: Record<string, unknown> = {
+    ...dadosAtuais,
+    status_conferencia: statusConferencia,
+    conferido_por_nome: statusConferencia === 'CONFERIDO' ? nomeConf : null,
+    conferido_em: statusConferencia === 'CONFERIDO' ? agoraIso : null,
+  };
+  const dadosJson = JSON.stringify(novosDados);
+
+  if (statusConferencia === 'CONFERIDO') {
+    await prisma.$executeRaw`
+      UPDATE "DocumentManifestacao" SET
+        "dados" = ${dadosJson}::jsonb,
+        "atualizadoPorId" = ${usuario.id},
+        "atualizadoPorNome" = ${nomeConf},
+        "finalizadoPorId" = COALESCE("finalizadoPorId", ${usuario.id}),
+        "finalizadoPorNome" = COALESCE("finalizadoPorNome", ${nomeConf}),
+        "finalizadoEm" = COALESCE("finalizadoEm", NOW()),
+        "updatedAt" = NOW()
+      WHERE "id" = ${registroId} AND "tenantId" = ${tenantId}`;
+  } else {
+    await prisma.$executeRaw`
+      UPDATE "DocumentManifestacao" SET
+        "dados" = ${dadosJson}::jsonb,
+        "atualizadoPorId" = ${usuario.id},
+        "atualizadoPorNome" = ${nomeConf},
+        "updatedAt" = NOW()
+      WHERE "id" = ${registroId} AND "tenantId" = ${tenantId}`;
+  }
+
+  return obterManifestacao(tenantId, registroId);
+}
+
 export async function finalizarManifestacao(
   tenantId: string,
   usuario: UsuarioManifestacao,
   entrada: EntradaFinalizacao,
 ): Promise<ManifestacaoCompleta> {
   const campos = camposIndexados(entrada.dados);
-  const dadosJson = JSON.stringify(entrada.dados);
+  const nomeConf = nomeUsuario(usuario);
+  const dadosComSelo = {
+    ...entrada.dados,
+    status_conferencia: 'CONFERIDO',
+    conferido_por_nome: entrada.dados.conferido_por_nome || nomeConf,
+    conferido_em: entrada.dados.conferido_em || new Date().toISOString(),
+  };
+  const dadosJson = JSON.stringify(dadosComSelo);
   const origemJson = entrada.arquivoOrigem ? JSON.stringify(entrada.arquivoOrigem) : null;
   const minutaJson = JSON.stringify(entrada.minuta);
   const hash = calcularHashManifestacao(entrada.textoFinal);
@@ -228,11 +292,25 @@ export async function listarManifestacoes(
   tenantId: string,
   filtros: FiltrosManifestacao,
 ): Promise<{ itens: ManifestacaoResumo[]; total: number }> {
-  const condicoes: Prisma.Sql[] = [Prisma.sql`"tenantId" = ${tenantId}`, Prisma.sql`"status" = ${filtros.status}`];
+  const condicoes: Prisma.Sql[] = [Prisma.sql`"tenantId" = ${tenantId}`];
+  if (filtros.status !== 'todas') {
+    condicoes.push(Prisma.sql`"status" = ${filtros.status}`);
+  }
   if (filtros.busca) {
     const termo = `%${filtros.busca.replace(/[\\%_]/g, c => '\\' + c)}%`;
-    condicoes.push(Prisma.sql`("numeroProcesso" ILIKE ${termo} OR "requerente" ILIKE ${termo} OR "matricula" ILIKE ${termo}
-      OR "escrevente" ILIKE ${termo} OR "dados"->>'contribuinte_sql' ILIKE ${termo} OR "dados"->>'imovel' ILIKE ${termo})`);
+    const limpo = filtros.busca.replace(/[.\-\s]/g, '');
+    const termoLimpo = `%${limpo.replace(/[\\%_]/g, c => '\\' + c)}%`;
+    condicoes.push(Prisma.sql`(
+      "numeroProcesso" ILIKE ${termo}
+      OR (${limpo.length >= 2}::boolean AND translate(COALESCE("numeroProcesso", ''), '.- ', '') ILIKE ${termoLimpo})
+      OR "requerente" ILIKE ${termo}
+      OR "matricula" ILIKE ${termo}
+      OR (${limpo.length >= 2}::boolean AND translate(COALESCE("matricula", ''), '.- ', '') ILIKE ${termoLimpo})
+      OR "escrevente" ILIKE ${termo}
+      OR "dados"->>'contribuinte_sql' ILIKE ${termo}
+      OR (${limpo.length >= 2}::boolean AND translate(COALESCE("dados"->>'contribuinte_sql', ''), '.- ', '') ILIKE ${termoLimpo})
+      OR "dados"->>'imovel' ILIKE ${termo}
+    )`);
   }
   if (filtros.escrevente) condicoes.push(Prisma.sql`"escrevente" = ${filtros.escrevente}`);
   const campoData = filtros.status === 'finalizada' ? Prisma.sql`"finalizadoEm"` : Prisma.sql`"updatedAt"`;
@@ -243,8 +321,8 @@ export async function listarManifestacoes(
   const limite = Math.min(Math.max(filtros.limite ?? 50, 1), 200);
   const deslocamento = Math.max(filtros.deslocamento ?? 0, 0);
 
-  // A fila de conferência é pequena e precisa dos dados do formulário para reabrir a ficha
-  const colunas = filtros.status === 'conferencia'
+  // A fila de conferência e a visão de fiscalização trazem os dados completos do formulário
+  const colunas = filtros.status === 'conferencia' || filtros.status === 'todas'
     ? Prisma.sql`${COLUNAS_RESUMO}, "dados", "arquivoOrigem"`
     : COLUNAS_RESUMO;
 
