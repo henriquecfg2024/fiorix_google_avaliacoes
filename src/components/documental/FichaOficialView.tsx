@@ -842,7 +842,7 @@ const botaoOrigem = 'inline-flex items-center gap-1.5 whitespace-nowrap px-2.5 p
 const CSS_IMPRESSAO = `
   @media screen { #fiorix-print-root { display: none !important; } }
   @media print {
-    @page { size: A4 portrait; margin: 15mm; }
+    @page { size: A4 portrait; margin: 0mm !important; }
     :root, html { color-scheme: light !important; }
     html, body {
       background: #ffffff !important;
@@ -854,7 +854,13 @@ const CSS_IMPRESSAO = `
     }
     body::before, body::after { content: none !important; display: none !important; }
     body > *:not(#fiorix-print-root) { display: none !important; }
-    #fiorix-print-root { display: block !important; position: static !important; color: #000 !important; background: #fff !important; }
+    #fiorix-print-root {
+      display: block !important;
+      position: static !important;
+      color: #000 !important;
+      background: #fff !important;
+      padding: 15mm !important;
+    }
     #fiorix-print-root * {
       box-sizing: border-box !important;
       color: #000 !important;
@@ -2188,7 +2194,12 @@ export function FichaOficialView({
 
   useEffect(() => {
     if (!impressao) return;
-    const finalizar = () => setImpressao(null);
+    const tituloAnterior = document.title;
+    document.title = '\u200B';
+    const finalizar = () => {
+      document.title = tituloAnterior;
+      setImpressao(null);
+    };
     window.addEventListener('afterprint', finalizar);
     const mql = typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
     const aoMudarMidia = (ev: MediaQueryListEvent) => {
@@ -2198,6 +2209,7 @@ export function FichaOficialView({
     const t = setTimeout(() => window.print(), 100);
     return () => {
       clearTimeout(t);
+      document.title = tituloAnterior;
       window.removeEventListener('afterprint', finalizar);
       mql?.removeEventListener?.('change', aoMudarMidia);
     };
@@ -2385,30 +2397,19 @@ export function FichaOficialView({
 
     return (
       <article className="mx-auto max-w-[900px] rounded-xl border-2 border-gray-300 bg-white p-6 sm:p-8 md:p-11 font-sans text-[11pt] leading-relaxed text-black shadow-lg space-y-4 break-words">
-        {/* FAIXA DE ORIENTAÇÃO DE EDIÇÃO DIRETA NO A4 */}
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300/90 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-950">
-          <div className="flex items-center gap-2">
-            <Edit3 className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden="true" />
-            <span>
-              <strong>Folha A4 Híbrida e Editável:</strong> clique diretamente sobre qualquer campo destacado no texto (mesmo os preenchidos pelo OCR/IA do FIORIX) ou clique em{' '}
-              <span className="rounded border border-amber-400 bg-white px-1.5 py-0.5 font-semibold text-amber-900">✏️ Editar parágrafo</span>{' '}
-              para alterar livremente qualquer frase.
-            </span>
+        {temEdicaoTextoPersonalizado && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={restaurarTextoPadraoManifestacao}
+              className="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-50 px-2 py-0.5 text-[10.5px] font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+              title="Voltar todos os parágrafos para a redação automática sincronizada com os campos"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Restaurar redação automática</span>
+            </button>
           </div>
-          <div className="flex items-center gap-1.5">
-            {temEdicaoTextoPersonalizado && (
-              <button
-                type="button"
-                onClick={restaurarTextoPadraoManifestacao}
-                className="inline-flex items-center gap-1 rounded border border-amber-400 bg-white px-2 py-0.5 text-[10.5px] font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
-                title="Voltar todos os parágrafos para a redação automática sincronizada com os campos"
-              >
-                <RotateCcw className="h-3 w-3" />
-                <span>Restaurar redação automática</span>
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* LOGOTIPO OFICIAL 7º RI */}
         <div className="mb-5 flex flex-col items-center">
@@ -4267,16 +4268,6 @@ export function FichaOficialView({
                     </div>
                   </div>
 
-                  {/* INDICADOR DE RASCUNHO SALVO NO FIORIX */}
-                  {dados.rascunho_salvo_em && !arquivada && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-1.5 text-[11px] text-amber-900">
-                      <span>
-                        🔒 <strong>Rascunho salvo em local seguro no FIORIX:</strong> última gravação em{' '}
-                        {new Date(dados.rascunho_salvo_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Você pode consultar e retomar este rascunho a qualquer momento em <strong>Consultar Rascunhos / Salvos</strong>, na aba <strong>Em Conferência</strong> ou no <strong>Histórico</strong>.
-                      </span>
-                    </div>
-                  )}
-
                   {/* BARRA AUXILIAR COMPACTA: PASTA DE DESTINO, SUBDISTRITO, LIVRO 2 E AUTOS */}
                   {configuracoesRapidasAbertas && (
                     <div className="rounded-xl border border-gray-200 bg-[#F8F7F4] p-3 space-y-2.5">
@@ -4462,16 +4453,6 @@ export function FichaOficialView({
                   )}
                 </div>
 
-                {!conferenciaConcluida && !arquivada && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50/90 px-3.5 py-2.5 text-xs font-medium text-amber-950">
-                    <span className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
-                      <span>
-                        <strong>Aguardando conferência oficial:</strong> você pode editar, salvar rascunho e imprimir a manifestação normalmente, mas a ação <strong>“Finalizar e arquivar”</strong> será habilitada somente após a conferência ser concluída pelo Oficial ou Substituto (status <strong>CONFERIDO</strong>).
-                      </span>
-                    </span>
-                  </div>
-                )}
                 {versaoAnteriorId && !arquivada && (
                   <div className="rounded-xl border border-[#CBD5E1] bg-[#F8F7F4] px-3.5 py-2.5 text-xs font-semibold text-[#1E293B]">
                     Correção de manifestação já arquivada: ao finalizar, será gravada uma nova versão e a anterior permanece intacta no Arquivo.

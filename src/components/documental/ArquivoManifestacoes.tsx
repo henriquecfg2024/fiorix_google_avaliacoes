@@ -56,7 +56,7 @@ export { POR_PAGINA_ARQUIVO };
 const CSS_IMPRESSAO_ARQUIVO = `
   @media screen { #fiorix-arquivo-print-root { display: none !important; } }
   @media print {
-    @page { size: A4 portrait; margin: 15mm; }
+    @page { size: A4 portrait; margin: 0mm !important; }
     :root, html { color-scheme: light !important; }
     html, body {
       background: #ffffff !important;
@@ -73,6 +73,7 @@ const CSS_IMPRESSAO_ARQUIVO = `
       position: static !important;
       color: #000 !important;
       background: #fff !important;
+      padding: 15mm !important;
     }
     #fiorix-arquivo-print-root * {
       box-sizing: border-box !important;
