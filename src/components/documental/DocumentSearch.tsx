@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { enriquecerEValidarOrigemCampos } from '@/lib/documental/securityValidators';
 import { createPortal } from 'react-dom';
 import {
   FileText,
@@ -534,6 +535,9 @@ export function DocumentSearch({
     }
     if (limpo.transcricoes_anexas) {
       limpo.transcricoes_anexas = sanitizarMatriculaTranscricao(limpo.transcricoes_anexas);
+    }
+    if (Array.isArray(limpo.origem_campos) && limpo.origem_campos.length > 0) {
+      limpo.origem_campos = enriquecerEValidarOrigemCampos(limpo.origem_campos, limpo);
     }
     return limpo;
   }

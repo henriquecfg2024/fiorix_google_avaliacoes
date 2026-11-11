@@ -39,6 +39,10 @@ import {
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
+import {
+  enriquecerEValidarOrigemCampos,
+  gerarDiagnosticoSegurancaFormulario,
+} from '@/lib/documental/securityValidators';
 import { formatCartorioPath, getRootInfo } from './DocumentSearch';
 import {
   extrairConfrontacoes,
@@ -740,14 +744,11 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
   const matriculaLimpa = sanitizarMatriculaTranscricao(dadosIniciais.matricula_transcricao);
 
   const origensHigienizadas = Array.isArray(dadosIniciais.origem_campos)
-    ? dadosIniciais.origem_campos.map(o => {
-        if (o?.campo === 'imovel' && o.trecho) {
-          return { ...o, trecho: sanitizarDescricaoImovel(o.trecho) };
-        }
-        if (o?.campo === 'matricula_transcricao' && o.trecho) {
-          return { ...o, trecho: sanitizarMatriculaTranscricao(o.trecho) };
-        }
-        return o;
+    ? enriquecerEValidarOrigemCampos(dadosIniciais.origem_campos, {
+        ...dadosIniciais,
+        imovel: imovelLimpo || dadosIniciais.imovel,
+        rua_olhar_confrontacao: ruaLimpa || dadosIniciais.rua_olhar_confrontacao,
+        matricula_transcricao: matriculaLimpa || dadosIniciais.matricula_transcricao,
       })
     : dadosIniciais.origem_campos;
 
@@ -1010,6 +1011,7 @@ export function FichaOficialView({
 
   const pendenciasAtivas = pendencias.filter(p => divergenciasRevisadas[p.id] !== p.chave);
   const pendenciasMantidas = pendencias.filter(p => divergenciasRevisadas[p.id] === p.chave);
+  const diagnosticoSeguranca = useMemo(() => gerarDiagnosticoSegurancaFormulario(dados), [dados]);
 
   // ─── Edição de campos ────────────────────────────────────────────────────
   const atualizarCampo = <K extends keyof DadosManifestacao>(campo: K, valor: DadosManifestacao[K]) => {
@@ -4555,7 +4557,7 @@ export function FichaOficialView({
             role="dialog"
             aria-modal="true"
             aria-labelledby="revisao-dados-titulo"
-            className="relative flex h-full w-full flex-col border-l border-white/10 bg-[#0B1120] shadow-2xl sm:w-[480px] lg:w-[540px] animate-in slide-in-from-right-4 duration-200"
+            className="relative flex h-full w-full flex-col border-l border-white/10 bg-[#0B1120] shadow-2xl sm:w-[560px] lg:w-[680px] xl:w-[740px] animate-in slide-in-from-right-4 duration-200"
           >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -4605,11 +4607,83 @@ export function FichaOficialView({
 
             <div className="flex-1 overflow-y-auto p-4">
               {abaRevisao === 'pendencias' && (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Painel de Verificação Matemática e Integridade Registral */}
+                  <div className="rounded-xl border border-cyan-500/30 bg-slate-900/90 p-3.5 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                        <span className="text-xs sm:text-sm font-bold text-white">
+                          Verificação Matemática e Segurança Registral
+                        </span>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                          diagnosticoSeguranca.nivel === 'MAXIMA' || diagnosticoSeguranca.nivel === 'ALTA'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        }`}
+                      >
+                        Conformidade: {diagnosticoSeguranca.score}% ({diagnosticoSeguranca.regrasValidadas}/{diagnosticoSeguranca.totalRegras})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {diagnosticoSeguranca.itens.map(item => {
+                        const ok = item.status === 'VALIDADO';
+                        const alerta = item.status === 'ALERTA';
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-lg border px-3 py-2 text-xs ${
+                              ok
+                                ? 'border-emerald-500/25 bg-emerald-950/20'
+                                : alerta
+                                ? 'border-amber-500/30 bg-amber-950/20'
+                                : 'border-rose-500/30 bg-rose-950/20'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold text-white">{item.titulo}</span>
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                                  ok
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : alerta
+                                    ? 'bg-amber-500/20 text-amber-300'
+                                    : 'bg-rose-500/20 text-rose-300'
+                                }`}
+                              >
+                                {item.status}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-slate-300 leading-relaxed">{item.detalhe}</p>
+                            {item.sugestaoCorrecao && item.campoAlvo && (
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    atualizarCampo(
+                                      item.campoAlvo as keyof DadosManifestacao,
+                                      item.sugestaoCorrecao as never,
+                                    )
+                                  }
+                                  className="rounded border border-cyan-500/40 bg-cyan-950/60 px-2.5 py-1 text-[11px] font-bold text-cyan-200 hover:bg-cyan-900/70 cursor-pointer"
+                                >
+                                  Corrigir para {item.sugestaoCorrecao}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {pendenciasAtivas.length === 0 && (
                     <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-300">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                      <span>Nenhuma pendência identificada nos dados para elaboração.</span>
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+                      <span>Nenhuma divergência entre os campos preenchidos e as sugestões automáticas de competência/buscas.</span>
                     </div>
                   )}
 
@@ -4688,8 +4762,12 @@ export function FichaOficialView({
               )}
 
               {abaRevisao === 'origem' && (
-                totalCamposOrigem > 0 ? (
-                  <ConfidenceReview campos={dados.origem_campos || []} requerente={dados.requerente} />
+                (totalCamposOrigem > 0 || Boolean(dados.numero_processo || dados.imovel || dados.contribuinte_sql)) ? (
+                  <ConfidenceReview
+                    campos={dados.origem_campos || []}
+                    requerente={dados.requerente}
+                    dados={dados}
+                  />
                 ) : (
                   <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-sm text-slate-400">
                     Esta extração não registrou a origem dos campos no texto do PDF.
@@ -4697,7 +4775,9 @@ export function FichaOficialView({
                 )
               )}
 
-              {abaRevisao === 'autenticidade' && <ValidacaoAutenticidadeView dados={dados} />}
+              {abaRevisao === 'autenticidade' && (
+                <ValidacaoAutenticidadeView dados={dados} arquivoOrigem={arquivoOrigem} />
+              )}
             </div>
           </div>
         </div>

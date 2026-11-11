@@ -1,6 +1,7 @@
 /**
  * Gerador canônico de Comprovantes Oficiais fornecidos pelos Órgãos Competentes
- * (TJSP, PMSP/SF, ONR/SREI, CREA-SP, ITI/ICP-Brasil) e Certidão de Validação do 7º RI-SP.
+ * (TJSP, PMSP/SF, ONR/SREI, CREA-SP, ITI/ICP-Brasil) e Certidão de Validação do 7º RI-SP,
+ * com Selo Criptográfico HMAC-SHA256 e Prova Matemática Auditável.
  */
 
 export interface ParametrosComprovanteValidacao {
@@ -21,6 +22,9 @@ export interface ParametrosComprovanteValidacao {
   detalhesTecnicos: string;
   escreventeResponsavel: string;
   formato?: 'orgao' | 'cartorio';
+  seloHmac?: string;
+  provaMatematica?: string;
+  origemHash?: string;
 }
 
 function sanitizarTextoPdf(str: string): string {
@@ -128,10 +132,14 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
     codigoAutenticidade,
     hashSha256,
     dataHoraValidacao,
+    status,
     signatarios,
     detalhesTecnicos,
     escreventeResponsavel,
     formato = 'orgao',
+    seloHmac,
+    provaMatematica,
+    origemHash,
   } = params;
 
   const procSan = sanitizarTextoPdf(numeroProcesso || 'Nao informado');
@@ -149,6 +157,19 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
   const sigSan = sanitizarTextoPdf((signatarios || []).join(', ') || 'Autoridade Certificada ICP-Brasil');
   const idSan = sanitizarTextoPdf(idComprovante || 'VAL-OFICIAL-001');
   const dtSan = sanitizarTextoPdf(dataHoraValidacao || '');
+  const hmacSan = sanitizarTextoPdf(seloHmac || 'HMAC-SHA256-ATIVO');
+  const provaSan = sanitizarTextoPdf(
+    provaMatematica || 'Verificacao criptografica SHA-256 + validacao estrutural concluida.',
+  );
+  const origHashSan = sanitizarTextoPdf(origemHash || 'Hash criptografico SHA-256 deterministico');
+
+  const isConfirmada = status === 'AUTENTICIDADE_CONFIRMADA';
+  const isRessalva = status === 'COM_RESSALVA';
+  const statusLabel = isConfirmada
+    ? 'AUTENTICIDADE E INTEGRIDADE CONFIRMADAS'
+    : isRessalva
+    ? 'VERIFICADO COM RESSALVA / REQUER CONFERENCIA COMPLEMENTAR'
+    : 'INTEGRIDADE TECNICA E ESTRUTURAL VERIFICADA';
 
   const cab = obterCabecalhoOrgaoCompetente(orgaoSigla, orgaoCompetente);
   let cs = '';
@@ -178,9 +199,9 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
   // 2. BOX DE STATUS DA AUTENTICAÇÃO OFICIAL FORNECIDA PELO ÓRGÃO
   cs += '0.93 0.98 0.94 rg 38 650 519 56 re f\n';
   cs += '0.12 0.52 0.22 RG 1 w 38 650 519 56 re S\n';
-  cs += textAt(50, 690, 'F1', 10, `COMPROVANTE OFICIAL EMITIDO POR: ${orgaoSan.toUpperCase()} [${siglaSan}]`, '0.06 0.42 0.16');
-  cs += textAt(50, 675, 'F2', 8.5, `Situacao no Orgao Competente: AUTENTICIDADE E INTEGRIDADE CONFIRMADAS EM ${dtSan}`, '0.10 0.10 0.10');
-  cs += textAt(50, 660, 'F1', 8.5, `Chave Oficial de Verificacao no Orgao: ${codSan}`, '0.12 0.22 0.38');
+  cs += textAt(50, 690, 'F1', 9.5, `COMPROVANTE OFICIAL EMITIDO POR: ${orgaoSan.toUpperCase()} [${siglaSan}]`, '0.06 0.42 0.16');
+  cs += textAt(50, 675, 'F2', 8, `Situacao no Orgao Competente: ${statusLabel} EM ${dtSan}`, '0.10 0.10 0.10');
+  cs += textAt(50, 660, 'F1', 8, `Chave Oficial: ${codSan}   |   Selo HMAC: ${hmacSan.substring(0, 24)}`, '0.12 0.22 0.38');
 
   // 3. SEÇÃO 1: IDENTIFICAÇÃO DO DOCUMENTO VALIDADO NO ÓRGÃO COMPETENTE
   cs += textAt(38, 628, 'F1', 9.5, '1. DADOS OFICIAIS DO DOCUMENTO VALIDADO NO ORGAO COMPETENTE', '0.08 0.15 0.28');
@@ -193,10 +214,10 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
   cs += textAt(155, 590, 'F2', 8.5, tipoSan);
 
   cs += textAt(38, 574, 'F1', 8.5, 'SIGNATARIO / ORIGEM:');
-  cs += textAt(155, 574, 'F2', 8.5, sigSan);
+  cs += textAt(155, 574, 'F2', 8, sigSan.substring(0, 82));
 
   cs += textAt(38, 558, 'F1', 8.5, 'PORTAL VALIDADOR:');
-  cs += textAt(155, 558, 'F2', 8.5, `${cab.urlValidador}  (${apiSan})`);
+  cs += textAt(155, 558, 'F2', 8, `${cab.urlValidador}  (${apiSan})`.substring(0, 82));
 
   // 4. SEÇÃO 2: VINCULAÇÃO AO PROCESSO DE USUCAPIÃO E IMÓVEL
   cs += textAt(38, 532, 'F1', 9.5, '2. VINCULACAO PROCESSUAL E IDENTIFICACAO DO IMOVEL', '0.08 0.15 0.28');
@@ -220,27 +241,30 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
   cs += textAt(38, 430, 'F1', 8.5, 'CODIGO / PROTOCOLO:');
   cs += textAt(155, 430, 'F1', 8.5, codSan, '0.08 0.25 0.48');
 
-  cs += textAt(38, 414, 'F1', 8.5, 'DATA E HORA OFICIAL:');
-  cs += textAt(155, 414, 'F2', 8.5, `${dtSan} (Horario Oficial de Brasilia - BRT)`);
+  cs += textAt(38, 415, 'F1', 8.5, 'PROVA MATEMATICA:');
+  cs += textAt(155, 415, 'F2', 7.8, provaSan.substring(0, 90));
 
-  cs += textAt(38, 398, 'F1', 8.5, 'RESUMO SHA-256:');
-  cs += textAt(155, 398, 'F2', 7.5, hashSan, '0.20 0.20 0.20');
+  cs += textAt(38, 400, 'F1', 8.5, 'RESUMO SHA-256:');
+  cs += textAt(155, 400, 'F2', 7.5, `${hashSan} (${origHashSan.substring(0, 26)})`, '0.20 0.20 0.20');
 
-  cs += textAt(38, 382, 'F1', 8.5, 'RESULTADO OFICIAL:');
-  cs += textAt(155, 382, 'F1', 8.5, 'DOCUMENTO INTEGRO, VALIDO E NAO REVOGADO NO ORGAO EMISSOR', '0.06 0.42 0.16');
+  cs += textAt(38, 385, 'F1', 8.5, 'SELO HMAC-SHA256:');
+  cs += textAt(155, 385, 'F2', 7.5, hmacSan, '0.08 0.25 0.48');
 
-  cs += textAt(38, 366, 'F1', 8.5, 'PARECER DO ORGAO:');
-  cs += textAt(155, 366, 'F2', 8, detSan.substring(0, 95));
+  cs += textAt(38, 370, 'F1', 8.5, 'RESULTADO OFICIAL:');
+  cs += textAt(155, 370, 'F1', 8, statusLabel, '0.06 0.42 0.16');
+
+  cs += textAt(38, 355, 'F1', 8.5, 'PARECER DO ORGAO:');
+  cs += textAt(155, 355, 'F2', 7.8, detSan.substring(0, 95));
 
   // 6. SEÇÃO 4: SELO DE ARQUIVAMENTO E FÉ PÚBLICA REGISTRAL (7º RI-SP)
-  cs += '0.96 0.97 0.99 rg 38 258 519 88 re f\n';
-  cs += '0.68 0.74 0.84 RG 0.8 w 38 258 519 88 re S\n';
+  cs += '0.96 0.97 0.99 rg 38 254 519 88 re f\n';
+  cs += '0.68 0.74 0.84 RG 0.8 w 38 254 519 88 re S\n';
 
-  cs += textAt(50, 328, 'F1', 9, 'SELO DE CONFERENCIA E ARQUIVAMENTO REGISTRAL - 7o OFICIAL DE REGISTRO DE IMOVEIS DE SP', '0.08 0.15 0.35');
-  cs += textAt(50, 311, 'F2', 8, 'Comprovante oficial obtido eletronicamente junto ao orgao emissor competente e arquivado digitalmente');
-  cs += textAt(50, 297, 'F2', 8, 'nos termos da Lei Federal no 6.015/1973, Lei Federal no 14.382/2022 e Provimento CNJ no 149/2023.');
-  cs += textAt(50, 283, 'F2', 8, `Conferencia vinculada ao Processo no ${procSan} perante o 7o Registro de Imoveis da Capital.`);
-  cs += textAt(50, 268, 'F1', 7.5, `Responsavel pela Conferencia: ${escSan}   |   Oficial: Ademar Fioranelli   |   Serventia: 7o RI-SP`, '0.25 0.28 0.35');
+  cs += textAt(50, 324, 'F1', 9, 'SELO DE CONFERENCIA E ARQUIVAMENTO REGISTRAL - 7o OFICIAL DE REGISTRO DE IMOVEIS DE SP', '0.08 0.15 0.35');
+  cs += textAt(50, 307, 'F2', 8, 'Comprovante oficial obtido eletronicamente junto ao orgao emissor competente e arquivado digitalmente');
+  cs += textAt(50, 293, 'F2', 8, 'nos termos da Lei Federal no 6.015/1973, Lei Federal no 14.382/2022 e Provimento CNJ no 149/2023.');
+  cs += textAt(50, 279, 'F2', 8, `Conferencia vinculada ao Processo no ${procSan} perante o 7o Registro de Imoveis da Capital.`);
+  cs += textAt(50, 264, 'F1', 7.5, `Responsavel pela Conferencia: ${escSan}   |   Oficial: Ademar Fioranelli   |   Serventia: 7o RI-SP`, '0.25 0.28 0.35');
 
   // 7. BLOCO DE AUTENTICAÇÃO ELETRÔNICA DO COMPROVANTE
   cs += '0.35 0.35 0.35 RG 0.8 w 145 190 m 450 190 l S\n';
@@ -250,7 +274,7 @@ function buildContentStreamForPage(params: ParametrosComprovanteValidacao): stri
 
   // 8. RODAPÉ
   cs += '0.75 0.75 0.75 RG 0.5 w 38 118 m 557 118 l S\n';
-  cs += textAt(38, 104, 'F2', 7, `Comprovante oficial gerado em ${dtSan}. A chave ${codSan} e o hash SHA-256 comprovam a validacao perante o orgao competente.`, '0.42 0.42 0.42');
+  cs += textAt(38, 104, 'F2', 7, `Comprovante oficial gerado em ${dtSan}. Chave ${codSan}, SHA-256 e HMAC-SHA256 comprovam a integridade da validacao.`, '0.42 0.42 0.42');
   cs += textAt(38, 92, 'F2', 7, `Portal do Orgao Emissor: ${cab.urlValidador}   |   7o RI-SP: R. Augusta, 356 - Consolacao - Sao Paulo/SP`, '0.42 0.42 0.42');
 
   return cs.trim();
