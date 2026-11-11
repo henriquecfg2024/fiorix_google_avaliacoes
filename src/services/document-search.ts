@@ -257,30 +257,81 @@ export function extrairNumeroMatricula(textoOuNome: string): string | null {
   return null;
 }
 
+const processoMatriculaCache = new Map<string, string>();
+
+function registrarMatriculaNoCache(filePathOuRef: string, matricula?: string | null) {
+  if (!filePathOuRef || !matricula || typeof matricula !== 'string') return;
+  const limpo = matricula.trim();
+  if (!limpo) return;
+  processoMatriculaCache.set(filePathOuRef.toLowerCase(), limpo);
+  const cnj = filePathOuRef.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}|\d{20})/);
+  if (cnj) {
+    processoMatriculaCache.set(cnj[1].replace(/[^\d]/g, ''), limpo);
+  }
+}
+
 export async function detectarMatriculaEmArquivo(filePath: string): Promise<string | null> {
+  const cachedDirect = processoMatriculaCache.get(filePath.toLowerCase());
+  if (cachedDirect) return cachedDirect;
+  const cnjInPath = filePath.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}|\d{20})/);
+  if (cnjInPath) {
+    const cachedCnj = processoMatriculaCache.get(cnjInPath[1].replace(/[^\d]/g, ''));
+    if (cachedCnj) return cachedCnj;
+  }
+
   const fileName = path.basename(filePath);
   const ext = path.extname(filePath).toLowerCase();
 
   const nameMatch = extrairNumeroMatricula(fileName);
-  if (nameMatch) return nameMatch;
+  if (nameMatch) {
+    registrarMatriculaNoCache(filePath, nameMatch);
+    return nameMatch;
+  }
 
   if (ext === '.docx' || ext === '.doc') {
+    if (ext === '.doc') {
+      try {
+        const extractor = new WordExtractor();
+        const extracted = await extractor.extract(filePath);
+        const bodyText = String(extracted.getBody() || '');
+        const docMatch = extrairNumeroMatricula(bodyText);
+        if (docMatch) {
+          registrarMatriculaNoCache(filePath, docMatch);
+          return docMatch;
+        }
+      } catch {}
+    }
     try {
       const { value: text } = await mammoth.extractRawText({ path: filePath });
       const docMatch = extrairNumeroMatricula(text);
-      if (docMatch) return docMatch;
+      if (docMatch) {
+        registrarMatriculaNoCache(filePath, docMatch);
+        return docMatch;
+      }
     } catch {}
   } else if (ext === '.txt' || ext === '.rtf') {
     try {
       const content = await fs.readFile(filePath, 'utf8');
       const txtMatch = extrairNumeroMatricula(content);
-      if (txtMatch) return txtMatch;
+      if (txtMatch) {
+        registrarMatriculaNoCache(filePath, txtMatch);
+        return txtMatch;
+      }
     } catch {}
   } else if (ext === '.pdf') {
     try {
+      const ocrCacheText = await lerTextoCacheOcrRecente(filePath, fileName);
+      if (ocrCacheText) {
+        const ocrMatch = extrairNumeroMatricula(ocrCacheText);
+        if (ocrMatch) {
+          registrarMatriculaNoCache(filePath, ocrMatch);
+          return ocrMatch;
+        }
+      }
       const handle = await fs.open(filePath, 'r');
-      const buf = Buffer.alloc(65536);
-      const { bytesRead } = await handle.read(buf, 0, 65536, 0);
+      const maxRead = 512 * 1024;
+      const buf = Buffer.alloc(maxRead);
+      const { bytesRead } = await handle.read(buf, 0, maxRead, 0);
       await handle.close();
       const slice = buf.subarray(0, bytesRead);
 
@@ -288,7 +339,7 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
       const streamRegex = /stream\r?\n([\s\S]*?)endstream/g;
       let m;
       let count = 0;
-      while ((m = streamRegex.exec(text)) !== null && count < 6) {
+      while ((m = streamRegex.exec(text)) !== null && count < 30) {
         count++;
         try {
           const decomp = zlib.inflateSync(Buffer.from(m[1], 'binary')).toString('latin1');
@@ -296,7 +347,10 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
         } catch {}
       }
       const pdfMatch = extrairNumeroMatricula(text);
-      if (pdfMatch) return pdfMatch;
+      if (pdfMatch) {
+        registrarMatriculaNoCache(filePath, pdfMatch);
+        return pdfMatch;
+      }
     } catch {}
   }
 
@@ -1565,6 +1619,11 @@ export function enrichPetitionData(
     if (linhasConfrontacao.length > 0) {
       result.anotacoes_ficha_oficial = `CONFRONTAÇÕES APURADAS (PETIÇÃO INICIAL / MATRÍCULA):\n${linhasConfrontacao.join('\n')}`;
     }
+  }
+
+  if (result.matricula_transcricao) {
+    if (relativePath) registrarMatriculaNoCache(relativePath, String(result.matricula_transcricao));
+    if (result.numero_processo) registrarMatriculaNoCache(String(result.numero_processo), String(result.matricula_transcricao));
   }
 
   return result;
