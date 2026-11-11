@@ -3540,9 +3540,9 @@ export function FichaOficialView({
                         </label>
                       </div>
 
-                      {/* Barra de Ações de Pesquisa (Autos PDF e Matrícula) */}
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {arquivoOrigem && onVisualizarDocumento ? (
+                      {/* Barra de Ação: Ver Autos (PDF) */}
+                      {arquivoOrigem && onVisualizarDocumento ? (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
                           <button
                             type="button"
                             onClick={() =>
@@ -3560,24 +3560,8 @@ export function FichaOficialView({
                             <Eye className="h-3.5 w-3.5 text-[#0F3D6E]" />
                             <span>Ver Autos (PDF)</span>
                           </button>
-                        ) : null}
-
-                        {/* Matrícula mencionada no Processo */}
-                        <button
-                          type="button"
-                          onClick={() => void localizarNoLivro2()}
-                          disabled={buscandoLivro2}
-                          className={botaoOrigem}
-                          title="Localiza a imagem digitalizada (.KEN) da Matrícula/Transcrição mencionada no processo de usucapião em K:\IMAGENS\LV2 ou LV3"
-                        >
-                          {buscandoLivro2 ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0F3D6E]" />
-                          ) : (
-                            <ImageIcon className="h-3.5 w-3.5 text-[#0F3D6E]" />
-                          )}
-                          <span>Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
-                        </button>
-                      </div>
+                        </div>
+                      ) : null}
 
                       {/* Atalhos Oficiais e Confrontantes do GEOSAMPA (Ocultos por padrão, com opção de desocultar) */}
                       <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-2.5 py-2 space-y-2">
