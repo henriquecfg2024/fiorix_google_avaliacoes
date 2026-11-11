@@ -23,6 +23,9 @@ import {
   X,
   Eye,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
   MoreVertical,
   MonitorUp,
   Star,
@@ -374,6 +377,7 @@ export function DocumentSearch({
   const [conferindoIds, setConferindoIds] = useState<Record<string, boolean>>({});
   const [filtroStatusConferencia, setFiltroStatusConferencia] = useState<'TODOS' | 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO'>('TODOS');
   const [buscaFiscalizacao, setBuscaFiscalizacao] = useState('');
+  const [paginaConferencia, setPaginaConferencia] = useState(1);
   // Quando a ficha aberta é correção de uma manifestação arquivada (Histórico › Nova versão)
   const [fichaVersaoAnteriorId, setFichaVersaoAnteriorId] = useState<string | null>(null);
   // Card da fila oculto por padrão; o usuário pode exibi-lo (preferência persistida)
@@ -2363,6 +2367,7 @@ export function DocumentSearch({
 
       {/* ABA DEDICADA: FORMULÁRIOS EM CONFERÊNCIA E ARQUIVO DE FISCALIZAÇÃO */}
       {modo === 'conferencia' && (() => {
+        const POR_PAGINA_CONFERENCIA = 20;
         const totalAguardando = fichasPendentes.filter(f => f.statusConferencia !== 'CONFERIDO').length;
         const totalConferidos = fichasPendentes.filter(f => f.statusConferencia === 'CONFERIDO').length;
         const termoFiscal = buscaFiscalizacao.trim().toLowerCase();
@@ -2377,284 +2382,467 @@ export function DocumentSearch({
           return false;
         });
 
-        return (
-      <div id="fila-fichas-oficial" className="rounded-2xl border border-[#E2E8F0] bg-[#F5F2ED] text-[#1E293B] shadow-md p-5 transition-all">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-300/80">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-            <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900">
-              ⏳ FORMULÁRIOS EM CONFERÊNCIA E FISCALIZAÇÃO ({fichasPendentes.length})
-            </h2>
-            <span className="text-xs text-slate-600">
-              (Formulários arquivados para conferência e fiscalização pelo Oficial ou seu Substituto — compartilhados entre as máquinas do setor)
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={abrirNovoFormulario}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600/30 bg-cyan-700 hover:bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
-              title="Criar novo formulário de manifestação em branco"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Novo Formulário</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setFilaCarregando(true); void recarregarFila(); }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1.5 text-xs font-bold text-[#475569] shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
-              title="Atualizar a lista de formulários arquivados (inclui formulários salvos em outras máquinas)"
-            >
-              <RotateCw className={`h-3.5 w-3.5 ${filaCarregando ? 'animate-spin' : ''}`} aria-hidden="true" />
-              Atualizar
-            </button>
-          </div>
-        </div>
+        const totalPaginas = Math.max(1, Math.ceil(fichasFiltradas.length / POR_PAGINA_CONFERENCIA));
+        const paginaSegura = Math.min(paginaConferencia, totalPaginas);
+        const indiceInicio = fichasFiltradas.length === 0 ? 0 : (paginaSegura - 1) * POR_PAGINA_CONFERENCIA + 1;
+        const indiceFim = Math.min(paginaSegura * POR_PAGINA_CONFERENCIA, fichasFiltradas.length);
+        const fichasPaginadas = fichasFiltradas.slice(
+          (paginaSegura - 1) * POR_PAGINA_CONFERENCIA,
+          paginaSegura * POR_PAGINA_CONFERENCIA
+        );
 
-        {/* Filtros de Fiscalização (Todos / Aguardando Conferência / Conferidos) + Busca com ou sem . e - */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/80 p-1 shadow-inner">
-            <button
-              type="button"
-              onClick={() => setFiltroStatusConferencia('TODOS')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-200 cursor-pointer ${
-                filtroStatusConferencia === 'TODOS'
-                  ? 'bg-gradient-to-r from-[#0F243C] to-[#1E3A5F] text-white shadow-sm ring-1 ring-slate-900/10'
-                  : 'bg-transparent text-slate-600 hover:bg-white/80 hover:text-slate-900'
-              }`}
-            >
-              <span>Todos Arquivados</span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-                  filtroStatusConferencia === 'TODOS'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-200/90 text-slate-700'
-                }`}
-              >
-                {fichasPendentes.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFiltroStatusConferencia('AGUARDANDO_CONFERENCIA')}
-              className={`group inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer ${
-                filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
-                  ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-sm shadow-rose-500/25 ring-1 ring-rose-700/30'
-                  : 'border border-rose-200/80 bg-gradient-to-r from-rose-50/90 via-white to-rose-50/90 text-rose-800 hover:border-rose-300 hover:from-rose-100/80 hover:to-rose-50 shadow-2xs'
-              }`}
-            >
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span
-                  className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
-                    filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'bg-rose-200' : 'bg-rose-400'
-                  }`}
+        return (
+      <div id="fila-fichas-oficial" className="space-y-4">
+        {/* Cabeçalho e Filtros — Identidade Âmbar/Azul (Fila Operacional) */}
+        <div className="rounded-2xl border border-amber-500/20 bg-[#0B1020]/90 p-4 text-white shadow-sm backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+                <h2 className="text-sm font-bold tracking-wide text-white">
+                  EM CONFERÊNCIA — Procedimentos em Revisão e Fiscalização
+                </h2>
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
+                  {fichasPendentes.length} {fichasPendentes.length === 1 ? 'em conferência' : 'em conferência'}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-white/60">
+                Fila operacional compartilhada para conferência do Oficial ou Substituto antes da finalização na Etapa 2.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40"
+                  aria-hidden="true"
                 />
-                <span
-                  className={`relative inline-flex h-2 w-2 rounded-full ${
-                    filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'bg-white' : 'bg-rose-600'
-                  }`}
+                <input
+                  type="text"
+                  value={buscaFiscalizacao}
+                  onChange={e => {
+                    setBuscaFiscalizacao(e.target.value);
+                    setPaginaConferencia(1);
+                  }}
+                  placeholder="Pesquisar processo, requerente ou matrícula…"
+                  aria-label="Pesquisar processo, requerente ou matrícula"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-8 pr-7 text-xs text-white placeholder-white/40 transition focus:border-amber-500/50 focus:bg-white/[0.06] focus:outline-none"
                 />
-              </span>
-              <Clock
-                className={`h-3.5 w-3.5 shrink-0 ${
-                  filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'text-rose-100' : 'text-rose-600'
-                }`}
-              />
-              <span>Aguardando Conferência</span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-                  filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-rose-100 text-rose-800 ring-1 ring-rose-300/60'
-                }`}
-              >
-                {totalAguardando}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFiltroStatusConferencia('CONFERIDO')}
-              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer ${
-                filtroStatusConferencia === 'CONFERIDO'
-                  ? 'bg-gradient-to-r from-[#0B4F8A] via-blue-700 to-indigo-700 text-white shadow-sm shadow-blue-600/25 ring-1 ring-blue-800/30'
-                  : 'border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-white to-blue-50/90 text-blue-800 hover:border-blue-300 hover:from-blue-100/80 hover:to-blue-50 shadow-2xs'
-              }`}
-            >
-              <CheckCircle2
-                className={`h-3.5 w-3.5 shrink-0 ${
-                  filtroStatusConferencia === 'CONFERIDO' ? 'text-blue-100' : 'text-blue-600'
-                }`}
-              />
-              <span>Conferido</span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
-                  filtroStatusConferencia === 'CONFERIDO'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-blue-100 text-blue-800 ring-1 ring-blue-300/60'
-                }`}
-              >
-                {totalConferidos}
-              </span>
-            </button>
-          </div>
-          <div className="relative min-w-[240px] flex-1 max-w-md">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={buscaFiscalizacao}
-              onChange={e => setBuscaFiscalizacao(e.target.value)}
-              placeholder="Pesquisar processo (com ou sem . e -), requerente ou matrícula..."
-              className="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-slate-500 focus:outline-none"
-            />
-            {buscaFiscalizacao && (
+                {buscaFiscalizacao && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBuscaFiscalizacao('');
+                      setPaginaConferencia(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 cursor-pointer"
+                    title="Limpar pesquisa"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
               <button
                 type="button"
-                onClick={() => setBuscaFiscalizacao('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                title="Limpar filtro"
+                onClick={abrirNovoFormulario}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/25 cursor-pointer"
+                title="Criar novo formulário de manifestação em branco"
               >
-                <X className="h-3.5 w-3.5" />
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Novo Formulário</span>
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => { setFilaCarregando(true); void recarregarFila(); }}
+                disabled={filaCarregando}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/[0.08] disabled:opacity-50 cursor-pointer"
+                title="Atualizar a lista de formulários em conferência"
+              >
+                <RotateCw className={`h-3.5 w-3.5 ${filaCarregando ? 'animate-spin' : ''}`} aria-hidden="true" />
+                <span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Barra secundária de filtros rápidos (Todos / Aguardando Conferência / Conferido) */}
+          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-3">
+            <div className="inline-flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroStatusConferencia('TODOS');
+                  setPaginaConferencia(1);
+                }}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  filtroStatusConferencia === 'TODOS'
+                    ? 'border border-amber-500/40 bg-amber-500/15 text-amber-200 shadow-2xs'
+                    : 'border border-transparent text-white/65 hover:bg-white/[0.05] hover:text-white'
+                }`}
+              >
+                <span>Todos</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    filtroStatusConferencia === 'TODOS'
+                      ? 'bg-amber-500/25 text-amber-100'
+                      : 'bg-white/10 text-white/65'
+                  }`}
+                >
+                  {fichasPendentes.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroStatusConferencia('AGUARDANDO_CONFERENCIA');
+                  setPaginaConferencia(1);
+                }}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
+                    ? 'border border-rose-500/40 bg-rose-500/15 text-rose-200 shadow-2xs'
+                    : 'border border-transparent text-white/65 hover:bg-white/[0.05] hover:text-white'
+                }`}
+              >
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-400" />
+                </span>
+                <span>Aguardando Conferência</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
+                      ? 'bg-rose-500/25 text-rose-100'
+                      : 'bg-white/10 text-white/65'
+                  }`}
+                >
+                  {totalAguardando}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroStatusConferencia('CONFERIDO');
+                  setPaginaConferencia(1);
+                }}
+                className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                  filtroStatusConferencia === 'CONFERIDO'
+                    ? 'border border-sky-500/40 bg-sky-500/15 text-sky-200 shadow-2xs'
+                    : 'border border-transparent text-white/65 hover:bg-white/[0.05] hover:text-white'
+                }`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-sky-400" />
+                <span>Conferido</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    filtroStatusConferencia === 'CONFERIDO'
+                      ? 'bg-sky-500/25 text-sky-100'
+                      : 'bg-white/10 text-white/65'
+                  }`}
+                >
+                  {totalConferidos}
+                </span>
+              </button>
+            </div>
+
+            <div className="text-[11px] text-white/45">
+              Clique em <strong className="font-semibold text-white/70">Abrir</strong> para revisar a ficha, avançar para a Etapa 2 ou exportar (.DOCX / .DOC).
+            </div>
           </div>
         </div>
 
-        <div id="fila-fichas-oficial-conteudo">
+        {/* Listagem Compacta — Tabela Operacional Escura */}
+        <div id="fila-fichas-oficial-conteudo" className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl">
           {filaErro && (
-            <p role="alert" className="mb-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{filaErro}</p>
-          )}
-          {filaCarregando && fichasPendentes.length === 0 ? (
-            <p className="py-6 text-center text-xs italic text-gray-500">Carregando formulários arquivados para conferência e fiscalização…</p>
-          ) : fichasFiltradas.length === 0 ? (
-            <p className="py-6 text-center text-xs italic text-gray-500">Nenhum formulário encontrado para o filtro selecionado.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {fichasFiltradas.map(ficha => {
-                const isConferido = ficha.statusConferencia === 'CONFERIDO';
-                const processandoCard = Boolean(conferindoIds[ficha.registroId]);
-                return (
-                <div
-                  key={ficha.registroId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => reabrirFichaDaFila(ficha)}
-                  onKeyDown={e => { if (e.key === 'Enter') reabrirFichaDaFila(ficha); }}
-                  title="Abrir formulário para conferência, revisão ou fiscalização"
-                  className={`group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-l-4 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B] ${
-                    isConferido
-                      ? 'border-slate-200/90 border-l-blue-600 hover:border-blue-300 hover:border-l-blue-700'
-                      : 'border-slate-200/90 border-l-rose-500 hover:border-rose-300 hover:border-l-rose-600'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-md border border-[#CBD5E1] bg-[#F8F7F4] px-2 py-0.5 font-mono text-xs font-bold text-slate-900">{ficha.numero_processo}</span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{ficha.subdistrito}</span>
-                      {/* Carimbo Oficial Elegante nos Cards: Vermelho/Rose (Aguardando Conferência) ou Azul (Conferido) */}
-                      {isConferido ? (
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-gradient-to-r from-blue-50 via-white to-indigo-50/90 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-blue-800 shadow-2xs ring-1 ring-blue-500/10"
-                          title={
-                            ficha.conferidoPorNome
-                              ? `Conferido por ${ficha.conferidoPorNome}${ficha.conferidoEm ? ` em ${new Date(ficha.conferidoEm).toLocaleString('pt-BR')}` : ''}`
-                              : 'Formulário conferido pelo Oficial ou seu Substituto'
-                          }
-                        >
-                          <CheckCircle2 className="h-3 w-3 text-blue-600 shrink-0" />
-                          <span>Conferido</span>
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/90 bg-gradient-to-r from-rose-50 via-white to-amber-50/70 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-rose-800 shadow-2xs ring-1 ring-rose-500/10"
-                          title="Formulário gerado pelo colaborador aguardando conferência pelo Oficial ou seu Substituto"
-                        >
-                          <span className="relative flex h-2 w-2 shrink-0">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-600" />
-                          </span>
-                          <Clock className="h-3 w-3 text-rose-600 shrink-0" />
-                          <span>Aguardando Conferência</span>
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1.5 truncate text-xs font-semibold text-gray-800" title={ficha.requerente}>{ficha.requerente}</div>
-                    <div className="mt-0.5 truncate text-[10px] text-gray-500" title={ficha.imovel}>
-                      Tr/Mat: {ficha.matricula_transcricao} • {ficha.data_criacao}
-                    </div>
-                    {(ficha.atualizadoPorNome || ficha.criadoPorNome) && (
-                      <div className="mt-0.5 truncate text-[10px] font-semibold text-gray-600">
-                        Salvo por {ficha.atualizadoPorNome || ficha.criadoPorNome}
-                      </div>
-                    )}
-                    {isConferido && ficha.conferidoPorNome && (
-                      <div className="mt-0.5 truncate text-[10px] font-bold text-blue-700">
-                        Conferido por {ficha.conferidoPorNome}
-                        {ficha.conferidoEm ? ` • ${new Date(ficha.conferidoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      disabled={processandoCard}
-                      onClick={e => {
-                        e.stopPropagation();
-                        void alternarConferenciaCard(ficha);
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 ${
-                        isConferido
-                          ? 'border-rose-200/90 bg-gradient-to-r from-rose-50/70 via-white to-rose-50/70 text-rose-700 hover:border-rose-300 hover:bg-rose-50 shadow-2xs'
-                          : 'border-blue-700/80 bg-gradient-to-r from-[#0B4F8A] via-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-600/20 hover:from-[#093E6E] hover:via-blue-700 hover:to-indigo-700 hover:shadow'
-                      }`}
-                      title={
-                        isConferido
-                          ? 'Retornar status para Aguardando Conferência'
-                          : 'Realizar conferência e marcar como Conferido'
-                      }
-                    >
-                      {isConferido ? (
-                        <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-blue-100 shrink-0" />
-                      )}
-                      <span>{processandoCard ? 'Salvando…' : isConferido ? 'Voltar p/ Aguardando' : 'Marcar Conferido'}</span>
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          const dadosMinuta = { ...criarDadosManifestacaoPadrao(), ...ficha.dados };
-                          const saudacao = dadosMinuta.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza';
-                          const min = montarMinuta(dadosMinuta, saudacao);
-                          baixarDocxManifestacao(min, null, ficha.numero_processo);
-                        }}
-                        className="inline-flex items-center gap-1 rounded border border-blue-300 bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-900 hover:bg-blue-100 cursor-pointer"
-                        title="Salvar / Baixar Manifestação em formato Word (.docx)"
-                      >
-                        <FileText className="h-2.5 w-2.5 text-blue-700" />
-                        <span>.DOCX</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          const dadosMinuta = { ...criarDadosManifestacaoPadrao(), ...ficha.dados };
-                          const saudacao = dadosMinuta.saudacao_juiz === 'MM. Juiz' ? 'MM. Juiz' : 'Meritíssima Juíza';
-                          const min = montarMinuta(dadosMinuta, saudacao);
-                          baixarDocManifestacao(min, null, ficha.numero_processo);
-                        }}
-                        className="inline-flex items-center gap-1 rounded border border-indigo-300 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-900 hover:bg-indigo-100 cursor-pointer"
-                        title="Salvar / Baixar Manifestação em formato Word (.doc)"
-                      >
-                        <FileText className="h-2.5 w-2.5 text-indigo-700" />
-                        <span>.DOC</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
+            <div role="alert" className="border-b border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-200">
+              {filaErro}
             </div>
+          )}
+
+          {filaCarregando && fichasPendentes.length === 0 ? (
+            <div className="p-8 text-center text-xs text-white/60">
+              Carregando procedimentos em conferência…
+            </div>
+          ) : fichasFiltradas.length === 0 ? (
+            <div className="p-8 text-center">
+              <Clock className="mx-auto h-7 w-7 text-white/25" aria-hidden="true" />
+              <p className="mt-2 text-xs font-semibold text-white/80">
+                {fichasPendentes.length === 0
+                  ? 'Nenhum procedimento em conferência no momento.'
+                  : 'Nenhum procedimento encontrado para o filtro ou pesquisa informados.'}
+              </p>
+              <p className="mt-1 text-[11px] text-white/50">
+                {fichasPendentes.length === 0
+                  ? 'Os formulários salvos na Etapa 1 aparecerão aqui para conferência do Oficial ou Substituto.'
+                  : 'Tente ajustar o filtro de status acima ou limpar o campo de pesquisa.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold uppercase tracking-wider text-white/50">
+                      <th className="py-3 pl-4 pr-3">Processo</th>
+                      <th className="px-3 py-3">Requerente/Interessado</th>
+                      <th className="px-3 py-3">Matrícula/Transcrição</th>
+                      <th className="px-3 py-3">Situação</th>
+                      <th className="px-3 py-3">Atualizado em</th>
+                      <th className="py-3 pl-3 pr-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.06] text-xs">
+                    {fichasPaginadas.map(ficha => {
+                      const isConferido = ficha.statusConferencia === 'CONFERIDO';
+                      const processandoCard = Boolean(conferindoIds[ficha.registroId]);
+                      return (
+                        <tr
+                          key={ficha.registroId}
+                          onClick={() => reabrirFichaDaFila(ficha)}
+                          className={`group cursor-pointer border-l-[3px] transition-colors hover:bg-white/[0.04] ${
+                            isConferido ? 'border-l-sky-500' : 'border-l-rose-500'
+                          }`}
+                        >
+                          <td className="py-3 pl-4 pr-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-semibold text-white">
+                                {ficha.numero_processo || 'Sem número'}
+                              </span>
+                              {ficha.subdistrito && (
+                                <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-white/60">
+                                  {ficha.subdistrito}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 max-w-[300px]">
+                            <div
+                              className="truncate font-medium text-white/90"
+                              title={ficha.requerente || 'Não informado'}
+                            >
+                              {ficha.requerente || 'Não informado'}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] text-white/45 truncate">
+                              {(ficha.atualizadoPorNome || ficha.criadoPorNome) && (
+                                <span>Salvo por {ficha.atualizadoPorNome || ficha.criadoPorNome}</span>
+                              )}
+                              {isConferido && ficha.conferidoPorNome && (
+                                <span className="text-sky-300/90">
+                                  • Conferido por {ficha.conferidoPorNome}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 max-w-[200px]">
+                            <div
+                              className="truncate text-white/75"
+                              title={ficha.matricula_transcricao || '—'}
+                            >
+                              {ficha.matricula_transcricao || '—'}
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {isConferido ? (
+                              <span
+                                className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-200"
+                                title={
+                                  ficha.conferidoPorNome
+                                    ? `Conferido por ${ficha.conferidoPorNome}${ficha.conferidoEm ? ` em ${new Date(ficha.conferidoEm).toLocaleString('pt-BR')}` : ''}`
+                                    : 'Formulário conferido pelo Oficial ou seu Substituto'
+                                }
+                              >
+                                <CheckCircle2 className="h-3 w-3 text-sky-400 shrink-0" />
+                                <span>Conferido</span>
+                              </span>
+                            ) : (
+                              <span
+                                className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-rose-200"
+                                title="Aguardando conferência pelo Oficial ou seu Substituto"
+                              >
+                                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" />
+                                </span>
+                                <span>Aguardando Conferência</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-3 py-3 whitespace-nowrap text-white/65">
+                            {ficha.data_criacao || '—'}
+                          </td>
+
+                          <td
+                            className="py-3 pl-3 pr-4 text-right whitespace-nowrap"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                disabled={processandoCard}
+                                onClick={() => void alternarConferenciaCard(ficha)}
+                                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition cursor-pointer disabled:opacity-50 ${
+                                  isConferido
+                                    ? 'border-white/10 bg-white/[0.04] text-white/75 hover:border-rose-500/30 hover:bg-rose-500/15 hover:text-rose-200'
+                                    : 'border-sky-500/35 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25'
+                                }`}
+                                title={
+                                  isConferido
+                                    ? 'Retornar status para Aguardando Conferência'
+                                    : 'Marcar formulário como Conferido'
+                                }
+                              >
+                                {isConferido ? (
+                                  <Clock className="h-3.5 w-3.5 text-rose-300 shrink-0" />
+                                ) : (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-sky-300 shrink-0" />
+                                )}
+                                <span>
+                                  {processandoCard
+                                    ? 'Salvando…'
+                                    : isConferido
+                                    ? 'Voltar p/ Aguardando'
+                                    : 'Marcar Conferido'}
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => reabrirFichaDaFila(ficha)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/20 cursor-pointer"
+                                title="Abrir formulário para conferência ou Etapa 2"
+                              >
+                                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>Abrir</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Compact List */}
+              <div className="divide-y divide-white/[0.06] md:hidden">
+                {fichasPaginadas.map(ficha => {
+                  const isConferido = ficha.statusConferencia === 'CONFERIDO';
+                  const processandoCard = Boolean(conferindoIds[ficha.registroId]);
+                  return (
+                    <div
+                      key={ficha.registroId}
+                      onClick={() => reabrirFichaDaFila(ficha)}
+                      className={`flex flex-col gap-2 border-l-[3px] p-3.5 transition-colors hover:bg-white/[0.04] ${
+                        isConferido ? 'border-l-sky-500' : 'border-l-rose-500'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-xs font-semibold text-white">
+                              {ficha.numero_processo || 'Sem número'}
+                            </span>
+                            {isConferido ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-200">
+                                <CheckCircle2 className="h-2.5 w-2.5 text-sky-400" />
+                                Conferido
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                                <Clock className="h-2.5 w-2.5 text-rose-400" />
+                                Aguardando
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 truncate text-xs font-medium text-white/90">
+                            {ficha.requerente || 'Não informado'}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-white/55">
+                            {ficha.matricula_transcricao && (
+                              <span className="truncate max-w-[180px]">{ficha.matricula_transcricao}</span>
+                            )}
+                            <span>• {ficha.data_criacao}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="flex items-center justify-end gap-1.5 pt-1"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          disabled={processandoCard}
+                          onClick={() => void alternarConferenciaCard(ficha)}
+                          className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                            isConferido
+                              ? 'border-white/10 bg-white/[0.04] text-white/75'
+                              : 'border-sky-500/35 bg-sky-500/15 text-sky-200'
+                          }`}
+                        >
+                          <span>
+                            {processandoCard
+                              ? 'Salvando…'
+                              : isConferido
+                              ? 'Voltar p/ Aguardando'
+                              : 'Marcar Conferido'}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => reabrirFichaDaFila(ficha)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200"
+                        >
+                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Abrir</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Paginação */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-white/[0.02] px-4 py-3 text-xs text-white/70">
+                <div>
+                  Exibindo <strong className="text-white">{indiceInicio}</strong>–
+                  <strong className="text-white">{indiceFim}</strong> de{' '}
+                  <strong className="text-white">{fichasFiltradas.length}</strong> procedimento(s) em conferência
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={paginaSegura <= 1}
+                    onClick={() => setPaginaConferencia(p => Math.max(1, p - 1))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Anterior</span>
+                  </button>
+                  <span className="px-2 text-[11px] text-white/60">
+                    Página <strong className="text-white">{paginaSegura}</strong> de{' '}
+                    <strong className="text-white">{totalPaginas}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={paginaSegura >= totalPaginas}
+                    onClick={() => setPaginaConferencia(p => Math.min(totalPaginas, p + 1))}
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                  >
+                    <span>Próxima</span>
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
