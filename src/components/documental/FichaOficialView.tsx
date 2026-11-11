@@ -779,13 +779,16 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
   let anotacoes = baseHigienizada.anotacoes_ficha_oficial || '';
   if (anotacoes) {
     // Remove linha de Frente (Logradouro) caso contivesse timbre institucional descartado
-    anotacoes = anotacoes.replace(
-      /^•\s*Frente\s*\(Logradouro\):\s*(.+)$/gim,
-      (_match, val) => {
-        const vLimpo = sanitizarLogradouroConfrontacao(String(val), imovelLimpo);
-        return vLimpo ? `• Frente (Logradouro): ${vLimpo}` : '';
-      },
-    ).replace(/\n{3,}/g, '\n\n').trim();
+    anotacoes = anotacoes
+      .replace(
+        /^[ \t]*•\s*Frente\s*\(Logradouro\):\s*(.+?)[ \t]*\r?$/gim,
+        (_match, val) => {
+          const vLimpo = sanitizarLogradouroConfrontacao(String(val), dadosIniciais.imovel);
+          return vLimpo ? `• Frente (Logradouro): ${vLimpo}` : '';
+        },
+      )
+      .replace(/\n{2,}/g, '\n')
+      .trim();
   }
   if (!anotacoes.trim() && (dir || esq || fun)) {
     const linhas: string[] = [];
@@ -1735,11 +1738,21 @@ export function FichaOficialView({
             linhas.push(`• SQL / GeoSampa: ${novoSql}`);
           }
           novasAnotacoes = linhas.join('\n');
-        } else if (novasAnotacoes && novoFrente && !/Frente\s*\(Logradouro\)/i.test(novasAnotacoes)) {
-          novasAnotacoes = novasAnotacoes.replace(
-            /(CONFRONTAÇÕES[^\n]*\n)/i,
-            `$1• Frente (Logradouro): ${novoFrente}\n`,
-          );
+        } else if (novasAnotacoes && novoFrente) {
+          if (/Frente\s*\(Logradouro\)/i.test(novasAnotacoes)) {
+            novasAnotacoes = novasAnotacoes.replace(
+              /^([ \t]*•\s*Frente\s*\(Logradouro\):\s*)(.+)$/gim,
+              (_m, prefixo, atualVal) => {
+                const limpoVal = sanitizarLogradouroConfrontacao(String(atualVal), '');
+                return `${prefixo}${limpoVal || novoFrente}`;
+              },
+            );
+          } else {
+            novasAnotacoes = novasAnotacoes.replace(
+              /(CONFRONTAÇÕES[^\n]*\n)/i,
+              `$1• Frente (Logradouro): ${novoFrente}\n`,
+            );
+          }
         }
 
         if (silencioso) {
@@ -3896,43 +3909,6 @@ export function FichaOficialView({
                           );
                         })()}
                       </div>
-
-                      {/* Resultado da Busca da Matrícula no Livro 2 / Livro 3 quando acionada */}
-                      {erroLivro2 ? (
-                        <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
-                          {erroLivro2}
-                        </div>
-                      ) : null}
-                      {arquivosLivro2 && arquivosLivro2.length > 0 ? (
-                        <div className="rounded-lg border border-gray-200 bg-white p-2 space-y-1.5">
-                          <div className="text-[10.5px] font-bold uppercase text-gray-600">
-                            Matrícula / Transcrição Localizada no Acervo ({termoBuscadoLivro2}):
-                          </div>
-                          {arquivosLivro2.slice(0, 4).map(arq => (
-                            <div
-                              key={`${arq.rootId}:${arq.relativePath}`}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs"
-                            >
-                              <div className="min-w-0">
-                                <div className="font-mono font-bold text-gray-900">{arq.name}</div>
-                                <div className="truncate font-mono text-[10px] text-gray-500">
-                                  {formatCartorioPath(arq.rootId, arq.relativePath)}
-                                </div>
-                              </div>
-                              {onVisualizarDocumento ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onVisualizarDocumento(arq)}
-                                  className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                  <span>Visualizar Matrícula</span>
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
                     </div>
 
                     <textarea
