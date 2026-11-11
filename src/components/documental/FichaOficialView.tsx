@@ -3922,29 +3922,6 @@ export function FichaOficialView({
                         </label>
                       </div>
 
-                      {/* Barra de Ação: Ver Autos (PDF) */}
-                      {arquivoOrigem && onVisualizarDocumento ? (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onVisualizarDocumento({
-                                rootId: arquivoOrigem.rootId || 'processos',
-                                relativePath: arquivoOrigem.relativePath,
-                                name: arquivoOrigem.name,
-                                size: 0,
-                                modifiedAt: '',
-                              })
-                            }
-                            className={botaoOrigem}
-                            title={`Abrir os autos do processo (${arquivoOrigem.name}) para conferir a Petição Inicial e a Certidão de Matrícula`}
-                          >
-                            <Eye className="h-3.5 w-3.5 text-[#0F3D6E]" />
-                            <span>Ver Autos (PDF)</span>
-                          </button>
-                        </div>
-                      ) : null}
-
                       {/* Atalhos Oficiais e Confrontantes do GEOSAMPA (Ocultos por padrão, com opção de desocultar) */}
                       <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-2.5 py-2 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
