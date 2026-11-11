@@ -3446,6 +3446,68 @@ export function FichaOficialView({
             </div>
             <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
           </button>
+
+          <button
+            ref={revisaoBotaoRef}
+            type="button"
+            onClick={() => {
+              setAbaRevisao('pendencias');
+              setPainelRevisaoAberto(true);
+            }}
+            aria-haspopup="dialog"
+            aria-expanded={painelRevisaoAberto}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#B8A082] hover:bg-white hover:shadow-2xs cursor-pointer"
+            title="Abrir painel de Revisão dos Dados, Origem OCR e Validação de Autenticidade"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[#57534E]" aria-hidden="true" />
+                <span className="truncate">Revisão dos dados</span>
+                {pendenciasAtivas.length > 0 && (
+                  <span
+                    data-contador-pendencias
+                    className="rounded bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800 border border-amber-300/70"
+                  >
+                    {pendenciasAtivas.length}
+                  </span>
+                )}
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {pendenciasAtivas.length > 0
+                  ? `${pendenciasAtivas.length} pendência(s)`
+                  : 'Alertas • OCR • Autenticidade'}
+              </div>
+            </div>
+            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (abaAtiva === 'manifestacao') {
+                setAbaAtiva('formulario');
+              } else {
+                onClose();
+              }
+            }}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-white hover:shadow-2xs cursor-pointer"
+            title={
+              abaAtiva === 'manifestacao'
+                ? 'Voltar para a Etapa 1 (Formulário de Conferência do Oficial)'
+                : 'Voltar para a etapa anterior (Pesquisa de Manifestações)'
+            }
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
+                <span className="truncate">Voltar Etapa Anterior</span>
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {abaAtiva === 'manifestacao' ? '1. Formulário Oficial' : 'Voltar à Pesquisa'}
+              </div>
+            </div>
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+          </button>
         </div>
       </div>
     </aside>
@@ -3572,22 +3634,6 @@ export function FichaOficialView({
                 >
                   {origemAberta ? '▾' : '▸'} 📄 Origem dos dados — Páginas da Petição Inicial no PDF
                   {!origemAberta && <span className="font-normal"> · {resumoOrigem}</span>}
-                </button>
-                <button
-                  ref={revisaoBotaoRef}
-                  type="button"
-                  onClick={() => { setAbaRevisao('pendencias'); setPainelRevisaoAberto(true); }}
-                  aria-haspopup="dialog"
-                  aria-expanded={painelRevisaoAberto}
-                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#B8A082] bg-white px-2 py-0.5 text-[11px] font-bold text-[#57534E] hover:bg-[#F5F2ED] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9B896]"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Revisão dos dados</span>
-                  {pendenciasAtivas.length > 0 && (
-                    <span data-contador-pendencias className="rounded bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
-                      {pendenciasAtivas.length}
-                    </span>
-                  )}
                 </button>
               </div>
 

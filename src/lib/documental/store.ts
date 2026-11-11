@@ -2,6 +2,11 @@ import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { normalizarTermoPesquisaDocumental } from '@/lib/documental/pastasFavoritas';
+import {
+  computeLocalFileSha256,
+  enrichAndNormalizeSignatureAuditForTenant,
+  executeLocalPdfSignatureAudit,
+} from '@/lib/documental/signatureAuditStore';
 
 export interface SearchJob {
   id: string;
@@ -129,11 +134,40 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
               const linkLocalValido = !!res?.localUrl && Number.isFinite(expira) && expira - Date.now() > 60_000;
               if (!res?.pdfDataUrl && !linkLocalValido) ehValido = false;
             }
+          } else if (type === 'analyze_signatures') {
+            if (res?.versao_motor !== 2) {
+              ehValido = false;
+            } else {
+              const localInfo = await computeLocalFileSha256(rootId, relativePath);
+              if (localInfo && res?.hash_sha256 !== localInfo.hashSha256) {
+                ehValido = false;
+              } else {
+                resultadoFinal = await enrichAndNormalizeSignatureAuditForTenant(tenantId, res, {
+                  rootId,
+                  relativePath,
+                });
+              }
+            }
           }
           if (ehValido) {
             return { id: row.id, status: 'complete', result: resultadoFinal, cached: true };
           }
+          if (type === 'analyze_signatures') {
+            await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${row.id}`;
+          }
         }
+      }
+    }
+
+    // Se for analyze_signatures e o arquivo estiver acessível no disco local autorizado,
+    // executa a auditoria criptográfica completa imediatamente e armazena o resultado atualizado.
+    if (type === 'analyze_signatures' && rootId && relativePath) {
+      const localAudited = await executeLocalPdfSignatureAudit(tenantId, rootId, relativePath);
+      if (localAudited) {
+        const id = randomUUID();
+        await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt")
+          VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, NULL, NULL, 'complete', ${JSON.stringify(localAudited)}::jsonb, NOW() + INTERVAL '24 hours')`;
+        return { id, status: 'complete', result: localAudited, cached: false };
       }
     }
 
@@ -181,6 +215,16 @@ export async function readSearch(id: string, tenantId: string, userId?: string) 
   // Blocos de transferência de PDF são descartados assim que entregues ao navegador para não ocupar espaço no banco
   if (job && job.type === 'read_document_chunk' && (job.status === 'complete' || job.status === 'failed')) {
     await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${id} AND "tenantId" = ${tenantId}`.catch(() => {});
+  }
+  if (job && job.type === 'analyze_signatures' && job.status === 'complete' && job.result) {
+    const normalized = await enrichAndNormalizeSignatureAuditForTenant(tenantId, job.result, {
+      rootId: job.rootId,
+      relativePath: job.relativePath,
+    });
+    return {
+      ...job,
+      result: normalized as unknown as Prisma.JsonValue,
+    };
   }
   return job;
 }

@@ -76,6 +76,10 @@ import {
   type FichaEmConferencia,
 } from '@/lib/documental/manifestacoesClient';
 import { AssinaturasModal, AnaliseAssinaturaPdf } from './AssinaturasModal';
+import {
+  createFailedSignatureAuditResult,
+  normalizeSignatureAuditResult,
+} from '@/lib/documental/signatureAuditClient';
 import { DocumentPreviewModal, DocumentTextResult } from './DocumentPreviewModal';
 import {
   abrirDocumentoEmJanela,
@@ -656,7 +660,7 @@ export function DocumentSearch({
       ficha.registroId,
     );
   }
-  const [assinaturaAberta, setAssinaturaAberta] = useState<{ nome: string; analise: AnaliseAssinaturaPdf } | null>(null);
+  const [assinaturaAberta, setAssinaturaAberta] = useState<{ nome: string; analise: AnaliseAssinaturaPdf; file?: Match } | null>(null);
   const [documentoAberto, setDocumentoAberto] = useState<DocumentTextResult | null>(null);
   const [documentoAbertoFile, setDocumentoAbertoFile] = useState<Match | null>(null);
 
@@ -802,7 +806,7 @@ export function DocumentSearch({
   // Cache em memória e armazenamento persistente para respostas instantâneas
   const searchCacheRef = useRef<Map<string, SearchState>>(new Map());
   const extrairCacheRef = useRef<Map<string, DadosManifestacao>>(new Map());
-  const assinaturasCacheRef = useRef<Map<string, { nome: string; analise: AnaliseAssinaturaPdf }>>(new Map());
+  const assinaturasCacheRef = useRef<Map<string, { nome: string; analise: AnaliseAssinaturaPdf; file?: Match }>>(new Map());
   const leituraCacheRef = useRef<Map<string, DocumentTextResult>>(new Map());
   // PDFs baixados do Connector ficam só em memória (blob:), limitados para não estourar a RAM
   const pdfsLocaisRef = useRef<{ fileKey: string; url: string }[]>([]);
@@ -863,34 +867,68 @@ export function DocumentSearch({
     } catch {}
   }
 
-  function getCachedAssinatura(fileKey: string): { nome: string; analise: AnaliseAssinaturaPdf } | null {
-    if (assinaturasCacheRef.current.has(fileKey)) {
-      return assinaturasCacheRef.current.get(fileKey)!;
+  const ASS_CACHE_PREFIX = 'fiorix_ass_v2_';
+
+  function buildAssinaturaCacheKey(file: Match): string {
+    return `${file.rootId}:${file.relativePath}:${file.size ?? 0}:${file.modifiedAt ?? ''}`;
+  }
+
+  function isAssinaturaCacheValida(entry: { nome?: string; analise?: AnaliseAssinaturaPdf } | null | undefined): boolean {
+    if (!entry || !entry.analise) return false;
+    return entry.analise.versao_motor === 2 && typeof entry.analise.status_auditoria === 'string';
+  }
+
+  function getCachedAssinatura(cacheKey: string): { nome: string; analise: AnaliseAssinaturaPdf; file?: Match } | null {
+    if (assinaturasCacheRef.current.has(cacheKey)) {
+      const mem = assinaturasCacheRef.current.get(cacheKey)!;
+      if (isAssinaturaCacheValida(mem)) return mem;
+      assinaturasCacheRef.current.delete(cacheKey);
     }
     try {
-      const sess = sessionStorage.getItem('fiorix_ass_' + fileKey);
+      const sess = sessionStorage.getItem(ASS_CACHE_PREFIX + cacheKey);
       if (sess) {
         const parsed = JSON.parse(sess);
-        assinaturasCacheRef.current.set(fileKey, parsed);
-        return parsed;
+        if (isAssinaturaCacheValida(parsed)) {
+          assinaturasCacheRef.current.set(cacheKey, parsed);
+          return parsed;
+        }
+        sessionStorage.removeItem(ASS_CACHE_PREFIX + cacheKey);
       }
-      const loc = localStorage.getItem('fiorix_ass_' + fileKey);
+      const loc = localStorage.getItem(ASS_CACHE_PREFIX + cacheKey);
       if (loc) {
         const parsed = JSON.parse(loc);
-        if (parsed.data && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
-          assinaturasCacheRef.current.set(fileKey, parsed.data);
+        if (parsed.data && Date.now() - parsed.savedAt < 24 * 3600 * 1000 && isAssinaturaCacheValida(parsed.data)) {
+          assinaturasCacheRef.current.set(cacheKey, parsed.data);
           return parsed.data;
         }
+        localStorage.removeItem(ASS_CACHE_PREFIX + cacheKey);
       }
     } catch {}
     return null;
   }
 
-  function setCachedAssinatura(fileKey: string, data: { nome: string; analise: AnaliseAssinaturaPdf }) {
-    assinaturasCacheRef.current.set(fileKey, data);
+  function setCachedAssinatura(cacheKey: string, data: { nome: string; analise: AnaliseAssinaturaPdf; file?: Match }) {
+    assinaturasCacheRef.current.set(cacheKey, data);
     try {
-      sessionStorage.setItem('fiorix_ass_' + fileKey, JSON.stringify(data));
-      localStorage.setItem('fiorix_ass_' + fileKey, JSON.stringify({ data, savedAt: Date.now() }));
+      sessionStorage.setItem(ASS_CACHE_PREFIX + cacheKey, JSON.stringify(data));
+      localStorage.setItem(ASS_CACHE_PREFIX + cacheKey, JSON.stringify({ data, savedAt: Date.now() }));
+    } catch {}
+  }
+
+  function invalidateAssinaturaCacheForFile(file: Match) {
+    const basePrefix = `${file.rootId}:${file.relativePath}`;
+    for (const k of [...assinaturasCacheRef.current.keys()]) {
+      if (k.startsWith(basePrefix)) assinaturasCacheRef.current.delete(k);
+    }
+    try {
+      for (const store of [sessionStorage, localStorage]) {
+        for (let i = store.length - 1; i >= 0; i--) {
+          const k = store.key(i);
+          if (k && (k.startsWith(ASS_CACHE_PREFIX + basePrefix) || k.startsWith('fiorix_ass_' + basePrefix))) {
+            store.removeItem(k);
+          }
+        }
+      }
     } catch {}
   }
 
@@ -1502,18 +1540,15 @@ export function DocumentSearch({
 
   async function analisarAssinaturas(file: Match, forceFresh = false) {
     const fileKey = `${file.rootId}:${file.relativePath}`;
+    const cacheKey = buildAssinaturaCacheKey(file);
     if (!forceFresh) {
-      const cached = getCachedAssinatura(fileKey);
+      const cached = getCachedAssinatura(cacheKey);
       if (cached) {
-        setAssinaturaAberta(cached);
+        setAssinaturaAberta({ ...cached, file });
         return;
       }
     } else {
-      assinaturasCacheRef.current.delete(fileKey);
-      try {
-        sessionStorage.removeItem('fiorix_ass_' + fileKey);
-        localStorage.removeItem('fiorix_ass_' + fileKey);
-      } catch {}
+      invalidateAssinaturaCacheForFile(file);
     }
     setTempoEstimado(8);
     setProcessandoAcao({ id: fileKey, tipo: 'assinatura', fileName: file.name });
@@ -1534,8 +1569,9 @@ export function DocumentSearch({
       if (!response.ok) throw new Error(body.error);
 
       if (body.status === 'complete' && body.result) {
-        const item = { nome: file.name, analise: body.result };
-        setCachedAssinatura(fileKey, item);
+        const normalizada = normalizeSignatureAuditResult(body.result);
+        const item = { nome: file.name, analise: normalizada, file };
+        setCachedAssinatura(cacheKey, item);
         setAssinaturaAberta(item);
         return;
       }
@@ -1549,18 +1585,34 @@ export function DocumentSearch({
         const state = await res.json();
         if (!res.ok) throw new Error(state.error);
         if (state.status === 'complete' && state.result) {
-          const item = { nome: file.name, analise: state.result };
-          setCachedAssinatura(fileKey, item);
+          const normalizada = normalizeSignatureAuditResult(state.result);
+          const item = { nome: file.name, analise: normalizada, file };
+          setCachedAssinatura(cacheKey, item);
           setAssinaturaAberta(item);
           return;
         }
         if (state.status === 'failed') {
-          throw new Error('Falha na auditoria de assinaturas no servidor local.');
+          const errDetalhe =
+            typeof state.result?.error === 'string'
+              ? state.result.error
+              : 'O motor documental não conseguiu ler ou analisar o arquivo.';
+          const falhaAnalise = createFailedSignatureAuditResult(errDetalhe, {
+            tamanhoBytes: file.size,
+            modificadoEm: file.modifiedAt,
+          });
+          setAssinaturaAberta({ nome: file.name, analise: falhaAnalise, file });
+          return;
         }
       }
       throw new Error('Tempo limite excedido na análise de assinaturas.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao analisar assinaturas.');
+      const msg = err instanceof Error ? err.message : 'Falha ao analisar assinaturas.';
+      setError(msg);
+      const falhaAnalise = createFailedSignatureAuditResult(msg, {
+        tamanhoBytes: file.size,
+        modificadoEm: file.modifiedAt,
+      });
+      setAssinaturaAberta({ nome: file.name, analise: falhaAnalise, file });
     } finally {
       setProcessandoAcao(null);
     }
@@ -3816,6 +3868,24 @@ export function DocumentSearch({
         <AssinaturasModal
           nomeArquivo={assinaturaAberta.nome}
           analise={assinaturaAberta.analise}
+          rootId={assinaturaAberta.file?.rootId}
+          relativePath={assinaturaAberta.file?.relativePath}
+          reauditando={processandoAcao?.tipo === 'assinatura'}
+          onReauditar={
+            assinaturaAberta.file
+              ? () => analisarAssinaturas(assinaturaAberta.file!, true)
+              : undefined
+          }
+          onAtualizarAnalise={(novaAnalise) => {
+            setAssinaturaAberta((prev) => {
+              if (!prev) return null;
+              const atualizado = { ...prev, analise: novaAnalise };
+              if (prev.file) {
+                setCachedAssinatura(buildAssinaturaCacheKey(prev.file), atualizado);
+              }
+              return atualizado;
+            });
+          }}
           onClose={() => setAssinaturaAberta(null)}
         />
       )}
