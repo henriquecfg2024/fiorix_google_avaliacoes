@@ -29,12 +29,20 @@ async function autenticar(): Promise<AuthenticatedUser> {
   }
 }
 
+/** Perfis autorizados a marcar/desmarcar a conferência oficial de uma ficha no servidor. */
+const PERFIS_CONFERENCIA = ['ADMIN', 'MASTER', 'SUBSTITUTO'];
+
+export function canUserConferirManifestacao(role?: string | null): boolean {
+  return PERFIS_CONFERENCIA.includes(String(role || '').toUpperCase());
+}
+
 /**
  * Valida acesso à Gestão Documental delegando integralmente à tela de Permissões de Menu
  * quando ativa (qualquer grupo/perfil, departamento ou colaborador liberado pelo MASTER).
  * Se `requiredRoute` não for informada (ex.: API compartilhada do Connector ou janela auxiliar),
  * aceita permissão em Manifestações (/gestao-documental), Visualizador (/gestao-documental/visualizador),
- * Histórico (/gestao-documental/historico) ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
+ * Histórico (/gestao-documental/historico), Em Conferência (/gestao-documental/conferencia),
+ * Arquivo (/gestao-documental/arquivo) ou Cartório Virtual (/cartorio-virtual, para abertura do LV2 a partir dos pedidos).
  */
 export async function requireDocumentAccess(
   requiredRoute?:
@@ -42,6 +50,7 @@ export async function requireDocumentAccess(
     | '/gestao-documental/visualizador'
     | '/gestao-documental/historico'
     | '/gestao-documental/conferencia'
+    | '/gestao-documental/arquivo'
 ) {
   const user = await autenticar();
 
@@ -52,13 +61,18 @@ export async function requireDocumentAccess(
         : requiredRoute === '/gestao-documental/conferencia'
           ? (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
             (await isRouteAllowedForUser('/gestao-documental', user))
-          : requiredRoute === '/gestao-documental/historico'
-            ? await isRouteAllowedForUser('/gestao-documental/historico', user)
-            : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+          : requiredRoute === '/gestao-documental/arquivo'
+            ? (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
               (await isRouteAllowedForUser('/gestao-documental', user)) ||
-              (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
-              (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
-              (await isRouteAllowedForUser('/cartorio-virtual', user));
+              (await isRouteAllowedForUser('/gestao-documental/historico', user))
+            : requiredRoute === '/gestao-documental/historico'
+              ? await isRouteAllowedForUser('/gestao-documental/historico', user)
+              : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+                (await isRouteAllowedForUser('/gestao-documental', user)) ||
+                (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+                (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
+                (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
+                (await isRouteAllowedForUser('/cartorio-virtual', user));
 
     if (!allowed) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');
@@ -67,7 +81,8 @@ export async function requireDocumentAccess(
     const perfisPermitidos =
       requiredRoute === '/gestao-documental' ||
       requiredRoute === '/gestao-documental/historico' ||
-      requiredRoute === '/gestao-documental/conferencia'
+      requiredRoute === '/gestao-documental/conferencia' ||
+      requiredRoute === '/gestao-documental/arquivo'
         ? PERFIS_GESTAO
         : [...PERFIS_GESTAO, 'COLABORADOR'];
     if (!perfisPermitidos.includes(String(user.role)) && !isSetorUsucapiao(user.departamento)) {
@@ -96,4 +111,12 @@ export async function requireManifestacaoAccess() {
  */
 export async function requireHistoricoManifestacaoAccess() {
   return requireDocumentAccess('/gestao-documental/historico');
+}
+
+/**
+ * Arquivo de Manifestações Finalizadas (Etapa 2 concluída): controlado pela permissão
+ * de Arquivo (/gestao-documental/arquivo) ou Manifestações (/gestao-documental).
+ */
+export async function requireArquivoManifestacaoAccess() {
+  return requireDocumentAccess('/gestao-documental/arquivo');
 }

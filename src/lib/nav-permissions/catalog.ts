@@ -68,6 +68,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupLabel: 'GESTÃO DOCUMENTAL',
         description: 'Formulários físicos impressos em conferência com o Oficial',
       },
+      {
+        id: 'arquivo_documental',
+        label: 'ARQUIVO',
+        href: '/gestao-documental/arquivo',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Procedimentos de manifestação finalizados e arquivados após a Etapa 2',
+      },
     ],
   },
   {

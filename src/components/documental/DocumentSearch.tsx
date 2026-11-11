@@ -590,8 +590,11 @@ export function DocumentSearch({
 
   async function finalizarFicha(payload: PayloadFinalizacao) {
     const arquivada = await finalizarManifestacaoApi(payload);
-    // Recarrega a lista mantendo todos os formulários arquivados para fiscalização
-    void recarregarFila();
+    // Retira imediatamente da lista local "Em Conferência" e sincroniza contadores com o servidor
+    setFichasPendentes(prev =>
+      prev.filter(item => item.registroId !== arquivada.id && item.id !== payload.fichaId),
+    );
+    await recarregarFila();
     return arquivada;
   }
 
@@ -614,8 +617,8 @@ export function DocumentSearch({
         ...ficha.dados,
         id_ficha: ficha.id,
         status_conferencia: ficha.statusConferencia,
-        conferido_por_nome: ficha.conferidoPorNome || undefined,
-        conferido_em: ficha.conferidoEm || undefined,
+        conferido_por_nome: ficha.dados.conferido_por_nome ?? ficha.conferidoPorNome ?? undefined,
+        conferido_em: ficha.dados.conferido_em ?? undefined,
       },
       arquivo,
       null,

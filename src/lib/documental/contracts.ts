@@ -116,6 +116,7 @@ export const finalizarManifestacaoInput = z.object({
   arquivoOrigem: arquivoOrigemSchema,
   minuta: z.record(z.string(), z.unknown()),
   textoFinal: z.string().min(50).max(60000),
+  confirmouImpressao: z.literal(true),
   versaoAnteriorId: z.string().uuid().nullable().optional(),
 }).strict();
 

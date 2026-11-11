@@ -27,6 +27,7 @@ import {
   Landmark,
   LayoutDashboard,
   History,
+  FolderArchive,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -72,6 +73,7 @@ export const navigationGroups = {
       { id: "visualizador_documental", label: "Visualizador", href: "/gestao-documental/visualizador", icon: Eye },
       { id: "historico_documental", label: "Histórico", href: "/gestao-documental/historico", icon: History },
       { id: "conferencia_documental", label: "Em Conferência", href: "/gestao-documental/conferencia", icon: Clock3 },
+      { id: "arquivo_documental", label: "ARQUIVO", href: "/gestao-documental/arquivo", icon: FolderArchive },
     ],
   },
   gestao: {

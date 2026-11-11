@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     const parsed = manifestacaoInput.safeParse(body);
     if (!parsed.success) return reply({ error: 'Dados da manifestação inválidos.' }, 400);
     const entrada = parsed.data;
-    const usuario = { id: user.id, name: user.name, email: user.email };
+    const usuario = { id: user.id, name: user.name, email: user.email, role: user.role };
 
     if (entrada.acao === 'salvar_fila') {
       const ficha = await salvarFichaEmConferencia(user.tenantId, usuario, entrada);

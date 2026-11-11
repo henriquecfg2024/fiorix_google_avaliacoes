@@ -1,7 +1,7 @@
 /**
  * Cliente (navegador) da API /api/gestao-documental/manifestacoes.
- * A fila "Formulários em Conferência" e o Histórico ficam no banco do FIORIX,
- * compartilhados entre as máquinas do setor de Usucapião.
+ * A fila "Formulários em Conferência" (status = conferencia) e o "ARQUIVO" / "Histórico"
+ * (status = finalizada) ficam no banco do FIORIX, compartilhados entre as máquinas do setor.
  */
 import type {
   ArquivoOrigemFicha,
@@ -27,6 +27,11 @@ export interface ManifestacaoApi {
   subdistrito: string | null;
   escrevente: string | null;
   imovel: string | null;
+  natureza?: string | null;
+  cartorioOrigem?: string | null;
+  conferidoPorNome?: string | null;
+  conferidoEm?: string | null;
+  impressaoConfirmadaEm?: string | null;
   criadoPorNome: string | null;
   atualizadoPorNome: string | null;
   finalizadoPorNome: string | null;
@@ -43,7 +48,7 @@ export interface ManifestacaoCompletaApi extends ManifestacaoApi {
   textoFinal: string | null;
 }
 
-/** Ficha da fila com os dados de quem salvou e status de conferência (compartilhada e arquivada para fiscalização). */
+/** Ficha da fila com os dados de quem salvou e status de conferência (procedimentos antes da finalização da Etapa 2). */
 export interface FichaEmConferencia extends FichaOficialPendente {
   /** id da linha no banco */
   registroId: string;
@@ -58,19 +63,40 @@ export interface FichaEmConferencia extends FichaOficialPendente {
 async function chamar<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: 'no-store', ...init });
   let body: Record<string, unknown> = {};
-  try { body = await res.json(); } catch { /* resposta sem corpo */ }
-  if (!res.ok) throw new Error(typeof body.error === 'string' ? body.error : `Falha na comunicação com o FIORIX (${res.status}).`);
+  try {
+    body = await res.json();
+  } catch {
+    /* resposta sem corpo */
+  }
+  if (!res.ok) {
+    throw new Error(
+      typeof body.error === 'string'
+        ? body.error
+        : `Falha na comunicação com o FIORIX (${res.status}).`,
+    );
+  }
   return body as T;
 }
 
 const postar = <T>(corpo: unknown) =>
-  chamar<T>(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+  chamar<T>(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo),
+  });
 
 /** Só os campos aceitos pela API (o arquivo de origem pode trazer tamanho/data do Connector). */
-export function origemParaApi(origem?: { name: string; relativePath: string; rootId?: string } | null): ArquivoOrigemFicha | null {
+export function origemParaApi(
+  origem?: { name: string; relativePath: string; rootId?: string } | null,
+): ArquivoOrigemFicha | null {
   if (!origem?.relativePath) return null;
-  const rootId = origem.rootId && /^[a-z0-9_-]{1,32}$/.test(origem.rootId) ? origem.rootId : undefined;
-  return { name: String(origem.name || '').slice(0, 255), relativePath: origem.relativePath, ...(rootId ? { rootId } : {}) };
+  const rootId =
+    origem.rootId && /^[a-z0-9_-]{1,32}$/.test(origem.rootId) ? origem.rootId : undefined;
+  return {
+    name: String(origem.name || '').slice(0, 255),
+    relativePath: origem.relativePath,
+    ...(rootId ? { rootId } : {}),
+  };
 }
 
 const FICHA_ID_VALIDO = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -82,7 +108,16 @@ export function formatarDataHora(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '');
+  return d
+    .toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .replace(',', '');
 }
 
 function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
@@ -92,6 +127,7 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
     conferido_em?: string | null;
   };
   const ehConferido = m.status === 'finalizada' || dados.status_conferencia === 'CONFERIDO';
+  const dataConferenciaIso = dados.conferido_em || m.conferidoEm || null;
   return {
     id: m.fichaId,
     registroId: m.id,
@@ -106,20 +142,28 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
     criadoPorNome: m.criadoPorNome,
     atualizadoPorNome: m.atualizadoPorNome,
     statusConferencia: ehConferido ? 'CONFERIDO' : 'AGUARDANDO_CONFERENCIA',
-    conferidoPorNome: dados.conferido_por_nome || m.finalizadoPorNome || null,
-    conferidoEm: formatarDataHora(dados.conferido_em || m.finalizadoEm),
+    conferidoPorNome: dados.conferido_por_nome || m.conferidoPorNome || null,
+    conferidoEm: dataConferenciaIso ? formatarDataHora(dataConferenciaIso) : null,
     statusBanco: m.status,
   };
 }
 
-/** Fila e acervo de "Formulários em Conferência com o Oficial" (inclui aguardando conferência e conferidos para fiscalização). */
+/**
+ * Fila "Em Conferência": retorna exclusivamente procedimentos ainda em andamento (status = conferencia),
+ * englobando tanto "Aguardando Conferência" quanto "Conferido" (pronto para finalizar a Etapa 2).
+ * Procedimentos finalizados após a Etapa 2 saem desta fila e passam para a aba ARQUIVO.
+ */
 export async function carregarFilaConferencia(): Promise<FichaEmConferencia[]> {
-  // Traz tanto os formulários em conferência quanto os já conferidos/finalizados para fiscalização permanente
-  const { itens } = await chamar<{ itens: ManifestacaoCompletaApi[] }>(`${ENDPOINT}?status=todas&limite=200`);
-  return itens.filter(m => m.dados).map(paraFicha);
+  const { itens } = await chamar<{ itens: ManifestacaoCompletaApi[] }>(
+    `${ENDPOINT}?status=conferencia&limite=200`,
+  );
+  return itens.filter(m => m.dados && m.status === 'conferencia').map(paraFicha);
 }
 
-export async function salvarFichaConferencia(dados: DadosManifestacao, origem?: { name: string; relativePath: string; rootId?: string } | null) {
+export async function salvarFichaConferencia(
+  dados: DadosManifestacao,
+  origem?: { name: string; relativePath: string; rootId?: string } | null,
+) {
   const fichaId = fichaIdValido(dados.id_ficha) ? dados.id_ficha : `FICHA-${Date.now()}`;
   const { ficha } = await postar<{ ficha: ManifestacaoApi }>({
     acao: 'salvar_fila',
@@ -146,7 +190,9 @@ export async function removerFichaConferencia(registroId: string): Promise<void>
   await chamar(`${ENDPOINT}?id=${encodeURIComponent(registroId)}`, { method: 'DELETE' });
 }
 
-export async function finalizarManifestacaoApi(payload: PayloadFinalizacao): Promise<ManifestacaoArquivada> {
+export async function finalizarManifestacaoApi(
+  payload: PayloadFinalizacao,
+): Promise<ManifestacaoArquivada> {
   const fichaId = fichaIdValido(payload.fichaId) ? payload.fichaId : `FICHA-${Date.now()}`;
   const { manifestacao } = await postar<{ manifestacao: ManifestacaoCompletaApi }>({
     acao: 'finalizar',
@@ -155,6 +201,7 @@ export async function finalizarManifestacaoApi(payload: PayloadFinalizacao): Pro
     arquivoOrigem: origemParaApi(payload.arquivoOrigem),
     minuta: payload.minuta,
     textoFinal: payload.textoFinal,
+    confirmouImpressao: payload.confirmouImpressao === true,
     versaoAnteriorId: payload.versaoAnteriorId,
   });
   return {
@@ -168,7 +215,9 @@ export async function finalizarManifestacaoApi(payload: PayloadFinalizacao): Pro
 }
 
 export async function obterManifestacaoApi(id: string): Promise<ManifestacaoCompletaApi> {
-  const { manifestacao } = await chamar<{ manifestacao: ManifestacaoCompletaApi }>(`${ENDPOINT}?id=${encodeURIComponent(id)}`);
+  const { manifestacao } = await chamar<{ manifestacao: ManifestacaoCompletaApi }>(
+    `${ENDPOINT}?id=${encodeURIComponent(id)}`,
+  );
   return manifestacao;
 }
 
@@ -182,11 +231,44 @@ export interface FiltrosHistorico {
   deslocamento?: number;
 }
 
-export async function listarHistorico(filtros: FiltrosHistorico): Promise<{ itens: ManifestacaoApi[]; total: number }> {
+export async function listarHistorico(
+  filtros: FiltrosHistorico,
+): Promise<{ itens: ManifestacaoApi[]; total: number }> {
   const params = new URLSearchParams({ status: filtros.status || 'todas' });
   for (const [k, v] of Object.entries(filtros)) {
     if (k === 'status') continue;
-    if (v !== undefined && v !== null && String(v).trim() !== '') params.set(k, String(v).trim());
+    if (v !== undefined && v !== null && String(v).trim() !== '') {
+      params.set(k, String(v).trim());
+    }
+  }
+  return chamar(`${ENDPOINT}?${params.toString()}`);
+}
+
+export const POR_PAGINA_ARQUIVO = 20;
+
+export interface FiltrosArquivoManifestacoes {
+  busca?: string;
+  pagina?: number;
+  porPagina?: number;
+}
+
+/**
+ * Consulta paginada no servidor para a aba ARQUIVO (20 registros por página por padrão,
+ * apenas procedimentos com Etapa 2 concluída e arquivados).
+ */
+export async function listarArquivoManifestacoes(
+  filtros: FiltrosArquivoManifestacoes = {},
+): Promise<{ itens: ManifestacaoApi[]; total: number }> {
+  const porPagina = filtros.porPagina ?? POR_PAGINA_ARQUIVO;
+  const pagina = Math.max(filtros.pagina ?? 1, 1);
+  const deslocamento = (pagina - 1) * porPagina;
+  const params = new URLSearchParams({
+    status: 'finalizada',
+    limite: String(porPagina),
+    deslocamento: String(deslocamento),
+  });
+  if (filtros.busca && filtros.busca.trim()) {
+    params.set('busca', filtros.busca.trim());
   }
   return chamar(`${ENDPOINT}?${params.toString()}`);
 }
@@ -196,8 +278,15 @@ export async function importarFilaAntiga(fichas: FichaOficialPendente[]): Promis
   const validas = fichas
     .filter(f => fichaIdValido(f.id) && f.dados)
     .slice(0, 200)
-    .map(f => ({ fichaId: f.id, dados: { ...f.dados, id_ficha: f.id }, arquivoOrigem: origemParaApi(f.arquivoOrigem) }));
+    .map(f => ({
+      fichaId: f.id,
+      dados: { ...f.dados, id_ficha: f.id },
+      arquivoOrigem: origemParaApi(f.arquivoOrigem),
+    }));
   if (validas.length === 0) return 0;
-  const { importadas } = await postar<{ importadas: number }>({ acao: 'importar_fila_local', fichas: validas });
+  const { importadas } = await postar<{ importadas: number }>({
+    acao: 'importar_fila_local',
+    fichas: validas,
+  });
   return importadas;
 }

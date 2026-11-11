@@ -642,6 +642,7 @@ export interface PayloadFinalizacao {
   arquivoOrigem: ArquivoOrigemFicha | null;
   minuta: MinutaModelo;
   textoFinal: string;
+  confirmouImpressao?: boolean;
   versaoAnteriorId: string | null;
 }
 
@@ -1664,55 +1665,60 @@ export function FichaOficialView({
   // ─── Finalização: arquiva o texto da Etapa 2 no banco do FIORIX ──────────
   const textoMinuta = useMemo(() => minutaParaTexto(minuta), [minuta]);
   const alteradaAposArquivar = Boolean(arquivada && arquivada.texto !== textoMinuta);
+  const conferenciaConcluida = Boolean(
+    dados.status_conferencia === 'CONFERIDO' || versaoAnteriorId || arquivada,
+  );
+  const [modalFinalizarAberto, setModalFinalizarAberto] = useState(false);
+  const [confirmouImpressaoEtapa2, setConfirmouImpressaoEtapa2] = useState(false);
+  const [erroFinalizacaoModal, setErroFinalizacaoModal] = useState<string | null>(null);
 
   const executarFinalizacao = async () => {
-    if (!onFinalizar || finalizando) return;
+    if (!onFinalizar || finalizando || !confirmouImpressaoEtapa2) return;
     setFinalizando(true);
+    setErroFinalizacaoModal(null);
     try {
       const info = await onFinalizar({
         fichaId: dados.id_ficha || `FICHA-${Date.now()}`,
-        dados,
+        dados: {
+          ...dados,
+          status_conferencia: 'CONFERIDO',
+        },
         arquivoOrigem: arquivoOrigem ?? null,
         minuta,
         textoFinal: textoMinuta,
+        confirmouImpressao: true,
         // Correção após arquivar nesta mesma tela gera nova versão da que acabou de ser arquivada
         versaoAnteriorId: arquivada ? arquivada.info.id : versaoAnteriorId,
       });
       setArquivada({ info, minuta, texto: textoMinuta });
-      mostrarAviso(`Manifestação arquivada no FIORIX (versão ${info.versao}). Use “Baixar PDF” para obter o arquivo.`);
+      setModalFinalizarAberto(false);
+      mostrarAviso(
+        `Procedimento finalizado e arquivado no FIORIX (versão ${info.versao}). Ele saiu de Em Conferência e já está disponível no Arquivo.`,
+      );
     } catch (err) {
-      mostrarAviso(err instanceof Error ? err.message : 'Não foi possível finalizar a manifestação.', 9000);
+      const msg = err instanceof Error ? err.message : 'Não foi possível finalizar a manifestação.';
+      setErroFinalizacaoModal(msg);
+      mostrarAviso(msg, 9000);
     } finally {
       setFinalizando(false);
     }
   };
 
   const solicitarFinalizacao = () => {
-    if (!onFinalizar) return;
+    if (!onFinalizar || finalizando) return;
+    if (!conferenciaConcluida) {
+      mostrarAviso(
+        'A manifestação só pode ser finalizada e arquivada após a conferência concluída (status CONFERIDO).',
+      );
+      return;
+    }
     if (textoMinuta.trim().length < 50) {
       mostrarAviso('O texto da manifestação está incompleto. Preencha os campos da Etapa 1 antes de finalizar.');
       return;
     }
-    const novaVersao = Boolean(arquivada || versaoAnteriorId);
-    setConfirmacao({
-      titulo: novaVersao ? 'Finalizar nova versão da manifestação?' : 'Finalizar a manifestação?',
-      mensagem: (
-        <div className="space-y-2">
-          <p>
-            O texto exibido na pré-visualização será <strong className="text-gray-900">arquivado no banco do FIORIX</strong> e
-            ficará disponível no Histórico para os escreventes do setor de Usucapião.
-          </p>
-          <p>Depois de finalizada, a manifestação <strong className="text-gray-900">não pode ser alterada nem excluída</strong>. Correções geram uma nova versão, mantendo a anterior.</p>
-          {pendenciasAtivas.length > 0 && (
-            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
-              Há {pendenciasAtivas.length} pendência(s) de revisão em aberto. Confira antes de finalizar.
-            </p>
-          )}
-        </div>
-      ),
-      rotuloConfirmar: novaVersao ? 'Finalizar nova versão' : 'Finalizar e arquivar',
-      onConfirmar: () => { void executarFinalizacao(); },
-    });
+    setConfirmouImpressaoEtapa2(false);
+    setErroFinalizacaoModal(null);
+    setModalFinalizarAberto(true);
   };
 
   const baixarPdfArquivado = async () => {
@@ -4132,12 +4138,16 @@ export function FichaOficialView({
                         <button
                           type="button"
                           onClick={solicitarFinalizacao}
-                          disabled={finalizando}
+                          disabled={finalizando || !conferenciaConcluida}
                           className={botaoEscuro}
-                          title="Finalizar e arquivar a manifestação em local seguro no banco do FIORIX"
+                          title={
+                            !conferenciaConcluida
+                              ? 'A conferência oficial precisa estar concluída (status CONFERIDO) antes de finalizar e arquivar a Etapa 2'
+                              : 'Finalizar Etapa 2 e arquivar a manifestação no Arquivo do FIORIX'
+                          }
                         >
                           {finalizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Archive className="h-3.5 w-3.5" aria-hidden="true" />}
-                          <span>{finalizando ? 'Arquivando…' : arquivada || versaoAnteriorId ? 'Finalizar nova versão' : 'Finalizar Manifestação'}</span>
+                          <span>{finalizando ? 'Arquivando…' : 'Finalizar e arquivar'}</span>
                         </button>
                       )}
                     </div>
@@ -4338,24 +4348,43 @@ export function FichaOficialView({
                   )}
                 </div>
 
+                {!conferenciaConcluida && !arquivada && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50/90 px-3.5 py-2.5 text-xs font-medium text-amber-950">
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
+                      <span>
+                        <strong>Aguardando conferência oficial:</strong> você pode editar, salvar rascunho e imprimir a manifestação normalmente, mas a ação <strong>“Finalizar e arquivar”</strong> será habilitada somente após a conferência ser concluída pelo Oficial ou Substituto (status <strong>CONFERIDO</strong>).
+                      </span>
+                    </span>
+                  </div>
+                )}
                 {versaoAnteriorId && !arquivada && (
                   <div className="rounded-xl border border-[#CBD5E1] bg-[#F8F7F4] px-3.5 py-2.5 text-xs font-semibold text-[#1E293B]">
-                    Correção de manifestação já arquivada: ao finalizar, será gravada uma nova versão e a anterior permanece no Histórico.
+                    Correção de manifestação já arquivada: ao finalizar, será gravada uma nova versão e a anterior permanece intacta no Arquivo.
                   </div>
                 )}
                 {arquivada && (
                   <div
                     role="status"
-                    className={`flex flex-wrap items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
                       alteradaAposArquivar ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900'
                     }`}
                   >
-                    {alteradaAposArquivar ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
-                    <span>
-                      Arquivada no FIORIX em {new Date(arquivada.info.finalizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                      {arquivada.info.finalizadoPorNome ? ` por ${arquivada.info.finalizadoPorNome}` : ''} (versão {arquivada.info.versao}).
-                      {alteradaAposArquivar && ' O texto foi alterado depois do arquivamento: as alterações só ficam registradas se você finalizar uma nova versão.'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {alteradaAposArquivar ? <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />}
+                      <span>
+                        Arquivado — Etapa 2 concluída em {new Date(arquivada.info.finalizadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                        {arquivada.info.finalizadoPorNome ? ` por ${arquivada.info.finalizadoPorNome}` : ''} (versão {arquivada.info.versao}).
+                        {alteradaAposArquivar && ' O texto foi alterado depois do arquivamento: as alterações só ficam registradas se você finalizar uma nova versão.'}
+                      </span>
+                    </div>
+                    <a
+                      href={`/gestao-documental/arquivo?id=${encodeURIComponent(arquivada.info.id)}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400 bg-white px-3 py-1 text-xs font-bold text-emerald-900 shadow-2xs transition hover:bg-emerald-100"
+                    >
+                      <Archive className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
+                      <span>Consultar no Arquivo</span>
+                    </a>
                   </div>
                 )}
 
@@ -4770,6 +4799,67 @@ export function FichaOficialView({
                 ))}
               </tbody>
             </table>
+          </div>
+        </DialogoSobreposto>
+      )}
+
+      {/* ── Modal de confirmação da Finalização da Etapa 2 e Arquivamento ── */}
+      {modalFinalizarAberto && (
+        <DialogoSobreposto
+          titulo="Finalizar Etapa 2 e arquivar"
+          onFechar={() => {
+            if (!finalizando) setModalFinalizarAberto(false);
+          }}
+          rodape={
+            <>
+              <button
+                type="button"
+                disabled={finalizando}
+                onClick={() => setModalFinalizarAberto(false)}
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!confirmouImpressaoEtapa2 || finalizando}
+                onClick={() => void executarFinalizacao()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E293B] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[#334155] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B8A082]"
+              >
+                {finalizando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Archive className="h-4 w-4" aria-hidden="true" />}
+                <span>{finalizando ? 'Arquivando…' : 'Finalizar e arquivar'}</span>
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm leading-relaxed text-gray-700">
+            <p>
+              Confirme que a manifestação foi impressa. Após finalizar, o procedimento sairá de Em Conferência e ficará disponível no Arquivo.
+            </p>
+            <label
+              htmlFor="chk-confirmar-impressao-manifestacao"
+              className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[#CBD5E1] bg-[#F8F7F4] p-3 text-sm font-semibold text-[#1E293B] hover:bg-gray-100"
+            >
+              <input
+                id="chk-confirmar-impressao-manifestacao"
+                type="checkbox"
+                checked={confirmouImpressaoEtapa2}
+                onChange={e => setConfirmouImpressaoEtapa2(e.target.checked)}
+                disabled={finalizando}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-400 text-[#1E293B] focus:ring-[#1E293B]"
+              />
+              <span>Confirmo que a manifestação foi impressa</span>
+            </label>
+            {pendenciasAtivas.length > 0 && (
+              <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Há {pendenciasAtivas.length} pendência(s) de revisão em aberto. Confira antes de finalizar.
+              </p>
+            )}
+            {erroFinalizacaoModal && (
+              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
+                {erroFinalizacaoModal}
+              </p>
+            )}
           </div>
         </DialogoSobreposto>
       )}

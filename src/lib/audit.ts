@@ -12,7 +12,8 @@ export type AuditModulo =
   | 'BI_IMPORTACOES'
   | 'PERMISSOES_MENU'
   | 'OPERACOES_CONNECTOR'
-  | 'CARTORIO_VIRTUAL';
+  | 'CARTORIO_VIRTUAL'
+  | 'GESTAO_DOCUMENTAL';
 
 export type AuditAcao =
   | 'INCLUSAO'
@@ -36,7 +37,7 @@ export type AuditAcao =
   | 'CONSULTA_LGPD'
   | 'HOMOLOGACAO'
   | 'AUDITORIA_INTEGRIDADE'
-  | 'EMISSAO_DOSSIE';
+  | 'EMISSAO_DOSSIE' | 'CONFERENCIA' | 'ARQUIVAMENTO';
 
 export interface AuditLogParams {
   modulo: AuditModulo;
