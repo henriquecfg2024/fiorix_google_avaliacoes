@@ -3245,7 +3245,7 @@ export function FichaOficialView({
                       <strong>Orientações:</strong> Imprima a folha de conferência física para conferência e visto do Oficial ou seu Substituto.
                     </div>
                     <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      {dados.status_conferencia === 'CONFERIDO' || arquivada ? (
+                      {(dados.status_conferencia === 'CONFERIDO' || arquivada) && (
                         <button
                           type="button"
                           disabled={!onAlternarConferencia}
@@ -3260,26 +3260,6 @@ export function FichaOficialView({
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                           <span>Conferido</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={!onAlternarConferencia}
-                          onClick={async () => {
-                            if (!onAlternarConferencia) return;
-                            await onAlternarConferencia('CONFERIDO');
-                            setDados(prev => ({ ...prev, status_conferencia: 'CONFERIDO' }));
-                            mostrarAviso('Selo atualizado para CONFERIDO (azul) e arquivado para fiscalização.');
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/90 bg-gradient-to-r from-rose-50 via-white to-amber-50/70 px-3 py-1 text-[11px] font-bold tracking-wide text-rose-800 shadow-2xs ring-1 ring-rose-500/10 hover:border-rose-400 hover:from-rose-100/80 transition cursor-pointer disabled:cursor-default"
-                          title="Formulário aguardando conferência e visto do Oficial ou seu Substituto"
-                        >
-                          <span className="relative flex h-2 w-2 shrink-0">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-600" />
-                          </span>
-                          <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                          <span>Aguardando Conferência</span>
                         </button>
                       )}
                       {onAlternarConferencia && (
