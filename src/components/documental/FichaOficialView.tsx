@@ -3792,37 +3792,6 @@ export function FichaOficialView({
                           <input type="text" value={dados.titular_origem} onChange={e => atualizarCampo('titular_origem', e.target.value)} placeholder="Titular de Origem" className={`min-w-0 text-xs font-semibold uppercase ${inputFolhaPontilhado}`} />
                         </label>
                       </div>
-
-                      {/* Arquivo da Imagem (LV2) em K:\IMAGENS\LV2 associado à Matrícula encontrada */}
-                      {arquivosLivro2 && arquivosLivro2.length > 0 ? (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50/70 px-2.5 py-1.5 font-sans text-xs">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-amber-800" />
-                            <div className="min-w-0">
-                              <span className="font-bold text-amber-950">Imagem da Matrícula (LV2): </span>
-                              <span className="font-mono font-bold text-gray-900">{arquivosLivro2[0].name}</span>
-                              <span className="ml-1.5 font-mono text-[10.5px] text-gray-600">
-                                ({formatCartorioPath(arquivosLivro2[0].rootId, arquivosLivro2[0].relativePath)})
-                              </span>
-                            </div>
-                          </div>
-                          {onVisualizarDocumento ? (
-                            <button
-                              type="button"
-                              onClick={() => onVisualizarDocumento(arquivosLivro2[0])}
-                              className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
-                            >
-                              <Eye className="h-3 w-3" />
-                              <span>Visualizar Matrícula (K:\IMAGENS\LV2)</span>
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : buscandoLivro2 ? (
-                        <div className="flex items-center gap-1.5 font-sans text-[11px] text-gray-600">
-                          <Loader2 className="h-3 w-3 animate-spin text-[#0F3D6E]" />
-                          <span>Localizando arquivo da imagem da matrícula em <code className="font-mono">K:\IMAGENS\LV2</code>…</span>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
 
@@ -4088,146 +4057,15 @@ export function FichaOficialView({
                           </div>
                         )}
                       </div>
-
-                      {/* Card Ver Planta de Setor: K:\IMAGENS\SETORES\ */}
-                      <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 p-2.5 space-y-2 shadow-2xs">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-950">
-                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
-                            <span>
-                              Ver Planta de Setor — <code className="font-mono">K:\IMAGENS\SETORES\</code>
-                            </span>
-                            {plantaSetorCalculada ? (
-                              <span className="rounded bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-900 normal-case border border-emerald-300/80">
-                                Setor {plantaSetorCalculada.setor} • Quadra {plantaSetorCalculada.quadra}
-                              </span>
-                            ) : null}
-                          </span>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <input
-                              type="text"
-                              value={termoBuscadoSetores}
-                              onChange={e => setTermoBuscadoSetores(e.target.value)}
-                              placeholder={plantaSetorCalculada?.termoBusca || 'Ex.: 052.287 ou 00052287'}
-                              className="w-40 rounded border border-emerald-300 bg-white px-2 py-0.5 font-mono text-[11px] text-gray-900 focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void localizarPlantaSetorNoAcervo(termoBuscadoSetores || undefined, false)}
-                              disabled={buscandoSetores}
-                              className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
-                            >
-                              {buscandoSetores ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-                              <span>Buscar em SETORES</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (onVisualizarDocumento) {
-                                  const alvo: Livro2Match = arquivoPlantaSetorDireto || {
-                                    rootId: 'imagens',
-                                    relativePath: 'SETORES\\00001000\\00001001.KEN',
-                                    name: '00001001.KEN',
-                                    size: 0,
-                                    modifiedAt: '',
-                                  };
-                                  onVisualizarDocumento(alvo);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 rounded border border-emerald-400 bg-white px-2 py-1 text-[10.5px] font-bold text-emerald-900 hover:bg-emerald-50 transition cursor-pointer"
-                              title="Abrir K:\IMAGENS\SETORES\ no Visualizador de Imagens (padrão claro)"
-                            >
-                              <Eye className="h-3 w-3 text-emerald-700" />
-                              <span>Abrir K:\IMAGENS\SETORES\</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {erroSetores ? (
-                          <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
-                            {erroSetores}
-                          </div>
-                        ) : null}
-
-                        {/* Lista de arquivos de Planta de Setor (encontrados no disco ou calculado direto pelo SQL/Setor/Quadra) */}
-                        {(() => {
-                          const listaExibicao: Livro2Match[] =
-                            arquivosSetores && arquivosSetores.length > 0
-                              ? arquivosSetores.slice(0, 6)
-                              : arquivoPlantaSetorDireto
-                              ? [arquivoPlantaSetorDireto]
-                              : [];
-
-                          if (listaExibicao.length > 0) {
-                            return (
-                              <div className="space-y-1.5">
-                                {listaExibicao.map(arq => {
-                                  const caminhoCompleto = formatCartorioPath(arq.rootId, arq.relativePath);
-                                  return (
-                                    <div
-                                      key={`${arq.rootId}:${arq.relativePath}`}
-                                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
-                                    >
-                                      <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-mono font-bold text-gray-900">{arq.name}</span>
-                                          <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9.5px] font-bold text-emerald-800 border border-emerald-200">
-                                            Planta de Setor (.KEN)
-                                          </span>
-                                        </div>
-                                        <div className="truncate font-mono text-[10px] text-gray-500" title={caminhoCompleto}>
-                                          {caminhoCompleto}
-                                        </div>
-                                      </div>
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        {onVisualizarDocumento ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => onVisualizarDocumento(arq)}
-                                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition shadow-2xs cursor-pointer"
-                                            title={`Visualizar Planta de Setor (${caminhoCompleto})`}
-                                          >
-                                            <Eye className="h-3 w-3" />
-                                            <span>Ver Planta de Setor</span>
-                                          </button>
-                                        ) : (
-                                          <a
-                                            href={`/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(arq.name.replace(/\..+$/, ''))}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition shadow-2xs"
-                                          >
-                                            <Eye className="h-3 w-3" />
-                                            <span>Ver Planta de Setor</span>
-                                          </a>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-[11px] text-gray-600">
-                              <span>
-                                Informe o SQL (ex.: <code className="font-mono">052.287.0091-9</code>) ou digite o Setor/Quadra acima para abrir a Planta Fiscal em{' '}
-                                <code className="font-mono font-bold text-emerald-900">K:\IMAGENS\SETORES\</code>.
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
                     </div>
 
                     <textarea
                       id="doc-anotacoes"
-                      rows={6}
+                      rows={14}
                       value={dados.anotacoes_ficha_oficial}
                       onChange={e => atualizarCampo('anotacoes_ficha_oficial', e.target.value)}
                       placeholder="Digite observações manuscritas prévias ou deixe as linhas pautadas em branco para anotação à caneta pelo Oficial..."
-                      className="w-full rounded border border-dashed border-gray-500 bg-[#FDFBF7]/40 p-2.5 font-mono text-xs text-black placeholder:text-gray-600 focus:bg-white focus:outline-none"
+                      className="min-h-[240px] w-full rounded border border-dashed border-gray-500 bg-[#FDFBF7]/40 p-3 font-mono text-xs leading-relaxed text-black placeholder:text-gray-600 focus:bg-white focus:outline-none"
                     />
                     <div className="space-y-4 pt-2" aria-hidden="true">
                       {Array.from({ length: 6 }).map((_, i) => (
