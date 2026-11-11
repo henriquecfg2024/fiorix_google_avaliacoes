@@ -1362,7 +1362,7 @@ export function FichaOficialView({
   const [termoBuscadoSetores, setTermoBuscadoSetores] = useState('');
 
   // ─── Consulta ao GEOSAMPA (WFS Lotes + Integração IPTU + Links Oficiais) ─
-  const [cardsGeoSampaVisiveis, setCardsGeoSampaVisiveis] = useState(false);
+  const [cardsGeoSampaVisiveis, setCardsGeoSampaVisiveis] = useState(true);
   const [buscandoGeoSampa, setBuscandoGeoSampa] = useState(false);
   const [erroGeoSampa, setErroGeoSampa] = useState<string | null>(null);
   const [resultadoGeoSampa, setResultadoGeoSampa] = useState<{
@@ -3585,20 +3585,6 @@ export function FichaOficialView({
                                 {resultadoGeoSampa.lote ? ` • Lote ${resultadoGeoSampa.lote}` : ''}
                               </span>
                             ) : null}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setCardsGeoSampaVisiveis(v => !v)}
-                            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[10.5px] font-bold text-[#0F3D6E] hover:bg-blue-50 transition shadow-2xs cursor-pointer"
-                            title={
-                              cardsGeoSampaVisiveis
-                                ? 'Ocultar cards e links do GeoSampa'
-                                : 'Desocultar cards e links do GeoSampa'
-                            }
-                          >
-                            <Eye className="h-3 w-3 shrink-0" />
-                            <span>{cardsGeoSampaVisiveis ? 'Ocultar GeoSampa' : 'Desocultar GeoSampa'}</span>
                           </button>
                         </div>
 
