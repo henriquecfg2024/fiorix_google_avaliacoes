@@ -3403,6 +3403,27 @@ export function FichaOficialView({
             </button>
           )}
 
+          <a
+            href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-blue-500/40 hover:bg-white hover:shadow-2xs cursor-pointer"
+            title="Abrir GeoSampa Clássico (_SBC.aspx) — Mapa Digital da Cidade de São Paulo"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                <Compass className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
+                <span className="truncate">GeoSampa</span>
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {resultadoGeoSampa?.setor && resultadoGeoSampa?.quadra
+                  ? `Setor ${resultadoGeoSampa.setor} • Quadra ${resultadoGeoSampa.quadra}`
+                  : '_SBC.aspx (Clássico)'}
+              </div>
+            </div>
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#0F3D6E]" />
+          </a>
+
           <button
             type="button"
             onClick={() => setPreviewImpressao(abaAtiva)}
@@ -3949,18 +3970,6 @@ export function FichaOficialView({
 
                         {cardsGeoSampaVisiveis && (
                           <div className="space-y-2 border-t border-blue-200/70 pt-2">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <a
-                                href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                <span>GeoSampa Clássico (_SBC.aspx)</span>
-                              </a>
-                            </div>
-
                             {erroGeoSampa ? (
                               <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
                                 {erroGeoSampa}
