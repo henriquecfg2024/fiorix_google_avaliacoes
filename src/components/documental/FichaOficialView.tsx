@@ -35,6 +35,7 @@ import {
   FileText,
   Edit3,
   SlidersHorizontal,
+  Clock,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
@@ -3130,16 +3131,43 @@ export function FichaOficialView({
                     <div>
                       <strong>Orientações:</strong> Imprima a folha de conferência física para conferência e visto do Oficial ou seu Substituto.
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
                       {dados.status_conferencia === 'CONFERIDO' || arquivada ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-md border-2 border-blue-600 bg-blue-50 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-blue-700 shadow-2xs">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
-                          <span>CONFERIDO</span>
-                        </span>
+                        <button
+                          type="button"
+                          disabled={!onAlternarConferencia}
+                          onClick={async () => {
+                            if (!onAlternarConferencia) return;
+                            await onAlternarConferencia('AGUARDANDO_CONFERENCIA');
+                            setDados(prev => ({ ...prev, status_conferencia: 'AGUARDANDO_CONFERENCIA' }));
+                            mostrarAviso('Selo retornado para AGUARDANDO CONFERÊNCIA (vermelho).');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-gradient-to-r from-blue-50 via-white to-indigo-50/90 px-3 py-1 text-[11px] font-bold tracking-wide text-blue-800 shadow-2xs ring-1 ring-blue-500/10 hover:border-blue-400 transition cursor-pointer disabled:cursor-default"
+                          title="Formulário conferido pelo Oficial ou seu Substituto"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                          <span>Conferido</span>
+                        </button>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-md border-2 border-red-600 bg-red-50 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-red-700 shadow-2xs">
-                          <span>AGUARDANDO CONFERÊNCIA</span>
-                        </span>
+                        <button
+                          type="button"
+                          disabled={!onAlternarConferencia}
+                          onClick={async () => {
+                            if (!onAlternarConferencia) return;
+                            await onAlternarConferencia('CONFERIDO');
+                            setDados(prev => ({ ...prev, status_conferencia: 'CONFERIDO' }));
+                            mostrarAviso('Selo atualizado para CONFERIDO (azul) e arquivado para fiscalização.');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/90 bg-gradient-to-r from-rose-50 via-white to-amber-50/70 px-3 py-1 text-[11px] font-bold tracking-wide text-rose-800 shadow-2xs ring-1 ring-rose-500/10 hover:border-rose-400 hover:from-rose-100/80 transition cursor-pointer disabled:cursor-default"
+                          title="Formulário aguardando conferência e visto do Oficial ou seu Substituto"
+                        >
+                          <span className="relative flex h-2 w-2 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-600" />
+                          </span>
+                          <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                          <span>Aguardando Conferência</span>
+                        </button>
                       )}
                       {onAlternarConferencia && (
                         <button
@@ -3154,17 +3182,21 @@ export function FichaOficialView({
                                 : 'Selo retornado para AGUARDANDO CONFERÊNCIA (vermelho).',
                             );
                           }}
-                          className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-[11px] font-bold transition-all duration-200 cursor-pointer ${
                             dados.status_conferencia === 'CONFERIDO'
-                              ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
-                              : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700 shadow-2xs'
+                              ? 'border-rose-200/90 bg-gradient-to-r from-rose-50/70 via-white to-rose-50/70 text-rose-700 hover:border-rose-300 hover:bg-rose-50 shadow-2xs'
+                              : 'border-blue-700/80 bg-gradient-to-r from-[#0B4F8A] via-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-600/20 hover:from-[#093E6E] hover:via-blue-700 hover:to-indigo-700 hover:shadow'
                           }`}
                         >
-                          <Check className="h-3 w-3" />
+                          {dados.status_conferencia === 'CONFERIDO' ? (
+                            <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-blue-100 shrink-0" />
+                          )}
                           <span>
                             {dados.status_conferencia === 'CONFERIDO'
                               ? 'Voltar para Aguardando Conferência'
-                              : 'Realizar Conferência (Marcar CONFERIDO)'}
+                              : 'Realizar Conferência (Marcar Conferido)'}
                           </span>
                         </button>
                       )}
@@ -3802,6 +3834,45 @@ export function FichaOficialView({
                         <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Voltar à Etapa 1</span>
                       </button>
+
+                      {/* Status de Conferência também visível e interativo na Etapa 2 */}
+                      {dados.status_conferencia === 'CONFERIDO' || arquivada ? (
+                        <button
+                          type="button"
+                          disabled={!onAlternarConferencia}
+                          onClick={async () => {
+                            if (!onAlternarConferencia) return;
+                            await onAlternarConferencia('AGUARDANDO_CONFERENCIA');
+                            setDados(prev => ({ ...prev, status_conferencia: 'AGUARDANDO_CONFERENCIA' }));
+                            mostrarAviso('Selo retornado para AGUARDANDO CONFERÊNCIA (vermelho).');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-gradient-to-r from-blue-50 via-white to-indigo-50/90 px-3 py-1 text-[11px] font-bold tracking-wide text-blue-800 shadow-2xs ring-1 ring-blue-500/10 hover:border-blue-400 transition cursor-pointer disabled:cursor-default"
+                          title={onAlternarConferencia ? 'Conferido • Clique se precisar retornar para Aguardando Conferência' : 'Formulário conferido'}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                          <span>Conferido</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!onAlternarConferencia}
+                          onClick={async () => {
+                            if (!onAlternarConferencia) return;
+                            await onAlternarConferencia('CONFERIDO');
+                            setDados(prev => ({ ...prev, status_conferencia: 'CONFERIDO' }));
+                            mostrarAviso('Selo atualizado para CONFERIDO (azul) e arquivado para fiscalização.');
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/90 bg-gradient-to-r from-rose-50 via-white to-amber-50/70 px-3 py-1 text-[11px] font-bold tracking-wide text-rose-800 shadow-2xs ring-1 ring-rose-500/10 hover:border-rose-400 hover:from-rose-100/80 transition cursor-pointer disabled:cursor-default"
+                          title={onAlternarConferencia ? 'Aguardando Conferência • Clique para marcar como Conferido' : 'Aguardando Conferência'}
+                        >
+                          <span className="relative flex h-2 w-2 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-600" />
+                          </span>
+                          <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                          <span>Aguardando Conferência</span>
+                        </button>
+                      )}
 
                       <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-[#F8F7F4] p-0.5">
                         <button

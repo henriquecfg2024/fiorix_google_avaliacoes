@@ -27,6 +27,7 @@ import {
   MonitorUp,
   Star,
   Folder,
+  Clock,
 } from 'lucide-react';
 import {
   RAIZES_DOCUMENTAL,
@@ -2367,42 +2368,88 @@ export function DocumentSearch({
 
         {/* Filtros de Fiscalização (Todos / Aguardando Conferência / Conferidos) + Busca com ou sem . e - */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-100/80 p-1 shadow-inner">
             <button
               type="button"
               onClick={() => setFiltroStatusConferencia('TODOS')}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-200 cursor-pointer ${
                 filtroStatusConferencia === 'TODOS'
-                  ? 'border-slate-800 bg-slate-800 text-white shadow-xs'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                  ? 'bg-gradient-to-r from-[#0F243C] to-[#1E3A5F] text-white shadow-sm ring-1 ring-slate-900/10'
+                  : 'bg-transparent text-slate-600 hover:bg-white/80 hover:text-slate-900'
               }`}
             >
               <span>Todos Arquivados</span>
-              <span className="rounded-full bg-white/20 px-1.5 py-0.2 text-[10px]">{fichasPendentes.length}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                  filtroStatusConferencia === 'TODOS'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200/90 text-slate-700'
+                }`}
+              >
+                {fichasPendentes.length}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setFiltroStatusConferencia('AGUARDANDO_CONFERENCIA')}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition cursor-pointer ${
+              className={`group inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer ${
                 filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
-                  ? 'border-red-600 bg-red-600 text-white shadow-xs'
-                  : 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                  ? 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white shadow-sm shadow-rose-500/25 ring-1 ring-rose-700/30'
+                  : 'border border-rose-200/80 bg-gradient-to-r from-rose-50/90 via-white to-rose-50/90 text-rose-800 hover:border-rose-300 hover:from-rose-100/80 hover:to-rose-50 shadow-2xs'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-current" />
-              <span>Aguardando Conferência ({totalAguardando})</span>
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span
+                  className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
+                    filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'bg-rose-200' : 'bg-rose-400'
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex h-2 w-2 rounded-full ${
+                    filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'bg-white' : 'bg-rose-600'
+                  }`}
+                />
+              </span>
+              <Clock
+                className={`h-3.5 w-3.5 shrink-0 ${
+                  filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA' ? 'text-rose-100' : 'text-rose-600'
+                }`}
+              />
+              <span>Aguardando Conferência</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                  filtroStatusConferencia === 'AGUARDANDO_CONFERENCIA'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-rose-100 text-rose-800 ring-1 ring-rose-300/60'
+                }`}
+              >
+                {totalAguardando}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setFiltroStatusConferencia('CONFERIDO')}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition cursor-pointer ${
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer ${
                 filtroStatusConferencia === 'CONFERIDO'
-                  ? 'border-blue-600 bg-blue-600 text-white shadow-xs'
-                  : 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                  ? 'bg-gradient-to-r from-[#0B4F8A] via-blue-700 to-indigo-700 text-white shadow-sm shadow-blue-600/25 ring-1 ring-blue-800/30'
+                  : 'border border-blue-200/80 bg-gradient-to-r from-blue-50/90 via-white to-blue-50/90 text-blue-800 hover:border-blue-300 hover:from-blue-100/80 hover:to-blue-50 shadow-2xs'
               }`}
             >
-              <span className="h-2 w-2 rounded-full bg-current" />
-              <span>Conferido ({totalConferidos})</span>
+              <CheckCircle2
+                className={`h-3.5 w-3.5 shrink-0 ${
+                  filtroStatusConferencia === 'CONFERIDO' ? 'text-blue-100' : 'text-blue-600'
+                }`}
+              />
+              <span>Conferido</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                  filtroStatusConferencia === 'CONFERIDO'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-blue-100 text-blue-800 ring-1 ring-blue-300/60'
+                }`}
+              >
+                {totalConferidos}
+              </span>
             </button>
           </div>
           <div className="relative min-w-[240px] flex-1 max-w-md">
@@ -2412,7 +2459,7 @@ export function DocumentSearch({
               value={buscaFiscalizacao}
               onChange={e => setBuscaFiscalizacao(e.target.value)}
               placeholder="Pesquisar processo (com ou sem . e -), requerente ou matrícula..."
-              className="w-full rounded-lg border border-slate-300 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 shadow-2xs focus:border-slate-500 focus:outline-none"
             />
             {buscaFiscalizacao && (
               <button
@@ -2448,36 +2495,40 @@ export function DocumentSearch({
                   onClick={() => reabrirFichaDaFila(ficha)}
                   onKeyDown={e => { if (e.key === 'Enter') reabrirFichaDaFila(ficha); }}
                   title="Abrir formulário para conferência, revisão ou fiscalização"
-                  className={`group flex cursor-pointer items-start justify-between gap-3 rounded-xl border-2 bg-white p-3.5 transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B] ${
+                  className={`group flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-l-4 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#64748B] ${
                     isConferido
-                      ? 'border-blue-200 hover:border-blue-400'
-                      : 'border-red-200 hover:border-red-400'
+                      ? 'border-slate-200/90 border-l-blue-600 hover:border-blue-300 hover:border-l-blue-700'
+                      : 'border-slate-200/90 border-l-rose-500 hover:border-rose-300 hover:border-l-rose-600'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded border border-[#CBD5E1] bg-[#F8F7F4] px-1.5 py-0.5 font-mono text-xs font-bold">{ficha.numero_processo}</span>
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">{ficha.subdistrito}</span>
-                      {/* Carimbo Oficial nos Cards: Vermelho (AGUARDANDO CONFERÊNCIA) ou Azul (CONFERIDO) */}
+                      <span className="rounded-md border border-[#CBD5E1] bg-[#F8F7F4] px-2 py-0.5 font-mono text-xs font-bold text-slate-900">{ficha.numero_processo}</span>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">{ficha.subdistrito}</span>
+                      {/* Carimbo Oficial Elegante nos Cards: Vermelho/Rose (Aguardando Conferência) ou Azul (Conferido) */}
                       {isConferido ? (
                         <span
-                          className="inline-flex items-center gap-1 rounded-md border-2 border-blue-600 bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-blue-700 shadow-xs"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-gradient-to-r from-blue-50 via-white to-indigo-50/90 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-blue-800 shadow-2xs ring-1 ring-blue-500/10"
                           title={
                             ficha.conferidoPorNome
                               ? `Conferido por ${ficha.conferidoPorNome}${ficha.conferidoEm ? ` em ${new Date(ficha.conferidoEm).toLocaleString('pt-BR')}` : ''}`
-                              : 'Formulário conferido pelo Oficial Substituto'
+                              : 'Formulário conferido pelo Oficial ou seu Substituto'
                           }
                         >
                           <CheckCircle2 className="h-3 w-3 text-blue-600 shrink-0" />
-                          <span>CONFERIDO</span>
+                          <span>Conferido</span>
                         </span>
                       ) : (
                         <span
-                          className="inline-flex items-center gap-1 rounded-md border-2 border-red-600 bg-red-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-red-700 shadow-xs"
-                          title="Formulário gerado pelo colaborador aguardando conferência pelo Oficial Substituto"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-rose-300/90 bg-gradient-to-r from-rose-50 via-white to-amber-50/70 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-rose-800 shadow-2xs ring-1 ring-rose-500/10"
+                          title="Formulário gerado pelo colaborador aguardando conferência pelo Oficial ou seu Substituto"
                         >
-                          <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse shrink-0" />
-                          <span>AGUARDANDO CONFERÊNCIA</span>
+                          <span className="relative flex h-2 w-2 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-600" />
+                          </span>
+                          <Clock className="h-3 w-3 text-rose-600 shrink-0" />
+                          <span>Aguardando Conferência</span>
                         </span>
                       )}
                     </div>
@@ -2505,18 +2556,22 @@ export function DocumentSearch({
                         e.stopPropagation();
                         void alternarConferenciaCard(ficha);
                       }}
-                      className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition shadow-xs cursor-pointer disabled:opacity-50 ${
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 ${
                         isConferido
-                          ? 'border-red-300 bg-white text-red-700 hover:bg-red-50'
-                          : 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                          ? 'border-rose-200/90 bg-gradient-to-r from-rose-50/70 via-white to-rose-50/70 text-rose-700 hover:border-rose-300 hover:bg-rose-50 shadow-2xs'
+                          : 'border-blue-700/80 bg-gradient-to-r from-[#0B4F8A] via-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-600/20 hover:from-[#093E6E] hover:via-blue-700 hover:to-indigo-700 hover:shadow'
                       }`}
                       title={
                         isConferido
-                          ? 'Retornar carimbo para AGUARDANDO CONFERÊNCIA (vermelho)'
-                          : 'Realizar conferência e trocar carimbo para CONFERIDO (azul)'
+                          ? 'Retornar status para Aguardando Conferência'
+                          : 'Realizar conferência e marcar como Conferido'
                       }
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {isConferido ? (
+                        <Clock className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-blue-100 shrink-0" />
+                      )}
                       <span>{processandoCard ? 'Salvando…' : isConferido ? 'Voltar p/ Aguardando' : 'Marcar Conferido'}</span>
                     </button>
                     <div className="flex items-center gap-1">
