@@ -1505,7 +1505,38 @@ export function DocumentPreviewModal({
                 </div>
               </div>
 
-              {/* CARD 2: PASTAS FAVORITAS (ROTINA DE MANIFESTAÇÕES — OCULTO POR PADRÃO) */}
+              {/* CARD 2: PESQUISAR DOCUMENTO */}
+              <div className="border border-[#D0D0D0] bg-white p-1.5 shadow-2xs">
+                <div className="flex items-center gap-1 mb-1">
+                  <Search className="h-3.5 w-3.5 text-[#0F3D6E]" />
+                  <span className="text-[11px] font-bold text-[#0F3D6E] uppercase tracking-wide">Pesquisar documento</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={docNumero}
+                    onChange={e => setDocNumero(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handlePesquisarDocumentoOuTermo(docNumero);
+                      }
+                    }}
+                    placeholder="Ex: 1, 40001 ou termo (NUA...)"
+                    className="flex-1 min-w-0 h-7 md:h-6 border border-[#C0C0C0] bg-white px-2 text-[16px] md:text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400 placeholder:font-normal"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePesquisarDocumentoOuTermo(docNumero)}
+                    className="h-7 md:h-6 px-2.5 bg-[#0F3D6E] hover:bg-[#174E8B] text-white transition shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
+                    title="Buscar número de documento ou localizar termo"
+                  >
+                    <Search className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* CARD 3: PASTAS FAVORITAS (ROTINA DE MANIFESTAÇÕES — OCULTO POR PADRÃO) */}
               <div className="border border-[#D0D0D0] bg-white p-1.5 shadow-2xs space-y-1">
                 <div className="flex items-center justify-between gap-1">
                   <button
@@ -1599,37 +1630,6 @@ export function DocumentPreviewModal({
                     </button>
                   </div>
                 )}
-              </div>
-
-              {/* CARD 3: PESQUISAR DOCUMENTO */}
-              <div className="border border-[#D0D0D0] bg-white p-1.5 shadow-2xs">
-                <div className="flex items-center gap-1 mb-1">
-                  <Search className="h-3.5 w-3.5 text-[#0F3D6E]" />
-                  <span className="text-[11px] font-bold text-[#0F3D6E] uppercase tracking-wide">Pesquisar documento</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={docNumero}
-                    onChange={e => setDocNumero(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handlePesquisarDocumentoOuTermo(docNumero);
-                      }
-                    }}
-                    placeholder="Ex: 1, 40001 ou termo (NUA...)"
-                    className="flex-1 min-w-0 h-7 md:h-6 border border-[#C0C0C0] bg-white px-2 text-[16px] md:text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400 placeholder:font-normal"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handlePesquisarDocumentoOuTermo(docNumero)}
-                    className="h-7 md:h-6 px-2.5 bg-[#0F3D6E] hover:bg-[#174E8B] text-white transition shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
-                    title="Buscar número de documento ou localizar termo"
-                  >
-                    <Search className="h-3 w-3" />
-                  </button>
-                </div>
               </div>
 
               {/* CARD 4: ABAS (MINIATURAS | PESQUISAR | METADADOS) */}
