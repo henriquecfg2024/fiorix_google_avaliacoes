@@ -38,7 +38,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
     items: [
       {
         id: 'gestao_documental',
-        label: 'Manifestações',
+        label: 'MANIFESTAÇÕES',
         href: '/gestao-documental',
         groupId: 'documental',
         groupLabel: 'GESTÃO DOCUMENTAL',
@@ -46,7 +46,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
       },
       {
         id: 'visualizador_documental',
-        label: 'Visualizador',
+        label: 'VISUALIZADOR',
         href: '/gestao-documental/visualizador',
         groupId: 'documental',
         groupLabel: 'GESTÃO DOCUMENTAL',
@@ -54,7 +54,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
       },
       {
         id: 'conferencia_documental',
-        label: 'Em Conferência',
+        label: 'EM CONFERÊNCIA',
         href: '/gestao-documental/conferencia',
         groupId: 'documental',
         groupLabel: 'GESTÃO DOCUMENTAL',

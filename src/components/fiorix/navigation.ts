@@ -69,9 +69,9 @@ export const navigationGroups = {
     label: "GESTÃO DOCUMENTAL",
     icon: FileText,
     items: [
-      { id: "gestao_documental", label: "Manifestações", href: "/gestao-documental", icon: FileText },
-      { id: "visualizador_documental", label: "Visualizador", href: "/gestao-documental/visualizador", icon: Eye },
-      { id: "conferencia_documental", label: "Em Conferência", href: "/gestao-documental/conferencia", icon: Clock3 },
+      { id: "gestao_documental", label: "MANIFESTAÇÕES", href: "/gestao-documental", icon: FileText },
+      { id: "visualizador_documental", label: "VISUALIZADOR", href: "/gestao-documental/visualizador", icon: Eye },
+      { id: "conferencia_documental", label: "EM CONFERÊNCIA", href: "/gestao-documental/conferencia", icon: Clock3 },
       { id: "arquivo_documental", label: "ARQUIVO", href: "/gestao-documental/arquivo", icon: FolderArchive },
       { id: "historico_documental", label: "ANDAMENTOS", href: "/gestao-documental/historico", icon: History },
     ],

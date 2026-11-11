@@ -79,13 +79,13 @@ beforeEach(() => {
 });
 
 describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS', () => {
-  it('mantém a ordem exata: Manifestações | Visualizador | Em Conferência | ARQUIVO | ANDAMENTOS', () => {
+  it('mantém a ordem exata: MANIFESTAÇÕES | VISUALIZADOR | EM CONFERÊNCIA | ARQUIVO | ANDAMENTOS', () => {
     const grupoDoc = navigationGroups.documental;
     expect(grupoDoc).toBeDefined();
     expect(grupoDoc.items.map(i => ({ label: i.label, href: i.href }))).toEqual([
-      { label: 'Manifestações', href: '/gestao-documental' },
-      { label: 'Visualizador', href: '/gestao-documental/visualizador' },
-      { label: 'Em Conferência', href: '/gestao-documental/conferencia' },
+      { label: 'MANIFESTAÇÕES', href: '/gestao-documental' },
+      { label: 'VISUALIZADOR', href: '/gestao-documental/visualizador' },
+      { label: 'EM CONFERÊNCIA', href: '/gestao-documental/conferencia' },
       { label: 'ARQUIVO', href: '/gestao-documental/arquivo' },
       { label: 'ANDAMENTOS', href: '/gestao-documental/historico' },
     ]);
