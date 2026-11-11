@@ -3493,19 +3493,8 @@ export function FichaOficialView({
                         </label>
                       </div>
 
-                      {/* Barra de Ações das 4 Fontes de Pesquisa */}
+                      {/* Barra de Ações de Pesquisa (Autos PDF e Matrícula) */}
                       <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {/* 1. Petição Inicial */}
-                        <button
-                          type="button"
-                          onClick={preencherConfrontacoesPelosAutos}
-                          className={botaoOrigem}
-                          title="Procura e extrai as confrontações descritas na Petição Inicial e no Laudo Pericial do processo de usucapião"
-                        >
-                          <Wand2 className="h-3.5 w-3.5 text-[#0F3D6E]" />
-                          <span>1. Extrair da Petição Inicial</span>
-                        </button>
-
                         {arquivoOrigem && onVisualizarDocumento ? (
                           <button
                             type="button"
@@ -3526,7 +3515,7 @@ export function FichaOficialView({
                           </button>
                         ) : null}
 
-                        {/* 2. Matrícula mencionada no Processo */}
+                        {/* Matrícula mencionada no Processo */}
                         <button
                           type="button"
                           onClick={() => void localizarNoLivro2()}
@@ -3540,76 +3529,6 @@ export function FichaOficialView({
                             <ImageIcon className="h-3.5 w-3.5 text-[#0F3D6E]" />
                           )}
                           <span>2. Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
-                        </button>
-
-                        {/* 3. Plantas Fiscais em K:\IMAGENS\SETORES\ */}
-                        <button
-                          type="button"
-                          onClick={() => void localizarPlantaSetorNoAcervo()}
-                          disabled={buscandoSetores}
-                          className={botaoOrigem}
-                          title={
-                            plantaSetorCalculada
-                              ? `Localizar Planta de Setor ${plantaSetorCalculada.caminhoCompleto}`
-                              : 'Localizar Planta de Setor na pasta K:\\IMAGENS\\SETORES\\ pelo Setor e Quadra'
-                          }
-                        >
-                          {buscandoSetores ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
-                          ) : (
-                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
-                          )}
-                          <span>
-                            3. Planta Fiscal (K:\IMAGENS\SETORES\
-                            {plantaSetorCalculada ? `${plantaSetorCalculada.arquivoKen}` : ''})
-                          </span>
-                        </button>
-
-                        {/* Botão direto: Ver Planta de Setor (K:\IMAGENS\SETORES\) */}
-                        {arquivoPlantaSetorDireto && onVisualizarDocumento ? (
-                          <button
-                            type="button"
-                            onClick={() => onVisualizarDocumento(arquivoPlantaSetorDireto)}
-                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 transition cursor-pointer"
-                            title={`Abrir e visualizar a Planta de Setor (${plantaSetorCalculada?.caminhoCompleto || formatCartorioPath(arquivoPlantaSetorDireto.rootId, arquivoPlantaSetorDireto.relativePath)})`}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>
-                              Ver Planta de Setor (K:\IMAGENS\SETORES\
-                              {plantaSetorCalculada ? `${plantaSetorCalculada.pastaSetor}\\${plantaSetorCalculada.arquivoKen}` : arquivoPlantaSetorDireto.name})
-                            </span>
-                          </button>
-                        ) : (
-                          <a
-                            href={
-                              plantaSetorCalculada
-                                ? `/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(plantaSetorCalculada.termoBusca)}`
-                                : '/gestao-documental/visualizador?sessao=SETORES'
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 transition"
-                            title="Abrir pasta de Plantas de Setor (K:\IMAGENS\SETORES\) no Visualizador"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>Ver Planta de Setor (K:\IMAGENS\SETORES\)</span>
-                          </a>
-                        )}
-
-                        {/* 4. Consulta GeoSampa + IPTU */}
-                        <button
-                          type="button"
-                          onClick={() => void consultarGeoSampaConfrontacoes(false)}
-                          disabled={buscandoGeoSampa}
-                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#0F3D6E] bg-[#0F3D6E] px-2.5 py-1 text-xs font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer disabled:opacity-50"
-                          title="Consulta automaticamente a quadra fiscal, lotes confrontantes lindeiros e dados de IPTU no GeoSampa"
-                        >
-                          {buscandoGeoSampa ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Globe className="h-3.5 w-3.5" />
-                          )}
-                          <span>4. Consultar GeoSampa + IPTU</span>
                         </button>
                       </div>
 
