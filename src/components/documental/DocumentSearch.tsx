@@ -924,14 +924,12 @@ export function DocumentSearch({
           if (!response.ok) throw new Error(body.error);
           const raw: Connector[] = body.connectors || [];
           const ordenados = [...raw].sort((a, b) => connectorPriorityScore(b) - connectorPriorityScore(a));
-          setConnectors(ordenados);
-          setConnectorId(prev => {
-            const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
-            if (activeOnline) return activeOnline.id;
-            if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c) && c.operationalState !== 'PAUSED')) return prev;
-            const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
-            return online?.id || ordenados[0]?.id || '';
-          });
+          const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
+          const activeAny = ordenados.find(c => c.operationalState === 'ACTIVE');
+          const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
+          const efetivo = activeOnline ?? activeAny ?? online ?? ordenados[0] ?? null;
+          setConnectors(efetivo ? [efetivo] : []);
+          setConnectorId(efetivo?.id || '');
         })
         .catch(reason => { if (!controller.signal.aborted) setError(reason.message); });
     };

@@ -52,6 +52,17 @@ describe('browser authorization boundaries', () => {
     mocks.create.mockResolvedValue(null);
     expect((await POST(browserRequest({ connectorId: 'connector-a', query: 'ficticio' }))).status).toBe(429);
   });
+  it('returns only the single effective active connector to end users even when multiple connectors exist', async () => {
+    mocks.findMany.mockResolvedValue([
+      { id: 'conn-srvfiles', name: 'SRVFILES — Principal', lastSeenAt: new Date() },
+      { id: 'HCFG-001', name: 'Connector 7º RI SP - Produção', lastSeenAt: new Date() },
+    ]);
+    const res = await GET(new Request('https://fixture.example/api/gestao-documental'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.connectors).toHaveLength(1);
+    expect(body.connectors[0].id).toBe('conn-srvfiles');
+  });
 });
 describe('connector authorization boundaries', () => {
   it('requires credentials before polling', async () => {

@@ -238,14 +238,12 @@ export function VisualizadorDedicado({
           const data = await res.json();
           const lista: ConnectorItem[] = data.connectors || [];
           const ordenados = [...lista].sort((a, b) => connectorItemScore(b) - connectorItemScore(a));
-          setConnectors(ordenados);
-          setConnectorId(prev => {
-            const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
-            if (activeOnline) return activeOnline.id;
-            if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c) && c.operationalState !== 'PAUSED')) return prev;
-            const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
-            return online?.id || ordenados[0]?.id || 'auto';
-          });
+          const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
+          const activeAny = ordenados.find(c => c.operationalState === 'ACTIVE');
+          const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
+          const efetivo = activeOnline ?? activeAny ?? online ?? ordenados[0] ?? null;
+          setConnectors(efetivo ? [efetivo] : []);
+          setConnectorId(efetivo?.id || 'auto');
         })
         .catch(() => {});
     };

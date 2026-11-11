@@ -30,15 +30,30 @@ export async function GET(req: Request) {
     }
 
     const haNodes = await listTenantConnectorNodes(user.tenantId);
-    const connectors = haNodes.map((n) => ({
-      id: n.connectorId,
-      name: n.name,
-      lastSeenAt: n.lastSeenAt,
-      role: n.role,
-      operationalState: n.operationalState,
-      lanUrl: n.lanUrl,
-      isPrimaryActive: n.operationalState === 'ACTIVE',
-    }));
+    const nowMs = Date.now();
+    const isOnline = (n: { lastSeenAt: Date | null }) =>
+      Boolean(n.lastSeenAt && nowMs - new Date(n.lastSeenAt).getTime() <= 120_000);
+
+    // Exibe para todos os usuários da Gestão Documental apenas o único Connector efetivamente ATIVO
+    // (servidores secundários em STANDBY/PAUSED ficam restritos à Central de Operações).
+    const activeOnline = haNodes.find((n) => n.operationalState === 'ACTIVE' && isOnline(n));
+    const activeAny = haNodes.find((n) => n.operationalState === 'ACTIVE');
+    const fallbackOnline = haNodes.find((n) => n.operationalState !== 'PAUSED' && isOnline(n));
+    const effectiveNode = activeOnline ?? activeAny ?? fallbackOnline ?? haNodes[0] ?? null;
+
+    const connectors = effectiveNode
+      ? [
+          {
+            id: effectiveNode.connectorId,
+            name: effectiveNode.name,
+            lastSeenAt: effectiveNode.lastSeenAt,
+            role: effectiveNode.role,
+            operationalState: effectiveNode.operationalState,
+            lanUrl: effectiveNode.lanUrl,
+            isPrimaryActive: effectiveNode.operationalState === 'ACTIVE',
+          },
+        ]
+      : [];
 
     return reply({ connectors });
   } catch (error) {
