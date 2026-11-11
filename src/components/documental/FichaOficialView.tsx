@@ -3575,44 +3575,6 @@ export function FichaOficialView({
                           <div className="space-y-2 border-t border-blue-200/70 pt-2">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <a
-                                href="https://novogeosampa.prefeitura.sp.gov.br/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                <span>GEOSAMPA - Mapa Digital da Cidade de São Paulo</span>
-                              </a>
-
-                              <a
-                                href={
-                                  resultadoGeoSampa?.linksGeoSampa?.mapaCamadasSetoresLotes ||
-                                  'https://novogeosampa.prefeitura.sp.gov.br/#map=9.49/-23.67359/-46.60345/0&layers=103/100/100/&basemap=5/100/100'
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                                title="Abre o Novo GeoSampa com a camada de Setores/Quadras/Lotes Fiscais ativa"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                <span>
-                                  {resultadoGeoSampa?.loteGeoSampa
-                                    ? `Mapa do Lote (${resultadoGeoSampa.loteGeoSampa.nr_contribuinte || 'Camada 103'})`
-                                    : 'Novo GeoSampa (Camada Setores/Lotes 103)'}
-                                </span>
-                              </a>
-
-                              <a
-                                href="https://novogeosampa.prefeitura.sp.gov.br/u/RCdgNKWQ"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                <span>Novo GeoSampa (u/RCdgNKWQ)</span>
-                              </a>
-
-                              <a
                                 href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
                                 target="_blank"
                                 rel="noopener noreferrer"
