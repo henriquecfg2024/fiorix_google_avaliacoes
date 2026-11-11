@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extrairConfrontacoes, resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
+import {
+  extrairConfrontacoes,
+  resolverPlantaSetorQuadra,
+  sanitizarDescricaoImovel,
+  sanitizarLogradouroConfrontacao,
+} from '@/lib/confrontacoes';
 
 export const dynamic = 'force-dynamic';
 
@@ -274,8 +279,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const sqlInput = String(body.sql || '').trim();
-    const imovelInput = String(body.imovel || '').trim();
-    const ruaInput = String(body.rua || '').trim();
+    const imovelRaw = String(body.imovel || '').trim();
+    const imovelInput = sanitizarDescricaoImovel(imovelRaw);
+    const ruaInput = sanitizarLogradouroConfrontacao(String(body.rua || '').trim(), imovelRaw);
     const subdistritoInput = String(body.subdistrito || '').trim();
     const matriculaInput = String(body.matricula || '').trim();
     const textoAutosInput = String(body.textoAutos || '').trim();

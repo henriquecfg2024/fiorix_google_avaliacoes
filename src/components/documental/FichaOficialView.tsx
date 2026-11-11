@@ -40,7 +40,15 @@ import {
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
 import { formatCartorioPath, getRootInfo } from './DocumentSearch';
-import { extrairConfrontacoes, ConfrontacoesExtraidas, resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
+import {
+  extrairConfrontacoes,
+  ConfrontacoesExtraidas,
+  resolverPlantaSetorQuadra,
+  sanitizarDescricaoImovel,
+  sanitizarLogradouroConfrontacao,
+  extrairImovelDoTextoAutos,
+  formatarDescricaoImovelGeoSampa,
+} from '@/lib/confrontacoes';
 import { copiarTextoSeguro } from '@/lib/documental/pdfTransfer';
 import { baixarDocxManifestacao, baixarDocManifestacao } from '@/lib/documental/generateManifestacaoWord';
 import {
@@ -726,21 +734,62 @@ const CAMPOS_CONFRONTACAO: (keyof DadosManifestacao)[] = ['confrontante_lado_dir
 
 // Inicialização inteligente: se a inferência do OCR identificou subdistrito, escrevente, cartório ou confrontações, preenche automaticamente
 function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?: ArquivoOrigemFicha | null): DadosManifestacao {
-  const sug = inferirSugestoesInteligentes(dadosIniciais, arquivoOrigem);
-  const dir = (dadosIniciais.confrontante_lado_direito && dadosIniciais.confrontante_lado_direito !== 'conforme apuração nos autos')
-    ? dadosIniciais.confrontante_lado_direito
-    : (sug.confrontacoes.ladoDireito || dadosIniciais.confrontante_lado_direito || '');
-  const esq = (dadosIniciais.confrontante_lado_esquerdo && dadosIniciais.confrontante_lado_esquerdo !== 'conforme apuração nos autos')
-    ? dadosIniciais.confrontante_lado_esquerdo
-    : (sug.confrontacoes.ladoEsquerdo || dadosIniciais.confrontante_lado_esquerdo || '');
-  const fun = (dadosIniciais.confrontante_fundos && dadosIniciais.confrontante_fundos !== 'conforme apuração nos autos')
-    ? dadosIniciais.confrontante_fundos
-    : (sug.confrontacoes.fundos || dadosIniciais.confrontante_fundos || '');
+  let imovelLimpo = sanitizarDescricaoImovel(dadosIniciais.imovel);
+  let ruaLimpa = sanitizarLogradouroConfrontacao(dadosIniciais.rua_olhar_confrontacao, dadosIniciais.imovel);
 
-  let anotacoes = dadosIniciais.anotacoes_ficha_oficial || '';
+  const origensHigienizadas = Array.isArray(dadosIniciais.origem_campos)
+    ? dadosIniciais.origem_campos.map(o => {
+        if (o?.campo === 'imovel' && o.trecho) {
+          return { ...o, trecho: sanitizarDescricaoImovel(o.trecho) };
+        }
+        return o;
+      })
+    : dadosIniciais.origem_campos;
+
+  if (!imovelLimpo) {
+    const textoAux = [
+      dadosIniciais.anotacoes_ficha_oficial,
+      ...(origensHigienizadas || []).map(o => o?.trecho || ''),
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const recuperado = extrairImovelDoTextoAutos(textoAux);
+    if (recuperado.imovel) imovelLimpo = recuperado.imovel;
+    if (!ruaLimpa && recuperado.rua) ruaLimpa = recuperado.rua;
+  }
+
+  const baseHigienizada: DadosManifestacao = {
+    ...dadosIniciais,
+    imovel: imovelLimpo,
+    rua_olhar_confrontacao: ruaLimpa,
+    origem_campos: origensHigienizadas,
+  };
+
+  const sug = inferirSugestoesInteligentes(baseHigienizada, arquivoOrigem);
+  const dir = (baseHigienizada.confrontante_lado_direito && baseHigienizada.confrontante_lado_direito !== 'conforme apuração nos autos')
+    ? baseHigienizada.confrontante_lado_direito
+    : (sug.confrontacoes.ladoDireito || baseHigienizada.confrontante_lado_direito || '');
+  const esq = (baseHigienizada.confrontante_lado_esquerdo && baseHigienizada.confrontante_lado_esquerdo !== 'conforme apuração nos autos')
+    ? baseHigienizada.confrontante_lado_esquerdo
+    : (sug.confrontacoes.ladoEsquerdo || baseHigienizada.confrontante_lado_esquerdo || '');
+  const fun = (baseHigienizada.confrontante_fundos && baseHigienizada.confrontante_fundos !== 'conforme apuração nos autos')
+    ? baseHigienizada.confrontante_fundos
+    : (sug.confrontacoes.fundos || baseHigienizada.confrontante_fundos || '');
+
+  let anotacoes = baseHigienizada.anotacoes_ficha_oficial || '';
+  if (anotacoes) {
+    // Remove linha de Frente (Logradouro) caso contivesse timbre institucional descartado
+    anotacoes = anotacoes.replace(
+      /^•\s*Frente\s*\(Logradouro\):\s*(.+)$/gim,
+      (_match, val) => {
+        const vLimpo = sanitizarLogradouroConfrontacao(String(val), imovelLimpo);
+        return vLimpo ? `• Frente (Logradouro): ${vLimpo}` : '';
+      },
+    ).replace(/\n{3,}/g, '\n\n').trim();
+  }
   if (!anotacoes.trim() && (dir || esq || fun)) {
     const linhas: string[] = [];
-    if (dadosIniciais.rua_olhar_confrontacao) linhas.push(`• Frente (Logradouro): ${dadosIniciais.rua_olhar_confrontacao}`);
+    if (ruaLimpa) linhas.push(`• Frente (Logradouro): ${ruaLimpa}`);
     if (dir) linhas.push(`• Lado Direito: ${dir}`);
     if (esq) linhas.push(`• Lado Esquerdo: ${esq}`);
     if (fun) linhas.push(`• Fundos: ${fun}`);
@@ -748,18 +797,18 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
   }
 
   return {
-    ...dadosIniciais,
-    subdistrito: (dadosIniciais.subdistrito && dadosIniciais.subdistrito !== 'ALTO DA MOÓCA')
-      ? dadosIniciais.subdistrito
+    ...baseHigienizada,
+    subdistrito: (baseHigienizada.subdistrito && baseHigienizada.subdistrito !== 'ALTO DA MOÓCA')
+      ? baseHigienizada.subdistrito
       : sug.subdistrito.valor,
-    data_competencia_subdistrito: (dadosIniciais.data_competencia_subdistrito && dadosIniciais.data_competencia_subdistrito !== '23 de dezembro de 1.938')
-      ? dadosIniciais.data_competencia_subdistrito
+    data_competencia_subdistrito: (baseHigienizada.data_competencia_subdistrito && baseHigienizada.data_competencia_subdistrito !== '23 de dezembro de 1.938')
+      ? baseHigienizada.data_competencia_subdistrito
       : sug.dataCompetencia,
-    cartorio_encaminhamento: dadosIniciais.cartorio_encaminhamento || sug.cartorioEncaminhamento.valor,
-    cartorio_origem: dadosIniciais.cartorio_origem || sug.cartorioEncaminhamento.valor,
-    resultado_buscas: dadosIniciais.resultado_buscas || sug.resultadoBuscas.valor,
-    escrevente_pasta: (dadosIniciais.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(dadosIniciais.escrevente_pasta))
-      ? dadosIniciais.escrevente_pasta
+    cartorio_encaminhamento: baseHigienizada.cartorio_encaminhamento || sug.cartorioEncaminhamento.valor,
+    cartorio_origem: baseHigienizada.cartorio_origem || sug.cartorioEncaminhamento.valor,
+    resultado_buscas: baseHigienizada.resultado_buscas || sug.resultadoBuscas.valor,
+    escrevente_pasta: (baseHigienizada.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(baseHigienizada.escrevente_pasta))
+      ? baseHigienizada.escrevente_pasta
       : sug.escrevente.valor,
     confrontante_lado_direito: dir,
     confrontante_lado_esquerdo: esq,
@@ -1637,7 +1686,7 @@ export function FichaOficialView({
       }
       setResultadoGeoSampa(json);
 
-      // Se havia confrontações ainda em branco no formulário, preenche automaticamente com o que foi apurado nos autos ou no GeoSampa
+      // Se havia confrontações ou descrição do imóvel ainda em branco (ou higienizadas de timbre institucional), preenche com o apurado nos autos / GeoSampa
       const cg = json.confrontantesGeoSampa;
       const ct = json.confrontacoesTextoAutos;
       const dirSug = ct?.ladoDireito || cg?.ladoDireito || '';
@@ -1645,15 +1694,27 @@ export function FichaOficialView({
       const funSug = ct?.fundos || cg?.fundos || '';
       const sqlSug = json.loteGeoSampa?.nr_contribuinte || '';
       const plantaSug = json.plantaSetor?.caminhoCompleto || '';
+      const imovelGeoSampaSug = formatarDescricaoImovelGeoSampa({
+        logradouro: json.loteGeoSampa?.nm_logradouro_completo || cg?.frente,
+        numeroPorta: json.loteGeoSampa?.cd_numero_porta,
+        complemento: json.loteGeoSampa?.tx_complemento_endereco,
+        setor: json.setor,
+        quadra: json.quadra,
+        lote: json.lote,
+        areaTerreno: json.loteGeoSampa?.qt_area_terreno,
+      });
 
       setDados(prev => {
+        const imovelPrevLimpo = sanitizarDescricaoImovel(prev.imovel);
+        const ruaPrevLimpa = sanitizarLogradouroConfrontacao(prev.rua_olhar_confrontacao, prev.imovel);
+        const novoImovel = imovelPrevLimpo || imovelGeoSampaSug || '';
         const precisaDir = !prev.confrontante_lado_direito || prev.confrontante_lado_direito === 'conforme apuração nos autos';
         const precisaEsq = !prev.confrontante_lado_esquerdo || prev.confrontante_lado_esquerdo === 'conforme apuração nos autos';
         const precisaFun = !prev.confrontante_fundos || prev.confrontante_fundos === 'conforme apuração nos autos';
         const novoDir = precisaDir && dirSug ? dirSug : prev.confrontante_lado_direito;
         const novoEsq = precisaEsq && esqSug ? esqSug : prev.confrontante_lado_esquerdo;
         const novoFun = precisaFun && funSug ? funSug : prev.confrontante_fundos;
-        const novoFrente = !prev.rua_olhar_confrontacao && cg?.frente ? cg.frente : prev.rua_olhar_confrontacao;
+        const novoFrente = !ruaPrevLimpa && cg?.frente ? cg.frente : ruaPrevLimpa;
         const novoSql =
           (!prev.contribuinte_sql || /^0+$/.test(prev.contribuinte_sql.replace(/[^\d]/g, ''))) && sqlSug
             ? sqlSug
@@ -1674,10 +1735,24 @@ export function FichaOficialView({
             linhas.push(`• SQL / GeoSampa: ${novoSql}`);
           }
           novasAnotacoes = linhas.join('\n');
+        } else if (novasAnotacoes && novoFrente && !/Frente\s*\(Logradouro\)/i.test(novasAnotacoes)) {
+          novasAnotacoes = novasAnotacoes.replace(
+            /(CONFRONTAÇÕES[^\n]*\n)/i,
+            `$1• Frente (Logradouro): ${novoFrente}\n`,
+          );
+        }
+
+        if (silencioso) {
+          baseRef.current = {
+            ...baseRef.current,
+            imovel: baseRef.current.imovel || novoImovel,
+            rua_olhar_confrontacao: baseRef.current.rua_olhar_confrontacao || novoFrente,
+          };
         }
 
         return sincronizarAnexos({
           ...prev,
+          imovel: novoImovel,
           rua_olhar_confrontacao: novoFrente,
           confrontante_lado_direito: novoDir,
           confrontante_lado_esquerdo: novoEsq,

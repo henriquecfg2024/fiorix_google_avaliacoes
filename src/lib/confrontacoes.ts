@@ -16,6 +16,215 @@ export interface PlantaSetorInfo {
 }
 
 /**
+ * Identifica se um texto ou endereço corresponde a timbres institucionais
+ * (ex.: 7º RI na Rua Augusta 356, Defensoria Pública na Av. Liberdade 32 ou Rua Boa Vista,
+ * Fórum João Mendes, TJSP, Ministério Público ou Prefeitura), que nunca são o imóvel usucapiendo.
+ */
+export function ehEnderecoTimbreInstitucional(texto?: string | null): boolean {
+  if (!texto) return false;
+  const v = texto.replace(/\s+/g, ' ').trim();
+  if (!v) return false;
+  return (
+    // 7º Oficial de Registro de Imóveis da Capital (Rua Augusta, 356)
+    /rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356\b/i.test(v) ||
+    /\b(?:3218-0527|01304-000)\b/i.test(v) ||
+    // Defensoria Pública do Estado de São Paulo (Unidade Cível Central - Av. Liberdade, 32 / Rua Boa Vista / Líbero Badaró)
+    /\bav(?:enida|\.)?\s+(?:da\s+)?liberdade[,\s]+(?:n[ºo°.]?\s*)?32\b/i.test(v) ||
+    /\b01502-000\b/i.test(v) ||
+    /\bdefensoria\.sp\.def\.br\b/i.test(v) ||
+    /\bunidade\s+c[íi]vel\s+central\s+da\s+capital\b/i.test(v) ||
+    /\brua\s+boa\s+vista[,\s]+(?:n[ºo°.]?\s*)?(?:103|150|200)\b/i.test(v) ||
+    /\brua\s+l[íi]bero\s+badar[óo][,\s]+(?:n[ºo°.]?\s*)?613\b/i.test(v) ||
+    // Fórum João Mendes / TJSP / Ministério Público / Prefeitura
+    /\b(?:pra[çc]a|f[óo]rum)\s+jo[ãa]o\s+mendes\b/i.test(v) ||
+    /\bviaduto\s+dona\s+paulina\b/i.test(v) ||
+    /\brua\s+conde\s+de\s+sarzedas\b/i.test(v) ||
+    /\brua\s+riachuelo[,\s]+(?:n[ºo°.]?\s*)?115\b/i.test(v) ||
+    /\bviaduto\s+do\s+ch[áa][,\s]+(?:n[ºo°.]?\s*)?15\b/i.test(v)
+  );
+}
+
+/**
+ * Higieniza a descrição do imóvel usucapiendo:
+ * 1. Remove qualquer cabeçalho de Vara, Juízo, Foro, Comarca, Defensoria, MP, TJSP, URLs ou rodapés de processo.
+ * 2. Descarta endereços que sejam timbres institucionais (ex.: Av. Liberdade, 32 da Defensoria ou Rua Augusta, 356 do 7º RI).
+ */
+export function sanitizarDescricaoImovel(imovel?: string | null): string {
+  if (!imovel) return '';
+  let limpo = imovel
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!limpo) return '';
+
+  // Remove qualquer menção a Vara, Foro, Comarca, endereçamento ao Juízo, Defensoria, MP, TJSP, URLs ou rodapés
+  limpo = limpo
+    .replace(
+      /\s*(?:\b\d+\s+)?(?:[_\-.\s]*[ªº°]\s*VARA\b|\b\d+\s*VARA\b|\b[_\-]{2,}\s*[ªº°]?\s*VARA\b|\bVARA\s+(?:DE\s+REGISTROS\s+P[ÚU]BLICOS|C[ÍI]VEL|DA\s+FAZENDA|DE\s+FAM[ÍI]LIA|DO\s+JUIZADO|FEDERAL|CRIMINAL|EMPRESARIAL|[ÚU]NICA|DISTRITAL))[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*\b(?:EXCELENT[ÍI]SSIM[OA]|EXM[OA]\.?\s*SR|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ|DOUTOR[A]?\s+JUIZ|AO\s+JU[ÍI]ZO|JU[ÍI]ZO\s+DE\s+DIREITO|FORO\s+(?:CENTRAL|REGIONAL)|COMARCA\s+(?:DA\s+CAPITAL|DE\s+S[ÃA]O\s+PAULO)|UNIDADE\s+C[ÍI]VEL|DEFENSORIA\s+P[ÚU]BLICA|MINIST[ÉE]RIO\s+P[ÚU]BLICO|TRIBUNAL\s+DE\s+JUSTI[ÇC]A|PODER\s+JUDICI[ÁA]RIO)[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*(?:https?:\/\/\S+|www\.\S+|\b\S+\.(?:def|jus|gov|org|adv|com)\.br\S*)[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*\b(?:PROCESSO\s+(?:DIGITAL\s+|N[ºO°.]?\s*)?\d{7}-\d{2}|PARA\s+CONFERIR\s+O\s+ORIGINAL|ESTE\s+DOCUMENTO\s+[ÉE]\s+C[ÓO]PIA|ASSINADO\s+DIGITALMENTE)[\s\S]*$/i,
+      '',
+    )
+    .replace(/[\s,;:\-–—/]+$/, '')
+    .trim();
+
+  // Segurança adicional: se ainda restar qualquer menção a "Vara de Registros" / "Vara Cível" / "Foro" / "Comarca"
+  if (/\bvara\b/i.test(limpo)) {
+    limpo = limpo
+      .replace(/\s*(?:\b\d+\s*)?[_\-.\sªº°]*\bvara\b[\s\S]*$/i, '')
+      .replace(/[\s,;:\-–—/]+$/, '')
+      .trim();
+  }
+
+  if (!limpo) return '';
+
+  // Se o endereço remanescente for um timbre institucional (ex.: Av. Liberdade, 32 ou Rua Augusta, 356), descarta
+  if (ehEnderecoTimbreInstitucional(limpo) || ehEnderecoTimbreInstitucional(imovel)) {
+    // Exceção apenas se o texto limpo não contiver o logradouro institucional e tiver endereço próprio válido
+    const contemLogradouroInstitucional =
+      /\b(?:rua\s+augusta|av(?:enida|\.)?\s+(?:da\s+)?liberdade|rua\s+boa\s+vista|rua\s+l[íi]bero\s+badar[óo]|pra[çc]a\s+jo[ãa]o\s+mendes|viaduto\s+dona\s+paulina|rua\s+conde\s+de\s+sarzedas|rua\s+riachuelo|viaduto\s+do\s+ch[áa])\b/i.test(
+        limpo,
+      );
+    if (contemLogradouroInstitucional) return '';
+  }
+
+  // Se sobrou apenas o prefixo vazio ("Imóvel situado à", "Imóvel", etc.)
+  if (
+    /^(?:im[óo]vel(?:\s+usucapiendo)?(?:\s+situado|\s+localizado)?(?:\s+[àa]|\s+na|\s+no)?|situado\s+[àa]|localizado\s+na)$/i.test(
+      limpo,
+    )
+  ) {
+    return '';
+  }
+
+  return limpo;
+}
+
+/**
+ * Higieniza o campo `rua_olhar_confrontacao` (Frente / Logradouro),
+ * removendo cabeçalhos de Vara/Foro e descartando logradouros de timbres institucionais.
+ */
+export function sanitizarLogradouroConfrontacao(
+  rua?: string | null,
+  imovelOriginal?: string | null,
+): string {
+  if (!rua) return '';
+  let limpo = sanitizarDescricaoImovel(rua);
+  if (!limpo) return '';
+
+  const ehRuaInstitucionalSemNumero =
+    /^(?:rua\s+augusta|av(?:enida|\.)?\s+(?:da\s+)?liberdade|rua\s+boa\s+vista|rua\s+l[íi]bero\s+badar[óo]|pra[çc]a\s+jo[ãa]o\s+mendes|viaduto\s+dona\s+paulina|rua\s+conde\s+de\s+sarzedas|rua\s+riachuelo|viaduto\s+do\s+ch[áa])$/i.test(
+      limpo.trim(),
+    );
+
+  if (ehRuaInstitucionalSemNumero) {
+    const imovelSanitizado = sanitizarDescricaoImovel(imovelOriginal);
+    if (!imovelSanitizado) return '';
+  }
+
+  return limpo;
+}
+
+/**
+ * Procura no texto dos autos (petição inicial, certidão ou matrícula) a descrição real
+ * do imóvel usucapiendo, ignorando timbres institucionais e cabeçalhos de Vara.
+ */
+export function extrairImovelDoTextoAutos(texto?: string | null): { imovel: string; rua: string } {
+  if (!texto) return { imovel: '', rua: '' };
+  const norm = texto
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const padroes = [
+    /\b(?:im[óo]vel\s+(?:usucapiendo|objeto\s+da\s+presente|objeto\s+desta|em\s+quest[ãa]o|consistente)[^.;]{0,60}?(?:situado|localizado)\s+(?:na|no|[àa])\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^.;]{5,180})/gi,
+    /\b(?:(?:im[óo]vel|terreno|pr[ée]dio|casa)\s+(?:situad[oa]|localizad[oa])\s+(?:na|no|[àa])\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^.;]{5,180})/gi,
+    /\b(?:casa\s+que\s+recebeu\s+o\s+n[ºo°.]?\s*\d+\s+da\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Viela|Estrada)\s+[^.;,]{2,120}(?:,\s*com\s+a\s+[áa]rea\s+[^.;]{3,80})?)/gi,
+  ];
+
+  for (const regex of padroes) {
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(norm)) !== null) {
+      const candidato = sanitizarDescricaoImovel(m[0]);
+      if (candidato && candidato.length >= 12) {
+        const ruaMatch = candidato.match(
+          /\b((?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^,.;]+(?:\s*,\s*n[ºo°.]?\s*\d+[A-Za-z0-9\-]*)?)/i,
+        );
+        const rua = ruaMatch ? sanitizarLogradouroConfrontacao(ruaMatch[1], candidato) : '';
+        return {
+          imovel: /^im[óo]vel/i.test(candidato) ? candidato : `Imóvel: ${candidato}`,
+          rua,
+        };
+      }
+    }
+  }
+
+  return { imovel: '', rua: '' };
+}
+
+/**
+ * Formata a descrição do imóvel a partir dos dados cadastrais oficiais do GeoSampa (Lote Cidadão / IPTU),
+ * garantindo preenchimento limpo quando a petição continha apenas timbre institucional no cabeçalho.
+ */
+export function formatarDescricaoImovelGeoSampa(params: {
+  logradouro?: string | null;
+  numeroPorta?: string | null;
+  complemento?: string | null;
+  setor?: string | null;
+  quadra?: string | null;
+  lote?: string | null;
+  areaTerreno?: number | null;
+}): string {
+  const logradouroRaw = (params.logradouro || '').trim();
+  const portaRaw = (params.numeroPorta || '').trim();
+  const compRaw = (params.complemento || '').trim();
+  const setor = (params.setor || '').trim();
+  const quadra = (params.quadra || '').trim();
+  const lote = (params.lote || '').trim();
+
+  if (!logradouroRaw && (!setor || !quadra)) return '';
+
+  // Se logradouroRaw já contém ", nº ..." (ex.: vindo de confrontantesGeoSampa.frente), não duplica o número
+  const jaTemNumero = /\bn[ºo°.]?\s*\d+/i.test(logradouroRaw) || /,\s*\d+/.test(logradouroRaw);
+  const enderecoBase = logradouroRaw
+    ? `${logradouroRaw}${portaRaw && !jaTemNumero ? `, nº ${portaRaw}` : ''}${compRaw ? ` (${compRaw})` : ''}`
+    : '';
+
+  const refCadastral =
+    lote && quadra
+      ? `Lote ${lote} da Quadra ${quadra}${setor ? `, Setor ${setor}` : ''}`
+      : setor && quadra
+      ? `Setor ${setor}, Quadra ${quadra}`
+      : '';
+
+  const areaTxt =
+    typeof params.areaTerreno === 'number' && params.areaTerreno > 0
+      ? ` (área de terreno: ${params.areaTerreno} m²)`
+      : '';
+
+  if (enderecoBase && refCadastral) {
+    return `Imóvel situado à ${enderecoBase} (${refCadastral})${areaTxt}, São Paulo - SP`;
+  }
+  if (enderecoBase) {
+    return `Imóvel situado à ${enderecoBase}${areaTxt}, São Paulo - SP`;
+  }
+  return `Imóvel localizado no ${refCadastral}${areaTxt}, São Paulo - SP`;
+}
+
+/**
  * Limpa e padroniza a redação do confrontante conforme os padrões
  * registrais do 7º Registro de Imóveis de São Paulo.
  * Exemplo: "pelo lado direito com o nº 1405" -> "com o nº 1405"

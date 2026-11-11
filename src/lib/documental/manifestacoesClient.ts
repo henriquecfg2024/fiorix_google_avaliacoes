@@ -11,6 +11,10 @@ import type {
   MinutaModelo,
   PayloadFinalizacao,
 } from '@/components/documental/FichaOficialView';
+import {
+  sanitizarDescricaoImovel,
+  sanitizarLogradouroConfrontacao,
+} from '@/lib/confrontacoes';
 
 const ENDPOINT = '/api/gestao-documental/manifestacoes';
 
@@ -121,10 +125,17 @@ export function formatarDataHora(iso: string | null | undefined): string {
 }
 
 function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
-  const dados = (m.dados || {}) as DadosManifestacao & {
+  const dadosBrutos = (m.dados || {}) as DadosManifestacao & {
     status_conferencia?: string;
     conferido_por_nome?: string | null;
     conferido_em?: string | null;
+  };
+  const imovelLimpo = sanitizarDescricaoImovel(dadosBrutos.imovel || m.imovel || '');
+  const ruaLimpa = sanitizarLogradouroConfrontacao(dadosBrutos.rua_olhar_confrontacao, dadosBrutos.imovel || m.imovel || '');
+  const dados = {
+    ...dadosBrutos,
+    imovel: imovelLimpo,
+    rua_olhar_confrontacao: ruaLimpa,
   };
   const ehConferido = m.status === 'finalizada' || dados.status_conferencia === 'CONFERIDO';
   const dataConferenciaIso = dados.conferido_em || m.conferidoEm || null;
@@ -133,7 +144,7 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
     registroId: m.id,
     numero_processo: m.numeroProcesso || 'Processo sem número',
     requerente: m.requerente || 'Interessado a definir',
-    imovel: dados.imovel || m.imovel || '',
+    imovel: imovelLimpo,
     subdistrito: m.subdistrito || '—',
     matricula_transcricao: m.matricula || '-',
     data_criacao: formatarDataHora(m.updatedAt),

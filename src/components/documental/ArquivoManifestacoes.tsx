@@ -49,7 +49,7 @@ import {
   LOGO_7RI_MANIFESTACAO_HEIGHT_PX,
   LOGO_7RI_MANIFESTACAO_WIDTH_PX,
 } from '@/lib/documental/logo7riManifestacao';
-import { resolverPlantaSetorQuadra } from '@/lib/confrontacoes';
+import { resolverPlantaSetorQuadra, sanitizarDescricaoImovel } from '@/lib/confrontacoes';
 
 export { POR_PAGINA_ARQUIVO };
 
@@ -994,7 +994,7 @@ export function ArquivoManifestacoes() {
                         <div className="sm:col-span-2">
                           <dt className="text-[10.5px] text-slate-400">Imóvel</dt>
                           <dd className="text-slate-300 break-words">
-                            {aberta.imovel || dadosAberta.imovel || '—'}
+                            {sanitizarDescricaoImovel(aberta.imovel || dadosAberta.imovel) || '—'}
                           </dd>
                         </div>
                       </dl>
@@ -1378,7 +1378,8 @@ function FolhaManifestacaoArquivada({
  * Renderiza o Formulário de Conferência do Oficial (Etapa 1) preservado no momento do arquivamento.
  */
 function FolhaFormularioConferidoArquivado({ dados }: { dados: DadosArquivados }) {
-  const plantaSetor = resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel);
+  const imovelLimpo = sanitizarDescricaoImovel(dados.imovel);
+  const plantaSetor = resolverPlantaSetorQuadra(dados.contribuinte_sql, imovelLimpo);
   const linhaPontilhada = (altura = 18) => (
     <span style={{ display: 'block', borderBottom: '1px dotted #555', height: altura }} />
   );
@@ -1485,7 +1486,7 @@ function FolhaFormularioConferidoArquivado({ dados }: { dados: DadosArquivados }
             fontFamily: 'Arial, sans-serif',
           }}
         >
-          {dados.imovel || '\u00a0'}{' '}
+          {imovelLimpo || '\u00a0'}{' '}
           {dados.contribuinte_sql ? (
             <>
               – <strong>SQL:</strong> {dados.contribuinte_sql}

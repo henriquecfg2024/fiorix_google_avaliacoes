@@ -47,6 +47,11 @@ import {
   type PastaFavorita,
 } from '@/lib/documental/pastasFavoritas';
 import {
+  sanitizarDescricaoImovel,
+  sanitizarLogradouroConfrontacao,
+  extrairImovelDoTextoAutos,
+} from '@/lib/confrontacoes';
+import {
   FichaOficialView,
   DadosManifestacao,
   criarDadosManifestacaoPadrao,
@@ -482,14 +487,26 @@ export function DocumentSearch({
         .replace(/\s+(?:USUCAPI[ÃA]O|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ[A]?|EXCELENT[ÍI]SSIM[OA]|DOUTOR[A]?\s+JUIZ[A]?).*$/i, '')
         .trim();
     }
-    const ehTimbreSetimoRi = (v?: string) =>
-      Boolean(v && (/rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356/i.test(v) || /3218-0527|01304-000/i.test(v)));
-    if (ehTimbreSetimoRi(limpo.imovel)) limpo.imovel = '';
-    if (
-      ehTimbreSetimoRi(limpo.rua_olhar_confrontacao) ||
-      (/^rua\s+augusta$/i.test((limpo.rua_olhar_confrontacao || '').trim()) && !limpo.imovel)
-    ) {
-      limpo.rua_olhar_confrontacao = '';
+    const imovelOriginal = limpo.imovel;
+    limpo.imovel = sanitizarDescricaoImovel(limpo.imovel);
+    limpo.rua_olhar_confrontacao = sanitizarLogradouroConfrontacao(limpo.rua_olhar_confrontacao, imovelOriginal);
+    if (Array.isArray(limpo.origem_campos)) {
+      limpo.origem_campos = limpo.origem_campos.map(o =>
+        o?.campo === 'imovel' && o.trecho
+          ? { ...o, trecho: sanitizarDescricaoImovel(o.trecho) }
+          : o,
+      );
+    }
+    if (!limpo.imovel) {
+      const textoAux = [
+        limpo.anotacoes_ficha_oficial,
+        ...(limpo.origem_campos || []).map(o => o?.trecho || ''),
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const rec = extrairImovelDoTextoAutos(textoAux);
+      if (rec.imovel) limpo.imovel = rec.imovel;
+      if (!limpo.rua_olhar_confrontacao && rec.rua) limpo.rua_olhar_confrontacao = rec.rua;
     }
     const refCaminho = `${arquivo?.relativePath || ''} ${arquivo?.name || ''}`;
     if (!limpo.numero_processo?.trim()) {
@@ -786,7 +803,7 @@ export function DocumentSearch({
     pdfsLocaisRef.current = [];
   }, []);
 
-  const EXT_CACHE_PREFIX = 'fiorix_ext_v2_';
+  const EXT_CACHE_PREFIX = 'fiorix_ext_v3_';
 
   function isExtracaoValida(data: DadosManifestacao | null | undefined): boolean {
     if (!data) return false;

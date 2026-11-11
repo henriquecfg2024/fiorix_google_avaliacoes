@@ -601,4 +601,44 @@ describe('manifestações: cliente da fila Em Conferência vs Arquivo e utilitá
     expect(docHtml).toContain('Parágrafo 1 editado diretamente pelo escrevente na tela híbrida A4.');
     expect(docHtml).toContain('O Oficial Substituto,');
   });
+
+  it('higieniza a descrição do imóvel removendo menções a Vara, Foro e timbres institucionais (Defensoria / 7º RI)', async () => {
+    const {
+      sanitizarDescricaoImovel,
+      sanitizarLogradouroConfrontacao,
+      extrairImovelDoTextoAutos,
+      formatarDescricaoImovelGeoSampa,
+    } = await import('@/lib/confrontacoes');
+
+    // Caso real do print (processo 1162956-97.2024.8.26.0100): timbre da Defensoria + endereçamento à Vara
+    const poluidoDefensoria =
+      'Imóvel situado à Avenida Liberdade, 32, Centro, São Paulo - SP UNIDADE CÍVEL CENTRAL DA CAPITAL www.defensoria.sp.def.br 1 ____ª VARA DE REGISTROS PÚBLICOS DO FORO CENTRAL DA COMARCA DA CAPITAL/SP';
+    expect(sanitizarDescricaoImovel(poluidoDefensoria)).toBe('');
+    expect(sanitizarLogradouroConfrontacao('Avenida Liberdade', poluidoDefensoria)).toBe('');
+
+    // Endereço real com cabeçalho de Vara concatenado pelo OCR deve preservar o imóvel e remover a Vara
+    const imovelComVara =
+      'Imóvel situado à Rua João Bodin, nº 47, Guaianazes, São Paulo - SP 1 ____ª VARA DE REGISTROS PÚBLICOS DO FORO CENTRAL DA COMARCA DA CAPITAL/SP';
+    const limpo = sanitizarDescricaoImovel(imovelComVara);
+    expect(limpo).toBe('Imóvel situado à Rua João Bodin, nº 47, Guaianazes, São Paulo - SP');
+    expect(limpo).not.toMatch(/vara/i);
+
+    // Extração a partir do texto dos autos ignorando o timbre institucional no topo
+    const textoAutos = `${poluidoDefensoria}. Trata-se de ação de usucapião referente ao imóvel situado na Rua João Bodin, nº 47, Guaianazes, São Paulo - SP.`;
+    const extraido = extrairImovelDoTextoAutos(textoAutos);
+    expect(extraido.imovel).toContain('Rua João Bodin, nº 47');
+    expect(extraido.imovel).not.toMatch(/vara|liberdade/i);
+    expect(extraido.rua).toBe('Rua João Bodin, nº 47');
+
+    // Formatação a partir do GeoSampa (SQL 138.331.0003-5)
+    const geo = formatarDescricaoImovelGeoSampa({
+      logradouro: 'R JOAO BODIN',
+      numeroPorta: '47',
+      setor: '138',
+      quadra: '331',
+      lote: '0003',
+    });
+    expect(geo).toBe('Imóvel situado à R JOAO BODIN, nº 47 (Lote 0003 da Quadra 331, Setor 138), São Paulo - SP');
+    expect(geo).not.toMatch(/vara/i);
+  });
 });
