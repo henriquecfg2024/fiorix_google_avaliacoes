@@ -3528,7 +3528,7 @@ export function FichaOficialView({
                           ) : (
                             <ImageIcon className="h-3.5 w-3.5 text-[#0F3D6E]" />
                           )}
-                          <span>2. Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
+                          <span>Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
                         </button>
                       </div>
 
