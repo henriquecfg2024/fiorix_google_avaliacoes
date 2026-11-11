@@ -10,3 +10,4 @@ CREATE INDEX IF NOT EXISTS "doc_manifestacao_requerente_idx"
 
 CREATE INDEX IF NOT EXISTS "doc_manifestacao_matricula_idx"
   ON "DocumentManifestacao" ("tenantId", "matricula");
+

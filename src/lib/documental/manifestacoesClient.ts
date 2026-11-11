@@ -311,14 +311,14 @@ export interface LogGestaoDocumentalApi {
   modulo: 'GESTÃO DOCUMENTAL';
   acao: string;
   categoria:
-    | 'PESQUISA'
-    | 'EXTRACAO_PETICAO'
-    | 'LEITURA_ACERVO'
-    | 'VALIDACAO_ASSINATURA'
-    | 'RASCUNHO_CONFERENCIA'
-    | 'CONFERENCIA_OFICIAL'
-    | 'ARQUIVAMENTO'
-    | 'AUDITORIA';
+  | 'PESQUISA'
+  | 'EXTRACAO_PETICAO'
+  | 'LEITURA_ACERVO'
+  | 'VALIDACAO_ASSINATURA'
+  | 'RASCUNHO_CONFERENCIA'
+  | 'CONFERENCIA_OFICIAL'
+  | 'ARQUIVAMENTO'
+  | 'AUDITORIA';
   processo: string | null;
   matricula: string | null;
   requerente: string | null;

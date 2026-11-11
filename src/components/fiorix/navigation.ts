@@ -255,6 +255,13 @@ export const navigationGroups = {
         description: "Saúde e monitoramento",
       },
       {
+        id: "performance_srvsql",
+        label: "Performance do SRVSQL",
+        href: "/sistema/performance-srvsql",
+        icon: Activity,
+        description: "WEBRI · SQL Server · serviços do Windows",
+      },
+      {
         id: "importacao_contingencia",
         label: "Importação de Contingência",
         href: "/bi/importacoes",

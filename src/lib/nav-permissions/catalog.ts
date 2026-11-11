@@ -300,6 +300,15 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         structuralRoles: ['MASTER', 'ADMIN'],
       },
       {
+        id: 'performance_srvsql',
+        label: 'Performance do SRVSQL',
+        href: '/sistema/performance-srvsql',
+        groupId: 'sistema',
+        groupLabel: 'SISTEMA & TECNOLOGIA',
+        description: 'WEBRI · SQL Server · serviços do Windows',
+        structuralRoles: ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE'],
+      },
+      {
         id: 'importacao_contingencia',
         label: 'Importação de Contingência',
         href: '/bi/importacoes',

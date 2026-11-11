@@ -119,3 +119,4 @@ export async function POST(req: Request) {
     return reply({ error: 'Falha ao registrar conferência externa.' }, 503);
   }
 }
+

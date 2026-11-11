@@ -105,6 +105,7 @@ export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> 
   'app/(dashboard)/pessoas/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'pessoas.ferias', note: 'Hub "Meu Espaço" vinculado a pessoas.ferias.' }),
   'app/(dashboard)/relatorios/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'google.relatorios' }),
   'app/(dashboard)/sistema/operacoes/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'sistema.operacoes' }),
+  'app/(dashboard)/sistema/performance-srvsql/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'sistema.operacoes', note: 'Monitoramento e diagnóstico de performance do SRVSQL / WEBRI.' }),
   'app/(dashboard)/sistema/pessoas/comunicados/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'rotina.comunicados_rh' }),
   'app/(dashboard)/sistema/pessoas/ferias/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'pessoas.ferias' }),
   'app/(dashboard)/sistema/pessoas/holerites/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'pessoas.holerites' }),
@@ -186,6 +187,7 @@ export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> 
   'app/api/v1/operacoes/health/route.ts': api('CANONICAL', 'MEDIUM', { moduleId: 'sistema.operacoes' }),
   'app/api/v1/operacoes/integracoes/test/route.ts': api('CANONICAL', 'HIGH', { moduleId: 'sistema.operacoes' }),
   'app/api/v1/operacoes/telemetry-history/route.ts': api('CANONICAL', 'MEDIUM', { moduleId: 'sistema.operacoes' }),
+  'app/api/v1/operacoes/srvsql-performance/route.ts': api('CANONICAL', 'HIGH', { moduleId: 'sistema.operacoes' }),
 
   // ─── SERVER ACTIONS ───────────────────────────────────────────────────────
   'app/(dashboard)/bi/importacoes/actions.ts': action('CANONICAL', 'HIGH', { moduleId: 'sistema.contingencia' }),

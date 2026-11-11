@@ -1648,3 +1648,4 @@ export function normalizeSignatureAuditResult(
     options?.conferenciaAnteriorDivergente ?? false,
   );
 }
+
