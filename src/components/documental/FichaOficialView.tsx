@@ -4343,8 +4343,102 @@ export function FichaOficialView({
                   </div>
                 )}
 
-                {/* FOLHA A4 UNIFICADA E HÍBRIDA (EDIÇÃO DIRETA NO TEXTO) */}
-                {renderFolhaManifestacaoHibrida()}
+                {/* FOLHA A4 UNIFICADA E HÍBRIDA + CARD LATERAL DISCRETO "VISUALIZAR" */}
+                <div className="mx-auto flex max-w-[1160px] flex-col items-start justify-center gap-4 xl:flex-row">
+                  <div className="w-full min-w-0 flex-1">
+                    {renderFolhaManifestacaoHibrida()}
+                  </div>
+
+                  <aside
+                    aria-label="Visualizar documentos do processo"
+                    className="w-full shrink-0 xl:sticky xl:top-4 xl:w-52"
+                  >
+                    <div className="rounded-xl border border-[#CBD5E1]/90 bg-white/95 p-3 shadow-xs backdrop-blur-xs space-y-2">
+                      <div className="flex items-center gap-1.5 border-b border-gray-100 pb-2">
+                        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#1E293B] text-[#C9B896]">
+                          <Eye className="h-3 w-3" aria-hidden="true" />
+                        </div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#1E293B]">
+                          VISUALIZAR
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void localizarNoLivro2()}
+                          disabled={buscandoLivro2}
+                          className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
+                          title="Visualizar imagem da Matrícula em K:\IMAGENS\LV2 no visualizador claro"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                              {buscandoLivro2 ? (
+                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#0F3D6E]" />
+                              ) : (
+                                <ImageIcon className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
+                              )}
+                              <span className="truncate">Matrícula (LV2)</span>
+                            </div>
+                            <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                              {arquivosLivro2?.[0]?.name || dados.matricula_transcricao || 'K:\\IMAGENS\\LV2'}
+                            </div>
+                          </div>
+                          <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (arquivoPlantaSetorDireto && onVisualizarDocumento) {
+                              onVisualizarDocumento(arquivoPlantaSetorDireto);
+                            } else {
+                              void localizarPlantaSetorNoAcervo(undefined, false);
+                            }
+                          }}
+                          disabled={buscandoSetores}
+                          className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-emerald-600/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
+                          title="Visualizar Planta Fiscal em K:\IMAGENS\SETORES no visualizador claro"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                              {buscandoSetores ? (
+                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-700" />
+                              ) : (
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                              )}
+                              <span className="truncate">Planta de Setor</span>
+                            </div>
+                            <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                              {arquivoPlantaSetorDireto?.name || dados.contribuinte_sql || 'K:\\IMAGENS\\SETORES'}
+                            </div>
+                          </div>
+                          <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-emerald-700" />
+                        </button>
+
+                        {podeVisualizarOriginal && (
+                          <button
+                            type="button"
+                            onClick={visualizarOriginal}
+                            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#B8A082] hover:bg-white hover:shadow-2xs cursor-pointer"
+                            title="Visualizar PDF dos Autos / Petição Inicial no visualizador claro"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                                <FileText className="h-3.5 w-3.5 shrink-0 text-[#57534E]" />
+                                <span className="truncate">Autos (PDF)</span>
+                              </div>
+                              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                                {arquivoOrigem?.name || 'Petição Inicial'}
+                              </div>
+                            </div>
+                            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </aside>
+                </div>
               </div>
             )}
           </div>
