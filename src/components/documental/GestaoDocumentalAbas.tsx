@@ -8,12 +8,12 @@ type Aba = 'manifestacoes' | 'visualizador' | 'historico' | 'conferencia' | 'arq
 const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] = [
   { id: 'manifestacoes', href: '/gestao-documental', rotulo: 'Manifestações', Icone: FileText },
   { id: 'visualizador', href: '/gestao-documental/visualizador', rotulo: 'Visualizador', Icone: Eye },
-  { id: 'historico', href: '/gestao-documental/historico', rotulo: 'Histórico', Icone: Archive },
   { id: 'conferencia', href: '/gestao-documental/conferencia', rotulo: 'Em Conferência', Icone: Clock },
   { id: 'arquivo', href: '/gestao-documental/arquivo', rotulo: 'ARQUIVO', Icone: FolderArchive },
+  { id: 'historico', href: '/gestao-documental/historico', rotulo: 'ANDAMENTOS', Icone: Archive },
 ];
 
-/** Alternador de submenus da Gestão Documental (Manifestações / Visualizador / Histórico / Em Conferência / ARQUIVO). */
+/** Alternador de submenus da Gestão Documental (Manifestações / Visualizador / Em Conferência / ARQUIVO / ANDAMENTOS). */
 export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
   let podeManifestacoes = true;
   let podeVisualizador = true;

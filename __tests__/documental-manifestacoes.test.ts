@@ -78,16 +78,16 @@ beforeEach(() => {
   prismaMocks.$executeRawUnsafe.mockResolvedValue(1);
 });
 
-describe('manifestações: posição e navegação da aba ARQUIVO', () => {
-  it('mantém a ordem exata: Manifestações | Visualizador | Histórico | Em Conferência | ARQUIVO', () => {
+describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS', () => {
+  it('mantém a ordem exata: Manifestações | Visualizador | Em Conferência | ARQUIVO | ANDAMENTOS', () => {
     const grupoDoc = navigationGroups.documental;
     expect(grupoDoc).toBeDefined();
     expect(grupoDoc.items.map(i => ({ label: i.label, href: i.href }))).toEqual([
       { label: 'Manifestações', href: '/gestao-documental' },
       { label: 'Visualizador', href: '/gestao-documental/visualizador' },
-      { label: 'Histórico', href: '/gestao-documental/historico' },
       { label: 'Em Conferência', href: '/gestao-documental/conferencia' },
       { label: 'ARQUIVO', href: '/gestao-documental/arquivo' },
+      { label: 'ANDAMENTOS', href: '/gestao-documental/historico' },
     ]);
 
     const catalogoDoc = NAV_CATALOG_GROUPS.find(g => g.id === 'documental');
@@ -95,9 +95,9 @@ describe('manifestações: posição e navegação da aba ARQUIVO', () => {
     expect(catalogoDoc!.items.map(i => i.href)).toEqual([
       '/gestao-documental',
       '/gestao-documental/visualizador',
-      '/gestao-documental/historico',
       '/gestao-documental/conferencia',
       '/gestao-documental/arquivo',
+      '/gestao-documental/historico',
     ]);
   });
 });

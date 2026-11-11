@@ -7,8 +7,8 @@ import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Histórico de Manifestações — Gestão Documental | FIORIX',
-  description: 'Manifestações de usucapião finalizadas e arquivadas no FIORIX, com versões, conferência de integridade e download em PDF.',
+  title: 'Andamentos — Gestão Documental | FIORIX',
+  description: 'Andamentos, rascunhos e manifestações de usucapião no FIORIX, com versões, conferência de integridade e download em PDF.',
 };
 
 export default async function HistoricoManifestacoesPage() {
@@ -18,7 +18,7 @@ export default async function HistoricoManifestacoesPage() {
     if (!(error instanceof DocumentAccessError)) throw error;
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-semibold">Histórico de Manifestações</h1>
+        <h1 className="text-2xl font-semibold">Andamentos de Manifestações</h1>
         <p className="mt-4 text-slate-300">{error.message}</p>
       </div>
     );
@@ -38,8 +38,8 @@ export default async function HistoricoManifestacoesPage() {
             <div className="flex items-center gap-2 text-xs font-mono">
               <span className="text-slate-400 tracking-wider">GESTÃO DOCUMENTAL</span>
               <span className="text-slate-600">/</span>
-              <span className="text-cyan-400 font-extrabold tracking-wider">HISTÓRICO</span>
-              <h1 className="sr-only">Histórico de Manifestações</h1>
+              <span className="text-cyan-400 font-extrabold tracking-wider">ANDAMENTOS</span>
+              <h1 className="sr-only">Andamentos de Manifestações</h1>
             </div>
             <GestaoDocumentalAbas ativa="historico" />
           </div>
