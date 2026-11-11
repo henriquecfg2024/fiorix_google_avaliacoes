@@ -1323,6 +1323,7 @@ export function FichaOficialView({
   const [termoBuscadoSetores, setTermoBuscadoSetores] = useState('');
 
   // ─── Consulta ao GEOSAMPA (WFS Lotes + Integração IPTU + Links Oficiais) ─
+  const [cardsGeoSampaVisiveis, setCardsGeoSampaVisiveis] = useState(false);
   const [buscandoGeoSampa, setBuscandoGeoSampa] = useState(false);
   const [erroGeoSampa, setErroGeoSampa] = useState<string | null>(null);
   const [resultadoGeoSampa, setResultadoGeoSampa] = useState<{
@@ -1501,6 +1502,9 @@ export function FichaOficialView({
   };
 
   async function consultarGeoSampaConfrontacoes(silencioso = false) {
+    if (!silencioso) {
+      setCardsGeoSampaVisiveis(true);
+    }
     if (!dados.contribuinte_sql && !dados.imovel && !dados.rua_olhar_confrontacao) {
       if (!silencioso) {
         setErroGeoSampa('Informe o SQL ou o endereço do imóvel para realizar a consulta no GeoSampa.');
@@ -3536,156 +3540,184 @@ export function FichaOficialView({
                         </button>
                       </div>
 
-                      {/* Atalhos Oficiais para o GEOSAMPA - Mapa Digital da Cidade de São Paulo */}
-                      <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-2.5 space-y-2">
+                      {/* Atalhos Oficiais e Confrontantes do GEOSAMPA (Ocultos por padrão, com opção de desocultar) */}
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-2.5 py-2 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-[#0F3D6E]">
-                            <MapPin className="h-3.5 w-3.5" />
-                            <span>GEOSAMPA — Mapa Digital da Cidade de São Paulo (Links Diretos)</span>
-                          </span>
-                          {resultadoGeoSampa?.setor && resultadoGeoSampa?.quadra ? (
-                            <span className="rounded bg-blue-100 px-2 py-0.5 font-mono text-[10px] font-bold text-[#0F3D6E]">
-                              Setor {resultadoGeoSampa.setor} • Quadra {resultadoGeoSampa.quadra}
-                              {resultadoGeoSampa.lote ? ` • Lote ${resultadoGeoSampa.lote}` : ''}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <a
-                            href="https://novogeosampa.prefeitura.sp.gov.br/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>GEOSAMPA - Mapa Digital da Cidade de São Paulo</span>
-                          </a>
-
-                          <a
-                            href={
-                              resultadoGeoSampa?.linksGeoSampa?.mapaCamadasSetoresLotes ||
-                              'https://novogeosampa.prefeitura.sp.gov.br/#map=9.49/-23.67359/-46.60345/0&layers=103/100/100/&basemap=5/100/100'
+                          <button
+                            type="button"
+                            onClick={() => setCardsGeoSampaVisiveis(v => !v)}
+                            className="flex flex-wrap items-center gap-1.5 text-left text-[10.5px] font-bold uppercase tracking-wider text-[#0F3D6E] hover:text-blue-950 transition cursor-pointer"
+                            title={
+                              cardsGeoSampaVisiveis
+                                ? 'Clique para ocultar os cards e links do GeoSampa'
+                                : 'Clique para desocultar os links diretos e confrontantes do GeoSampa'
                             }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                            title="Abre o Novo GeoSampa com a camada de Setores/Quadras/Lotes Fiscais ativa"
                           >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>
-                              {resultadoGeoSampa?.loteGeoSampa
-                                ? `Mapa do Lote (${resultadoGeoSampa.loteGeoSampa.nr_contribuinte || 'Camada 103'})`
-                                : 'Novo GeoSampa (Camada Setores/Lotes 103)'}
-                            </span>
-                          </a>
+                            <span className="text-xs leading-none">{cardsGeoSampaVisiveis ? '▾' : '▸'}</span>
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                            <span>GEOSAMPA — Mapa Digital da Cidade de São Paulo (Links Diretos)</span>
+                            {resultadoGeoSampa?.setor && resultadoGeoSampa?.quadra ? (
+                              <span className="rounded bg-blue-100 px-2 py-0.5 font-mono text-[10px] font-bold text-[#0F3D6E] normal-case">
+                                Setor {resultadoGeoSampa.setor} • Quadra {resultadoGeoSampa.quadra}
+                                {resultadoGeoSampa.lote ? ` • Lote ${resultadoGeoSampa.lote}` : ''}
+                              </span>
+                            ) : null}
+                          </button>
 
-                          <a
-                            href="https://novogeosampa.prefeitura.sp.gov.br/u/RCdgNKWQ"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                          <button
+                            type="button"
+                            onClick={() => setCardsGeoSampaVisiveis(v => !v)}
+                            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2.5 py-1 text-[10.5px] font-bold text-[#0F3D6E] hover:bg-blue-50 transition shadow-2xs cursor-pointer"
+                            title={
+                              cardsGeoSampaVisiveis
+                                ? 'Ocultar cards e links do GeoSampa'
+                                : 'Desocultar cards e links do GeoSampa'
+                            }
                           >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>Novo GeoSampa (u/RCdgNKWQ)</span>
-                          </a>
-
-                          <a
-                            href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            <span>GeoSampa Clássico (_SBC.aspx)</span>
-                          </a>
+                            <Eye className="h-3 w-3 shrink-0" />
+                            <span>{cardsGeoSampaVisiveis ? 'Ocultar GeoSampa' : 'Desocultar GeoSampa'}</span>
+                          </button>
                         </div>
 
-                        {erroGeoSampa ? (
-                          <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
-                            {erroGeoSampa}
-                          </div>
-                        ) : null}
-
-                        {/* Resultado da Consulta Automática ao GeoSampa (Lote + IPTU + Confrontantes Lindeiros) */}
-                        {resultadoGeoSampa?.confrontantesGeoSampa ? (
-                          <div className="rounded border border-blue-200 bg-white p-2.5 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="text-[11px] font-bold text-[#1E293B]">
-                                Confrontantes Lindeiros Apurados na Quadra Fiscal (GeoSampa):
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const cg = resultadoGeoSampa.confrontantesGeoSampa!;
-                                  registrarConfrontacoesNasAnotacoes({
-                                    frente: cg.frente || dados.rua_olhar_confrontacao,
-                                    ladoDireito: cg.ladoDireito || dados.confrontante_lado_direito,
-                                    ladoEsquerdo: cg.ladoEsquerdo || dados.confrontante_lado_esquerdo,
-                                    fundos: cg.fundos || dados.confrontante_fundos,
-                                    plantaFiscal: resultadoGeoSampa.plantaSetor?.caminhoCompleto,
-                                    sqlGeoSampa: resultadoGeoSampa.loteGeoSampa?.nr_contribuinte,
-                                  });
-                                  mostrarAviso('Confrontações do GeoSampa aplicadas nos campos e registradas em Conferência e Anotações!');
-                                }}
-                                className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer"
+                        {cardsGeoSampaVisiveis && (
+                          <div className="space-y-2 border-t border-blue-200/70 pt-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <a
+                                href="https://novogeosampa.prefeitura.sp.gov.br/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
                               >
-                                <Check className="h-3 w-3" />
-                                <span>Aplicar Confrontantes do GeoSampa na Ficha e Anotações</span>
-                              </button>
+                                <ExternalLink className="h-3 w-3" />
+                                <span>GEOSAMPA - Mapa Digital da Cidade de São Paulo</span>
+                              </a>
+
+                              <a
+                                href={
+                                  resultadoGeoSampa?.linksGeoSampa?.mapaCamadasSetoresLotes ||
+                                  'https://novogeosampa.prefeitura.sp.gov.br/#map=9.49/-23.67359/-46.60345/0&layers=103/100/100/&basemap=5/100/100'
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                                title="Abre o Novo GeoSampa com a camada de Setores/Quadras/Lotes Fiscais ativa"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>
+                                  {resultadoGeoSampa?.loteGeoSampa
+                                    ? `Mapa do Lote (${resultadoGeoSampa.loteGeoSampa.nr_contribuinte || 'Camada 103'})`
+                                    : 'Novo GeoSampa (Camada Setores/Lotes 103)'}
+                                </span>
+                              </a>
+
+                              <a
+                                href="https://novogeosampa.prefeitura.sp.gov.br/u/RCdgNKWQ"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>Novo GeoSampa (u/RCdgNKWQ)</span>
+                              </a>
+
+                              <a
+                                href="https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded border border-blue-300 bg-white px-2 py-1 text-[10.5px] font-semibold text-[#0F3D6E] hover:bg-blue-50 transition"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>GeoSampa Clássico (_SBC.aspx)</span>
+                              </a>
                             </div>
 
-                            {resultadoGeoSampa.loteGeoSampa ? (
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-700 border-b border-gray-100 pb-1.5">
-                                <span>
-                                  <strong>SQL:</strong> {resultadoGeoSampa.loteGeoSampa.nr_contribuinte || '—'}
-                                </span>
-                                <span>
-                                  <strong>Logradouro:</strong> {resultadoGeoSampa.loteGeoSampa.nm_logradouro_completo || '—'}
-                                  {resultadoGeoSampa.loteGeoSampa.cd_numero_porta
-                                    ? `, nº ${resultadoGeoSampa.loteGeoSampa.cd_numero_porta}`
-                                    : ''}
-                                </span>
-                                {resultadoGeoSampa.loteGeoSampa.qt_area_terreno ? (
-                                  <span>
-                                    <strong>Área Terreno:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_terreno} m²
-                                  </span>
-                                ) : null}
-                                {resultadoGeoSampa.loteGeoSampa.qt_area_construida ? (
-                                  <span>
-                                    <strong>Área Construída:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_construida} m²
-                                  </span>
-                                ) : null}
-                                {resultadoGeoSampa.iptuIntegracao?.['Tipo do Terreno'] ? (
-                                  <span>
-                                    <strong>Terreno:</strong> {resultadoGeoSampa.iptuIntegracao['Tipo do Terreno']}
-                                  </span>
-                                ) : null}
+                            {erroGeoSampa ? (
+                              <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
+                                {erroGeoSampa}
                               </div>
                             ) : null}
 
-                            <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3 text-[11px]">
-                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
-                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Direito (GeoSampa)</div>
-                                <div className="font-semibold text-gray-900">
-                                  {resultadoGeoSampa.confrontantesGeoSampa.ladoDireito || 'Não identificado'}
+                            {/* Resultado da Consulta Automática ao GeoSampa (Lote + IPTU + Confrontantes Lindeiros) */}
+                            {resultadoGeoSampa?.confrontantesGeoSampa ? (
+                              <div className="rounded border border-blue-200 bg-white p-2.5 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="text-[11px] font-bold text-[#1E293B]">
+                                    Confrontantes Lindeiros Apurados na Quadra Fiscal (GeoSampa):
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const cg = resultadoGeoSampa.confrontantesGeoSampa!;
+                                      registrarConfrontacoesNasAnotacoes({
+                                        frente: cg.frente || dados.rua_olhar_confrontacao,
+                                        ladoDireito: cg.ladoDireito || dados.confrontante_lado_direito,
+                                        ladoEsquerdo: cg.ladoEsquerdo || dados.confrontante_lado_esquerdo,
+                                        fundos: cg.fundos || dados.confrontante_fundos,
+                                        plantaFiscal: resultadoGeoSampa.plantaSetor?.caminhoCompleto,
+                                        sqlGeoSampa: resultadoGeoSampa.loteGeoSampa?.nr_contribuinte,
+                                      });
+                                      mostrarAviso('Confrontações do GeoSampa aplicadas nos campos e registradas em Conferência e Anotações!');
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                    <span>Aplicar Confrontantes do GeoSampa na Ficha e Anotações</span>
+                                  </button>
+                                </div>
+
+                                {resultadoGeoSampa.loteGeoSampa ? (
+                                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-700 border-b border-gray-100 pb-1.5">
+                                    <span>
+                                      <strong>SQL:</strong> {resultadoGeoSampa.loteGeoSampa.nr_contribuinte || '—'}
+                                    </span>
+                                    <span>
+                                      <strong>Logradouro:</strong> {resultadoGeoSampa.loteGeoSampa.nm_logradouro_completo || '—'}
+                                      {resultadoGeoSampa.loteGeoSampa.cd_numero_porta
+                                        ? `, nº ${resultadoGeoSampa.loteGeoSampa.cd_numero_porta}`
+                                        : ''}
+                                    </span>
+                                    {resultadoGeoSampa.loteGeoSampa.qt_area_terreno ? (
+                                      <span>
+                                        <strong>Área Terreno:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_terreno} m²
+                                      </span>
+                                    ) : null}
+                                    {resultadoGeoSampa.loteGeoSampa.qt_area_construida ? (
+                                      <span>
+                                        <strong>Área Construída:</strong> {resultadoGeoSampa.loteGeoSampa.qt_area_construida} m²
+                                      </span>
+                                    ) : null}
+                                    {resultadoGeoSampa.iptuIntegracao?.['Tipo do Terreno'] ? (
+                                      <span>
+                                        <strong>Terreno:</strong> {resultadoGeoSampa.iptuIntegracao['Tipo do Terreno']}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+
+                                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3 text-[11px]">
+                                  <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                    <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Direito (GeoSampa)</div>
+                                    <div className="font-semibold text-gray-900">
+                                      {resultadoGeoSampa.confrontantesGeoSampa.ladoDireito || 'Não identificado'}
+                                    </div>
+                                  </div>
+                                  <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                    <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Esquerdo (GeoSampa)</div>
+                                    <div className="font-semibold text-gray-900">
+                                      {resultadoGeoSampa.confrontantesGeoSampa.ladoEsquerdo || 'Não identificado'}
+                                    </div>
+                                  </div>
+                                  <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
+                                    <div className="text-[9.5px] font-bold uppercase text-gray-500">Aos Fundos (GeoSampa)</div>
+                                    <div className="font-semibold text-gray-900">
+                                      {resultadoGeoSampa.confrontantesGeoSampa.fundos || 'Não identificado'}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
-                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Lado Esquerdo (GeoSampa)</div>
-                                <div className="font-semibold text-gray-900">
-                                  {resultadoGeoSampa.confrontantesGeoSampa.ladoEsquerdo || 'Não identificado'}
-                                </div>
-                              </div>
-                              <div className="rounded border border-gray-200 bg-gray-50 p-1.5">
-                                <div className="text-[9.5px] font-bold uppercase text-gray-500">Aos Fundos (GeoSampa)</div>
-                                <div className="font-semibold text-gray-900">
-                                  {resultadoGeoSampa.confrontantesGeoSampa.fundos || 'Não identificado'}
-                                </div>
-                              </div>
-                            </div>
+                            ) : null}
                           </div>
-                        ) : null}
+                        )}
                       </div>
 
                       {/* Resultado da Busca na Pasta K:\IMAGENS\SETORES (Plantas Fiscais) */}
