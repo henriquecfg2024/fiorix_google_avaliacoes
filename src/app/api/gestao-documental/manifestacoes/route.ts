@@ -8,6 +8,7 @@ import {
   conferirFichaManifestacao,
   finalizarManifestacao,
   importarFilaLocal,
+  listarLogsGestaoDocumental,
   listarManifestacoes,
   obterManifestacao,
   removerFichaEmConferencia,
@@ -36,6 +37,26 @@ export async function GET(req: Request) {
   try {
     const user = await requireManifestacaoAccess();
     const params = new URL(req.url).searchParams;
+    const modo = params.get('modo');
+    if (modo === 'logs') {
+      const busca = params.get('busca') || undefined;
+      const tipo = params.get('tipo') || undefined;
+      const de = params.get('de') || undefined;
+      const ate = params.get('ate') || undefined;
+      const ordem = params.get('ordem') === 'asc' ? 'asc' : 'desc';
+      const limiteParam = Number(params.get('limite') || 250);
+      const limite = Number.isFinite(limiteParam) ? limiteParam : 250;
+      return reply(
+        await listarLogsGestaoDocumental(user.tenantId, {
+          busca,
+          tipo,
+          de,
+          ate,
+          ordem,
+          limite,
+        }),
+      );
+    }
     const id = params.get('id');
     if (id !== null) {
       if (!z.string().uuid().safeParse(id).success) return reply({ error: 'Manifestação inválida.' }, 400);

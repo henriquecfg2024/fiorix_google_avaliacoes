@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { canUserConferirManifestacao } from '@/lib/documental/access';
 import { recordAuditLog } from '@/lib/audit';
+import { sanitizarMatriculaTranscricao } from '@/lib/confrontacoes';
 
 /**
  * Fila "Formulários em Conferência com o Oficial" (status = conferencia) e
@@ -121,10 +122,11 @@ const removerAcentos = (s: string) =>
 
 /** Campos indexados extraídos do formulário (para listagem e pesquisa). */
 function camposIndexados(dados: Record<string, unknown>) {
+  const matRaw = texto(dados.matricula_transcricao, 120);
   return {
     numeroProcesso: texto(dados.numero_processo, 60),
     requerente: texto(dados.requerente),
-    matricula: texto(dados.matricula_transcricao, 120),
+    matricula: matRaw ? sanitizarMatriculaTranscricao(matRaw) : null,
     subdistrito: texto(dados.subdistrito, 120),
     escrevente: texto(dados.escrevente_pasta, 120),
   };
@@ -229,6 +231,18 @@ export async function salvarFichaEmConferencia(
           "subdistrito" = ${campos.subdistrito}, "escrevente" = ${campos.escrevente},
           "atualizadoPorId" = ${usuario.id}, "atualizadoPorNome" = ${nomeUsuario(usuario)}, "updatedAt" = NOW()
         WHERE "id" = ${existente.id} AND "tenantId" = ${tenantId} AND "status" = 'conferencia'`;
+      void recordAuditLog({
+        modulo: 'GESTAO_DOCUMENTAL',
+        acao: 'ALTERACAO',
+        registroId: existente.id,
+        registroDescricao: campos.numeroProcesso || 'Rascunho em conferência',
+        detalhes: {
+          fichaId: entrada.fichaId,
+          matricula: campos.matricula,
+          requerente: campos.requerente,
+          statusConferencia,
+        },
+      });
       return lerResumo(tx, tenantId, existente.id);
     }
 
@@ -239,6 +253,18 @@ export async function salvarFichaEmConferencia(
       VALUES (${id}, ${tenantId}, ${entrada.fichaId}, 'conferencia', ${campos.numeroProcesso}, ${campos.requerente}, ${campos.matricula},
         ${campos.subdistrito}, ${campos.escrevente}, ${dadosJson}::jsonb, ${origemJson}::jsonb, ${usuario.id}, ${nomeUsuario(usuario)},
         ${usuario.id}, ${nomeUsuario(usuario)})`;
+    void recordAuditLog({
+      modulo: 'GESTAO_DOCUMENTAL',
+      acao: 'INCLUSAO',
+      registroId: id,
+      registroDescricao: campos.numeroProcesso || 'Novo rascunho em conferência',
+      detalhes: {
+        fichaId: entrada.fichaId,
+        matricula: campos.matricula,
+        requerente: campos.requerente,
+        statusConferencia,
+      },
+    });
     return lerResumo(tx, tenantId, id);
   });
 }
@@ -546,7 +572,405 @@ export async function listarManifestacoes(
 export async function removerFichaEmConferencia(tenantId: string, id: string): Promise<boolean> {
   const n = await prisma.$executeRaw`
     DELETE FROM "DocumentManifestacao" WHERE "tenantId" = ${tenantId} AND "id" = ${id} AND "status" = 'conferencia'`;
+  if (n === 1) {
+    await recordAuditLog({
+      modulo: 'GESTAO_DOCUMENTAL',
+      acao: 'EXCLUSAO',
+      registroId: id,
+      registroDescricao: 'Rascunho removido da fila Em Conferência',
+    });
+  }
   return n === 1;
+}
+
+export interface LogGestaoDocumentalItem {
+  id: string;
+  dataHora: string;
+  modulo: 'GESTÃO DOCUMENTAL';
+  acao: string;
+  categoria:
+    | 'PESQUISA'
+    | 'EXTRACAO_PETICAO'
+    | 'LEITURA_ACERVO'
+    | 'VALIDACAO_ASSINATURA'
+    | 'RASCUNHO_CONFERENCIA'
+    | 'CONFERENCIA_OFICIAL'
+    | 'ARQUIVAMENTO'
+    | 'AUDITORIA';
+  processo: string | null;
+  matricula: string | null;
+  requerente: string | null;
+  usuarioNome: string | null;
+  descricao: string;
+  status: string | null;
+  manifestacaoId?: string | null;
+}
+
+export interface FiltrosLogsGestaoDocumental {
+  busca?: string;
+  tipo?: string;
+  de?: string; // AAAA-MM-DD
+  ate?: string; // AAAA-MM-DD
+  ordem?: 'desc' | 'asc';
+  limite?: number;
+}
+
+/**
+ * Retorna exclusivamente os logs do módulo GESTÃO DOCUMENTAL (nunca de outros módulos do FIORIX),
+ * consolidados a partir de:
+ * 1. fiorix_audit_logs (WHERE modulo = 'GESTAO_DOCUMENTAL')
+ * 2. DocumentManifestacao (criação/salvamento de rascunho, conferência oficial e arquivamento definitivo)
+ * 3. DocumentSearchRequest (pesquisas no acervo, extrações OCR/IA de petição, leituras de documentos e validações de assinatura ICP-Brasil)
+ * Filtrados e ordenados por data.
+ */
+export async function listarLogsGestaoDocumental(
+  tenantId: string,
+  filtros: FiltrosLogsGestaoDocumental = {},
+): Promise<{ itens: LogGestaoDocumentalItem[]; total: number }> {
+  const logs: LogGestaoDocumentalItem[] = [];
+  const chavesVistas = new Set<string>();
+
+  // 1. Logs de Auditoria explícitos do módulo GESTAO_DOCUMENTAL
+  try {
+    const auditRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        acao: string;
+        registro_id: string | null;
+        registro_descricao: string | null;
+        detalhes_json: string | null;
+        usuario_nome: string | null;
+        usuario_email: string | null;
+        criado_em: Date;
+      }>
+    >`
+      SELECT "id", "acao", "registro_id", "registro_descricao", "detalhes_json", "usuario_nome", "usuario_email", "criado_em"
+      FROM "fiorix_audit_logs"
+      WHERE "tenant_id" = ${tenantId} AND "modulo" = 'GESTAO_DOCUMENTAL'
+      ORDER BY "criado_em" DESC
+      LIMIT 400
+    `;
+    for (const r of auditRows) {
+      let detalhes: Record<string, unknown> = {};
+      if (r.detalhes_json) {
+        try {
+          detalhes = JSON.parse(r.detalhes_json) as Record<string, unknown>;
+        } catch {}
+      }
+      const dataIso = r.criado_em instanceof Date ? r.criado_em.toISOString() : new Date(r.criado_em).toISOString();
+      const acaoUpper = (r.acao || 'AUDITORIA').toUpperCase();
+      const categoria: LogGestaoDocumentalItem['categoria'] =
+        acaoUpper === 'ARQUIVAMENTO'
+          ? 'ARQUIVAMENTO'
+          : acaoUpper === 'CONFERENCIA'
+          ? 'CONFERENCIA_OFICIAL'
+          : acaoUpper === 'INCLUSAO' || acaoUpper === 'ALTERACAO' || acaoUpper === 'EXCLUSAO'
+          ? 'RASCUNHO_CONFERENCIA'
+          : 'AUDITORIA';
+      const statusConf = typeof detalhes.statusConferencia === 'string' ? detalhes.statusConferencia : null;
+      const desc =
+        acaoUpper === 'ARQUIVAMENTO'
+          ? `Manifestação finalizada e arquivada na Etapa 2 (${r.registro_descricao || 'Processo'})`
+          : acaoUpper === 'CONFERENCIA'
+          ? statusConf === 'CONFERIDO'
+            ? `Conferência Oficial concluída — marcado como CONFERIDO (${r.registro_descricao || 'Processo'})`
+            : `Status retornado para Aguardando Conferência (${r.registro_descricao || 'Processo'})`
+          : `${r.acao}: ${r.registro_descricao || 'Registro da Gestão Documental'}`;
+
+      const chaveDedup = `${categoria}:${r.registro_id || ''}:${dataIso.slice(0, 16)}`;
+      chavesVistas.add(chaveDedup);
+
+      logs.push({
+        id: `audit-${r.id}`,
+        dataHora: dataIso,
+        modulo: 'GESTÃO DOCUMENTAL',
+        acao: acaoUpper,
+        categoria,
+        processo: r.registro_descricao || null,
+        matricula: typeof detalhes.matricula === 'string' ? sanitizarMatriculaTranscricao(detalhes.matricula) : null,
+        requerente: typeof detalhes.requerente === 'string' ? detalhes.requerente : null,
+        usuarioNome: r.usuario_nome || r.usuario_email || (typeof detalhes.conferidoPor === 'string' ? detalhes.conferidoPor : null) || (typeof detalhes.finalizadoPor === 'string' ? detalhes.finalizadoPor : null),
+        descricao: desc,
+        status: statusConf || acaoUpper,
+        manifestacaoId: r.registro_id || null,
+      });
+    }
+  } catch {
+    // Tabela fiorix_audit_logs pode ainda não existir no ambiente de teste
+  }
+
+  // 2. Eventos e movimentações registrados em DocumentManifestacao (Gestão Documental)
+  try {
+    const manifRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        fichaId: string;
+        status: StatusManifestacao;
+        versao: number;
+        numeroProcesso: string | null;
+        requerente: string | null;
+        matricula: string | null;
+        escrevente: string | null;
+        criadoPorNome: string | null;
+        atualizadoPorNome: string | null;
+        finalizadoPorNome: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        finalizadoEm: Date | null;
+        dados: Prisma.JsonValue;
+      }>
+    >`
+      SELECT "id", "fichaId", "status", "versao", "numeroProcesso", "requerente", "matricula", "escrevente",
+             "criadoPorNome", "atualizadoPorNome", "finalizadoPorNome", "createdAt", "updatedAt", "finalizadoEm", "dados"
+      FROM "DocumentManifestacao"
+      WHERE "tenantId" = ${tenantId}
+      ORDER BY "updatedAt" DESC
+      LIMIT 300
+    `;
+
+    for (const m of manifRows) {
+      const matLimpa = m.matricula ? sanitizarMatriculaTranscricao(m.matricula) : null;
+      const proc = m.numeroProcesso || null;
+      const req = m.requerente || null;
+      const dadosObj = m.dados && typeof m.dados === 'object' ? (m.dados as Record<string, unknown>) : {};
+      const eventos = Array.isArray(dadosObj.historico_eventos)
+        ? (dadosObj.historico_eventos as EventoHistoricoManifestacao[])
+        : [];
+
+      // Evento de criação/abertura da ficha na Gestão Documental
+      const createdIso = m.createdAt instanceof Date ? m.createdAt.toISOString() : new Date(m.createdAt).toISOString();
+      logs.push({
+        id: `manif-create-${m.id}`,
+        dataHora: createdIso,
+        modulo: 'GESTÃO DOCUMENTAL',
+        acao: 'RASCUNHO SALVO',
+        categoria: 'RASCUNHO_CONFERENCIA',
+        processo: proc,
+        matricula: matLimpa,
+        requerente: req,
+        usuarioNome: m.criadoPorNome || m.atualizadoPorNome || m.escrevente || 'Sistema',
+        descricao: `Formulário / rascunho de manifestação registrado em conferência${proc ? ` • Processo ${proc}` : ''}${matLimpa ? ` • ${matLimpa}` : ''}.`,
+        status: m.status === 'finalizada' ? 'FINALIZADA' : String(dadosObj.status_conferencia || 'AGUARDANDO_CONFERENCIA'),
+        manifestacaoId: m.id,
+      });
+
+      // Eventos intermediários (conferência oficial / reabertura / arquivamento)
+      for (let i = 0; i < eventos.length; i++) {
+        const ev = eventos[i];
+        if (!ev?.dataHora) continue;
+        const categoria: LogGestaoDocumentalItem['categoria'] =
+          ev.tipo === 'ETAPA2_FINALIZADA_E_ARQUIVADA'
+            ? 'ARQUIVAMENTO'
+            : ev.tipo === 'CONFERENCIA_CONCLUIDA' || ev.tipo === 'CONFERENCIA_REABERTA'
+            ? 'CONFERENCIA_OFICIAL'
+            : 'RASCUNHO_CONFERENCIA';
+        const chaveDedup = `${categoria}:${m.id}:${ev.dataHora.slice(0, 16)}`;
+        if (chavesVistas.has(chaveDedup)) continue;
+        chavesVistas.add(chaveDedup);
+
+        logs.push({
+          id: `manif-ev-${m.id}-${i}`,
+          dataHora: ev.dataHora,
+          modulo: 'GESTÃO DOCUMENTAL',
+          acao:
+            ev.tipo === 'ETAPA2_FINALIZADA_E_ARQUIVADA'
+              ? 'ARQUIVAMENTO'
+              : ev.tipo === 'CONFERENCIA_CONCLUIDA'
+              ? 'CONFERIDO'
+              : ev.tipo === 'CONFERENCIA_REABERTA'
+              ? 'REABERTO'
+              : 'ATUALIZAÇÃO',
+          categoria,
+          processo: proc,
+          matricula: matLimpa,
+          requerente: req,
+          usuarioNome: ev.usuarioNome || m.atualizadoPorNome || m.finalizadoPorNome || 'Usuário',
+          descricao: `${ev.descricao}${proc ? ` (${proc})` : ''}`,
+          status: ev.tipo,
+          manifestacaoId: m.id,
+        });
+      }
+
+      // Caso tenha sido atualizado após a criação e sem evento duplicado no mesmo minuto
+      const updatedIso = m.updatedAt instanceof Date ? m.updatedAt.toISOString() : new Date(m.updatedAt).toISOString();
+      if (updatedIso.slice(0, 16) !== createdIso.slice(0, 16) && m.status === 'conferencia') {
+        const chaveUpd = `RASCUNHO_CONFERENCIA:${m.id}:${updatedIso.slice(0, 16)}`;
+        if (!chavesVistas.has(chaveUpd)) {
+          chavesVistas.add(chaveUpd);
+          logs.push({
+            id: `manif-upd-${m.id}`,
+            dataHora: updatedIso,
+            modulo: 'GESTÃO DOCUMENTAL',
+            acao: 'EDIÇÃO DE RASCUNHO',
+            categoria: 'RASCUNHO_CONFERENCIA',
+            processo: proc,
+            matricula: matLimpa,
+            requerente: req,
+            usuarioNome: m.atualizadoPorNome || m.criadoPorNome || m.escrevente || 'Usuário',
+            descricao: `Rascunho atualizado na fila Em Conferência${proc ? ` • Processo ${proc}` : ''}${matLimpa ? ` • ${matLimpa}` : ''}.`,
+            status: String(dadosObj.status_conferencia || 'AGUARDANDO_CONFERENCIA'),
+            manifestacaoId: m.id,
+          });
+        }
+      }
+
+      // Caso finalizado e sem evento explícito já adicionado
+      if (m.status === 'finalizada' && m.finalizadoEm) {
+        const finIso = m.finalizadoEm instanceof Date ? m.finalizadoEm.toISOString() : new Date(m.finalizadoEm).toISOString();
+        const chaveFin = `ARQUIVAMENTO:${m.id}:${finIso.slice(0, 16)}`;
+        if (!chavesVistas.has(chaveFin)) {
+          chavesVistas.add(chaveFin);
+          logs.push({
+            id: `manif-fin-${m.id}`,
+            dataHora: finIso,
+            modulo: 'GESTÃO DOCUMENTAL',
+            acao: 'ARQUIVAMENTO',
+            categoria: 'ARQUIVAMENTO',
+            processo: proc,
+            matricula: matLimpa,
+            requerente: req,
+            usuarioNome: m.finalizadoPorNome || m.atualizadoPorNome || 'Usuário',
+            descricao: `Manifestação Oficial (v${m.versao}) finalizada e arquivada no FIORIX${proc ? ` • Processo ${proc}` : ''}.`,
+            status: 'FINALIZADA',
+            manifestacaoId: m.id,
+          });
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Operações de Pesquisa, Extração OCR/IA de Petições, Leitura de Imagens (.KEN/PDF) e Validação ICP-Brasil na Gestão Documental
+  try {
+    const reqRows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        query: string;
+        status: string;
+        createdAt: Date;
+        completedAt: Date | null;
+      }>
+    >`
+      SELECT "id", "query", "status", "createdAt", "completedAt"
+      FROM "DocumentSearchRequest"
+      WHERE "tenantId" = ${tenantId}
+      ORDER BY "createdAt" DESC
+      LIMIT 300
+    `;
+
+    for (const req of reqRows) {
+      let qObj: { type?: string; query?: string; rootId?: string; relativePath?: string } = {};
+      try {
+        qObj = JSON.parse(req.query) as typeof qObj;
+      } catch {
+        qObj = { type: 'search', query: req.query };
+      }
+      const tipoReq = qObj.type || 'search';
+      const dataRef = req.completedAt || req.createdAt;
+      const dataIso = dataRef instanceof Date ? dataRef.toISOString() : new Date(dataRef).toISOString();
+
+      let categoria: LogGestaoDocumentalItem['categoria'] = 'PESQUISA';
+      let acao = 'PESQUISA NO ACERVO';
+      let descricao = '';
+      let processo: string | null = null;
+      let matricula: string | null = null;
+
+      const cnjMatch = (qObj.query || qObj.relativePath || '').match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
+      if (cnjMatch) processo = cnjMatch[0];
+
+      if (tipoReq === 'extract_petition_data') {
+        categoria = 'EXTRACAO_PETICAO';
+        acao = 'EXTRAÇÃO OCR / IA';
+        descricao = `Extração automática de dados da Petição Inicial (${qObj.relativePath || 'PDF dos autos'})`;
+      } else if (tipoReq === 'validate_pdf_signature') {
+        categoria = 'VALIDACAO_ASSINATURA';
+        acao = 'VALIDAÇÃO ICP-BRASIL';
+        descricao = `Validação criptográfica de assinatura digital ICP-Brasil (${qObj.relativePath || 'PDF'})`;
+      } else if (tipoReq === 'read_document_text') {
+        categoria = 'LEITURA_ACERVO';
+        acao = 'VISUALIZAÇÃO DE DOCUMENTO';
+        descricao = `Abertura / leitura de documento no acervo (${qObj.rootId ? `[${qObj.rootId.toUpperCase()}] ` : ''}${qObj.relativePath || ''})`;
+        const matMatch = (qObj.relativePath || '').match(/0*(\d{1,8})\.(?:ken|tif|tiff)$/i);
+        if (matMatch && (qObj.rootId === 'livro2' || /lv2/i.test(qObj.relativePath || ''))) {
+          matricula = `Matrícula ${matMatch[1]}`;
+        }
+      } else {
+        categoria = 'PESQUISA';
+        acao = 'PESQUISA NO ACERVO';
+        const termoLimpo = sanitizarMatriculaTranscricao(qObj.query || '');
+        descricao = `Consulta realizada no acervo da Gestão Documental: "${termoLimpo || qObj.query || ''}"`;
+        if (/matr[íi]cula|transcri[çc][ãa]o/i.test(termoLimpo)) {
+          matricula = termoLimpo;
+        }
+      }
+
+      logs.push({
+        id: `req-${req.id}`,
+        dataHora: dataIso,
+        modulo: 'GESTÃO DOCUMENTAL',
+        acao,
+        categoria,
+        processo,
+        matricula,
+        requerente: null,
+        usuarioNome: 'Estação Gestão Documental',
+        descricao,
+        status: req.status === 'complete' ? 'CONCLUÍDO' : req.status === 'failed' ? 'FALHA' : 'PROCESSANDO',
+        manifestacaoId: null,
+      });
+    }
+  } catch {}
+
+  // Filtros por data (fuso America/Sao_Paulo), categoria/tipo e busca textual
+  const deLimite = filtros.de ? new Date(`${filtros.de}T00:00:00-03:00`).getTime() : null;
+  const ateLimite = filtros.ate ? new Date(`${filtros.ate}T23:59:59.999-03:00`).getTime() : null;
+  const tipoFiltro = filtros.tipo && filtros.tipo !== 'TODOS' ? filtros.tipo : null;
+  const termoBusca = (filtros.busca || '').trim();
+  const termoNorm = removerAcentos(termoBusca);
+  const termoDigitos = termoBusca.replace(/[^\d]/g, '');
+
+  const filtrados = logs.filter(item => {
+    const t = new Date(item.dataHora).getTime();
+    if (Number.isNaN(t)) return false;
+    if (deLimite !== null && t < deLimite) return false;
+    if (ateLimite !== null && t > ateLimite) return false;
+    if (tipoFiltro && item.categoria !== tipoFiltro) return false;
+    if (termoNorm) {
+      const alvo = removerAcentos(
+        [
+          item.acao,
+          item.categoria,
+          item.processo,
+          item.matricula,
+          item.requerente,
+          item.usuarioNome,
+          item.descricao,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      );
+      if (alvo.includes(termoNorm)) return true;
+      if (termoDigitos.length >= 2) {
+        const alvoDigitos = alvo.replace(/[^\d]/g, '');
+        if (alvoDigitos.includes(termoDigitos)) return true;
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // Ordenação por data (padrão: mais recentes primeiro; permite alternar para mais antigos primeiro)
+  const ordem = filtros.ordem === 'asc' ? 'asc' : 'desc';
+  filtrados.sort((a, b) => {
+    const ta = new Date(a.dataHora).getTime();
+    const tb = new Date(b.dataHora).getTime();
+    return ordem === 'asc' ? ta - tb : tb - ta;
+  });
+
+  const limite = Math.min(Math.max(filtros.limite ?? 250, 1), 500);
+  return {
+    itens: filtrados.slice(0, limite),
+    total: filtrados.length,
+  };
 }
 
 /** Envia ao banco as fichas que estavam apenas no navegador (fila antiga), sem duplicar. */

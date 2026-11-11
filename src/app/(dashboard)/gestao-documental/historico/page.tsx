@@ -7,8 +7,8 @@ import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Andamentos — Gestão Documental | FIORIX',
-  description: 'Andamentos, rascunhos e manifestações de usucapião no FIORIX, com versões, conferência de integridade e download em PDF.',
+  title: 'Andamentos (Logs da Gestão Documental) | FIORIX',
+  description: 'Logs exclusivos da Gestão Documental filtrados por ordem de data.',
 };
 
 export default async function HistoricoManifestacoesPage() {

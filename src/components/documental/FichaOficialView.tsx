@@ -46,6 +46,7 @@ import {
   resolverPlantaSetorQuadra,
   sanitizarDescricaoImovel,
   sanitizarLogradouroConfrontacao,
+  sanitizarMatriculaTranscricao,
   extrairImovelDoTextoAutos,
   formatarDescricaoImovelGeoSampa,
 } from '@/lib/confrontacoes';
@@ -736,11 +737,15 @@ const CAMPOS_CONFRONTACAO: (keyof DadosManifestacao)[] = ['confrontante_lado_dir
 function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?: ArquivoOrigemFicha | null): DadosManifestacao {
   let imovelLimpo = sanitizarDescricaoImovel(dadosIniciais.imovel);
   let ruaLimpa = sanitizarLogradouroConfrontacao(dadosIniciais.rua_olhar_confrontacao, dadosIniciais.imovel);
+  const matriculaLimpa = sanitizarMatriculaTranscricao(dadosIniciais.matricula_transcricao);
 
   const origensHigienizadas = Array.isArray(dadosIniciais.origem_campos)
     ? dadosIniciais.origem_campos.map(o => {
         if (o?.campo === 'imovel' && o.trecho) {
           return { ...o, trecho: sanitizarDescricaoImovel(o.trecho) };
+        }
+        if (o?.campo === 'matricula_transcricao' && o.trecho) {
+          return { ...o, trecho: sanitizarMatriculaTranscricao(o.trecho) };
         }
         return o;
       })
@@ -762,6 +767,9 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
     ...dadosIniciais,
     imovel: imovelLimpo,
     rua_olhar_confrontacao: ruaLimpa,
+    matricula_transcricao: matriculaLimpa,
+    matriculas_anexas: sanitizarMatriculaTranscricao(dadosIniciais.matriculas_anexas),
+    transcricoes_anexas: sanitizarMatriculaTranscricao(dadosIniciais.transcricoes_anexas),
     origem_campos: origensHigienizadas,
   };
 
@@ -787,6 +795,7 @@ function prepararDadosIniciais(dadosIniciais: DadosManifestacao, arquivoOrigem?:
           return vLimpo ? `• Frente (Logradouro): ${vLimpo}` : '';
         },
       )
+      .replace(/\b(Matr[íi]cula|Transcri[çc][ãa]o)(\s*(?:n[ºo°.]?\s*)?)0+([1-9]\d*)/gi, '$1$2$3')
       .replace(/\n{2,}/g, '\n')
       .trim();
   }
@@ -1269,6 +1278,7 @@ export function FichaOficialView({
     const candidatas = files.filter(f => {
       const root = (f.rootId || '').toLowerCase();
       const rel = (f.relativePath || '').toLowerCase();
+      if (rel.includes('setores') || root === 'setores') return false;
       const isImg =
         root === 'livro2' ||
         root.includes('imagem') ||
@@ -1474,7 +1484,17 @@ export function FichaOficialView({
   );
 
   const arquivoPlantaSetorDireto: Livro2Match | null = useMemo(() => {
-    if (arquivosSetores && arquivosSetores.length > 0) return arquivosSetores[0];
+    if (arquivosSetores && arquivosSetores.length > 0) {
+      const primeiro = arquivosSetores[0];
+      const relNorm = (primeiro.relativePath || '').replace(/\//g, '\\');
+      if (primeiro.rootId !== 'livro2' && !/(?:^|\\)lv[23](?:\\|$)/i.test(relNorm)) {
+        return {
+          ...primeiro,
+          rootId: 'imagens',
+          relativePath: /^setores\\/i.test(relNorm) ? relNorm : `SETORES\\${relNorm.replace(/^\\+/, '')}`,
+        };
+      }
+    }
     if (!plantaSetorCalculada) return null;
     return {
       rootId: 'imagens',
@@ -1488,7 +1508,8 @@ export function FichaOficialView({
   const ultimaPlantaAutoSetoresRef = useRef<string>('');
 
   async function localizarPlantaSetorNoAcervo(termoCustom?: string, silencioso = false) {
-    const info = resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel) || resultadoGeoSampa?.plantaSetor;
+    const infoCustom = termoCustom ? resolverPlantaSetorQuadra(termoCustom, termoCustom) : null;
+    const info = infoCustom || resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel) || resultadoGeoSampa?.plantaSetor;
     const queryBusca = (
       termoCustom ||
       info?.termoBusca ||
@@ -1497,9 +1518,27 @@ export function FichaOficialView({
     ).trim();
 
     const construirFallbackSetor = (): Livro2Match => {
-      if (arquivoPlantaSetorDireto) return arquivoPlantaSetorDireto;
+      if (infoCustom) {
+        return {
+          rootId: 'imagens',
+          relativePath: infoCustom.caminhoRelativo,
+          name: infoCustom.arquivoKen,
+          size: 0,
+          modifiedAt: '',
+        };
+      }
+      if (plantaSetorCalculada) {
+        return {
+          rootId: 'imagens',
+          relativePath: plantaSetorCalculada.caminhoRelativo,
+          name: plantaSetorCalculada.arquivoKen,
+          size: 0,
+          modifiedAt: '',
+        };
+      }
       const digitos = queryBusca.replace(/[^\d]/g, '');
-      const n = parseInt(digitos.slice(0, 6) || '1001', 10) || 1001;
+      const semZerosIniciais = digitos.replace(/^00/, '');
+      const n = parseInt(semZerosIniciais.slice(0, 6) || '1001', 10) || 1001;
       const pad8 = String(n).padStart(8, '0');
       const bloco = String(Math.floor(n / 1000) * 1000).padStart(8, '0');
       return {
@@ -1526,33 +1565,78 @@ export function FichaOficialView({
     setErroSetores(null);
     setTermoBuscadoSetores(queryBusca);
 
+    const alvoSetorCalculado = construirFallbackSetor();
+
     try {
+      // 1. Verifica diretamente no endpoint local de imagens (/api/documental/ken?sessao=SETORES) para resposta imediata
+      try {
+        const docCode = alvoSetorCalculado.name.replace(/\.[^.]+$/, '') || queryBusca;
+        const kenCheck = await fetch(
+          `/api/documental/ken?doc=${encodeURIComponent(docCode)}&sessao=SETORES&path=${encodeURIComponent(alvoSetorCalculado.relativePath)}`,
+        );
+        if (kenCheck.ok) {
+          const kenJson = await kenCheck.json();
+          if (kenJson.success) {
+            const relResolvido = String(kenJson.relativePath || alvoSetorCalculado.relativePath).replace(/\//g, '\\');
+            const matchDireto: Livro2Match = {
+              rootId: 'imagens',
+              relativePath: /^setores\\/i.test(relResolvido) ? relResolvido : `SETORES\\${relResolvido.replace(/^\\+/, '')}`,
+              name: kenJson.fileName || alvoSetorCalculado.name,
+              size: kenJson.size || 0,
+              modifiedAt: '',
+            };
+            setArquivosSetores([matchDireto]);
+            if (!silencioso && onVisualizarDocumento) {
+              onVisualizarDocumento(matchDireto);
+            }
+            return;
+          }
+        }
+      } catch {
+        // Prossegue para o Connector se o endpoint local não estiver acessível
+      }
+
+      const queryConnector = info
+        ? `Setor ${info.setor} Quadra ${info.quadra} ${info.termoBusca}`
+        : `Setor ${queryBusca}`;
+
       const response = await fetch('/api/gestao-documental', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           connectorId: connectorId || 'auto',
           type: 'search',
-          query: queryBusca,
+          query: queryConnector,
           forceFresh: !silencioso,
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Connector local indisponível.');
 
-      const filtrarPlantas = (files: Livro2Match[]) => {
-        const plantas = files.filter(f => {
-          const rel = (f.relativePath || '').toLowerCase();
-          return rel.includes('setores') || /^00\d{6}\.(ken|tif|tiff)$/i.test(f.name || '');
-        });
-        return plantas.length > 0 ? plantas : files;
+      const filtrarPlantas = (files: Livro2Match[]): Livro2Match[] => {
+        const plantas: Livro2Match[] = [];
+        for (const f of files) {
+          const root = (f.rootId || '').toLowerCase();
+          const rel = (f.relativePath || '').replace(/\//g, '\\');
+          const relLower = rel.toLowerCase();
+          // Jamais aceitar arquivos do Livro 2 (LV2/LV3) como Planta de Setor
+          if (root === 'livro2' || /(?:^|\\)lv[23](?:\\|$)/i.test(rel)) continue;
+          if (relLower.includes('setores') || root === 'setores') {
+            plantas.push({
+              ...f,
+              rootId: 'imagens',
+              relativePath: /^setores\\/i.test(rel) ? rel : `SETORES\\${rel.replace(/^.*?(?:setores\\)?/i, '')}`,
+            });
+          }
+        }
+        return plantas.length > 0 ? plantas : [alvoSetorCalculado];
       };
 
       if (body.status === 'complete' && body.result) {
         const filtradas = filtrarPlantas(body.result.files || []);
         setArquivosSetores(filtradas);
         if (!silencioso && onVisualizarDocumento) {
-          onVisualizarDocumento(filtradas[0] || construirFallbackSetor());
+          onVisualizarDocumento(filtradas[0] || alvoSetorCalculado);
         }
         return;
       }
@@ -1567,7 +1651,7 @@ export function FichaOficialView({
           const filtradas = filtrarPlantas(state.result.files || []);
           setArquivosSetores(filtradas);
           if (!silencioso && onVisualizarDocumento) {
-            onVisualizarDocumento(filtradas[0] || construirFallbackSetor());
+            onVisualizarDocumento(filtradas[0] || alvoSetorCalculado);
           }
           return;
         }
@@ -1575,9 +1659,9 @@ export function FichaOficialView({
       }
       throw new Error('Tempo limite excedido ao consultar K:\\IMAGENS\\SETORES.');
     } catch (err) {
-      setArquivosSetores(null);
+      setArquivosSetores([alvoSetorCalculado]);
       if (!silencioso && onVisualizarDocumento) {
-        onVisualizarDocumento(construirFallbackSetor());
+        onVisualizarDocumento(alvoSetorCalculado);
       } else if (!silencioso) {
         setErroSetores(err instanceof Error ? err.message : 'Falha ao localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
       }
@@ -1597,7 +1681,60 @@ export function FichaOficialView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plantaSetorCalculada?.termoBusca, connectorId]);
 
-  const registrarConfrontacoesNasAnotacoes = (
+  const [confrontacoesUsucapiao, setConfrontacoesUsucapiao] = useState<{
+    frente: string;
+    ladoDireito: string;
+    ladoEsquerdo: string;
+    fundos: string;
+  }>(() => ({
+    frente: dados.rua_olhar_confrontacao || '',
+    ladoDireito: dados.confrontante_lado_direito || '',
+    ladoEsquerdo: dados.confrontante_lado_esquerdo || '',
+    fundos: dados.confrontante_fundos || '',
+  }));
+  const [fonteConfrontacaoManifestacao, setFonteConfrontacaoManifestacao] = useState<'usucapiao' | 'geosampa'>('usucapiao');
+
+  useEffect(() => {
+    setConfrontacoesUsucapiao(prev => ({
+      frente: prev.frente || dados.rua_olhar_confrontacao || '',
+      ladoDireito:
+        prev.ladoDireito && prev.ladoDireito !== 'conforme apuração nos autos'
+          ? prev.ladoDireito
+          : dados.confrontante_lado_direito || '',
+      ladoEsquerdo:
+        prev.ladoEsquerdo && prev.ladoEsquerdo !== 'conforme apuração nos autos'
+          ? prev.ladoEsquerdo
+          : dados.confrontante_lado_esquerdo || '',
+      fundos:
+        prev.fundos && prev.fundos !== 'conforme apuração nos autos'
+          ? prev.fundos
+          : dados.confrontante_fundos || '',
+    }));
+  }, [
+    dados.rua_olhar_confrontacao,
+    dados.confrontante_lado_direito,
+    dados.confrontante_lado_esquerdo,
+    dados.confrontante_fundos,
+  ]);
+
+  const atualizarCampoConfrontacaoUsucapiao = (
+    campo: 'frente' | 'ladoDireito' | 'ladoEsquerdo' | 'fundos',
+    valor: string,
+  ) => {
+    setConfrontacoesUsucapiao(prev => ({ ...prev, [campo]: valor }));
+    if (fonteConfrontacaoManifestacao === 'usucapiao') {
+      const mapaCampo: Record<typeof campo, keyof DadosManifestacao> = {
+        frente: 'rua_olhar_confrontacao',
+        ladoDireito: 'confrontante_lado_direito',
+        ladoEsquerdo: 'confrontante_lado_esquerdo',
+        fundos: 'confrontante_fundos',
+      };
+      atualizarCampo(mapaCampo[campo], valor as never);
+    }
+  };
+
+  const aplicarConfrontacoesNaManifestacao = (
+    origem: 'usucapiao' | 'geosampa',
     override?: Partial<{
       frente: string;
       ladoDireito: string;
@@ -1607,11 +1744,17 @@ export function FichaOficialView({
       sqlGeoSampa: string;
     }>,
   ) => {
+    setFonteConfrontacaoManifestacao(origem);
+    setOrigemConfrontacoes(
+      origem === 'geosampa'
+        ? 'GeoSampa (Quadra Fiscal)'
+        : 'Imóvel Elencado no Usucapião (Petição / Matrícula)',
+    );
     setDados(prev => {
-      const frente = override?.frente ?? prev.rua_olhar_confrontacao ?? '';
-      const dir = override?.ladoDireito ?? prev.confrontante_lado_direito ?? '';
-      const esq = override?.ladoEsquerdo ?? prev.confrontante_lado_esquerdo ?? '';
-      const fun = override?.fundos ?? prev.confrontante_fundos ?? '';
+      const frente = override?.frente !== undefined ? override.frente : prev.rua_olhar_confrontacao ?? '';
+      const dir = override?.ladoDireito !== undefined ? override.ladoDireito : prev.confrontante_lado_direito ?? '';
+      const esq = override?.ladoEsquerdo !== undefined ? override.ladoEsquerdo : prev.confrontante_lado_esquerdo ?? '';
+      const fun = override?.fundos !== undefined ? override.fundos : prev.confrontante_fundos ?? '';
       const planta =
         override?.plantaFiscal ??
         plantaSetorCalculada?.caminhoCompleto ??
@@ -1642,19 +1785,43 @@ export function FichaOficialView({
         ? atual.replace(regexBlocoExistente, blocoNovo)
         : `${blocoNovo}\n\n${atual}`;
 
-      return sincronizarAnexos({
+      const atualizado = sincronizarAnexos({
         ...prev,
-        rua_olhar_confrontacao: frente || prev.rua_olhar_confrontacao,
-        confrontante_lado_direito: dir || prev.confrontante_lado_direito,
-        confrontante_lado_esquerdo: esq || prev.confrontante_lado_esquerdo,
-        confrontante_fundos: fun || prev.confrontante_fundos,
+        rua_olhar_confrontacao: frente,
+        confrontante_lado_direito: dir,
+        confrontante_lado_esquerdo: esq,
+        confrontante_fundos: fun,
         contribuinte_sql:
           (!prev.contribuinte_sql || /^0+$/.test(prev.contribuinte_sql.replace(/[^\d]/g, ''))) && sqlRef
             ? sqlRef
             : prev.contribuinte_sql,
         anotacoes_ficha_oficial: novasAnotacoes,
       });
+
+      if (prev.corpo_livre_manifestacao?.trim()) {
+        atualizado.corpo_livre_manifestacao = gerarTextoCorpoPadrao(
+          montarMinuta(
+            { ...atualizado, modo_edicao_manifestacao: 'hibrido', corpo_livre_manifestacao: '' },
+            saudacaoJuiz,
+          ),
+        );
+      }
+
+      return atualizado;
     });
+  };
+
+  const registrarConfrontacoesNasAnotacoes = (
+    override?: Partial<{
+      frente: string;
+      ladoDireito: string;
+      ladoEsquerdo: string;
+      fundos: string;
+      plantaFiscal: string;
+      sqlGeoSampa: string;
+    }>,
+  ) => {
+    aplicarConfrontacoesNaManifestacao(fonteConfrontacaoManifestacao, override);
   };
 
   async function consultarGeoSampaConfrontacoes(silencioso = false) {
@@ -1706,6 +1873,22 @@ export function FichaOficialView({
         lote: json.lote,
         areaTerreno: json.loteGeoSampa?.qt_area_terreno,
       });
+
+      setConfrontacoesUsucapiao(prevUsu => ({
+        frente: prevUsu.frente || sanitizarLogradouroConfrontacao(dados.rua_olhar_confrontacao, dados.imovel) || cg?.frente || '',
+        ladoDireito:
+          prevUsu.ladoDireito && prevUsu.ladoDireito !== 'conforme apuração nos autos'
+            ? prevUsu.ladoDireito
+            : ct?.ladoDireito || cg?.ladoDireito || '',
+        ladoEsquerdo:
+          prevUsu.ladoEsquerdo && prevUsu.ladoEsquerdo !== 'conforme apuração nos autos'
+            ? prevUsu.ladoEsquerdo
+            : ct?.ladoEsquerdo || cg?.ladoEsquerdo || '',
+        fundos:
+          prevUsu.fundos && prevUsu.fundos !== 'conforme apuração nos autos'
+            ? prevUsu.fundos
+            : ct?.fundos || cg?.fundos || '',
+      }));
 
       setDados(prev => {
         const imovelPrevLimpo = sanitizarDescricaoImovel(prev.imovel);
@@ -2553,6 +2736,18 @@ export function FichaOficialView({
 
               <div className="pl-8 sm:pl-12 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="shrink-0">– pela frente com</span>
+                  <input
+                    id="campo-rua_olhar_confrontacao"
+                    type="text"
+                    value={dados.rua_olhar_confrontacao}
+                    onChange={e => atualizarCampo('rua_olhar_confrontacao', e.target.value)}
+                    placeholder="Logradouro / rua de frente do imóvel"
+                    className={`${classeCampoInline} flex-1 min-w-[260px]`}
+                  />
+                  <span>;</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="shrink-0">– pelo lado direito com</span>
                   <input
                     id="campo-confrontante_lado_direito"
@@ -3119,6 +3314,98 @@ export function FichaOficialView({
     </div>
   );
 
+  const renderCardLateralVisualizar = () => (
+    <aside
+      aria-label="Visualizar documentos do processo"
+      className="w-full shrink-0 xl:sticky xl:top-4 xl:w-52"
+    >
+      <div className="rounded-xl border border-[#CBD5E1]/90 bg-white/95 p-3 shadow-xs backdrop-blur-xs space-y-2">
+        <div className="flex items-center gap-1.5 border-b border-gray-100 pb-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#1E293B] text-[#C9B896]">
+            <Eye className="h-3 w-3" aria-hidden="true" />
+          </div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#1E293B]">
+            VISUALIZAR
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => void localizarNoLivro2()}
+            disabled={buscandoLivro2}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
+            title="Visualizar imagem da Matrícula em K:\IMAGENS\LV2 no visualizador claro"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                {buscandoLivro2 ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#0F3D6E]" />
+                ) : (
+                  <ImageIcon className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
+                )}
+                <span className="truncate">Matrícula (LV2)</span>
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {arquivosLivro2?.[0]?.name || dados.matricula_transcricao || 'K:\\IMAGENS\\LV2'}
+              </div>
+            </div>
+            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (arquivoPlantaSetorDireto && onVisualizarDocumento) {
+                onVisualizarDocumento(arquivoPlantaSetorDireto);
+              } else {
+                void localizarPlantaSetorNoAcervo(undefined, false);
+              }
+            }}
+            disabled={buscandoSetores}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-emerald-600/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
+            title="Visualizar Planta Fiscal em K:\IMAGENS\SETORES no visualizador claro"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                {buscandoSetores ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-700" />
+                ) : (
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                )}
+                <span className="truncate">Planta de Setor</span>
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {arquivoPlantaSetorDireto?.name || dados.contribuinte_sql || 'K:\\IMAGENS\\SETORES'}
+              </div>
+            </div>
+            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-emerald-700" />
+          </button>
+
+          {podeVisualizarOriginal && (
+            <button
+              type="button"
+              onClick={visualizarOriginal}
+              className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#B8A082] hover:bg-white hover:shadow-2xs cursor-pointer"
+              title="Visualizar PDF dos Autos / Petição Inicial no visualizador claro"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-[#57534E]" />
+                  <span className="truncate">Autos (PDF)</span>
+                </div>
+                <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                  {arquivoOrigem?.name || 'Petição Inicial'}
+                </div>
+              </div>
+              <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+            </button>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -3423,8 +3710,9 @@ export function FichaOficialView({
                   </div>
                 </div>
 
-                {/* FOLHA CLÁSSICA NA TELA */}
-                <div className="mx-auto max-w-[780px] space-y-4 rounded-sm border-2 border-black bg-white p-5 font-serif text-black shadow-md sm:p-8">
+                {/* FOLHA CLÁSSICA NA TELA + CARD LATERAL DISCRETO "VISUALIZAR" */}
+                <div className="mx-auto flex max-w-[1040px] flex-col items-start justify-center gap-4 xl:flex-row">
+                <div className="w-full min-w-0 flex-1 space-y-4 rounded-sm border-2 border-black bg-white p-5 font-serif text-black shadow-md sm:p-8">
                   <div className="border-b-2 border-black pb-3 text-center">
                     <h4 className="text-lg font-bold uppercase tracking-wider sm:text-xl">7º Cartório de Registro de Imóveis</h4>
                     <div className="text-sm italic">Comarca da Capital</div>
@@ -3546,9 +3834,6 @@ export function FichaOficialView({
                     <div className="flex flex-wrap items-center justify-between gap-2 font-sans text-[11px] font-bold uppercase tracking-wider">
                       <label htmlFor="doc-anotacoes" className="flex items-center gap-1.5 text-black">
                         <span>Conferência e Anotações:</span>
-                        <span className="rounded bg-[#1E293B] px-1.5 py-0.5 text-[9.5px] font-semibold text-white">
-                          Confrontações do Imóvel
-                        </span>
                       </label>
                       <span className="font-normal text-gray-700">Anotações editáveis abaixo</span>
                     </div>
@@ -3560,11 +3845,37 @@ export function FichaOficialView({
                           <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
                             <Compass className="h-3.5 w-3.5 text-[#0F3D6E]" />
                             <span>Confrontações do Imóvel Elencado no Usucapião</span>
+                            {fonteConfrontacaoManifestacao === 'usucapiao' && (
+                              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-800 border border-emerald-300">
+                                Ativa na Manifestação (Etapa 2)
+                              </span>
+                            )}
                           </div>
                           <p className="text-[10.5px] text-gray-600">
                             Pesquisa integrada: Petição Inicial • Matrícula ({dados.matricula_transcricao || 'LV2/LV3'}) • Plantas Fiscais (<code className="font-mono">K:\IMAGENS\SETORES</code>) • GeoSampa
                           </p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            aplicarConfrontacoesNaManifestacao('usucapiao', {
+                              frente: confrontacoesUsucapiao.frente,
+                              ladoDireito: confrontacoesUsucapiao.ladoDireito,
+                              ladoEsquerdo: confrontacoesUsucapiao.ladoEsquerdo,
+                              fundos: confrontacoesUsucapiao.fundos,
+                              plantaFiscal: plantaSetorCalculada?.caminhoCompleto,
+                              sqlGeoSampa: dados.contribuinte_sql,
+                            });
+                            mostrarAviso(
+                              'Confrontações do Imóvel Elencado no Usucapião inseridas na Manifestação (Etapa 2) e registradas nas Anotações!',
+                            );
+                          }}
+                          className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer"
+                          title="Inserir esta descrição de confrontações na Manifestação (Etapa 2)"
+                        >
+                          <Check className="h-3 w-3" />
+                          <span>APLICAR ESTA:</span>
+                        </button>
                       </div>
 
                       {/* Campos das Confrontações (sincronizados com a Etapa 2 e com a Ficha Impressa) */}
@@ -3575,8 +3886,8 @@ export function FichaOficialView({
                           </span>
                           <input
                             type="text"
-                            value={dados.rua_olhar_confrontacao}
-                            onChange={e => atualizarCampo('rua_olhar_confrontacao', e.target.value)}
+                            value={confrontacoesUsucapiao.frente}
+                            onChange={e => atualizarCampoConfrontacaoUsucapiao('frente', e.target.value)}
                             placeholder="Ex.: Rua 47 / Rua Gaspar Rodrigues, nº 191"
                             className={inputPainel}
                           />
@@ -3587,8 +3898,8 @@ export function FichaOficialView({
                           </span>
                           <input
                             type="text"
-                            value={dados.confrontante_lado_direito}
-                            onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
+                            value={confrontacoesUsucapiao.ladoDireito}
+                            onChange={e => atualizarCampoConfrontacaoUsucapiao('ladoDireito', e.target.value)}
                             placeholder="Ex.: com o lote 11 (prédio nº ... / Matrícula nº ...)"
                             className={inputPainel}
                           />
@@ -3599,8 +3910,8 @@ export function FichaOficialView({
                           </span>
                           <input
                             type="text"
-                            value={dados.confrontante_lado_esquerdo}
-                            onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
+                            value={confrontacoesUsucapiao.ladoEsquerdo}
+                            onChange={e => atualizarCampoConfrontacaoUsucapiao('ladoEsquerdo', e.target.value)}
                             placeholder="Ex.: com o lote 13 (prédio nº ... / Matrícula nº ...)"
                             className={inputPainel}
                           />
@@ -3611,8 +3922,8 @@ export function FichaOficialView({
                           </span>
                           <input
                             type="text"
-                            value={dados.confrontante_fundos}
-                            onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
+                            value={confrontacoesUsucapiao.fundos}
+                            onChange={e => atualizarCampoConfrontacaoUsucapiao('fundos', e.target.value)}
                             placeholder="Ex.: com o lote 25 da quadra ..."
                             className={inputPainel}
                           />
@@ -3691,27 +4002,35 @@ export function FichaOficialView({
                             {resultadoGeoSampa?.confrontantesGeoSampa ? (
                               <div className="rounded border border-blue-200 bg-white p-2.5 space-y-2">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="text-[11px] font-bold text-[#1E293B]">
-                                    Confrontantes Lindeiros Apurados na Quadra Fiscal (GeoSampa):
+                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1E293B]">
+                                    <span>Confrontantes Lindeiros Apurados na Quadra Fiscal (GeoSampa):</span>
+                                    {fonteConfrontacaoManifestacao === 'geosampa' && (
+                                      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-bold text-emerald-800 border border-emerald-300">
+                                        Ativa na Manifestação (Etapa 2)
+                                      </span>
+                                    )}
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       const cg = resultadoGeoSampa.confrontantesGeoSampa!;
-                                      registrarConfrontacoesNasAnotacoes({
-                                        frente: cg.frente || dados.rua_olhar_confrontacao,
+                                      aplicarConfrontacoesNaManifestacao('geosampa', {
+                                        frente: cg.frente || confrontacoesUsucapiao.frente || dados.rua_olhar_confrontacao,
                                         ladoDireito: cg.ladoDireito || dados.confrontante_lado_direito,
                                         ladoEsquerdo: cg.ladoEsquerdo || dados.confrontante_lado_esquerdo,
                                         fundos: cg.fundos || dados.confrontante_fundos,
                                         plantaFiscal: resultadoGeoSampa.plantaSetor?.caminhoCompleto,
                                         sqlGeoSampa: resultadoGeoSampa.loteGeoSampa?.nr_contribuinte,
                                       });
-                                      mostrarAviso('Confrontações do GeoSampa aplicadas nos campos e registradas em Conferência e Anotações!');
+                                      mostrarAviso(
+                                        'Confrontantes do GeoSampa inseridos na Manifestação (Etapa 2) e registrados em Conferência e Anotações!',
+                                      );
                                     }}
                                     className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#1E3A8A] transition cursor-pointer"
+                                    title="Inserir esta descrição de confrontantes do GeoSampa na Manifestação (Etapa 2)"
                                   >
                                     <Check className="h-3 w-3" />
-                                    <span>Aplicar Confrontantes do GeoSampa na Ficha e Anotações</span>
+                                    <span>APLICAR ESTA:</span>
                                   </button>
                                 </div>
 
@@ -3916,6 +4235,8 @@ export function FichaOficialView({
                       ))}
                     </div>
                   </div>
+                </div>
+                {renderCardLateralVisualizar()}
                 </div>
               </div>
             ) : (
@@ -4340,95 +4661,7 @@ export function FichaOficialView({
                     {renderFolhaManifestacaoHibrida()}
                   </div>
 
-                  <aside
-                    aria-label="Visualizar documentos do processo"
-                    className="w-full shrink-0 xl:sticky xl:top-4 xl:w-52"
-                  >
-                    <div className="rounded-xl border border-[#CBD5E1]/90 bg-white/95 p-3 shadow-xs backdrop-blur-xs space-y-2">
-                      <div className="flex items-center gap-1.5 border-b border-gray-100 pb-2">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#1E293B] text-[#C9B896]">
-                          <Eye className="h-3 w-3" aria-hidden="true" />
-                        </div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#1E293B]">
-                          VISUALIZAR
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => void localizarNoLivro2()}
-                          disabled={buscandoLivro2}
-                          className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
-                          title="Visualizar imagem da Matrícula em K:\IMAGENS\LV2 no visualizador claro"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                              {buscandoLivro2 ? (
-                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#0F3D6E]" />
-                              ) : (
-                                <ImageIcon className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
-                              )}
-                              <span className="truncate">Matrícula (LV2)</span>
-                            </div>
-                            <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
-                              {arquivosLivro2?.[0]?.name || dados.matricula_transcricao || 'K:\\IMAGENS\\LV2'}
-                            </div>
-                          </div>
-                          <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (arquivoPlantaSetorDireto && onVisualizarDocumento) {
-                              onVisualizarDocumento(arquivoPlantaSetorDireto);
-                            } else {
-                              void localizarPlantaSetorNoAcervo(undefined, false);
-                            }
-                          }}
-                          disabled={buscandoSetores}
-                          className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-emerald-600/40 hover:bg-white hover:shadow-2xs cursor-pointer disabled:opacity-50"
-                          title="Visualizar Planta Fiscal em K:\IMAGENS\SETORES no visualizador claro"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                              {buscandoSetores ? (
-                                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-700" />
-                              ) : (
-                                <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-                              )}
-                              <span className="truncate">Planta de Setor</span>
-                            </div>
-                            <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
-                              {arquivoPlantaSetorDireto?.name || dados.contribuinte_sql || 'K:\\IMAGENS\\SETORES'}
-                            </div>
-                          </div>
-                          <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-emerald-700" />
-                        </button>
-
-                        {podeVisualizarOriginal && (
-                          <button
-                            type="button"
-                            onClick={visualizarOriginal}
-                            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#B8A082] hover:bg-white hover:shadow-2xs cursor-pointer"
-                            title="Visualizar PDF dos Autos / Petição Inicial no visualizador claro"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
-                                <FileText className="h-3.5 w-3.5 shrink-0 text-[#57534E]" />
-                                <span className="truncate">Autos (PDF)</span>
-                              </div>
-                              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
-                                {arquivoOrigem?.name || 'Petição Inicial'}
-                              </div>
-                            </div>
-                            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </aside>
+                  {renderCardLateralVisualizar()}
                 </div>
               </div>
             )}
@@ -5065,7 +5298,7 @@ export interface MinutaModelo {
   saudacao: string;
   paragrafosAntes: Segmento[][];
   introConfrontacoes: string;
-  confrontacoes: { campo: 'confrontante_lado_direito' | 'confrontante_lado_esquerdo' | 'confrontante_fundos'; rotulo: string; valor: string; pontuacao: string }[];
+  confrontacoes: { campo: 'rua_olhar_confrontacao' | 'confrontante_lado_direito' | 'confrontante_lado_esquerdo' | 'confrontante_fundos'; rotulo: string; valor: string; pontuacao: string }[];
   paragrafosDepois: Segmento[][];
   local: string;
   assinatura: { titulo?: string; nome: string; cargo: string };
@@ -5159,6 +5392,9 @@ export function montarMinuta(d: DadosManifestacao, saudacao?: string): MinutaMod
       d.intro_confrontacoes_custom?.trim() ||
       'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:',
     confrontacoes: [
+      ...(d.rua_olhar_confrontacao?.trim()
+        ? [{ campo: 'rua_olhar_confrontacao' as const, rotulo: '– pela frente com', valor: d.rua_olhar_confrontacao.trim(), pontuacao: ';' }]
+        : []),
       { campo: 'confrontante_lado_direito', rotulo: '– pelo lado direito com', valor: d.confrontante_lado_direito || TEXTO_CONFRONTACAO_PADRAO, pontuacao: ';' },
       { campo: 'confrontante_lado_esquerdo', rotulo: '– pelo lado esquerdo com', valor: d.confrontante_lado_esquerdo || TEXTO_CONFRONTACAO_PADRAO, pontuacao: ';' },
       { campo: 'confrontante_fundos', rotulo: '– e aos fundos com', valor: d.confrontante_fundos || TEXTO_CONFRONTACAO_PADRAO, pontuacao: '.' },

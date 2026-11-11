@@ -49,6 +49,7 @@ import {
 import {
   sanitizarDescricaoImovel,
   sanitizarLogradouroConfrontacao,
+  sanitizarMatriculaTranscricao,
   extrairImovelDoTextoAutos,
 } from '@/lib/confrontacoes';
 import {
@@ -520,6 +521,15 @@ export function DocumentSearch({
     }
     if (!limpo.matricula_transcricao?.trim() && arquivo?.matricula) {
       limpo.matricula_transcricao = arquivo.matricula;
+    }
+    if (limpo.matricula_transcricao) {
+      limpo.matricula_transcricao = sanitizarMatriculaTranscricao(limpo.matricula_transcricao);
+    }
+    if (limpo.matriculas_anexas) {
+      limpo.matriculas_anexas = sanitizarMatriculaTranscricao(limpo.matriculas_anexas);
+    }
+    if (limpo.transcricoes_anexas) {
+      limpo.transcricoes_anexas = sanitizarMatriculaTranscricao(limpo.transcricoes_anexas);
     }
     return limpo;
   }
@@ -1592,6 +1602,59 @@ export function DocumentSearch({
     setTempoEstimado(5);
     setProcessandoAcao({ id: fileKey, tipo: 'leitura', fileName: file.name });
     setError('');
+    const relUpper = (file.relativePath || '').toUpperCase();
+    const rootLower = (file.rootId || '').toLowerCase();
+    const sessaoInferida =
+      rootLower === 'setores' || relUpper.includes('SETORES')
+        ? 'SETORES'
+        : rootLower === 'lv3' || relUpper.includes('LV3')
+        ? 'LV3'
+        : rootLower === 'processos'
+        ? 'PROCESSOS'
+        : rootLower === 'minutas' || rootLower === 'usucapiao'
+        ? 'USUCAPIAO_EXTRAJUD'
+        : 'LV2';
+    const termoDoc = (file.name || '').replace(/\.[^/.]+$/, '').trim() || '1';
+    const ehImagemKenOuSetor =
+      sessaoInferida === 'SETORES' ||
+      sessaoInferida === 'LV2' ||
+      sessaoInferida === 'LV3' ||
+      /\.(ken|tif|tiff)$/i.test(file.name || file.relativePath || '');
+
+    // Leitura direta ultrarrápida para Plantas de Setor (K:\IMAGENS\SETORES) e Matrículas .KEN (K:\IMAGENS\LV2)
+    if (ehImagemKenOuSetor) {
+      try {
+        const kenRes = await fetch(
+          `/api/documental/ken?doc=${encodeURIComponent(termoDoc)}&sessao=${encodeURIComponent(sessaoInferida)}&path=${encodeURIComponent(file.relativePath || '')}`,
+        );
+        if (kenRes.ok) {
+          const data = await kenRes.json();
+          if (data.success && (data.pages?.length > 0 || data.pdfDataUrl || data.html || data.text)) {
+            const resultadoKen: DocumentTextResult = {
+              fileName: data.fileName || file.name,
+              extension: data.extension || (data.pdfDataUrl ? '.pdf' : '.KEN'),
+              html: data.html || '',
+              text: data.text || '',
+              pageTexts: data.pageTexts || [],
+              size: data.size || file.size || 0,
+              pageCount: data.pageCount || data.pages?.length || 1,
+              pages: data.pages || (data.pdfDataUrl ? [data.pdfDataUrl] : []),
+              pdfDataUrl: data.pdfDataUrl,
+              downloadUrl: data.downloadUrl,
+              notFound: false,
+            };
+            setCachedLeitura(fileKey, resultadoKen);
+            await exibirDocumento(resultadoKen, file);
+            setDownloadPdf(null);
+            setProcessandoAcao(null);
+            return;
+          }
+        }
+      } catch {
+        // Prossegue para o Connector se o servidor local não tiver montagem direta de K:\IMAGENS
+      }
+    }
+
     try {
       const response = await fetch('/api/gestao-documental', {
         method: 'POST',

@@ -397,3 +397,17 @@ export function resolverPlantaSetorQuadra(sql?: string, imovel?: string): Planta
   };
 }
 
+/**
+ * Remove zeros à esquerda de números de Matrícula ou Transcrição
+ * (ex.: "Matrícula 076018" -> "Matrícula 76018", "00076018" -> "76018", "Matrícula 076.018" -> "Matrícula 76.018"),
+ * preservando zeros internos após ponto de milhar (ex.: "Matrícula 10.050" permanece "Matrícula 10.050").
+ */
+export function sanitizarMatriculaTranscricao(valor?: string | null): string {
+  if (!valor) return '';
+  return String(valor)
+    .replace(/(^|[^\d.])(?:0+\.)*0+([1-9]\d*)/g, '$1$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+

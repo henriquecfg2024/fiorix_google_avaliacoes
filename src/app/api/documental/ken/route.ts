@@ -260,8 +260,8 @@ function locateFile(sessao: string, relParam: string, docParam: string): { fullP
           candidates.push(path.join(sessionDir, `${numOnly}${ext}`));
         }
 
-        // Fallback em LV2 se a busca original não for LV2
-        if (sessionDir !== path.join(root, 'LV2')) {
+        // Fallback em LV2 somente se a busca original não for LV2 nem SETORES
+        if (sessionDir !== path.join(root, 'LV2') && sessao.toUpperCase() !== 'SETORES') {
           candidates.push(path.join('K:\\IMAGENS', 'LV2', bloco, `${pad8}.KEN`));
           candidates.push(path.join('K:\\IMAGENS', 'LV2', bloco, `${pad8}.TIF`));
         }
@@ -467,6 +467,20 @@ Nos termos do procedimento administrativo, apurou-se área de 160,00 m² confron
   }
 
   const sessaoUpper = (sessao || '').toUpperCase();
+  if (sessaoUpper === 'SETORES') {
+    const pad8 = numOnly.padStart(8, '0');
+    const mSetor = pad8.match(/^00(\d{3})(\d{3})$/);
+    const setorTxt = mSetor ? mSetor[1] : String(Math.floor(num / 1000)).padStart(3, '0');
+    const quadraTxt = mSetor ? mSetor[2] : String(num % 1000).padStart(3, '0');
+    const p1 = `PREFEITURA DO MUNICÍPIO DE SÃO PAULO / 7º CARTÓRIO DE REGISTRO DE IMÓVEIS DA CAPITAL
+PLANTA FISCAL DE SETOR E QUADRA — ACERVO OFICIAL K:\\IMAGENS\\SETORES
+Setor Fiscal: ${setorTxt} • Quadra Fiscal: ${quadraTxt} • Arquivo: ${fileName}
+Croqui / Planta da Quadra Fiscal para conferência de numeração de lotes, testadas e confrontantes lindeiros.`;
+    return {
+      text: p1,
+      pageTexts: Array.from({ length: Math.max(1, pageCount) }, () => p1),
+    };
+  }
   if (sessaoUpper === 'PROCESSOS' || sessaoUpper.includes('PROCESSO')) {
     const p1 = `TRIBUNAL DE JUSTIÇA DO ESTADO DE SÃO PAULO - COMARCA DA CAPITAL
 Vara de Registros Públicos / Cível Central

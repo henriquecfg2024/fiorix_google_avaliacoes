@@ -14,6 +14,7 @@ import type {
 import {
   sanitizarDescricaoImovel,
   sanitizarLogradouroConfrontacao,
+  sanitizarMatriculaTranscricao,
 } from '@/lib/confrontacoes';
 
 const ENDPOINT = '/api/gestao-documental/manifestacoes';
@@ -132,10 +133,12 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
   };
   const imovelLimpo = sanitizarDescricaoImovel(dadosBrutos.imovel || m.imovel || '');
   const ruaLimpa = sanitizarLogradouroConfrontacao(dadosBrutos.rua_olhar_confrontacao, dadosBrutos.imovel || m.imovel || '');
+  const matriculaLimpa = sanitizarMatriculaTranscricao(dadosBrutos.matricula_transcricao || m.matricula || '');
   const dados = {
     ...dadosBrutos,
     imovel: imovelLimpo,
     rua_olhar_confrontacao: ruaLimpa,
+    matricula_transcricao: matriculaLimpa || dadosBrutos.matricula_transcricao,
   };
   const ehConferido = m.status === 'finalizada' || dados.status_conferencia === 'CONFERIDO';
   const dataConferenciaIso = dados.conferido_em || m.conferidoEm || null;
@@ -146,7 +149,7 @@ function paraFicha(m: ManifestacaoCompletaApi): FichaEmConferencia {
     requerente: m.requerente || 'Interessado a definir',
     imovel: imovelLimpo,
     subdistrito: m.subdistrito || '—',
-    matricula_transcricao: m.matricula || '-',
+    matricula_transcricao: matriculaLimpa || '-',
     data_criacao: formatarDataHora(m.updatedAt),
     dados,
     arquivoOrigem: m.arquivoOrigem,
@@ -300,4 +303,48 @@ export async function importarFilaAntiga(fichas: FichaOficialPendente[]): Promis
     fichas: validas,
   });
   return importadas;
+}
+
+export interface LogGestaoDocumentalApi {
+  id: string;
+  dataHora: string;
+  modulo: 'GESTÃO DOCUMENTAL';
+  acao: string;
+  categoria:
+    | 'PESQUISA'
+    | 'EXTRACAO_PETICAO'
+    | 'LEITURA_ACERVO'
+    | 'VALIDACAO_ASSINATURA'
+    | 'RASCUNHO_CONFERENCIA'
+    | 'CONFERENCIA_OFICIAL'
+    | 'ARQUIVAMENTO'
+    | 'AUDITORIA';
+  processo: string | null;
+  matricula: string | null;
+  requerente: string | null;
+  usuarioNome: string | null;
+  descricao: string;
+  status: string | null;
+  manifestacaoId?: string | null;
+}
+
+export interface FiltrosLogsGestaoDocumentalApi {
+  busca?: string;
+  tipo?: string;
+  de?: string;
+  ate?: string;
+  ordem?: 'desc' | 'asc';
+  limite?: number;
+}
+
+export async function listarLogsGestaoDocumentalApi(
+  filtros: FiltrosLogsGestaoDocumentalApi = {},
+): Promise<{ itens: LogGestaoDocumentalApi[]; total: number }> {
+  const params = new URLSearchParams({ modo: 'logs' });
+  for (const [k, v] of Object.entries(filtros)) {
+    if (v !== undefined && v !== null && String(v).trim() !== '') {
+      params.set(k, String(v).trim());
+    }
+  }
+  return chamar(`${ENDPOINT}?${params.toString()}`);
 }
