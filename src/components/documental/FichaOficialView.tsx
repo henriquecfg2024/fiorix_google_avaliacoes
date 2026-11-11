@@ -930,6 +930,7 @@ export function FichaOficialView({
   const [divergenciasRevisadas, setDivergenciasRevisadas] = useState<Record<string, string>>({});
   const [origemConfrontacoes, setOrigemConfrontacoes] = useState<string | null>(null);
   const [impressao, setImpressao] = useState<'formulario' | 'manifestacao' | null>(null);
+  const [previewImpressao, setPreviewImpressao] = useState<'formulario' | 'manifestacao' | null>(null);
   const [finalizando, setFinalizando] = useState(false);
   const [salvandoRascunho, setSalvandoRascunho] = useState(false);
   const [arquivada, setArquivada] = useState<{ info: ManifestacaoArquivada; minuta: MinutaModelo; texto: string } | null>(null);
@@ -3401,6 +3402,28 @@ export function FichaOficialView({
               <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setPreviewImpressao(abaAtiva)}
+            className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#1E293B]/40 hover:bg-white hover:shadow-2xs cursor-pointer"
+            title={
+              abaAtiva === 'formulario'
+                ? 'Visualizar impressão do Formulário de Conferência do Oficial (A4)'
+                : 'Visualizar impressão da Manifestação Oficial (A4)'
+            }
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
+                <Printer className="h-3.5 w-3.5 shrink-0 text-[#0F3D6E]" />
+                <span className="truncate">Visualizar Impressão</span>
+              </div>
+              <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
+                {abaAtiva === 'formulario' ? 'Ficha do Oficial (A4)' : 'Manifestação (A4)'}
+              </div>
+            </div>
+            <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
+          </button>
         </div>
       </div>
     </aside>
@@ -5005,6 +5028,88 @@ export function FichaOficialView({
           }
         >
           <div className="text-sm leading-relaxed text-gray-700">{confirmacao.mensagem}</div>
+        </DialogoSobreposto>
+      )}
+
+      {/* ── Modal de Visualização de Impressão (Etapa 1 e Etapa 2) ── */}
+      {previewImpressao && (
+        <DialogoSobreposto
+          titulo={
+            previewImpressao === 'formulario'
+              ? 'Visualizar Impressão — 1. Formulário de Conferência do Oficial (A4)'
+              : 'Visualizar Impressão — 2. Manifestação Oficial (A4)'
+          }
+          onFechar={() => setPreviewImpressao(null)}
+          largura="max-w-4xl"
+          rodape={
+            <>
+              <button
+                type="button"
+                onClick={() => setPreviewImpressao(null)}
+                className="rounded-lg border border-gray-300 bg-white px-3.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const alvo = previewImpressao;
+                  setPreviewImpressao(null);
+                  if (alvo === 'formulario') {
+                    imprimirFormularioOficial();
+                  } else {
+                    imprimirManifestacaoOficial();
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1E293B] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#334155] cursor-pointer"
+              >
+                <Printer className="h-4 w-4 text-[#B8A082]" aria-hidden="true" />
+                <span>
+                  {previewImpressao === 'formulario'
+                    ? 'Imprimir Formulário (A4)'
+                    : 'Imprimir Manifestação (A4)'}
+                </span>
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-[#F8F7F4] px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPreviewImpressao('formulario')}
+                  className={`rounded-md px-3 py-1 font-bold transition cursor-pointer ${
+                    previewImpressao === 'formulario'
+                      ? 'bg-[#1E293B] text-white shadow-2xs'
+                      : 'text-gray-700 hover:bg-white'
+                  }`}
+                >
+                  1. Formulário do Oficial (A4)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImpressao('manifestacao')}
+                  className={`rounded-md px-3 py-1 font-bold transition cursor-pointer ${
+                    previewImpressao === 'manifestacao'
+                      ? 'bg-[#1E293B] text-white shadow-2xs'
+                      : 'text-gray-700 hover:bg-white'
+                  }`}
+                >
+                  2. Manifestação Oficial (A4)
+                </button>
+              </div>
+              <span className="text-[11px] text-gray-500">
+                Pré-visualização fiel da folha A4 de impressão
+              </span>
+            </div>
+
+            <div className="rounded-lg border border-gray-300 bg-[#E5E7EB]/60 p-3 sm:p-6 shadow-inner">
+              {previewImpressao === 'formulario'
+                ? renderFolhaFichaImpressao()
+                : renderFolhaManifestacao(true)}
+            </div>
+          </div>
         </DialogoSobreposto>
       )}
 
