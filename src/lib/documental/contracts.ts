@@ -4,8 +4,14 @@ export const relativePathSchema = z.string().min(1).max(1024).refine(value =>
   !/^[\\/]/.test(value) && !/^[a-zA-Z]:/.test(value) &&
   !value.split(/[\\/]/).some(part => part === '..') && !value.includes('\0'));
 
+export const connectorIdSchema = z
+  .string()
+  .max(128)
+  .optional()
+  .transform(v => (v && v.trim() ? v.trim() : 'auto'));
+
 export const searchInput = z.object({
-  connectorId: z.string().max(128).optional().transform(v => (v && v.trim() ? v.trim() : 'auto')),
+  connectorId: connectorIdSchema,
   type: z.literal('search').optional().default('search'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/).optional(),
   // 200: a Busca Cruzada envia até 4 campos separados por " | "
@@ -14,7 +20,7 @@ export const searchInput = z.object({
 }).strict();
 
 export const extractPetitionInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: connectorIdSchema,
   type: z.literal('extract_petition'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
@@ -24,7 +30,7 @@ export const extractPetitionInput = z.object({
 }).strict();
 
 export const analyzeSignaturesInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: connectorIdSchema,
   type: z.literal('analyze_signatures'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
@@ -32,7 +38,7 @@ export const analyzeSignaturesInput = z.object({
 }).strict();
 
 export const readDocumentTextInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: connectorIdSchema,
   type: z.literal('read_document_text'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
@@ -43,7 +49,7 @@ export const readDocumentTextInput = z.object({
 
 // Transferência segura em blocos via HTTPS (para Safari, Mac, iPad e estações fora da máquina do Connector)
 export const readDocumentChunkInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: connectorIdSchema,
   type: z.literal('read_document_chunk'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
@@ -53,7 +59,7 @@ export const readDocumentChunkInput = z.object({
 
 // Explorador de pastas do Visualizador: "." = raiz da pasta autorizada
 export const listDirectoryInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: connectorIdSchema,
   type: z.literal('list_directory'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,

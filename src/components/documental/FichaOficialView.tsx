@@ -1264,7 +1264,7 @@ export function FichaOficialView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connectorId: connectorId || '',
+          connectorId: connectorId || 'auto',
           type: 'search',
           query: queryEnvio,
           forceFresh: !silencioso,

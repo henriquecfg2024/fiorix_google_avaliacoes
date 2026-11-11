@@ -1717,39 +1717,69 @@ export function DocumentSearch({
     <section className="space-y-6">
       {/* Estação: Formulário para Manifestação (Ficha do Oficial + Manifestação) */}
       {fichaAberta && (
-        <FichaOficialView
-          key={fichaSessao}
-          dadosIniciais={fichaAberta}
-          arquivoOrigem={fichaAbertaFile}
-          connectorId={connectorId}
-          onClose={() => {
-            setFichaAberta(null);
-            setFichaAbertaFile(null);
-          }}
-          onReextrair={fichaAbertaFile ? () => {
-            const targetFile = fichaAbertaFile;
-            setFichaAberta(null);
-            setFichaAbertaFile(null);
-            extrairPeticao(targetFile, true);
-          } : undefined}
-          onBuscarMatriculaNaLista={(matricula) => {
-            salvarHistoricoAtual(`Ficha de Conferência / ${fichaAbertaFile?.name || 'Processo'}`);
-            setSearchMode('cruzada');
-            setCruzadaMatricula(matricula);
-            setQuery(matricula);
-            executeSearch(matricula);
-            setFichaAberta(null);
-            setFichaAbertaFile(null);
-          }}
-          onVisualizarDocumento={(file) => {
-            visualizarDocumento(file);
-          }}
-          onSalvarNaFila={salvarFichaNaFila}
-          onAlternarConferencia={alternarConferenciaFichaAberta}
-          onNovoFormulario={abrirNovoFormulario}
-          onFinalizar={finalizarFicha}
-          versaoAnteriorId={fichaVersaoAnteriorId}
-        />
+        <div className="space-y-3">
+          {processandoAcao && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/40 bg-[#0B1020]/95 px-4 py-3 text-xs text-white shadow-md backdrop-blur-xl">
+              <div className="flex items-center gap-2.5">
+                <Loader2 className="h-4 w-4 animate-spin text-cyan-400 shrink-0" />
+                <span className="font-semibold text-cyan-200">
+                  {processandoAcao.tipo === 'leitura'
+                    ? `Abrindo documento do acervo: ${processandoAcao.fileName}…`
+                    : `Processando ${processandoAcao.fileName}…`}
+                </span>
+              </div>
+              <span className="font-mono text-[11px] text-cyan-300">{formatTempoMMSS(tempoDecorrido)}</span>
+            </div>
+          )}
+          {error && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-500/30 bg-[#0B1020]/95 px-4 py-3 text-xs text-rose-200 shadow-sm backdrop-blur-xl">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                <span className="font-semibold">{error}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
+          <FichaOficialView
+            key={fichaSessao}
+            dadosIniciais={fichaAberta}
+            arquivoOrigem={fichaAbertaFile}
+            connectorId={connectorId || 'auto'}
+            onClose={() => {
+              setFichaAberta(null);
+              setFichaAbertaFile(null);
+            }}
+            onReextrair={fichaAbertaFile ? () => {
+              const targetFile = fichaAbertaFile;
+              setFichaAberta(null);
+              setFichaAbertaFile(null);
+              extrairPeticao(targetFile, true);
+            } : undefined}
+            onBuscarMatriculaNaLista={(matricula) => {
+              salvarHistoricoAtual(`Ficha de Conferência / ${fichaAbertaFile?.name || 'Processo'}`);
+              setSearchMode('cruzada');
+              setCruzadaMatricula(matricula);
+              setQuery(matricula);
+              executeSearch(matricula);
+              setFichaAberta(null);
+              setFichaAbertaFile(null);
+            }}
+            onVisualizarDocumento={(file) => {
+              visualizarDocumento(file);
+            }}
+            onSalvarNaFila={salvarFichaNaFila}
+            onAlternarConferencia={alternarConferenciaFichaAberta}
+            onNovoFormulario={abrirNovoFormulario}
+            onFinalizar={finalizarFicha}
+            versaoAnteriorId={fichaVersaoAnteriorId}
+          />
+        </div>
       )}
 
       <div className={fichaAberta ? 'hidden' : 'space-y-4'}>
