@@ -926,7 +926,7 @@ export function FichaOficialView({
   const [arquivada, setArquivada] = useState<{ info: ManifestacaoArquivada; minuta: MinutaModelo; texto: string } | null>(null);
   const [paragrafosEmEdicao, setParagrafosEmEdicao] = useState<Record<string, boolean>>({});
   const [mostrarParagrafoExtra, setMostrarParagrafoExtra] = useState<boolean>(() => Boolean(dadosIniciais.paragrafo_extra_custom));
-  const [configuracoesRapidasAbertas, setConfiguracoesRapidasAbertas] = useState(true);
+  const [configuracoesRapidasAbertas, setConfiguracoesRapidasAbertas] = useState(false);
 
   // Modal de Consulta de Rascunhos e Manifestações Salvas no FIORIX
   const [modalRascunhosAberto, setModalRascunhosAberto] = useState(false);
