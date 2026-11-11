@@ -154,3 +154,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falha ao processar ação no monitoramento do SRVSQL.' }, { status: 500 });
   }
 }
+

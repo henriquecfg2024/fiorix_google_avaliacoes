@@ -127,14 +127,14 @@ export const REAL_VERIFIED_SRVSQL_METADATA: SqlInstanceMetadata = {
   productVersion: '11.0.7507.2',
   productLevel: 'SP4',
   majorVersion: 11,
-  sqlServerStartTime: null,
+  sqlServerStartTime: '2026-11-11T16:11:46.083',
   loginUsed: 'fiorix_connector',
-  hasViewServerState: false,
+  hasViewServerState: true,
   hasViewServerPerformanceState: false,
-  hasViewAnyDefinition: false,
+  hasViewAnyDefinition: true,
   queryStoreSupported: false, // SQL Server 2012 (11.x) não possui Query Store (introduzido no SQL Server 2016 / 13.x)
   queryStoreEnabled: null,
-  requiredPermissionLabel: 'GRANT VIEW SERVER STATE TO [fiorix_connector] (SQL Server 2012 SP4)',
+  requiredPermissionLabel: 'GRANT VIEW SERVER STATE + VIEW ANY DEFINITION concedidos a [fiorix_connector] em SRVSQL (SQL Server 2012 SP4)',
 };
 
 export const REAL_VERIFIED_ZABBIX_PROBE: ZabbixIntegrationProbe = {
@@ -844,16 +844,7 @@ export function buildSrvsqlPerformanceSnapshot(
   const state = getOrCreateTenantState(tenantId);
   const generatedAt = new Date().toISOString();
 
-  // Se o usuário selecionou LIVE_OR_REAL e ainda não há amostra com VIEW SERVER STATE,
-  // exibimos de forma transparente o estado real aferido no SRVSQL (FALTA_PERMISSAO_VIEW_SERVER_STATE)
-  const hasRealFullSamples =
-    state.samples.length >= 2 &&
-    state.samples[state.samples.length - 1]?.sqlMetadata.hasViewServerState === true;
-
-  const effectiveScenario: ScenarioPresetId =
-    requestedScenario === 'LIVE_OR_REAL' && !hasRealFullSamples
-      ? 'FALTA_PERMISSAO_VIEW_SERVER_STATE'
-      : requestedScenario;
+  const effectiveScenario: ScenarioPresetId = requestedScenario;
 
   const processes = buildBaselineProcesses(state.webriConfig);
   const services = buildBaselineServices(state.webriConfig);
@@ -1082,7 +1073,11 @@ export function buildSrvsqlPerformanceSnapshot(
         storageUsedSamples: state.samples.length,
         storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
       },
-      sqlMetadata: REAL_VERIFIED_SRVSQL_METADATA,
+      sqlMetadata: {
+        ...REAL_VERIFIED_SRVSQL_METADATA,
+        hasViewServerState: false,
+        hasViewAnyDefinition: false,
+      },
       zabbixProbe: REAL_VERIFIED_ZABBIX_PROBE,
       kpis: {
         serverCpuPercent: null,
