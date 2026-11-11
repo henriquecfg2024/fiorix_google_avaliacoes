@@ -3565,15 +3565,6 @@ export function FichaOficialView({
                             Pesquisa integrada: Petição Inicial • Matrícula ({dados.matricula_transcricao || 'LV2/LV3'}) • Plantas Fiscais (<code className="font-mono">K:\IMAGENS\SETORES</code>) • GeoSampa
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => registrarConfrontacoesNasAnotacoes()}
-                          className="inline-flex items-center gap-1 rounded-md border border-[#1E293B] bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
-                          title="Insere ou atualiza as confrontações preenchidas dentro do campo de texto de Conferência e Anotações abaixo"
-                        >
-                          <Check className="h-3 w-3" />
-                          <span>Registrar Confrontações nas Anotações</span>
-                        </button>
                       </div>
 
                       {/* Campos das Confrontações (sincronizados com a Etapa 2 e com a Ficha Impressa) */}
