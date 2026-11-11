@@ -162,6 +162,16 @@ export function getRootInfo(rootId: string, relativePath?: string): RootConfigDi
       dotClass: 'bg-amber-400',
     };
   }
+  if (norm === 'setores' || ((norm === 'imagens' || norm === 'acervo') && /^setores(?:[\\/]|$)/i.test(relClean))) {
+    return {
+      label: 'Setores (K:)',
+      drive: 'K:',
+      fullName: 'Plantas Fiscais de Setores e Quadras (K:\\IMAGENS\\SETORES)',
+      pathDisplay: 'K:\\IMAGENS\\SETORES',
+      badgeClass: 'bg-teal-950/70 text-teal-300 border-teal-500/40 shadow-teal-500/10 hover:bg-teal-900/60',
+      dotClass: 'bg-teal-400',
+    };
+  }
   if (norm === 'vol1' || norm === 'h') {
     return {
       label: 'VOL1 (H:)',
@@ -224,9 +234,12 @@ export function getRootInfo(rootId: string, relativePath?: string): RootConfigDi
 
 export function formatCartorioPath(rootId: string, relativePath: string): string {
   const info = getRootInfo(rootId, relativePath);
-  const rel = (relativePath || '').replace(/^[\\/]+/, '');
+  const rel = (relativePath || '').replace(/^[\\/]+/, '').replace(/\//g, '\\');
   if (info.pathDisplay.endsWith('\\LV2') && rel.toLowerCase().startsWith('lv2\\')) {
     return `${info.pathDisplay}\\${rel.slice(4)}`;
+  }
+  if (info.pathDisplay.endsWith('\\SETORES') && rel.toLowerCase().startsWith('setores\\')) {
+    return `${info.pathDisplay}\\${rel.slice(8)}`;
   }
   return `${info.pathDisplay}\\${rel}`;
 }

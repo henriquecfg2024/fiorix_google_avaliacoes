@@ -199,13 +199,22 @@ export const PASTAS_FAVORITAS_PADRAO: PastaFavorita[] = [
     adicionadoEm: 1,
   },
   {
+    id: gerarIdPastaFavorita('imagens', 'SETORES'),
+    rootId: 'imagens',
+    relativePath: 'SETORES',
+    rotulo: 'SETORES — Plantas Fiscais',
+    caminhoExibicao: 'K:\\IMAGENS\\SETORES\\',
+    unidade: 'IMAGENS',
+    adicionadoEm: 2,
+  },
+  {
     id: gerarIdPastaFavorita('processos', ''),
     rootId: 'processos',
     relativePath: '',
     rotulo: 'PROCESSOS - ENVIADOS POR E-MAIL',
     caminhoExibicao: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL',
     unidade: 'VOL1',
-    adicionadoEm: 2,
+    adicionadoEm: 3,
   },
   {
     id: gerarIdPastaFavorita('minutas', ''),
@@ -214,7 +223,7 @@ export const PASTAS_FAVORITAS_PADRAO: PastaFavorita[] = [
     rotulo: 'USUCAPIAO (Minutas)',
     caminhoExibicao: 'W:\\USUCAPIAO',
     unidade: 'DEP',
-    adicionadoEm: 3,
+    adicionadoEm: 4,
   },
 ];
 

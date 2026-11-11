@@ -776,12 +776,58 @@ export function VisualizadorDedicado({
     }
   }
 
+  // Abre diretamente uma Planta de Setor (K:\IMAGENS\SETORES\00SSS000\00SSSQQQ.KEN) ou a pasta SETORES
+  async function carregarPlantaSetorDireto(rawSetorQuadra?: string) {
+    const digitos = String(rawSetorQuadra || '').replace(/\D+/g, '');
+    if (digitos.length >= 6) {
+      const limpo6 = digitos.startsWith('00') && digitos.length >= 8 ? digitos.slice(2, 8) : digitos.slice(0, 6);
+      const setor = limpo6.slice(0, 3);
+      const quadra = limpo6.slice(3, 6);
+      const bloco = `00${setor}000`;
+      const fileName = `00${setor}${quadra}.KEN`;
+      const relativePath = `SETORES\\${bloco}\\${fileName}`;
+      const alvo: MatchItem = { name: fileName, relativePath, rootId: 'imagens' };
+
+      setPastaAtual({ rootId: 'imagens', relativePath: `SETORES\\${bloco}` });
+      setFiltroPasta(`00${setor}${quadra}`);
+      setResultadosBusca(null);
+      setErroPasta('');
+      setExploradorAberto(false);
+      setSidebarTab('arquivos');
+      setArquivoAtivo(alvo);
+      setIsLoadingDoc(true);
+      if (typeof document !== 'undefined') {
+        document.title = `${fileName} (Setor ${setor} • Quadra ${quadra}) — Visualizador SETORES FIORIX`;
+      }
+
+      await abrirDocumento(alvo);
+
+      executarJob<DirectoryListing>(
+        { type: 'list_directory', rootId: 'imagens', relativePath: `SETORES\\${bloco}` },
+        'Não foi possível listar o bloco em K:\\IMAGENS\\SETORES.',
+        30000,
+      )
+        .then((resLista) => {
+          listagemCacheRef.current.set(`imagens:${normalizarCaminho(`SETORES\\${bloco}`)}`, resLista);
+          setListagem(resLista);
+        })
+        .catch(() => {});
+      return;
+    }
+
+    await abrirPasta('imagens', 'SETORES');
+  }
+
   useEffect(() => {
+    if (initialSessao && initialSessao.toUpperCase() === 'SETORES') {
+      void carregarPlantaSetorDireto(initialMatricula);
+      return;
+    }
     if (initialMatricula) {
       void carregarMatriculaLv2Direto(initialMatricula);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMatricula]);
+  }, [initialMatricula, initialSessao]);
 
   useEffect(() => {
     if (connectorId && matriculaPendenteLv2Ref.current) {

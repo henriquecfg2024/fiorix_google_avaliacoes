@@ -5,8 +5,9 @@ export const relativePathSchema = z.string().min(1).max(1024).refine(value =>
   !value.split(/[\\/]/).some(part => part === '..') && !value.includes('\0'));
 
 export const searchInput = z.object({
-  connectorId: z.string().min(1).max(128),
+  connectorId: z.string().max(128).optional().transform(v => (v && v.trim() ? v.trim() : 'auto')),
   type: z.literal('search').optional().default('search'),
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/).optional(),
   // 200: a Busca Cruzada envia até 4 campos separados por " | "
   query: z.string().trim().min(2).max(200),
   forceFresh: z.boolean().optional(),

@@ -1382,7 +1382,21 @@ export function FichaOficialView({
     [resultadoGeoSampa?.plantaSetor, dados.contribuinte_sql, dados.imovel],
   );
 
-  async function localizarPlantaSetorNoAcervo(termoCustom?: string) {
+  const arquivoPlantaSetorDireto: Livro2Match | null = useMemo(() => {
+    if (arquivosSetores && arquivosSetores.length > 0) return arquivosSetores[0];
+    if (!plantaSetorCalculada) return null;
+    return {
+      rootId: 'imagens',
+      relativePath: plantaSetorCalculada.caminhoRelativo,
+      name: plantaSetorCalculada.arquivoKen,
+      size: 0,
+      modifiedAt: '',
+    };
+  }, [arquivosSetores, plantaSetorCalculada]);
+
+  const ultimaPlantaAutoSetoresRef = useRef<string>('');
+
+  async function localizarPlantaSetorNoAcervo(termoCustom?: string, silencioso = false) {
     const info = resolverPlantaSetorQuadra(dados.contribuinte_sql, dados.imovel) || resultadoGeoSampa?.plantaSetor;
     const queryBusca = (
       termoCustom ||
@@ -1391,8 +1405,10 @@ export function FichaOficialView({
       ''
     ).trim();
 
-    if (!queryBusca || queryBusca.length < 3) {
-      setErroSetores('Informe o SQL (ex.: 053.006.0049-0) ou o Setor/Quadra (ex.: 00053006 ou setor 053 quadra 006) para localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+    if (!queryBusca || queryBusca.length < 2) {
+      if (!silencioso) {
+        setErroSetores('Informe o SQL (ex.: 053.006.0049-0) ou o Setor/Quadra (ex.: 00053006 ou setor 053 quadra 006) para localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+      }
       return;
     }
 
@@ -1405,29 +1421,36 @@ export function FichaOficialView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connectorId: connectorId || '',
+          connectorId: connectorId || 'auto',
           type: 'search',
-          rootId: 'imagens',
           query: queryBusca,
-          forceFresh: true,
+          forceFresh: !silencioso,
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Connector local indisponível.');
 
+      const filtrarPlantas = (files: Livro2Match[]) => {
+        const plantas = files.filter(f => {
+          const rel = (f.relativePath || '').toLowerCase();
+          return rel.includes('setores') || /^00\d{6}\.(ken|tif|tiff)$/i.test(f.name || '');
+        });
+        return plantas.length > 0 ? plantas : files;
+      };
+
+      if (body.status === 'complete' && body.result) {
+        setArquivosSetores(filtrarPlantas(body.result.files || []));
+        return;
+      }
+
       const deadline = Date.now() + 35000;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, 650));
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
         if (!res.ok) throw new Error(state.error);
         if (state.status === 'complete' && state.result) {
-          const files: Livro2Match[] = state.result.files || [];
-          const plantas = files.filter(f => {
-            const rel = (f.relativePath || '').toLowerCase();
-            return rel.includes('setores') || /^00\d{6}\.(ken|tif|tiff)$/i.test(f.name || '');
-          });
-          setArquivosSetores(plantas.length > 0 ? plantas : files);
+          setArquivosSetores(filtrarPlantas(state.result.files || []));
           return;
         }
         if (state.status === 'failed') throw new Error('Falha na busca da Planta Fiscal pelo Connector local.');
@@ -1435,11 +1458,24 @@ export function FichaOficialView({
       throw new Error('Tempo limite excedido ao consultar K:\\IMAGENS\\SETORES.');
     } catch (err) {
       setArquivosSetores(null);
-      setErroSetores(err instanceof Error ? err.message : 'Falha ao localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+      if (!silencioso) {
+        setErroSetores(err instanceof Error ? err.message : 'Falha ao localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
+      }
     } finally {
       setBuscandoSetores(false);
     }
   }
+
+  // Sempre que o Setor/Quadra do imóvel for identificado, localiza automaticamente a Planta de Setor em K:\IMAGENS\SETORES\
+  useEffect(() => {
+    const termo = plantaSetorCalculada?.termoBusca?.trim();
+    if (!termo || termo.length < 4) return;
+    const chaveAuto = `${connectorId || 'auto'}:${termo}`;
+    if (ultimaPlantaAutoSetoresRef.current === chaveAuto) return;
+    ultimaPlantaAutoSetoresRef.current = chaveAuto;
+    void localizarPlantaSetorNoAcervo(termo, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plantaSetorCalculada?.termoBusca, connectorId]);
 
   const registrarConfrontacoesNasAnotacoes = (
     override?: Partial<{
@@ -3500,7 +3536,7 @@ export function FichaOficialView({
                           <span>2. Matrícula ({dados.matricula_transcricao || 'LV2/LV3'})</span>
                         </button>
 
-                        {/* 3. Plantas Fiscais em K:\IMAGENS\SETORES */}
+                        {/* 3. Plantas Fiscais em K:\IMAGENS\SETORES\ */}
                         <button
                           type="button"
                           onClick={() => void localizarPlantaSetorNoAcervo()}
@@ -3508,8 +3544,8 @@ export function FichaOficialView({
                           className={botaoOrigem}
                           title={
                             plantaSetorCalculada
-                              ? `Localizar Planta Fiscal ${plantaSetorCalculada.caminhoCompleto}`
-                              : 'Localizar Planta Fiscal na pasta K:\\IMAGENS\\SETORES pelo Setor e Quadra'
+                              ? `Localizar Planta de Setor ${plantaSetorCalculada.caminhoCompleto}`
+                              : 'Localizar Planta de Setor na pasta K:\\IMAGENS\\SETORES\\ pelo Setor e Quadra'
                           }
                         >
                           {buscandoSetores ? (
@@ -3518,10 +3554,41 @@ export function FichaOficialView({
                             <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
                           )}
                           <span>
-                            3. Planta Fiscal (K:\IMAGENS\SETORES
-                            {plantaSetorCalculada ? ` • ${plantaSetorCalculada.arquivoKen}` : ''})
+                            3. Planta Fiscal (K:\IMAGENS\SETORES\
+                            {plantaSetorCalculada ? `${plantaSetorCalculada.arquivoKen}` : ''})
                           </span>
                         </button>
+
+                        {/* Botão direto: Ver Planta de Setor (K:\IMAGENS\SETORES\) */}
+                        {arquivoPlantaSetorDireto && onVisualizarDocumento ? (
+                          <button
+                            type="button"
+                            onClick={() => onVisualizarDocumento(arquivoPlantaSetorDireto)}
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 transition cursor-pointer"
+                            title={`Abrir e visualizar a Planta de Setor (${plantaSetorCalculada?.caminhoCompleto || formatCartorioPath(arquivoPlantaSetorDireto.rootId, arquivoPlantaSetorDireto.relativePath)})`}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>
+                              Ver Planta de Setor (K:\IMAGENS\SETORES\
+                              {plantaSetorCalculada ? `${plantaSetorCalculada.pastaSetor}\\${plantaSetorCalculada.arquivoKen}` : arquivoPlantaSetorDireto.name})
+                            </span>
+                          </button>
+                        ) : (
+                          <a
+                            href={
+                              plantaSetorCalculada
+                                ? `/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(plantaSetorCalculada.termoBusca)}`
+                                : '/gestao-documental/visualizador?sessao=SETORES'
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-600 bg-emerald-700 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-emerald-800 transition"
+                            title="Abrir pasta de Plantas de Setor (K:\IMAGENS\SETORES\) no Visualizador"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Ver Planta de Setor (K:\IMAGENS\SETORES\)</span>
+                          </a>
+                        )}
 
                         {/* 4. Consulta GeoSampa + IPTU */}
                         <button
@@ -3720,43 +3787,53 @@ export function FichaOficialView({
                         )}
                       </div>
 
-                      {/* Resultado da Busca na Pasta K:\IMAGENS\SETORES (Plantas Fiscais) */}
-                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 space-y-2">
+                      {/* Card Ver Planta de Setor: K:\IMAGENS\SETORES\ */}
+                      <div className="rounded-lg border border-emerald-300 bg-emerald-50/60 p-2.5 space-y-2 shadow-2xs">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-900">
-                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700" />
+                          <span className="flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-emerald-950">
+                            <FolderOpen className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
                             <span>
-                              Plantas Fiscais — Pasta <code className="font-mono">K:\IMAGENS\SETORES</code>
+                              Ver Planta de Setor — <code className="font-mono">K:\IMAGENS\SETORES\</code>
                             </span>
+                            {plantaSetorCalculada ? (
+                              <span className="rounded bg-emerald-100 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-900 normal-case border border-emerald-300/80">
+                                Setor {plantaSetorCalculada.setor} • Quadra {plantaSetorCalculada.quadra}
+                              </span>
+                            ) : null}
                           </span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <input
                               type="text"
                               value={termoBuscadoSetores}
                               onChange={e => setTermoBuscadoSetores(e.target.value)}
-                              placeholder={plantaSetorCalculada?.termoBusca || 'Ex.: 053.006 ou 00053006'}
+                              placeholder={plantaSetorCalculada?.termoBusca || 'Ex.: 052.287 ou 00052287'}
                               className="w-40 rounded border border-emerald-300 bg-white px-2 py-0.5 font-mono text-[11px] text-gray-900 focus:outline-none"
                             />
                             <button
                               type="button"
-                              onClick={() => void localizarPlantaSetorNoAcervo(termoBuscadoSetores || undefined)}
+                              onClick={() => void localizarPlantaSetorNoAcervo(termoBuscadoSetores || undefined, false)}
                               disabled={buscandoSetores}
                               className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition cursor-pointer disabled:opacity-50"
                             >
                               {buscandoSetores ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                               <span>Buscar em SETORES</span>
                             </button>
+                            <a
+                              href={
+                                plantaSetorCalculada
+                                  ? `/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(plantaSetorCalculada.termoBusca)}`
+                                  : '/gestao-documental/visualizador?sessao=SETORES'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded border border-emerald-400 bg-white px-2 py-1 text-[10.5px] font-bold text-emerald-900 hover:bg-emerald-50 transition"
+                              title="Abrir pasta K:\IMAGENS\SETORES\ no Visualizador"
+                            >
+                              <ExternalLink className="h-3 w-3 text-emerald-700" />
+                              <span>Abrir K:\IMAGENS\SETORES\</span>
+                            </a>
                           </div>
                         </div>
-
-                        {plantaSetorCalculada ? (
-                          <div className="text-[11px] text-emerald-900">
-                            Planta fiscal esperada para o SQL/Imóvel:{' '}
-                            <code className="rounded bg-white px-1.5 py-0.5 font-mono font-bold text-emerald-950 border border-emerald-200">
-                              {plantaSetorCalculada.caminhoCompleto}
-                            </code>
-                          </div>
-                        ) : null}
 
                         {erroSetores ? (
                           <div className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
@@ -3764,37 +3841,75 @@ export function FichaOficialView({
                           </div>
                         ) : null}
 
-                        {arquivosSetores && arquivosSetores.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {arquivosSetores.slice(0, 6).map(arq => (
-                              <div
-                                key={`${arq.rootId}:${arq.relativePath}`}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-200 bg-white px-2.5 py-1.5 text-xs"
-                              >
-                                <div className="min-w-0">
-                                  <div className="font-mono font-bold text-gray-900">{arq.name}</div>
-                                  <div className="truncate font-mono text-[10px] text-gray-500">
-                                    {formatCartorioPath(arq.rootId, arq.relativePath)}
-                                  </div>
-                                </div>
-                                {onVisualizarDocumento ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => onVisualizarDocumento(arq)}
-                                    className="inline-flex items-center gap-1 rounded bg-emerald-700 px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition cursor-pointer"
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                    <span>Abrir Planta Fiscal (.KEN)</span>
-                                  </button>
-                                ) : null}
+                        {/* Lista de arquivos de Planta de Setor (encontrados no disco ou calculado direto pelo SQL/Setor/Quadra) */}
+                        {(() => {
+                          const listaExibicao: Livro2Match[] =
+                            arquivosSetores && arquivosSetores.length > 0
+                              ? arquivosSetores.slice(0, 6)
+                              : arquivoPlantaSetorDireto
+                              ? [arquivoPlantaSetorDireto]
+                              : [];
+
+                          if (listaExibicao.length > 0) {
+                            return (
+                              <div className="space-y-1.5">
+                                {listaExibicao.map(arq => {
+                                  const caminhoCompleto = formatCartorioPath(arq.rootId, arq.relativePath);
+                                  return (
+                                    <div
+                                      key={`${arq.rootId}:${arq.relativePath}`}
+                                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-xs shadow-2xs"
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-mono font-bold text-gray-900">{arq.name}</span>
+                                          <span className="rounded bg-emerald-50 px-1.5 py-0.2 text-[9.5px] font-bold text-emerald-800 border border-emerald-200">
+                                            Planta de Setor (.KEN)
+                                          </span>
+                                        </div>
+                                        <div className="truncate font-mono text-[10px] text-gray-500" title={caminhoCompleto}>
+                                          {caminhoCompleto}
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        {onVisualizarDocumento ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => onVisualizarDocumento(arq)}
+                                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition shadow-2xs cursor-pointer"
+                                            title={`Visualizar Planta de Setor (${caminhoCompleto})`}
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                            <span>Ver Planta de Setor</span>
+                                          </button>
+                                        ) : (
+                                          <a
+                                            href={`/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(arq.name.replace(/\..+$/, ''))}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1 text-[10.5px] font-bold text-white hover:bg-emerald-800 transition shadow-2xs"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                            <span>Ver Planta de Setor</span>
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            ))}
-                          </div>
-                        ) : arquivosSetores && arquivosSetores.length === 0 ? (
-                          <div className="text-[11px] text-gray-600">
-                            Nenhuma planta fiscal localizada para o termo informado em <code className="font-mono">K:\IMAGENS\SETORES</code>.
-                          </div>
-                        ) : null}
+                            );
+                          }
+
+                          return (
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-200 bg-white px-2.5 py-1.5 text-[11px] text-gray-600">
+                              <span>
+                                Informe o SQL (ex.: <code className="font-mono">052.287.0091-9</code>) ou digite o Setor/Quadra acima para abrir a Planta Fiscal em{' '}
+                                <code className="font-mono font-bold text-emerald-900">K:\IMAGENS\SETORES\</code>.
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Resultado da Busca da Matrícula no Livro 2 / Livro 3 quando acionada */}
@@ -4102,6 +4217,18 @@ export function FichaOficialView({
                               {buscandoLivro2 ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Eye className="h-3.5 w-3.5" aria-hidden="true" />}
                               <span>{buscandoLivro2 ? 'Localizando…' : '🔎 Matrícula .KEN (LV2)'}</span>
                             </button>
+
+                            {arquivoPlantaSetorDireto && onVisualizarDocumento ? (
+                              <button
+                                type="button"
+                                onClick={() => onVisualizarDocumento(arquivoPlantaSetorDireto)}
+                                className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-emerald-400 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-900 shadow-2xs transition hover:bg-emerald-100 cursor-pointer"
+                                title={`Ver Planta de Setor em K:\\IMAGENS\\SETORES\\ (${plantaSetorCalculada?.caminhoCompleto || formatCartorioPath(arquivoPlantaSetorDireto.rootId, arquivoPlantaSetorDireto.relativePath)})`}
+                              >
+                                <Eye className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
+                                <span>🗺️ Ver Planta de Setor ({arquivoPlantaSetorDireto.name})</span>
+                              </button>
+                            ) : null}
 
                             {textoAutosDisponivel && (
                               <button
