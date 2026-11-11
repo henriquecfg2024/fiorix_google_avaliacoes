@@ -318,4 +318,21 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     expect(serialized).not.toContain('CONNECTOR_SECRET');
     expect(dossier.blockingAndWaitsEvidence.blockingChains[0]?.rootBlockerSessionId).toBe(72);
   });
+
+  it('10. Telemetria oficial do SRVSQL (LIVE_OR_REAL): reflete métricas reais coletadas no 10.0.0.25 com VIEW SERVER STATE ativo', () => {
+    const liveSnap = buildSrvsqlPerformanceSnapshot('tenant-live-srvsql', 'LIVE_OR_REAL', '30m');
+
+    expect(liveSnap.dataSourceMode).toBe('LIVE_COLLECTOR');
+    expect(liveSnap.overallHealth).toBe('ATENCAO');
+    expect(liveSnap.sqlMetadata.hasViewServerState).toBe(true);
+    expect(liveSnap.sqlMetadata.serverName).toBe('SRVSQL');
+    expect(liveSnap.sqlMetadata.productVersion).toBe('11.0.7507.2');
+    expect(liveSnap.sqlMetadata.majorVersion).toBe(11);
+    expect(liveSnap.windowsMemory.totalPhysicalMb).toBe(73999.6);
+    expect(liveSnap.sqlMemory.maxServerMemoryConfigMb).toBe(40000);
+    expect(liveSnap.sqlMemory.pageLifeExpectancySec).toBe(7789);
+    expect(liveSnap.kpis.diskWriteLatencyMs).toBe(54);
+    expect(liveSnap.kpis.blockedSessionsCount).toBe(0);
+    expect(liveSnap.costlyQueries.length).toBeGreaterThanOrEqual(5);
+  });
 });

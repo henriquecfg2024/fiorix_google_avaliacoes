@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
     const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE');
     const tenantId = user.tenantId || 'default-tenant';
 
-    const rawScenario = (req.nextUrl.searchParams.get('scenario') || 'LENTIDAO_BLOQUEIO') as ScenarioPresetId;
-    const scenario: ScenarioPresetId = VALID_SCENARIOS.has(rawScenario) ? rawScenario : 'LENTIDAO_BLOQUEIO';
+    const rawScenario = (req.nextUrl.searchParams.get('scenario') || 'LIVE_OR_REAL') as ScenarioPresetId;
+    const scenario: ScenarioPresetId = VALID_SCENARIOS.has(rawScenario) ? rawScenario : 'LIVE_OR_REAL';
 
     const rawWindow = (req.nextUrl.searchParams.get('window') || '30m') as TimeWindowPreset;
     const windowPreset: TimeWindowPreset = VALID_WINDOWS.has(rawWindow) ? rawWindow : '30m';

@@ -332,21 +332,24 @@ export function PerformanceSrvsqlClient({
                 }
                 className="h-10 min-w-[240px] rounded-lg border border-slate-700/80 bg-[#0d1624] px-3.5 text-sm font-medium text-slate-100 focus:border-cyan-500 focus:outline-none"
               >
-                <option value="LENTIDAO_BLOQUEIO">Lentidão por bloqueio</option>
                 <option value="LIVE_OR_REAL">
-                  Sondagem real SRVSQL (10.0.0.25 · SQL 2012 SP4)
+                  Monitoramento Oficial SRVSQL (10.0.0.25 · SQL 2012 SP4)
                 </option>
+                <option value="LENTIDAO_BLOQUEIO">Lentidão por bloqueio (Simulação)</option>
                 <option value="PRESSAO_LOG_WRITELOG">
-                  Pressão de escrita no log (WRITELOG)
+                  Pressão de escrita no log · WRITELOG (Simulação)
                 </option>
                 <option value="CONCORRENCIA_BACKUP_DISCO">
-                  Concorrência de backup e disco (PAGEIOLATCH)
+                  Concorrência de backup e disco · PAGEIOLATCH (Simulação)
                 </option>
                 <option value="PRESSAO_MEMORIA_GRANT">
-                  Pressão de memória comprovada (RESOURCE_SEMAPHORE)
+                  Pressão de memória comprovada · RESOURCE_SEMAPHORE (Simulação)
+                </option>
+                <option value="FALTA_PERMISSAO_VIEW_SERVER_STATE">
+                  Diagnóstico sem VIEW SERVER STATE (Simulação)
                 </option>
                 <option value="COLETOR_INDISPONIVEL">
-                  Coletor indisponível / Sem dados
+                  Coletor indisponível / Sem dados (Simulação)
                 </option>
               </select>
             </div>
@@ -579,9 +582,14 @@ export function PerformanceSrvsqlClient({
                       </div>
 
                       <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
-                        <span>14:00</span>
-                        <span>14:15</span>
-                        <span>14:30</span>
+                        <span>{snapshot.timeline[0]?.timeLabel || '14:00'}</span>
+                        <span>
+                          {snapshot.timeline[Math.floor(snapshot.timeline.length / 2)]?.timeLabel ||
+                            '14:15'}
+                        </span>
+                        <span>
+                          {snapshot.timeline[snapshot.timeline.length - 1]?.timeLabel || '14:30'}
+                        </span>
                       </div>
                     </div>
                   )}

@@ -28,7 +28,7 @@ export default async function PerformanceSrvsqlPage() {
 
   const initialSnapshot = buildSrvsqlPerformanceSnapshot(
     user.tenantId,
-    'LENTIDAO_BLOQUEIO',
+    'LIVE_OR_REAL',
     '30m',
   );
 
