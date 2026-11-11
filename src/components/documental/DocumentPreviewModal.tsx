@@ -31,6 +31,7 @@ import {
   Scan,
   Edit3,
   Eye,
+  EyeOff,
   Check,
   FileText,
   Copy,
@@ -216,7 +217,8 @@ export function DocumentPreviewModal({
   const [tempoProcessamento, setTempoProcessamento] = useState('00:00.184');
   const [dimensoesImagem, setDimensoesImagem] = useState<{ width: number; height: number; dpiH: number; dpiV: number } | null>(null);
 
-  // Pasta favorita de manifestações ativa
+  // Pasta favorita de manifestações ativa (cards ocultos por padrão, expansíveis sob demanda)
+  const [mostrarPastasFavoritas, setMostrarPastasFavoritas] = useState(false);
   const pastaFavoritaAtiva = (() => {
     const s = (sessaoSelecionada || '').toUpperCase();
     if (s === 'LV2' || s.includes('LV2') || s === 'LIVRO2') return 'livro2';
@@ -1503,73 +1505,100 @@ export function DocumentPreviewModal({
                 </div>
               </div>
 
-              {/* CARD 2: PASTAS FAVORITAS (ROTINA DE MANIFESTAÇÕES) */}
+              {/* CARD 2: PASTAS FAVORITAS (ROTINA DE MANIFESTAÇÕES — OCULTO POR PADRÃO) */}
               <div className="border border-[#D0D0D0] bg-white p-1.5 shadow-2xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                <div className="flex items-center justify-between gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMostrarPastasFavoritas(prev => !prev)}
+                    className="flex items-center gap-1 text-left cursor-pointer hover:opacity-85"
+                    title={mostrarPastasFavoritas ? 'Ocultar cards de Pastas Favoritas' : 'Desocultar cards de Pastas Favoritas'}
+                  >
+                    {mostrarPastasFavoritas ? (
+                      <ChevronDown className="h-3 w-3 text-[#0F3D6E] shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 text-[#0F3D6E] shrink-0" />
+                    )}
+                    <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
                     <span className="text-[10.5px] font-bold text-[#0F3D6E] uppercase tracking-wide">Pastas Favoritas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarPastasFavoritas(prev => !prev)}
+                    className="inline-flex items-center gap-1 text-[8.5px] font-bold text-[#0F3D6E] bg-[#0F3D6E]/10 hover:bg-[#0F3D6E]/20 border border-[#0F3D6E]/25 px-1.5 py-0.5 rounded tracking-wider uppercase transition cursor-pointer"
+                    title={mostrarPastasFavoritas ? 'Ocultar cards de Pastas Favoritas' : 'Desocultar cards de Pastas Favoritas'}
+                  >
+                    {mostrarPastasFavoritas ? (
+                      <>
+                        <EyeOff className="h-2.5 w-2.5" />
+                        <span>Ocultar</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-2.5 w-2.5" />
+                        <span>Desocultar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {mostrarPastasFavoritas && (
+                  <div className="grid grid-cols-3 gap-1 pt-0.5">
+                    {/* 1. LIVRO 2 - MATRÍCULAS */}
+                    <button
+                      type="button"
+                      onClick={() => handleMudarSessao('LV2')}
+                      className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
+                        pastaFavoritaAtiva === 'livro2'
+                          ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
+                          : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
+                      }`}
+                      title="K:\IMAGENS\LV2 — Matrículas Digitalizadas (Livro 2)"
+                    >
+                      <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
+                        <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
+                        <span className="truncate">Livro 2</span>
+                      </div>
+                      <span className="font-mono text-[8px] text-gray-500">K:\LV2</span>
+                    </button>
+
+                    {/* 2. PROCESSOS */}
+                    <button
+                      type="button"
+                      onClick={() => handleMudarSessao('PROCESSOS')}
+                      className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
+                        pastaFavoritaAtiva === 'processos'
+                          ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
+                          : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
+                      }`}
+                      title="H:\PROCESSOS - ENVIADOS POR E-MAIL — PDFs das Varas"
+                    >
+                      <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
+                        <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
+                        <span className="truncate">Processos</span>
+                      </div>
+                      <span className="font-mono text-[8px] text-gray-500">H:\Varas</span>
+                    </button>
+
+                    {/* 3. USUCAPIÃO / MINUTAS */}
+                    <button
+                      type="button"
+                      onClick={() => handleMudarSessao('USUCAPIAO_EXTRAJUD')}
+                      className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
+                        pastaFavoritaAtiva === 'usucapiao'
+                          ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
+                          : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
+                      }`}
+                      title="W:\USUCAPIAO — Pastas dos escreventes (.DOCX)"
+                    >
+                      <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
+                        <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
+                        <span className="truncate">Usucapião</span>
+                      </div>
+                      <span className="font-mono text-[8px] text-gray-500">W:\Minutas</span>
+                    </button>
                   </div>
-                  <span className="text-[8.5px] font-bold text-[#0F3D6E] bg-[#0F3D6E]/10 border border-[#0F3D6E]/25 px-1 py-0.2 rounded tracking-wider uppercase">
-                    Manifestações
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1">
-                  {/* 1. LIVRO 2 - MATRÍCULAS */}
-                  <button
-                    type="button"
-                    onClick={() => handleMudarSessao('LV2')}
-                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
-                      pastaFavoritaAtiva === 'livro2'
-                        ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
-                        : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
-                    }`}
-                    title="K:\IMAGENS\LV2 — Matrículas Digitalizadas (Livro 2)"
-                  >
-                    <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
-                      <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
-                      <span className="truncate">Livro 2</span>
-                    </div>
-                    <span className="font-mono text-[8px] text-gray-500">K:\LV2</span>
-                  </button>
-
-                  {/* 2. PROCESSOS */}
-                  <button
-                    type="button"
-                    onClick={() => handleMudarSessao('PROCESSOS')}
-                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
-                      pastaFavoritaAtiva === 'processos'
-                        ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
-                        : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
-                    }`}
-                    title="H:\PROCESSOS - ENVIADOS POR E-MAIL — PDFs das Varas"
-                  >
-                    <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
-                      <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
-                      <span className="truncate">Processos</span>
-                    </div>
-                    <span className="font-mono text-[8px] text-gray-500">H:\Varas</span>
-                  </button>
-
-                  {/* 3. USUCAPIÃO / MINUTAS */}
-                  <button
-                    type="button"
-                    onClick={() => handleMudarSessao('USUCAPIAO_EXTRAJUD')}
-                    className={`flex flex-col items-center justify-center py-1 px-0.5 rounded border text-center transition cursor-pointer ${
-                      pastaFavoritaAtiva === 'usucapiao'
-                        ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-[#0F3D6E] font-bold shadow-xs'
-                        : 'border-[#D0D0D0] bg-white text-gray-700 hover:border-[#0F3D6E] hover:bg-gray-50'
-                    }`}
-                    title="W:\USUCAPIAO — Pastas dos escreventes (.DOCX)"
-                  >
-                    <div className="flex items-center gap-0.5 font-bold text-[9.5px]">
-                      <HardDrive className="h-2.5 w-2.5 text-[#0F3D6E]" />
-                      <span className="truncate">Usucapião</span>
-                    </div>
-                    <span className="font-mono text-[8px] text-gray-500">W:\Minutas</span>
-                  </button>
-                </div>
+                )}
               </div>
 
               {/* CARD 3: PESQUISAR DOCUMENTO */}
