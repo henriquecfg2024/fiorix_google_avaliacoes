@@ -1247,11 +1247,39 @@ export function FichaOficialView({
     const queryBusca = numeros && numeros.length >= 2 ? numeros : raw.trim();
 
     if (!queryBusca || queryBusca.length < 2) {
+      if (!silencioso && onVisualizarDocumento) {
+        onVisualizarDocumento({
+          rootId: 'livro2',
+          relativePath: '00000000\\00000001.KEN',
+          name: '00000001.KEN',
+          size: 0,
+          modifiedAt: '',
+        });
+        return;
+      }
       if (!silencioso) {
         setErroLivro2('Informe ao menos 2 dígitos da matrícula para localizar a imagem no Livro 2.');
       }
       return;
     }
+
+    if (!silencioso && !matriculaCustom && arquivosLivro2 && arquivosLivro2.length > 0 && onVisualizarDocumento) {
+      onVisualizarDocumento(arquivosLivro2[0]);
+      return;
+    }
+
+    const construirFallbackLv2 = (): Livro2Match => {
+      const n = parseInt(numeros || '1', 10) || 1;
+      const pad8 = String(n).padStart(8, '0');
+      const bloco = String(Math.floor(n / 1000) * 1000).padStart(8, '0');
+      return {
+        rootId: 'livro2',
+        relativePath: `${bloco}\\${pad8}.KEN`,
+        name: `${pad8}.KEN`,
+        size: 0,
+        modifiedAt: '',
+      };
+    };
 
     setBuscandoLivro2(true);
     setErroLivro2(null);
@@ -1276,7 +1304,11 @@ export function FichaOficialView({
 
       if (body.status === 'complete' && body.result) {
         const files: Livro2Match[] = body.result.files || [];
-        setArquivosLivro2(filtrarImagensLivro2(files, queryBusca));
+        const filtrados = filtrarImagensLivro2(files, queryBusca);
+        setArquivosLivro2(filtrados);
+        if (!silencioso && onVisualizarDocumento) {
+          onVisualizarDocumento(filtrados[0] || construirFallbackLv2());
+        }
         return;
       }
 
@@ -1288,7 +1320,11 @@ export function FichaOficialView({
         if (!res.ok) throw new Error(state.error);
         if (state.status === 'complete' && state.result) {
           const files: Livro2Match[] = state.result.files || [];
-          setArquivosLivro2(filtrarImagensLivro2(files, queryBusca));
+          const filtrados = filtrarImagensLivro2(files, queryBusca);
+          setArquivosLivro2(filtrados);
+          if (!silencioso && onVisualizarDocumento) {
+            onVisualizarDocumento(filtrados[0] || construirFallbackLv2());
+          }
           return;
         }
         if (state.status === 'failed') throw new Error('Falha na busca da matrícula pelo Connector local.');
@@ -1296,7 +1332,9 @@ export function FichaOficialView({
       throw new Error('Tempo limite excedido na busca do Livro 2. Verifique se o Connector e o acervo K:\\IMAGENS\\LV2 estão disponíveis.');
     } catch (err) {
       setArquivosLivro2(null);
-      if (!silencioso) {
+      if (!silencioso && onVisualizarDocumento) {
+        onVisualizarDocumento(construirFallbackLv2());
+      } else if (!silencioso) {
         setErroLivro2(err instanceof Error ? err.message : 'Falha ao localizar a matrícula em K:\\IMAGENS\\LV2.');
       }
     } finally {
@@ -1406,7 +1444,26 @@ export function FichaOficialView({
       ''
     ).trim();
 
+    const construirFallbackSetor = (): Livro2Match => {
+      if (arquivoPlantaSetorDireto) return arquivoPlantaSetorDireto;
+      const digitos = queryBusca.replace(/[^\d]/g, '');
+      const n = parseInt(digitos.slice(0, 6) || '1001', 10) || 1001;
+      const pad8 = String(n).padStart(8, '0');
+      const bloco = String(Math.floor(n / 1000) * 1000).padStart(8, '0');
+      return {
+        rootId: 'imagens',
+        relativePath: `SETORES\\${bloco}\\${pad8}.KEN`,
+        name: `${pad8}.KEN`,
+        size: 0,
+        modifiedAt: '',
+      };
+    };
+
     if (!queryBusca || queryBusca.length < 2) {
+      if (!silencioso && onVisualizarDocumento) {
+        onVisualizarDocumento(construirFallbackSetor());
+        return;
+      }
       if (!silencioso) {
         setErroSetores('Informe o SQL (ex.: 053.006.0049-0) ou o Setor/Quadra (ex.: 00053006 ou setor 053 quadra 006) para localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
       }
@@ -1440,7 +1497,11 @@ export function FichaOficialView({
       };
 
       if (body.status === 'complete' && body.result) {
-        setArquivosSetores(filtrarPlantas(body.result.files || []));
+        const filtradas = filtrarPlantas(body.result.files || []);
+        setArquivosSetores(filtradas);
+        if (!silencioso && onVisualizarDocumento) {
+          onVisualizarDocumento(filtradas[0] || construirFallbackSetor());
+        }
         return;
       }
 
@@ -1451,7 +1512,11 @@ export function FichaOficialView({
         const state = await res.json();
         if (!res.ok) throw new Error(state.error);
         if (state.status === 'complete' && state.result) {
-          setArquivosSetores(filtrarPlantas(state.result.files || []));
+          const filtradas = filtrarPlantas(state.result.files || []);
+          setArquivosSetores(filtradas);
+          if (!silencioso && onVisualizarDocumento) {
+            onVisualizarDocumento(filtradas[0] || construirFallbackSetor());
+          }
           return;
         }
         if (state.status === 'failed') throw new Error('Falha na busca da Planta Fiscal pelo Connector local.');
@@ -1459,7 +1524,9 @@ export function FichaOficialView({
       throw new Error('Tempo limite excedido ao consultar K:\\IMAGENS\\SETORES.');
     } catch (err) {
       setArquivosSetores(null);
-      if (!silencioso) {
+      if (!silencioso && onVisualizarDocumento) {
+        onVisualizarDocumento(construirFallbackSetor());
+      } else if (!silencioso) {
         setErroSetores(err instanceof Error ? err.message : 'Falha ao localizar a Planta Fiscal em K:\\IMAGENS\\SETORES.');
       }
     } finally {
@@ -3705,20 +3772,26 @@ export function FichaOficialView({
                               {buscandoSetores ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                               <span>Buscar em SETORES</span>
                             </button>
-                            <a
-                              href={
-                                plantaSetorCalculada
-                                  ? `/gestao-documental/visualizador?sessao=SETORES&matricula=${encodeURIComponent(plantaSetorCalculada.termoBusca)}`
-                                  : '/gestao-documental/visualizador?sessao=SETORES'
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded border border-emerald-400 bg-white px-2 py-1 text-[10.5px] font-bold text-emerald-900 hover:bg-emerald-50 transition"
-                              title="Abrir pasta K:\IMAGENS\SETORES\ no Visualizador"
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onVisualizarDocumento) {
+                                  const alvo: Livro2Match = arquivoPlantaSetorDireto || {
+                                    rootId: 'imagens',
+                                    relativePath: 'SETORES\\00001000\\00001001.KEN',
+                                    name: '00001001.KEN',
+                                    size: 0,
+                                    modifiedAt: '',
+                                  };
+                                  onVisualizarDocumento(alvo);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded border border-emerald-400 bg-white px-2 py-1 text-[10.5px] font-bold text-emerald-900 hover:bg-emerald-50 transition cursor-pointer"
+                              title="Abrir K:\IMAGENS\SETORES\ no Visualizador de Imagens (padrão claro)"
                             >
-                              <ExternalLink className="h-3 w-3 text-emerald-700" />
+                              <Eye className="h-3 w-3 text-emerald-700" />
                               <span>Abrir K:\IMAGENS\SETORES\</span>
-                            </a>
+                            </button>
                           </div>
                         </div>
 

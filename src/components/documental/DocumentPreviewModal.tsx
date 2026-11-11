@@ -172,9 +172,12 @@ export function DocumentPreviewModal({
   const [mounted, setMounted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // Determinação da Sessão Siplan padrão baseada na pasta / rootId
+  // Determinação da Sessão Siplan padrão baseada na pasta / rootId / relativePath
   const sessaoInicial = (() => {
     const r = (rootId || '').toLowerCase();
+    const rel = (relativePath || '').toUpperCase();
+    if (r === 'setores' || rel.includes('SETORES')) return 'SETORES';
+    if (r === 'lv3' || rel.includes('LV3')) return 'LV3';
     if (r === 'livro2' || r === 'imagens') return 'LV2';
     if (r === 'processos') return 'PROCESSOS';
     if (r === 'minutas' || r === 'usucapiao') return 'USUCAPIAO_EXTRAJUD';

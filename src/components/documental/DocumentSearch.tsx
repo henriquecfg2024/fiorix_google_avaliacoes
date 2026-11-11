@@ -1619,7 +1619,66 @@ export function DocumentSearch({
         await visualizarDocumento(file, true);
         return;
       }
-      setError(err instanceof Error ? err.message : 'Falha ao ler o documento.');
+      // Tenta via /api/documental/ken e garante abertura no Visualizador Claro (Siplan)
+      const relUpper = (file.relativePath || '').toUpperCase();
+      const rootLower = (file.rootId || '').toLowerCase();
+      const sessaoInferida =
+        rootLower === 'setores' || relUpper.includes('SETORES')
+          ? 'SETORES'
+          : rootLower === 'lv3' || relUpper.includes('LV3')
+          ? 'LV3'
+          : rootLower === 'processos'
+          ? 'PROCESSOS'
+          : rootLower === 'minutas' || rootLower === 'usucapiao'
+          ? 'USUCAPIAO_EXTRAJUD'
+          : 'LV2';
+      const termoDoc = (file.name || '').replace(/\.[^/.]+$/, '').trim() || '1';
+      try {
+        const kenRes = await fetch(
+          `/api/documental/ken?doc=${encodeURIComponent(termoDoc)}&sessao=${encodeURIComponent(sessaoInferida)}`,
+        );
+        if (kenRes.ok) {
+          const data = await kenRes.json();
+          if (data.success && (data.pages?.length > 0 || data.pdfDataUrl || data.html || data.text)) {
+            const resultadoKen: DocumentTextResult = {
+              fileName: data.fileName || file.name,
+              extension: data.extension || (data.pdfDataUrl ? '.pdf' : '.KEN'),
+              html: data.html || '',
+              text: data.text || '',
+              pageTexts: data.pageTexts || [],
+              size: data.size || file.size || 0,
+              pageCount: data.pageCount || data.pages?.length || 1,
+              pages: data.pages || (data.pdfDataUrl ? [data.pdfDataUrl] : []),
+              pdfDataUrl: data.pdfDataUrl,
+              downloadUrl: data.downloadUrl,
+              notFound: false,
+            };
+            setCachedLeitura(fileKey, resultadoKen);
+            await exibirDocumento(resultadoKen, file);
+            return;
+          }
+        }
+      } catch {
+        // Continua para abertura padrão no visualizador claro com estado notFound
+      }
+
+      const extNome = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '.KEN';
+      await exibirDocumento(
+        {
+          fileName: file.name || `${termoDoc}.KEN`,
+          extension: extNome,
+          html: '',
+          text: '',
+          pageTexts: [],
+          size: 0,
+          pageCount: 0,
+          pages: [],
+          notFound: true,
+          searchedTerm: termoDoc,
+          searchedLocation: formatCartorioPath(file.rootId || 'imagens', file.relativePath || ''),
+        },
+        file,
+      );
     } finally {
       setDownloadPdf(null);
       setProcessandoAcao(null);
