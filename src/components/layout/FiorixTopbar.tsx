@@ -124,12 +124,12 @@ export function FiorixTopbar() {
         <SheetTrigger asChild>
           <button
             type="button"
-            className="fixed top-2.5 right-3 z-50 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-[#080A12]/90 px-2.5 py-1.5 text-white shadow-lg backdrop-blur-md transition hover:border-white/30 hover:bg-[#121626] cursor-pointer"
+            className="fixed top-2.5 right-3 z-50 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-[#080A12]/90 px-2.5 py-1.5 text-slate-200 shadow-lg backdrop-blur-md transition hover:border-white/25 hover:bg-[#121626] cursor-pointer"
             aria-label="Abrir menu do FIORIX"
             title="Abrir menu (7º RI São Paulo • Perfil e Navegação)"
           >
-            <Menu className="h-4 w-4 text-white/90" />
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-[10px] font-bold text-white shadow-xs">
+            <Menu className="h-4 w-4 text-slate-300" strokeWidth={1.75} />
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/12 bg-gradient-to-b from-slate-800/90 to-slate-900/95 text-[10px] font-semibold tracking-wider text-slate-200 shadow-2xs">
               {getInitials(currentUser?.name)}
             </span>
           </button>
@@ -157,28 +157,28 @@ export function FiorixTopbar() {
             </SheetHeader>
 
             {/* Card Elegante da Serventia (7º RI São Paulo) + Usuário (CF) + Badges no Menu Mobile */}
-            <div className="px-4 pt-3 pb-2 border-b border-white/10">
-              <div className="space-y-2.5 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-3 shadow-inner">
+            <div className="px-4 pt-3 pb-2 border-b border-white/[0.07]">
+              <div className="space-y-2.5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/8 bg-[#0B1020]/90 px-2.5 py-1.5 text-xs font-semibold text-white/85">
-                    <Building2 className="h-3.5 w-3.5 shrink-0 text-[#6366f1]" />
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/[0.07] bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300">
+                    <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} />
                     <span className="truncate">7º RI São Paulo</span>
                   </div>
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-xs font-bold text-white shadow-md ring-2 ring-white/10">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-gradient-to-b from-slate-800/90 to-slate-900/95 text-[11px] font-semibold tracking-wider text-slate-200 shadow-xs">
                     {getInitials(currentUser?.name)}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-2 px-1">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-bold text-white">
+                    <div className="truncate text-xs font-semibold text-slate-200">
                       {currentUser?.name || "Usuário"}
                     </div>
-                    <div className="truncate text-[10px] text-white/50">
+                    <div className="truncate text-[10px] text-slate-400/75">
                       {currentUser?.email}
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-300">
+                  <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-300">
                     {currentUser?.role || "USER"}
                   </span>
                 </div>

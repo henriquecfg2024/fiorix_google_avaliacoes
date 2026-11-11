@@ -182,22 +182,22 @@ export function FiorixSidebar() {
       side="right"
       align="start"
       sideOffset={12}
-      className="z-[160] w-60 rounded-xl border border-white/15 bg-[#0B1020] p-2.5 text-white shadow-2xl backdrop-blur-xl"
+      className="z-[160] w-60 rounded-xl border border-white/10 bg-[#0B0F1A]/95 p-2.5 text-slate-200 shadow-2xl backdrop-blur-xl"
     >
-      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-white/85">
-        <Building2 className="h-3.5 w-3.5 shrink-0 text-[#6366f1]" />
+      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.025] px-2.5 py-1.5 text-[11px] font-medium text-slate-300">
+        <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} />
         <span className="truncate">7º RI São Paulo</span>
       </div>
 
-      <div className="mb-2 border-b border-white/8 px-2.5 pb-2.5">
-        <p className="truncate text-xs font-bold text-white">
+      <div className="mb-2 border-b border-white/[0.07] px-2.5 pb-2.5">
+        <p className="truncate text-xs font-semibold text-slate-100">
           {currentUser?.name || "Usuário"}
         </p>
-        <p className="mt-0.5 truncate text-[10px] text-white/50">
+        <p className="mt-0.5 truncate text-[10px] text-slate-400/80">
           {currentUser?.email}
         </p>
         <div className="mt-1.5">
-          <span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-300">
+          <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-300">
             {currentUser?.role || effectiveRole || "USER"}
           </span>
         </div>
@@ -209,7 +209,7 @@ export function FiorixSidebar() {
           setUserPopoverOpen(false);
           router.push("/minha-conta");
         }}
-        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
       >
         <span>👤 Minha Conta</span>
       </button>
@@ -217,9 +217,9 @@ export function FiorixSidebar() {
       <form action={handleSignOut} className="mt-1">
         <button
           type="submit"
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-red-400 transition hover:bg-red-500/10"
+          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-400/90 transition hover:bg-rose-500/10 hover:text-rose-300"
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
           <span>Sair</span>
         </button>
       </form>
@@ -282,15 +282,15 @@ export function FiorixSidebar() {
         </div>
 
         {/* Card Integrado da Serventia (7º RI São Paulo) + Usuário (CF) + Badges de Status */}
-        <div className={`shrink-0 border-b border-white/8 ${isCollapsed ? "px-2 py-2.5" : "px-3 py-2.5"}`}>
+        <div className={`shrink-0 border-b border-white/[0.06] ${isCollapsed ? "px-2 py-2.5" : "px-3 py-2.5"}`}>
           {isCollapsed ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-1.5 py-2 shadow-inner">
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.015] px-1.5 py-2">
               <Tooltip>
                 {/* @ts-expect-error Radix UI asChild type mismatch */}
                 <TooltipTrigger asChild>
-                  <div className="flex flex-col items-center gap-0.5 rounded-lg border border-white/8 bg-[#0B1020]/90 px-1.5 py-1 text-white/80 cursor-default">
-                    <Building2 className="h-3.5 w-3.5 text-[#6366f1]" />
-                    <span className="text-[8.5px] font-extrabold tracking-tight leading-none">7º RI</span>
+                  <div className="flex flex-col items-center gap-0.5 rounded-lg border border-white/[0.07] bg-slate-900/60 px-2 py-1 text-slate-300 cursor-default transition-colors hover:border-white/12 hover:text-slate-200">
+                    <Building2 className="h-3.5 w-3.5 text-slate-400" strokeWidth={1.75} />
+                    <span className="text-[8.5px] font-semibold tracking-wider text-slate-300/90 leading-none">7º RI</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right">7º RI São Paulo</TooltipContent>
@@ -302,7 +302,7 @@ export function FiorixSidebar() {
                   <button
                     type="button"
                     title={`${currentUser?.name || "Menu do Usuário"} • 7º RI São Paulo`}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-xs font-bold text-white shadow-md ring-2 ring-white/10 transition-transform hover:scale-105 cursor-pointer"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/12 bg-gradient-to-b from-slate-800/90 to-slate-900/95 text-[11px] font-semibold tracking-wider text-slate-200 shadow-xs transition-all hover:border-slate-500/40 hover:bg-slate-800 hover:text-white cursor-pointer"
                   >
                     {getInitials(currentUser?.name)}
                   </button>
@@ -317,9 +317,9 @@ export function FiorixSidebar() {
                     <button
                       type="button"
                       onClick={() => window.dispatchEvent(new CustomEvent("fiorix:toggle-visitor-banner"))}
-                      className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/15 text-[9px] font-black text-amber-300 cursor-pointer"
+                      className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-400/30 bg-amber-500/10 text-[9px] font-semibold text-amber-300/90 cursor-pointer"
                     >
-                      <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400/80" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right">VISITANTE • ACESSO PROVISÓRIO</TooltipContent>
@@ -333,10 +333,10 @@ export function FiorixSidebar() {
                     <Link
                       prefetch={false}
                       href="/avaliacoes?status=PENDING"
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border text-[9px] font-black ${
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border text-[9px] font-semibold ${
                         pendingCount > 0
-                          ? "border-red-500/30 bg-red-500/15 text-red-300"
-                          : "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                          ? "border-red-500/25 bg-red-500/10 text-red-300/90"
+                          : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300/90"
                       }`}
                     >
                       {pendingCount > 0 ? pendingCount : "✓"}
@@ -349,11 +349,11 @@ export function FiorixSidebar() {
               )}
             </div>
           ) : (
-            <div className="space-y-2 rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-2.5 shadow-inner">
+            <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
               <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/8 bg-[#0B1020]/90 px-2.5 py-1.5 text-xs font-semibold text-white/85">
-                    <Building2 className="h-3.5 w-3.5 shrink-0 text-[#6366f1]" />
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-white/[0.07] bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300">
+                    <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} />
                     <span className="truncate">7º RI São Paulo</span>
                   </div>
 
@@ -362,7 +362,7 @@ export function FiorixSidebar() {
                     <button
                       type="button"
                       title={currentUser?.name || "Menu do Usuário"}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-xs font-bold text-white shadow-md ring-2 ring-white/10 transition-transform hover:scale-105 cursor-pointer"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-gradient-to-b from-slate-800/90 to-slate-900/95 text-[11px] font-semibold tracking-wider text-slate-200 shadow-xs transition-all hover:border-slate-500/40 hover:bg-slate-800 hover:text-white cursor-pointer"
                     >
                       {getInitials(currentUser?.name)}
                     </button>
@@ -377,14 +377,14 @@ export function FiorixSidebar() {
                       className="flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-white/[0.04] cursor-pointer"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[11px] font-bold text-white/90">
+                        <div className="truncate text-[11px] font-semibold text-slate-200">
                           {currentUser.name}
                         </div>
-                        <div className="truncate text-[9.5px] text-white/45">
+                        <div className="truncate text-[9.5px] text-slate-400/75">
                           {currentUser.email}
                         </div>
                       </div>
-                      <span className="shrink-0 rounded border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wider text-indigo-300">
+                      <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[8.5px] font-semibold uppercase tracking-wider text-slate-300">
                         {currentUser.role || "USER"}
                       </span>
                     </button>
@@ -494,11 +494,11 @@ export function FiorixSidebar() {
                         onClick={() => handleNavClick(group.href)}
                         className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors cursor-pointer ${
                           isDirectActive
-                            ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                            : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                            ? "bg-white/[0.05] text-slate-200 border border-white/[0.08]"
+                            : "text-slate-400/80 hover:bg-white/[0.03] hover:text-slate-200 border border-transparent"
                         }`}
                       >
-                        <GroupIcon className="w-5 h-5" />
+                        <GroupIcon className="w-[18px] h-[18px]" strokeWidth={1.75} />
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="right">{group.label}</TooltipContent>
@@ -513,11 +513,11 @@ export function FiorixSidebar() {
                     <button
                       className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors cursor-pointer ${
                         isGroupActive
-                          ? "bg-white/[0.08] text-white border border-white/10"
-                          : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                          ? "bg-white/[0.05] text-slate-200 border border-white/[0.08]"
+                          : "text-slate-400/80 hover:bg-white/[0.03] hover:text-slate-200 border border-transparent"
                       }`}
                     >
-                      <GroupIcon className="w-5 h-5" />
+                      <GroupIcon className="w-[18px] h-[18px]" strokeWidth={1.75} />
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
