@@ -1208,13 +1208,46 @@ export function FichaOficialView({
   };
 
   // ─── Localização da matrícula no Livro 2 (somente localização/visualização) ─
-  async function localizarNoLivro2(matriculaCustom?: string) {
-    const raw = matriculaCustom || dados.matricula_transcricao || '';
+  const ultimaMatriculaAutoLivro2Ref = useRef<string>('');
+
+  function filtrarImagensLivro2(files: Livro2Match[], queryBusca: string): Livro2Match[] {
+    const numAlvo = parseInt(queryBusca.replace(/[^\d]/g, ''), 10);
+    const candidatas = files.filter(f => {
+      const root = (f.rootId || '').toLowerCase();
+      const rel = (f.relativePath || '').toLowerCase();
+      const isImg =
+        root === 'livro2' ||
+        root.includes('imagem') ||
+        rel.includes('lv2') ||
+        /\.(ken|tif|tiff)$/i.test(f.name || rel);
+      if (!isImg) return false;
+      if (!isNaN(numAlvo) && numAlvo > 0) {
+        const fNum = parseInt((f.name || '').replace(/[^\d]/g, ''), 10);
+        if (!isNaN(fNum) && fNum === numAlvo) return true;
+      }
+      return true;
+    });
+    return candidatas.sort((a, b) => {
+      const aNum = parseInt((a.name || '').replace(/[^\d]/g, ''), 10);
+      const bNum = parseInt((b.name || '').replace(/[^\d]/g, ''), 10);
+      const aExato = !isNaN(numAlvo) && aNum === numAlvo ? 1 : 0;
+      const bExato = !isNaN(numAlvo) && bNum === numAlvo ? 1 : 0;
+      if (aExato !== bExato) return bExato - aExato;
+      const aLv2 = a.rootId === 'livro2' || /lv2/i.test(a.relativePath) ? 1 : 0;
+      const bLv2 = b.rootId === 'livro2' || /lv2/i.test(b.relativePath) ? 1 : 0;
+      return bLv2 - aLv2;
+    });
+  }
+
+  async function localizarNoLivro2(matriculaCustom?: string, silencioso = false) {
+    const raw = matriculaCustom ?? dados.matricula_transcricao ?? '';
     const numeros = raw.replace(/[^\d]/g, '');
     const queryBusca = numeros && numeros.length >= 2 ? numeros : raw.trim();
 
     if (!queryBusca || queryBusca.length < 2) {
-      setErroLivro2('Informe ao menos 2 dígitos da matrícula para localizar a imagem no Livro 2.');
+      if (!silencioso) {
+        setErroLivro2('Informe ao menos 2 dígitos da matrícula para localizar a imagem no Livro 2.');
+      }
       return;
     }
 
@@ -1223,38 +1256,37 @@ export function FichaOficialView({
     setTermoBuscadoLivro2(queryBusca);
 
     try {
+      const queryEnvio = /^\d+$/.test(queryBusca) && !/transcri[çc][ãa]o/i.test(raw)
+        ? `Matrícula ${queryBusca}`
+        : queryBusca;
       const response = await fetch('/api/gestao-documental', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           connectorId: connectorId || '',
           type: 'search',
-          query: queryBusca,
-          forceFresh: true,
+          query: queryEnvio,
+          forceFresh: !silencioso,
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Connector local indisponível.');
 
+      if (body.status === 'complete' && body.result) {
+        const files: Livro2Match[] = body.result.files || [];
+        setArquivosLivro2(filtrarImagensLivro2(files, queryBusca));
+        return;
+      }
+
       const deadline = Date.now() + 45000;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 650));
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
         if (!res.ok) throw new Error(state.error);
         if (state.status === 'complete' && state.result) {
           const files: Livro2Match[] = state.result.files || [];
-          const imagensLv2 = files.filter(f => {
-            const root = (f.rootId || '').toLowerCase();
-            const rel = (f.relativePath || '').toLowerCase();
-            return (
-              root === 'livro2' ||
-              root.includes('imagem') ||
-              rel.includes('lv2') ||
-              /\.(ken|tif|tiff)$/i.test(f.name || rel)
-            );
-          });
-          setArquivosLivro2(imagensLv2);
+          setArquivosLivro2(filtrarImagensLivro2(files, queryBusca));
           return;
         }
         if (state.status === 'failed') throw new Error('Falha na busca da matrícula pelo Connector local.');
@@ -1262,11 +1294,26 @@ export function FichaOficialView({
       throw new Error('Tempo limite excedido na busca do Livro 2. Verifique se o Connector e o acervo K:\\IMAGENS\\LV2 estão disponíveis.');
     } catch (err) {
       setArquivosLivro2(null);
-      setErroLivro2(err instanceof Error ? err.message : 'Falha ao localizar a matrícula em K:\\IMAGENS\\LV2.');
+      if (!silencioso) {
+        setErroLivro2(err instanceof Error ? err.message : 'Falha ao localizar a matrícula em K:\\IMAGENS\\LV2.');
+      }
     } finally {
       setBuscandoLivro2(false);
     }
   }
+
+  // Sempre que houver número de matrícula no processo de usucapião, localiza automaticamente a imagem em K:\IMAGENS\LV2
+  useEffect(() => {
+    const raw = (dados.matricula_transcricao || '').trim();
+    if (!raw || /transcri[çc][ãa]o/i.test(raw)) return;
+    const numeros = raw.replace(/[^\d]/g, '');
+    if (numeros.length < 2) return;
+    const chaveAuto = `${connectorId || 'auto'}:${numeros}`;
+    if (ultimaMatriculaAutoLivro2Ref.current === chaveAuto) return;
+    ultimaMatriculaAutoLivro2Ref.current = chaveAuto;
+    void localizarNoLivro2(raw, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dados.matricula_transcricao, connectorId]);
 
   // ─── Localização de Plantas Fiscais em K:\IMAGENS\SETORES ────────────────
   const [buscandoSetores, setBuscandoSetores] = useState(false);
@@ -3229,11 +3276,10 @@ export function FichaOficialView({
                     </div>
 
                     {/* Matrícula / Transcrição */}
-                    <div className="space-y-1">
-                      <span className="font-serif font-bold">Matrícula / Transcrição:</span>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-3">
                         <label className="flex min-w-0 flex-col gap-0.5">
-                          <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-black">Nº da Transcrição / Matrícula</span>
+                          <span className="font-serif text-xs font-bold text-black">Matrícula / Transcrição:</span>
                           <input type="text" value={dados.matricula_transcricao} onChange={e => atualizarCampo('matricula_transcricao', e.target.value)} placeholder="Nº da Transcrição ou Matrícula" className={`min-w-0 font-bold ${inputFolhaPontilhado}`} />
                         </label>
                         <label className="flex min-w-0 flex-col gap-0.5">
@@ -3245,6 +3291,37 @@ export function FichaOficialView({
                           <input type="text" value={dados.titular_origem} onChange={e => atualizarCampo('titular_origem', e.target.value)} placeholder="Titular de Origem" className={`min-w-0 text-xs font-semibold uppercase ${inputFolhaPontilhado}`} />
                         </label>
                       </div>
+
+                      {/* Arquivo da Imagem (LV2) em K:\IMAGENS\LV2 associado à Matrícula encontrada */}
+                      {arquivosLivro2 && arquivosLivro2.length > 0 ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50/70 px-2.5 py-1.5 font-sans text-xs">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ImageIcon className="h-3.5 w-3.5 shrink-0 text-amber-800" />
+                            <div className="min-w-0">
+                              <span className="font-bold text-amber-950">Imagem da Matrícula (LV2): </span>
+                              <span className="font-mono font-bold text-gray-900">{arquivosLivro2[0].name}</span>
+                              <span className="ml-1.5 font-mono text-[10.5px] text-gray-600">
+                                ({formatCartorioPath(arquivosLivro2[0].rootId, arquivosLivro2[0].relativePath)})
+                              </span>
+                            </div>
+                          </div>
+                          {onVisualizarDocumento ? (
+                            <button
+                              type="button"
+                              onClick={() => onVisualizarDocumento(arquivosLivro2[0])}
+                              className="inline-flex items-center gap-1 rounded bg-[#1E293B] px-2.5 py-1 text-[10.5px] font-bold text-white hover:bg-[#334155] transition cursor-pointer"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Visualizar Matrícula (K:\IMAGENS\LV2)</span>
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : buscandoLivro2 ? (
+                        <div className="flex items-center gap-1.5 font-sans text-[11px] text-gray-600">
+                          <Loader2 className="h-3 w-3 animate-spin text-[#0F3D6E]" />
+                          <span>Localizando arquivo da imagem da matrícula em <code className="font-mono">K:\IMAGENS\LV2</code>…</span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

@@ -85,6 +85,7 @@ interface MatchItem {
   rootId: string;
   size?: number;
   modifiedAt?: string;
+  matricula?: string;
 }
 
 interface ConnectorItem {
@@ -425,11 +426,11 @@ export function VisualizadorDedicado({
 
       // Se houver pasta selecionada, também varre diretamente a pasta atual e suas subpastas imediatas
       const termoNormalizado = normalizarTermoPesquisaDocumental(termo);
-      const promessaBuscaGlobal = executarJob<{ files?: MatchItem[]; partial?: boolean }>(
+      const promessaBuscaGlobal = executarJob<{ files?: MatchItem[]; partial?: boolean; matriculaDetectada?: string; matriculas?: string[] }>(
         { type: 'search', query: termoNormalizado },
         'Falha na busca pelo Connector local.',
         130000,
-      ).catch(() => ({ files: [] as MatchItem[], partial: false }));
+      ).catch(() => ({ files: [] as MatchItem[], partial: false, matriculaDetectada: undefined, matriculas: undefined }));
 
       const promessaVarreduraPasta = (async (): Promise<MatchItem[]> => {
         if (!pastaAtual) return [];
@@ -485,6 +486,52 @@ export function VisualizadorDedicado({
 
       const [resultado, achadosPasta] = await Promise.all([promessaBuscaGlobal, promessaVarreduraPasta]);
       const brutos = [...achadosPasta, ...(resultado.files || [])];
+
+      // Se encontrou processo de usucapião com matrícula conhecida (nos metadados ou cache de extração),
+      // traz também o arquivo da imagem (LV2) de K:\IMAGENS\LV2 no resultado da busca
+      const matCandidatas = new Set<string>();
+      if (resultado.matriculaDetectada && !/transcri[çc][ãa]o/i.test(resultado.matriculaDetectada)) {
+        matCandidatas.add(resultado.matriculaDetectada);
+      }
+      for (const m of resultado.matriculas || []) {
+        if (!/transcri[çc][ãa]o/i.test(m)) matCandidatas.add(m);
+      }
+      for (const arq of brutos) {
+        if (arq.matricula && !/transcri[çc][ãa]o/i.test(arq.matricula)) {
+          matCandidatas.add(arq.matricula);
+        }
+        try {
+          const rawExt = sessionStorage.getItem(`fiorix_ext_v2_${arq.rootId}:${arq.relativePath}`);
+          if (rawExt) {
+            const parsed = JSON.parse(rawExt);
+            if (parsed?.matricula_transcricao && !/transcri[çc][ãa]o/i.test(parsed.matricula_transcricao)) {
+              matCandidatas.add(String(parsed.matricula_transcricao));
+            }
+          }
+        } catch {}
+      }
+      for (const matTxt of matCandidatas) {
+        const num = parseInt(matTxt.replace(/[^\d]/g, ''), 10);
+        if (isNaN(num) || num < 10) continue;
+        const jaTemKen = brutos.some(
+          f => /\.(?:ken|tiff?)$/i.test(f.name) && parseInt(f.name.replace(/[^\d]/g, ''), 10) === num,
+        );
+        if (!jaTemKen) {
+          try {
+            const resLv2 = await executarJob<{ files?: MatchItem[] }>(
+              { type: 'search', query: `Matrícula ${num}` },
+              'Falha ao buscar matrícula no Livro 2',
+              25000,
+            );
+            for (const f of resLv2.files || []) {
+              if (/\.(?:ken|tiff?)$/i.test(f.name) && parseInt(f.name.replace(/[^\d]/g, ''), 10) === num) {
+                brutos.push(f);
+              }
+            }
+          } catch {}
+        }
+      }
+
       const mapaCanon = new Map<string, MatchItem>();
       for (const item of brutos) {
         const canon = resolverCaminhoCanonicoUnidade(item.rootId, item.relativePath);

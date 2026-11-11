@@ -148,8 +148,19 @@ export interface RootConfigDisplay {
   dotClass: string;
 }
 
-export function getRootInfo(rootId: string): RootConfigDisplay {
+export function getRootInfo(rootId: string, relativePath?: string): RootConfigDisplay {
   const norm = (rootId || '').toLowerCase().trim();
+  const relClean = (relativePath || '').replace(/^[\\/]+/, '');
+  if (norm === 'livro2' || ((norm === 'imagens' || norm === 'acervo') && /^lv2(?:[\\/]|$)/i.test(relClean))) {
+    return {
+      label: 'Livro 2 (K:)',
+      drive: 'K:',
+      fullName: 'Matrículas Digitalizadas do Livro 2 (Registro Geral)',
+      pathDisplay: 'K:\\IMAGENS\\LV2',
+      badgeClass: 'bg-amber-950/70 text-amber-300 border-amber-500/40 shadow-amber-500/10 hover:bg-amber-900/60',
+      dotClass: 'bg-amber-400',
+    };
+  }
   if (norm === 'vol1' || norm === 'h') {
     return {
       label: 'VOL1 (H:)',
@@ -200,16 +211,6 @@ export function getRootInfo(rootId: string): RootConfigDisplay {
       dotClass: 'bg-amber-400',
     };
   }
-  if (norm === 'livro2') {
-    return {
-      label: 'Livro 2 (K:)',
-      drive: 'K:',
-      fullName: 'Matrículas Digitalizadas do Livro 2 (Registro Geral)',
-      pathDisplay: 'K:\\IMAGENS\\LV2',
-      badgeClass: 'bg-amber-950/70 text-amber-300 border-amber-500/40 shadow-amber-500/10 hover:bg-amber-900/60',
-      dotClass: 'bg-amber-400',
-    };
-  }
   return {
     label: rootId || 'Local',
     drive: '',
@@ -221,7 +222,7 @@ export function getRootInfo(rootId: string): RootConfigDisplay {
 }
 
 export function formatCartorioPath(rootId: string, relativePath: string): string {
-  const info = getRootInfo(rootId);
+  const info = getRootInfo(rootId, relativePath);
   const rel = (relativePath || '').replace(/^[\\/]+/, '');
   if (info.pathDisplay.endsWith('\\LV2') && rel.toLowerCase().startsWith('lv2\\')) {
     return `${info.pathDisplay}\\${rel.slice(4)}`;
@@ -516,6 +517,12 @@ export function DocumentSearch({
           /* se falhar o auto-salvamento silencioso, o botão Salvar na Fila permanece disponível */
         }
       })();
+    }
+
+    // Sempre que houver número de matrícula no processo de usucapião, garante que o arquivo da imagem
+    // (LV2 em K:\IMAGENS\LV2) esteja incluído no resultado da busca
+    if (normalizada.matricula_transcricao && !/transcri[çc][ãa]o/i.test(normalizada.matricula_transcricao)) {
+      void anexarImagemLv2AoResultado(normalizada.matricula_transcricao, arquivo);
     }
   }
 
@@ -1086,6 +1093,224 @@ export function DocumentSearch({
     setSearchMode('simples');
     executeSearch(queryBusca);
   }
+
+  // Controle das buscas automáticas de imagens LV2 (K:\IMAGENS\LV2) e extrações silenciosas de matrícula
+  const lv2AnexadasRef = useRef<Set<string>>(new Set());
+  const extracaoBgTentadaRef = useRef<Set<string>>(new Set());
+
+  async function anexarImagemLv2AoResultado(termoMatricula: string, arquivoProcesso?: Match | null) {
+    if (!termoMatricula || /transcri[çc][ãa]o/i.test(termoMatricula)) return;
+    const numeros = termoMatricula.replace(/[^\d]/g, '');
+    const numInt = parseInt(numeros, 10);
+    if (!numeros || numeros.length < 2 || isNaN(numInt) || numInt <= 0) return;
+
+    const rotuloMatricula = /matr[ií]cula/i.test(termoMatricula)
+      ? termoMatricula.trim()
+      : `Matrícula nº ${numeros}`;
+
+    // Atualiza o metadado da matrícula no arquivo do processo caso tenha vindo da extração
+    if (arquivoProcesso) {
+      setJob(prev => {
+        if (!prev?.result) return prev;
+        const atualizadoFiles = prev.result.files.map(f =>
+          f.rootId === arquivoProcesso.rootId && f.relativePath === arquivoProcesso.relativePath && !f.matricula
+            ? { ...f, matricula: rotuloMatricula }
+            : f,
+        );
+        return {
+          ...prev,
+          result: {
+            ...prev.result,
+            matriculaDetectada: prev.result.matriculaDetectada || rotuloMatricula,
+            files: atualizadoFiles,
+          },
+        };
+      });
+    }
+
+    const chaveLv2 = `${connectorId || 'auto'}:${numInt}`;
+    if (lv2AnexadasRef.current.has(chaveLv2)) return;
+    lv2AnexadasRef.current.add(chaveLv2);
+
+    try {
+      const response = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId,
+          type: 'search',
+          query: `Matrícula ${numeros}`,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        lv2AnexadasRef.current.delete(chaveLv2);
+        return;
+      }
+
+      let arquivosRetornados: Match[] | null = null;
+      if (body.status === 'complete' && body.result?.files) {
+        arquivosRetornados = body.result.files as Match[];
+      } else if (body.id) {
+        const deadline = Date.now() + 35000;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 450));
+          const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+          const state = await res.json();
+          if (!res.ok || state.status === 'failed') break;
+          if (state.status === 'complete' && state.result?.files) {
+            arquivosRetornados = state.result.files as Match[];
+            break;
+          }
+        }
+      }
+
+      if (!arquivosRetornados || arquivosRetornados.length === 0) return;
+
+      const imagensLv2 = arquivosRetornados.filter(f => {
+        const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+        if (ext !== '.ken' && ext !== '.tif' && ext !== '.tiff') return false;
+        const ehLv2 =
+          f.rootId === 'livro2' ||
+          /(?:^|[\\/])lv2[\\/]/i.test(f.relativePath) ||
+          f.rootId === 'imagens';
+        if (!ehLv2) return false;
+        const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
+        return !isNaN(fNum) && fNum === numInt;
+      });
+
+      if (imagensLv2.length === 0) return;
+
+      setJob(prev => {
+        if (!prev || prev.status !== 'complete' || !prev.result) return prev;
+        const merged = normalizarEstadoBusca({
+          ...prev,
+          result: {
+            ...prev.result,
+            matriculaDetectada: prev.result.matriculaDetectada || rotuloMatricula,
+            matriculas: Array.from(new Set([...(prev.result.matriculas || []), rotuloMatricula])),
+            files: [...prev.result.files, ...imagensLv2],
+          },
+        });
+        if (merged && query.trim()) {
+          searchCacheRef.current.set(`${connectorId}:${chaveCachePesquisaDocumental(query.trim())}`, merged);
+        }
+        return merged;
+      });
+    } catch {
+      lv2AnexadasRef.current.delete(chaveLv2);
+    }
+  }
+
+  // Sempre que o resultado da busca trouxer processo(s) de usucapião, verifica a matrícula vinculada
+  // (nos metadados, cache de extração, fila de conferência ou extração em background) e inclui
+  // automaticamente o arquivo da imagem de K:\IMAGENS\LV2 no resultado da busca.
+  useEffect(() => {
+    if (!job || job.status !== 'complete' || !job.result || !connectorId) return;
+    const files = job.result.files || [];
+    if (files.length === 0) return;
+
+    const ehImagemAcervo = (nome: string) => /\.(?:ken|tiff?)$/i.test(nome);
+    const arquivosProcesso = files.filter(f => !ehImagemAcervo(f.name));
+    if (arquivosProcesso.length === 0) return;
+
+    const matriculasConhecidas = new Map<number, { texto: string; origem?: Match }>();
+    const registrarSeMatricula = (val?: string | null, origem?: Match) => {
+      if (!val || /transcri[çc][ãa]o/i.test(val)) return;
+      const num = parseInt(val.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(num) && num >= 10 && !matriculasConhecidas.has(num)) {
+        matriculasConhecidas.set(num, { texto: val, origem });
+      }
+    };
+
+    registrarSeMatricula(job.result.matriculaDetectada);
+    for (const m of job.result.matriculas || []) registrarSeMatricula(m);
+
+    for (const arq of arquivosProcesso) {
+      const fileKey = `${arq.rootId}:${arq.relativePath}`;
+      registrarSeMatricula(arq.matricula, arq);
+      const cachedExt = getCachedExtracao(fileKey);
+      if (cachedExt?.matricula_transcricao) {
+        registrarSeMatricula(cachedExt.matricula_transcricao, arq);
+      }
+      // Cruza também com as fichas salvas na fila de conferência pelo nº do processo ou arquivo de origem
+      const cnjArq = `${arq.relativePath} ${arq.name}`.replace(/[^\d]/g, '');
+      const fichaCorrespondente = fichasPendentes.find(fp => {
+        if (fp.arquivoOrigem && fp.arquivoOrigem.relativePath === arq.relativePath) return true;
+        const cnjFicha = (fp.numero_processo || '').replace(/[^\d]/g, '');
+        return Boolean(cnjFicha.length >= 15 && cnjArq.includes(cnjFicha));
+      });
+      if (fichaCorrespondente?.matricula_transcricao) {
+        registrarSeMatricula(fichaCorrespondente.matricula_transcricao, arq);
+      }
+    }
+
+    for (const [numInt, info] of matriculasConhecidas.entries()) {
+      const jaTemImagemLv2 = files.some(f => {
+        if (!ehImagemAcervo(f.name)) return false;
+        const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
+        return !isNaN(fNum) && fNum === numInt;
+      });
+      if (!jaTemImagemLv2) {
+        lv2AnexadasRef.current.delete(`${connectorId || 'auto'}:${numInt}`);
+        void anexarImagemLv2AoResultado(info.texto, info.origem);
+      }
+    }
+
+    // Se a pesquisa retornou até 3 arquivos de processo (.pdf/.doc/.docx) e ainda não temos a matrícula
+    // em cache, consulta silenciosamente a extração da petição para descobrir a matrícula e anexar o arquivo LV2
+    if (matriculasConhecidas.size === 0 && arquivosProcesso.length <= 3 && !processandoAcao) {
+      const candidato = arquivosProcesso.find(f => /\.(?:pdf|docx?)$/i.test(f.name));
+      if (candidato) {
+        const fileKey = `${candidato.rootId}:${candidato.relativePath}`;
+        if (!extracaoBgTentadaRef.current.has(fileKey)) {
+          extracaoBgTentadaRef.current.add(fileKey);
+          void (async () => {
+            try {
+              const res = await fetch('/api/gestao-documental', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  connectorId,
+                  type: 'extract_petition',
+                  rootId: candidato.rootId,
+                  relativePath: candidato.relativePath,
+                }),
+              });
+              const body = await res.json();
+              if (!res.ok) return;
+              let extraido: DadosManifestacao | null = null;
+              if (body.status === 'complete' && body.result) {
+                extraido = body.result as DadosManifestacao;
+              } else if (body.id) {
+                const deadline = Date.now() + 65000;
+                while (Date.now() < deadline) {
+                  await new Promise(r => setTimeout(r, 600));
+                  const poll = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+                  const st = await poll.json();
+                  if (!poll.ok || st.status === 'failed') break;
+                  if (st.status === 'complete' && st.result) {
+                    extraido = st.result as DadosManifestacao;
+                    break;
+                  }
+                }
+              }
+              if (extraido) {
+                const normalizado = normalizarDadosExtraidos(extraido, candidato);
+                setCachedExtracao(fileKey, normalizado);
+                if (normalizado.matricula_transcricao && !/transcri[çc][ãa]o/i.test(normalizado.matricula_transcricao)) {
+                  await anexarImagemLv2AoResultado(normalizado.matricula_transcricao, candidato);
+                }
+              }
+            } catch {
+              /* falha silenciosa em background */
+            }
+          })();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.status, job?.result?.files.length, connectorId, fichasPendentes.length]);
 
   function voltarTelaAnterior() {
     if (historicoBuscas.length === 0) return;
@@ -2641,7 +2866,7 @@ export function DocumentSearch({
                     const emProcessamento = processandoAcao?.id === fileKey;
                     const jaExtraido = !!getCachedExtracao(fileKey);
                     const jaLido = !!getCachedLeitura(fileKey);
-                    const rootInfo = getRootInfo(file.rootId);
+                    const rootInfo = getRootInfo(file.rootId, file.relativePath);
                     const tamanhoFormatado =
                       file.size >= 1024 * 1024
                         ? `${(file.size / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`
@@ -2798,7 +3023,7 @@ export function DocumentSearch({
                                   {(() => {
                                     const partes = (file.relativePath || '').split(/[\\/]/).filter(Boolean);
                                     const pastaPaiRel = partes.slice(0, -1).join('\\');
-                                    const rotuloPastaPai = partes.length > 1 ? partes[partes.length - 2] : getRootInfo(file.rootId).label;
+                                    const rotuloPastaPai = partes.length > 1 ? partes[partes.length - 2] : getRootInfo(file.rootId, file.relativePath).label;
                                     const rootIdCast = (file.rootId as RaizId) || 'vol1';
                                     const isPastaFav = verificarPastaFavorita(pastasFavoritas, rootIdCast, pastaPaiRel);
                                     return (
@@ -2857,7 +3082,7 @@ export function DocumentSearch({
                             </td>
                             <td className="p-3.5 sm:p-4 whitespace-nowrap">
                               {(() => {
-                                const rootInfo = getRootInfo(file.rootId);
+                                const rootInfo = getRootInfo(file.rootId, file.relativePath);
                                 return (
                                   <span
                                     className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition shadow-sm ${rootInfo.badgeClass}`}
