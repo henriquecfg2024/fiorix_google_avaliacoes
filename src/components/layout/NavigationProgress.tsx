@@ -1,29 +1,58 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { Suspense, useEffect, useState, useRef } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 /**
  * Barra de progresso fina no topo da tela (estilo NProgress/YouTube).
- * Aparece automaticamente durante navegação entre páginas.
+ * Aparece automaticamente durante navegação entre páginas ou filtros de URL (searchParams).
  */
-export function NavigationProgress() {
+function NavigationProgressInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchString = searchParams?.toString() || '';
+  const currentRouteKey = `${pathname || ''}${searchString ? `?${searchString}` : ''}`;
+
   const [isNavigating, setIsNavigating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const prevPathRef = useRef(pathname);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevRouteKeyRef = useRef(currentRouteKey);
 
   // Intercepta cliques em links para detectar início da navegação
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      const target = (e.target as HTMLElement).closest('a');
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return;
+      }
+
+      const target = (e.target as HTMLElement | null)?.closest?.('a');
       if (!target) return;
+      if (target.target && target.target !== '_self') return;
+      if (target.hasAttribute('download')) return;
 
       const href = target.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('http') || href.startsWith('mailto:')) return;
-      if (href === pathname) return;
+      if (
+        !href ||
+        href.startsWith('#') ||
+        href.startsWith('http') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:') ||
+        href.startsWith('javascript:')
+      ) {
+        return;
+      }
+
+      try {
+        const resolved = new URL(href, window.location.origin);
+        if (resolved.origin !== window.location.origin) return;
+        const targetRouteKey = `${resolved.pathname}${resolved.search}`;
+        const activeRouteKey = `${window.location.pathname}${window.location.search}`;
+        if (targetRouteKey === activeRouteKey) return;
+      } catch {
+        if (href === currentRouteKey) return;
+      }
 
       // Início da navegação
       setIsNavigating(true);
@@ -33,13 +62,12 @@ export function NavigationProgress() {
 
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
-  }, [pathname]);
+  }, [currentRouteKey]);
 
-  // Progresso animado (cresce rápido no início, depois desacelera)
+  // Progresso animado (cresce rápido no início, depois desacelera) + timeout de segurança
   useEffect(() => {
     if (!isNavigating) return;
 
-    // Inicia progresso
     setProgress(15);
 
     intervalRef.current = setInterval(() => {
@@ -52,31 +80,40 @@ export function NavigationProgress() {
       });
     }, 200);
 
-    // Adiciona cursor wait no body
-    document.body.style.cursor = 'wait';
+    // Timeout de segurança: garante que a barra nunca fique presa caso a navegação seja abortada
+    safetyTimeoutRef.current = setTimeout(() => {
+      setProgress(100);
+      setTimeout(() => {
+        setVisible(false);
+        setIsNavigating(false);
+        setProgress(0);
+      }, 250);
+    }, 5000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      document.body.style.cursor = '';
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
     };
   }, [isNavigating]);
 
-  // Detecta quando a navegação terminou (pathname mudou)
+  // Detecta quando a navegação terminou (pathname OU searchParams mudaram)
   useEffect(() => {
-    if (prevPathRef.current !== pathname) {
-      prevPathRef.current = pathname;
+    if (prevRouteKeyRef.current !== currentRouteKey) {
+      prevRouteKeyRef.current = currentRouteKey;
 
       if (isNavigating) {
-        // Completa a barra rapidamente
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
         setProgress(100);
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           setVisible(false);
           setIsNavigating(false);
           setProgress(0);
-        }, 300);
+        }, 250);
+        return () => clearTimeout(timer);
       }
     }
-  }, [pathname, isNavigating]);
+  }, [currentRouteKey, isNavigating]);
 
   if (!visible) return null;
 
@@ -102,5 +139,13 @@ export function NavigationProgress() {
         <div className="fixed inset-0 z-[9998] bg-black/5 pointer-events-none" />
       )}
     </>
+  );
+}
+
+export function NavigationProgress() {
+  return (
+    <Suspense fallback={null}>
+      <NavigationProgressInner />
+    </Suspense>
   );
 }

@@ -74,8 +74,17 @@ export function FiorixTopbar() {
     setNavigatingTo(null);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!navigatingTo) return;
+    const timer = setTimeout(() => {
+      setNavigatingTo(null);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [navigatingTo]);
+
   const handleNavClick = useCallback((href: string) => {
-    if (href === pathname) return;
+    const baseHref = href.split("?")[0];
+    if (baseHref === pathname) return;
     setNavigatingTo(href);
   }, [pathname]);
 

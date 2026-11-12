@@ -291,6 +291,7 @@ export function FiorixHeader() {
           {/* Badge de resposta */}
           {canViewReviews && pathname?.startsWith("/avaliacoes") && (
             <Link
+              prefetch={false}
               href="/avaliacoes?status=PENDING"
               className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
                 pendingCount > 0

@@ -97,6 +97,15 @@ export function FiorixSidebar() {
     refreshStats(false);
   }, [pathname, refreshStats]);
 
+  // Timeout de segurança para nunca travar os itens do menu caso a rota mantenha o mesmo pathname
+  useEffect(() => {
+    if (!navigatingTo) return;
+    const timer = setTimeout(() => {
+      setNavigatingTo(null);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [navigatingTo]);
+
   const getInitials = (name?: string) => {
     if (!name) return "U";
     const parts = name.trim().split(" ").filter(Boolean);
@@ -105,7 +114,8 @@ export function FiorixSidebar() {
   };
 
   const handleNavClick = useCallback((href: string) => {
-    if (href === pathname) return;
+    const baseHref = href.split("?")[0];
+    if (baseHref === pathname) return;
     setNavigatingTo(href);
   }, [pathname]);
 

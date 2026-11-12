@@ -68,6 +68,7 @@ export default async function AvaliacoesPage({
   const skip = (currentPage - 1) * pageSize;
 
   let dbReviews: any[] = [];
+  let hasDbData = false;
   let totalCount = 549;
   let totalFilteredCount = 549;
   let pendingCount = 0;
@@ -87,18 +88,11 @@ export default async function AvaliacoesPage({
   };
 
   try {
-    const [dbTotal, dbPending, dbResponded, ratingGroups, ratingAvg, activeColabs] = await Promise.all([
-      prisma.review.count({ where: { tenantId, deletedFromGoogle: false } }),
-      prisma.review.count({ where: { tenantId, status: 'PENDING', deletedFromGoogle: false } }),
-      prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } }),
+    const [statusRatingGroups, activeColabs] = await Promise.all([
       prisma.review.groupBy({
-        by: ['rating'],
+        by: ['status', 'rating'],
         where: { tenantId, deletedFromGoogle: false },
         _count: { id: true },
-      }),
-      prisma.review.aggregate({
-        where: { tenantId, deletedFromGoogle: false },
-        _avg: { rating: true },
       }),
       prisma.colaborador.findMany({
         where: { tenantId, active: true },
@@ -107,27 +101,56 @@ export default async function AvaliacoesPage({
       }),
     ]);
 
+    let dbTotal = 0;
+    let dbPending = 0;
+    let dbResponded = 0;
+    const byRating: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+    for (const grp of statusRatingGroups) {
+      const cnt = grp._count.id || 0;
+      dbTotal += cnt;
+      if (grp.status === 'PENDING') dbPending += cnt;
+      if (grp.status === 'RESPONDED') dbResponded += cnt;
+      if (grp.rating >= 1 && grp.rating <= 5) {
+        byRating[grp.rating] = (byRating[grp.rating] || 0) + cnt;
+      }
+    }
+
     if (dbTotal > 0) {
+      hasDbData = true;
       totalCount = dbTotal;
       pendingCount = dbPending;
       respondedCount = dbResponded;
-      totalFilteredCount = await prisma.review.count({ where: whereClause });
 
-      dbReviews = await prisma.review.findMany({
-        where: whereClause,
-        include: { response: true },
-        orderBy: { publishedAt: 'desc' },
-        skip,
-        take: pageSize,
-      });
+      const hasExtraFilters = Boolean(ratingFilter || searchQuery || colabFilter);
+      if (!hasExtraFilters) {
+        if (statusFilter === 'PENDING') totalFilteredCount = dbPending;
+        else if (statusFilter === 'RESPONDED') totalFilteredCount = dbResponded;
+        else totalFilteredCount = dbTotal;
+      } else {
+        totalFilteredCount = await prisma.review.count({ where: whereClause });
+      }
 
-      const c5 = ratingGroups.find((r) => r.rating === 5)?._count.id || 0;
-      const c4 = ratingGroups.find((r) => r.rating === 4)?._count.id || 0;
-      const c3 = ratingGroups.find((r) => r.rating === 3)?._count.id || 0;
-      const c2 = ratingGroups.find((r) => r.rating === 2)?._count.id || 0;
-      const c1 = ratingGroups.find((r) => r.rating === 1)?._count.id || 0;
+      if (totalFilteredCount > 0) {
+        dbReviews = await prisma.review.findMany({
+          where: whereClause,
+          include: { response: true },
+          orderBy: { publishedAt: 'desc' },
+          skip,
+          take: pageSize,
+        });
+      } else {
+        dbReviews = [];
+      }
+
+      const c5 = byRating[5] || 0;
+      const c4 = byRating[4] || 0;
+      const c3 = byRating[3] || 0;
+      const c2 = byRating[2] || 0;
+      const c1 = byRating[1] || 0;
       const c12 = c1 + c2;
       const cPositive = c5 + c4;
+      const weightedSum = c5 * 5 + c4 * 4 + c3 * 3 + c2 * 2 + c1 * 1;
 
       ratingStats = {
         count5: c5,
@@ -139,7 +162,7 @@ export default async function AvaliacoesPage({
         count12: c12,
         pct12: Number(((c12 / dbTotal) * 100).toFixed(1)),
         pctPositive: Number(((cPositive / dbTotal) * 100).toFixed(1)),
-        avg: ratingAvg._avg.rating ? ratingAvg._avg.rating.toFixed(1) : "5.0",
+        avg: (weightedSum / dbTotal).toFixed(1),
       };
 
       if (activeColabs.length > 0) {
@@ -219,9 +242,9 @@ export default async function AvaliacoesPage({
     },
   ];
 
-  let displayReviews = dbReviews.length > 0 ? dbReviews : mockReviewsSample;
+  let displayReviews = hasDbData ? dbReviews : mockReviewsSample;
 
-  if (dbReviews.length === 0) {
+  if (!hasDbData) {
     if (statusFilter === 'PENDING') displayReviews = displayReviews.filter((r) => r.status === 'PENDING');
     else if (statusFilter === 'RESPONDED') displayReviews = displayReviews.filter((r) => r.status === 'RESPONDED');
 
@@ -241,10 +264,10 @@ export default async function AvaliacoesPage({
     totalFilteredCount = displayReviews.length;
   }
 
-  const effectiveTotalCount = dbReviews.length > 0 ? totalFilteredCount : displayReviews.length;
+  const effectiveTotalCount = hasDbData ? totalFilteredCount : displayReviews.length;
   const totalPages = Math.max(1, Math.ceil(effectiveTotalCount / pageSize));
-  const startItemIndex = Math.min(skip + 1, effectiveTotalCount);
-  const endItemIndex = Math.min(skip + displayReviews.length, effectiveTotalCount);
+  const startItemIndex = effectiveTotalCount === 0 ? 0 : Math.min(skip + 1, effectiveTotalCount);
+  const endItemIndex = effectiveTotalCount === 0 ? 0 : Math.min(skip + displayReviews.length, effectiveTotalCount);
 
   const buildPageUrl = (newPage: number, newLimit?: number) => {
     const params = new URLSearchParams();
@@ -276,6 +299,7 @@ export default async function AvaliacoesPage({
 
           <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/20 bg-[#080D1A] p-1 text-xs font-semibold sm:self-auto">
             <Link
+              prefetch={false}
               href="/avaliacoes"
               className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
@@ -284,6 +308,7 @@ export default async function AvaliacoesPage({
               Todas ({totalCount})
             </Link>
             <Link
+              prefetch={false}
               href="/avaliacoes?status=PENDING"
               className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
@@ -295,6 +320,7 @@ export default async function AvaliacoesPage({
               </span>
             </Link>
             <Link
+              prefetch={false}
               href="/avaliacoes?status=RESPONDED"
               className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 statusFilter === 'RESPONDED'
@@ -468,6 +494,7 @@ export default async function AvaliacoesPage({
         </div>
 
         <form action="/avaliacoes" method="GET" className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-12">
+          {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
           <div className="relative sm:col-span-6">
             <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 transform text-white/40" />
             <input
@@ -523,7 +550,7 @@ export default async function AvaliacoesPage({
                   .join(' • ')}
               </span>
             </div>
-            <Link href="/avaliacoes" className="font-bold text-cyan-400 hover:text-cyan-300 hover:underline">
+            <Link prefetch={false} href="/avaliacoes" className="font-bold text-cyan-400 hover:text-cyan-300 hover:underline">
               ✕ Limpar tudo
             </Link>
           </div>
@@ -538,7 +565,7 @@ export default async function AvaliacoesPage({
             <p className="mx-auto max-w-sm text-xs text-white/60">
               Tente remover alguns filtros ou buscar por outro termo para encontrar o registro desejado.
             </p>
-            <Link href="/avaliacoes" className="inline-block rounded-xl border border-white/20 bg-[#080D1A] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08]">
+            <Link prefetch={false} href="/avaliacoes" className="inline-block rounded-xl border border-white/20 bg-[#080D1A] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08]">
               Ver todas as avaliações
             </Link>
           </div>
@@ -568,6 +595,7 @@ export default async function AvaliacoesPage({
                 {[10, 20, 50, 100].map((size) => (
                   <Link
                     key={size}
+                    prefetch={false}
                     href={buildPageUrl(1, size)}
                     className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                       pageSize === size
@@ -584,6 +612,7 @@ export default async function AvaliacoesPage({
             <div className="flex items-center gap-1.5">
               {currentPage > 1 ? (
                 <Link
+                  prefetch={false}
                   href={buildPageUrl(1)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
                   title="Primeira Página"
@@ -598,6 +627,7 @@ export default async function AvaliacoesPage({
 
               {currentPage > 1 ? (
                 <Link
+                  prefetch={false}
                   href={buildPageUrl(currentPage - 1)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
                   title="Página Anterior"
@@ -616,6 +646,7 @@ export default async function AvaliacoesPage({
 
               {currentPage < totalPages ? (
                 <Link
+                  prefetch={false}
                   href={buildPageUrl(currentPage + 1)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
                   title="Próxima Página"
@@ -630,6 +661,7 @@ export default async function AvaliacoesPage({
 
               {currentPage < totalPages ? (
                 <Link
+                  prefetch={false}
                   href={buildPageUrl(totalPages)}
                   className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
                   title="Última Página"
