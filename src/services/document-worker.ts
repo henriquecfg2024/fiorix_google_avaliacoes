@@ -37,6 +37,16 @@ interface ClaimedJob {
   pageEnd?: number | null;
 }
 
+export interface DocumentWorkerFailureRecord {
+  id: string;
+  type: string;
+  target: string;
+  error: string;
+  failedAt: string;
+  resolved: boolean;
+  resolvedAt: string | null;
+}
+
 export interface DocumentWorkerTelemetry {
   enabled: boolean;
   running: boolean;
@@ -48,6 +58,11 @@ export interface DocumentWorkerTelemetry {
   lastError: string | null;
   jobsProcessedTotal: number;
   jobsFailedTotal: number;
+  jobsProcessed24h: number;
+  jobsFailed24h: number;
+  jobsFailedActive24h: number;
+  jobsFailedResolved24h: number;
+  recentFailures: DocumentWorkerFailureRecord[];
   avgJobDurationMs: number | null;
   inlinePdfMaxBytes: number;
   httpsChunkBytes: number;
@@ -64,6 +79,45 @@ export interface DocumentWorkerTelemetry {
   searchEngine: DocumentSearchTelemetry | null;
 }
 
+const FAILURE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const MAX_RECENT_FAILURES = 50;
+
+function buildJobTargetIdentity(job: ClaimedJob): { key: string; label: string } {
+  const jobType = job.type || 'search';
+  if (job.rootId && job.relativePath) {
+    const cleanRel = job.relativePath.replace(/\\/g, '/').trim();
+    const base = path.basename(cleanRel) || cleanRel;
+    return {
+      key: `${jobType}::${job.rootId.toLowerCase()}::${cleanRel.toLowerCase()}`,
+      label: `[${job.rootId.toUpperCase()}] ${base}`,
+    };
+  }
+  if (job.query && job.query.trim()) {
+    const q = job.query.trim();
+    return {
+      key: `${jobType}::query::${q.toLowerCase()}`,
+      label: `Consulta "${q.slice(0, 64)}"`,
+    };
+  }
+  return {
+    key: `${jobType}::generic`,
+    label: jobType,
+  };
+}
+
+function pruneRolling24hWindow(nowMs = Date.now()) {
+  const cutoff = nowMs - FAILURE_RETENTION_MS;
+  while (
+    workerRuntime.completedTimestampsMs.length > 0 &&
+    workerRuntime.completedTimestampsMs[0] < cutoff
+  ) {
+    workerRuntime.completedTimestampsMs.shift();
+  }
+  workerRuntime.recentFailures = workerRuntime.recentFailures.filter(
+    (item) => Date.parse(item.failedAt) >= cutoff,
+  );
+}
+
 const workerRuntime = {
   enabled: false,
   running: false,
@@ -76,6 +130,8 @@ const workerRuntime = {
   lastError: null as string | null,
   jobsProcessedTotal: 0,
   jobsFailedTotal: 0,
+  completedTimestampsMs: [] as number[],
+  recentFailures: [] as Array<DocumentWorkerFailureRecord & { targetKey: string }>,
   recentDurationsMs: [] as number[],
   jobsByType: {
     search: 0,
@@ -89,6 +145,7 @@ const workerRuntime = {
 };
 
 export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
+  pruneRolling24hWindow();
   const avgJobDurationMs =
     workerRuntime.recentDurationsMs.length > 0
       ? Math.round(
@@ -106,6 +163,13 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
     }
   }
 
+  const sortedFailures = [...workerRuntime.recentFailures]
+    .sort((a, b) => Date.parse(b.failedAt) - Date.parse(a.failedAt))
+    .slice(0, 25)
+    .map(({ targetKey: _tk, ...rest }) => rest);
+  const jobsFailedActive24h = workerRuntime.recentFailures.filter((f) => !f.resolved).length;
+  const jobsFailedResolved24h = workerRuntime.recentFailures.filter((f) => f.resolved).length;
+
   return {
     enabled: workerRuntime.enabled,
     running: workerRuntime.running,
@@ -117,6 +181,11 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
     lastError: workerRuntime.lastError,
     jobsProcessedTotal: workerRuntime.jobsProcessedTotal,
     jobsFailedTotal: workerRuntime.jobsFailedTotal,
+    jobsProcessed24h: workerRuntime.completedTimestampsMs.length,
+    jobsFailed24h: workerRuntime.recentFailures.length,
+    jobsFailedActive24h,
+    jobsFailedResolved24h,
+    recentFailures: sortedFailures,
     avgJobDurationMs,
     inlinePdfMaxBytes: MAX_INLINE_PDF_BYTES,
     httpsChunkBytes: MAX_DOCUMENT_CHUNK_BYTES,
@@ -278,7 +347,14 @@ export function startDocumentWorker(): () => void {
       workerRuntime.disabledReason = null;
 
       const response = await postDocumentMessage({ action: 'claim' });
-      workerRuntime.lastPollAt = new Date().toISOString();
+      const claimNowIso = new Date().toISOString();
+      workerRuntime.lastPollAt = claimNowIso;
+      for (const f of workerRuntime.recentFailures) {
+        if (!f.resolved && f.targetKey === 'worker_poll::api') {
+          f.resolved = true;
+          f.resolvedAt = claimNowIso;
+        }
+      }
       const job = response.data.job as ClaimedJob | null;
       if (job && !stopped) {
         ultimoJobTimestampMs = Date.now();
@@ -286,6 +362,7 @@ export function startDocumentWorker(): () => void {
         workerRuntime.currentPollIntervalMs = INTERVALO_JANELA_ATIVA_MS;
         const inicioJob = Date.now();
         const tipoJob = (job.type || 'search') as keyof typeof workerRuntime.jobsByType;
+        const targetIdentity = buildJobTargetIdentity(job);
         try {
           let result: unknown;
           if (job.type === 'list_directory') {
@@ -392,20 +469,47 @@ export function startDocumentWorker(): () => void {
           }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
           const fimJob = Date.now();
+          const fimJobIso = new Date(fimJob).toISOString();
           ultimoJobTimestampMs = fimJob;
           const durJob = fimJob - inicioJob;
           workerRuntime.jobsProcessedTotal++;
-          workerRuntime.lastJobAt = new Date(fimJob).toISOString();
+          workerRuntime.completedTimestampsMs.push(fimJob);
+          pruneRolling24hWindow(fimJob);
+          for (const f of workerRuntime.recentFailures) {
+            if (!f.resolved && f.targetKey === targetIdentity.key) {
+              f.resolved = true;
+              f.resolvedAt = fimJobIso;
+            }
+          }
+          workerRuntime.lastJobAt = fimJobIso;
           workerRuntime.lastError = null;
           if (tipoJob in workerRuntime.jobsByType) workerRuntime.jobsByType[tipoJob]++;
           else workerRuntime.jobsByType.search++;
           workerRuntime.recentDurationsMs.push(durJob);
           if (workerRuntime.recentDurationsMs.length > 50) workerRuntime.recentDurationsMs.shift();
         } catch (jobErr: any) {
+          const sanitizedError = String(jobErr?.message || jobErr)
+            .replace(/[A-Za-z]:\\[^\s"']+/g, '[caminho-protegido]')
+            .slice(0, 200);
+          const failIso = new Date().toISOString();
           workerRuntime.jobsFailedTotal++;
-          workerRuntime.lastError = String(jobErr?.message || jobErr).slice(0, 200);
+          workerRuntime.lastError = sanitizedError;
+          pruneRolling24hWindow();
+          workerRuntime.recentFailures.push({
+            id: job.id,
+            type: job.type || 'search',
+            target: targetIdentity.label,
+            targetKey: targetIdentity.key,
+            error: sanitizedError,
+            failedAt: failIso,
+            resolved: false,
+            resolvedAt: null,
+          });
+          if (workerRuntime.recentFailures.length > MAX_RECENT_FAILURES) {
+            workerRuntime.recentFailures.shift();
+          }
           logger.error(`DOCUMENTAL: erro ao processar job ${job.id} (${job.type || 'search'}): ${jobErr?.message || jobErr}`);
-          if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id, error: String(jobErr?.message || jobErr).replace(/[A-Za-z]:\\[^\s"']+/g, '[caminho-protegido]').slice(0, 200) });
+          if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id, error: sanitizedError });
         }
       } else {
         workerRuntime.currentPollIntervalMs = proximoIntervalo;
@@ -413,7 +517,29 @@ export function startDocumentWorker(): () => void {
     } catch (err: any) {
       proximoIntervalo = INTERVALO_ERRO_MS;
       workerRuntime.currentPollIntervalMs = proximoIntervalo;
-      workerRuntime.lastError = String(err?.response?.data?.error || err?.message || err).slice(0, 200);
+      const pollErrMsg = String(err?.response?.data?.error || err?.message || err)
+        .replace(/[A-Za-z]:\\[^\s"']+/g, '[caminho-protegido]')
+        .slice(0, 200);
+      workerRuntime.lastError = pollErrMsg;
+      pruneRolling24hWindow();
+      const existingOpenPollFail = workerRuntime.recentFailures.find(
+        (f) => !f.resolved && f.targetKey === 'worker_poll::api',
+      );
+      if (!existingOpenPollFail) {
+        workerRuntime.recentFailures.push({
+          id: `poll-${Date.now()}`,
+          type: 'comunicacao_api',
+          target: 'Polling SaaS (/api/documental/messages)',
+          targetKey: 'worker_poll::api',
+          error: pollErrMsg,
+          failedAt: new Date().toISOString(),
+          resolved: false,
+          resolvedAt: null,
+        });
+        if (workerRuntime.recentFailures.length > MAX_RECENT_FAILURES) {
+          workerRuntime.recentFailures.shift();
+        }
+      }
       // Never log search terms, file names or authentication headers.
       logger.warn(`DOCUMENTAL: comunicação indisponível (${err?.response?.data?.error || err?.message || err}); nova tentativa em 5 segundos.`);
     } finally {

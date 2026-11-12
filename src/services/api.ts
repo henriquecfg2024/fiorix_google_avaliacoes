@@ -273,3 +273,26 @@ export async function postDocumentMessage(message: Record<string, unknown>) {
     maxContentLength: Infinity,
   });
 }
+
+export async function sendSrvsqlPerformanceSample(sample: Record<string, unknown>): Promise<boolean> {
+  try {
+    const perfUrl = env.FIORIX_API_URL.replace(/\/connector\/sync\/?$/, '/operacoes/srvsql-performance');
+    if (perfUrl === env.FIORIX_API_URL) {
+      throw new Error('URL de telemetria SRVSQL inválida.');
+    }
+    await postWithFallback(
+      perfUrl,
+      {
+        connectorId: env.CONNECTOR_ID,
+        action: 'ingest_collector_sample',
+        sample,
+      },
+      { timeout: 15000 }
+    );
+    return true;
+  } catch (err: any) {
+    const errMsg = err?.response ? `HTTP ${err.response.status}` : (err?.message || 'Erro de conexão');
+    logger.warn(`SRVSQL_PERF: Falha ao enviar amostra de performance do SRVSQL: ${errMsg}`);
+    return false;
+  }
+}

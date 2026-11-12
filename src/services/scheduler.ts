@@ -21,11 +21,16 @@ import {
   commitCheckpointForBatch, 
   markReconciliationSuccess, 
   markCheckpointCheckSuccess,
-  initializeCheckpointSchema 
+  initializeCheckpointSchema,
+  countStoredRecordHashes,
+  filterChangedRecordsByHash,
+  stageRecordHashCandidates,
+  type RecordHashCandidate
 } from '../db/checkpoint.js';
 import { attachRecordKey } from './recordKey.js';
 import { sendSyncBatch, sendHeartbeat, resetApiClient } from './api.js';
 import { getDocumentWorkerTelemetry } from './document-worker.js';
+import { collectAndSendSrvsqlPerformance } from './srvsql-telemetry.js';
 import { retryChunkedBatch } from './chunkRetry.js';
 import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
@@ -110,6 +115,9 @@ export class Scheduler {
   private intervalId?: NodeJS.Timeout;
   private queueIntervalId?: NodeJS.Timeout;
   private directiveLoopId?: NodeJS.Timeout;
+  private srvsqlTelemetryIntervalId?: NodeJS.Timeout;
+  private srvsqlInitialTimeoutId?: NodeJS.Timeout;
+  private lastSrvsqlSampleAtMs = 0;
   private isProcessingQueue = false;
   private db: DatabaseSync;
   private activeLocks = new Set<string>();
@@ -320,6 +328,30 @@ export class Scheduler {
 
     // Rotina de recuperação de ciclo perdido pós-reinicialização
     this.checkStartupCatchUp();
+
+    // Coleta contínua de performance das DMVs do SRVSQL\WEBRI (60s expediente / 300s fora do expediente)
+    if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+      this.srvsqlInitialTimeoutId = setTimeout(() => {
+        if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
+        this.lastSrvsqlSampleAtMs = Date.now();
+        collectAndSendSrvsqlPerformance().catch((err) => {
+          logger.warn(`[SRVSQL_TELEMETRY] Falha na coleta inicial: ${err?.message || err}`);
+        });
+      }, 5000);
+      this.srvsqlInitialTimeoutId.unref?.();
+
+      this.srvsqlTelemetryIntervalId = setInterval(() => {
+        if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
+        const nowMs = Date.now();
+        const minIntervalMs = isBusinessHours(new Date(nowMs)) ? 60_000 : 300_000;
+        if (nowMs - this.lastSrvsqlSampleAtMs < minIntervalMs - 2_000) return;
+        this.lastSrvsqlSampleAtMs = nowMs;
+        collectAndSendSrvsqlPerformance().catch((err) => {
+          logger.warn(`[SRVSQL_TELEMETRY] Falha no ciclo periódico: ${err?.message || err}`);
+        });
+      }, 60_000);
+      this.srvsqlTelemetryIntervalId.unref?.();
+    }
   }
 
   public checkStartupCatchUp() {
@@ -379,7 +411,11 @@ export class Scheduler {
     if (this.intervalId) clearInterval(this.intervalId);
     if (this.queueIntervalId) clearInterval(this.queueIntervalId);
     if (this.directiveLoopId) clearInterval(this.directiveLoopId);
+    if (this.srvsqlTelemetryIntervalId) clearInterval(this.srvsqlTelemetryIntervalId);
+    if (this.srvsqlInitialTimeoutId) clearTimeout(this.srvsqlInitialTimeoutId);
     this.directiveLoopId = undefined;
+    this.srvsqlTelemetryIntervalId = undefined;
+    this.srvsqlInitialTimeoutId = undefined;
     for (const t of this.catchupTimeouts) clearTimeout(t);
     this.catchupTimeouts = [];
     this.isRunning = false;
@@ -810,7 +846,76 @@ export class Scheduler {
           healthManager.recordDbQuerySuccess();
           return;
         }
-        records = res.registros.map((r: any) => attachRecordKey('cartorio_virtual_certidoes', r));
+        const mapped = res.registros.map((r: any) => attachRecordKey('cartorio_virtual_certidoes', r));
+        const storedHashes = countStoredRecordHashes(this.db, 'cartorio_virtual_certidoes');
+        const lastReconcilMs = chk?.last_reconciliation_at ? new Date(chk.last_reconciliation_at).getTime() : 0;
+        const forceDailyReconcil =
+          storedHashes === 0 ||
+          !Number.isFinite(lastReconcilMs) ||
+          lastReconcilMs <= 0 ||
+          runTime.getTime() - lastReconcilMs >= 24 * 3600 * 1000;
+
+        const delta = filterChangedRecordsByHash(this.db, 'cartorio_virtual_certidoes', mapped);
+        if (!forceDailyReconcil && delta.changedRecords.length === 0) {
+          logger.info(
+            `CARTORIO_VIRTUAL_DELTA_SKIP: ${mapped.length} pedidos verificados no SQL Server sem alterações de hash. Nenhum lote duplicado enviado.`
+          );
+          const checkTimeIso = runTime.toISOString();
+          status.recordsRead = mapped.length;
+          status.lastBatchId = null;
+          status.lastError = null;
+          status.lastSuccessAt = checkTimeIso;
+          status.lastDurationMs = durationMs;
+          markCheckpointCheckSuccess(this.db, config.name, checkTimeIso);
+          queueManager.recordCheckSuccess(config.name, checkTimeIso);
+          healthManager.recordRunSuccess(config.name, mapped.length, 0, durationMs, null, runTime);
+          if (!this.isRunning || Date.now() - this.lastTelemetryPingAtMs >= 55000) {
+            this.sendTelemetryPing().catch((tErr) => {
+              logger.warn(`TELEMETRY_PING_WARN: Falha ao enviar telemetria após delta vazio de ${config.name}: ${tErr.message}`);
+            });
+          }
+          return;
+        }
+
+        const effectiveRecords = forceDailyReconcil && delta.changedRecords.length === 0 ? mapped : delta.changedRecords;
+        const hashesToStage: RecordHashCandidate[] = forceDailyReconcil ? delta.allHashes : delta.candidateHashes;
+        const cvBatchId = uuidv4();
+        const cvGeneratedAt = runTime.toISOString();
+        const cvSyncMode: 'full' | 'incremental' | 'reconciliation' =
+          forceDailyReconcil && storedHashes > 0 ? 'reconciliation' : 'incremental';
+
+        stageRecordHashCandidates(this.db, cvBatchId, 'cartorio_virtual_certidoes', hashesToStage);
+
+        const cvPayloadObj = {
+          source: config.name,
+          batch_id: cvBatchId,
+          batchId: cvBatchId,
+          generated_at: cvGeneratedAt,
+          generatedAt: cvGeneratedAt,
+          records: effectiveRecords,
+          sync_mode: cvSyncMode,
+          reconciliation_pass: forceDailyReconcil,
+        };
+
+        queueManager.enqueue({
+          source: config.name,
+          batch_id: cvBatchId,
+          generated_at: cvGeneratedAt,
+          payload: JSON.stringify(cvPayloadObj),
+        });
+
+        status.recordsRead = mapped.length;
+        status.lastDurationMs = durationMs;
+        status.lastBatchId = cvBatchId;
+        status.lastError = null;
+        logger.info(
+          `CARTORIO_VIRTUAL_DELTA_ENQUEUED: ${effectiveRecords.length} registro(s) alterado(s)/novo(s) de ${mapped.length} lidos (modo=${cvSyncMode}, batch=${cvBatchId}).`
+        );
+        healthManager.recordRunSuccess(config.name, mapped.length, effectiveRecords.length, durationMs, cvBatchId, runTime);
+        this.processQueue().catch((qErr) => {
+          logger.warn(`QUEUE_TRIGGER_WARN: Falha no disparo imediato da fila para o lote ${cvBatchId}: ${qErr.message}`);
+        });
+        return;
       }
 
       status.recordsRead = records.length;
@@ -945,10 +1050,11 @@ export class Scheduler {
 
         try {
           const payload = JSON.parse(batch.payload);
+          const batchId = payload.batch_id || payload.batchId;
           if (Array.isArray(payload.records) && payload.records.length > env.CHUNK_SIZE_RECORDS) {
             const chunkResult = await retryChunkedBatch(
-              this.db,
-              payload.batch_id || payload.batchId,
+              queueManager.getDb(),
+              batchId,
               env.CHUNK_SIZE_RECORDS,
               sendSyncBatch,
             );
@@ -959,14 +1065,18 @@ export class Scheduler {
             await sendSyncBatch(payload);
           }
 
-          // Success callback
+          // Success callback (deletes sync_queue + sync_queue_chunks + sync_queue_chunk_plans)
           queueManager.markSuccess(batch.id, batch.source);
 
-          // Commit checkpoint or mark reconciliation success
-          if (payload.sync_mode === 'reconciliation') {
+          // Commit checkpoint / hash candidates or mark reconciliation success
+          if (batchId) {
+            commitCheckpointForBatch(this.db, batchId);
+          }
+          if (payload.sync_mode === 'reconciliation' || payload.reconciliation_pass === true) {
             markReconciliationSuccess(this.db, batch.source, new Date().toISOString());
-          } else if (payload.batch_id || payload.batchId) {
-            commitCheckpointForBatch(this.db, payload.batch_id || payload.batchId);
+          }
+          if (batch.source === 'cartorio_virtual_certidoes') {
+            markCheckpointCheckSuccess(this.db, batch.source, new Date().toISOString());
           }
 
           const status = this.statusMap.get(batch.source);

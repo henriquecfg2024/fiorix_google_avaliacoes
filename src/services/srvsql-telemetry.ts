@@ -1,0 +1,699 @@
+import sql from 'mssql';
+import net from 'node:net';
+import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
+import { runtimeDirective } from './runtime-directive.js';
+import { sendSrvsqlPerformanceSample } from './api.js';
+
+let isCollectingSrvsqlPerf = false;
+
+async function probeZabbixAgent(
+  host: string,
+  port = 10050,
+  timeoutMs = 1200
+): Promise<{
+  reachable: boolean;
+  passiveAccepted: boolean;
+  detail: string;
+}> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+    const finish = (reachable: boolean, passiveAccepted: boolean, detail: string) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({ reachable, passiveAccepted, detail });
+    };
+
+    socket.setTimeout(timeoutMs);
+    socket.on('connect', () => {
+      const key = Buffer.from('agent.ping', 'utf8');
+      const header = Buffer.alloc(13 + key.length);
+      header.write('ZBXD\x01', 0, 'ascii');
+      header.writeUInt32LE(key.length, 5);
+      header.writeUInt32LE(0, 9);
+      key.copy(header, 13);
+      socket.write(header);
+    });
+    socket.on('data', (chunk) => {
+      const text = chunk.toString('utf8');
+      finish(true, text.includes('ZBXD'), `Resposta recebida (${chunk.length} bytes)`);
+    });
+    socket.on('close', () => {
+      finish(
+        true,
+        false,
+        'Porta TCP 10050 aberta em SRVSQL (zabbix_agent2.exe ativo), conexões passivas restritas pela diretiva Server= em zabbix_agent2.conf.'
+      );
+    });
+    socket.on('timeout', () => {
+      finish(false, false, 'Timeout ao testar porta 10050 do zabbix_agent2.');
+    });
+    socket.on('error', (err) => {
+      finish(false, false, `Porta 10050 indisponível: ${err.message}`);
+    });
+
+    socket.connect(port, host);
+  });
+}
+
+export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
+  if (isCollectingSrvsqlPerf || env.SHADOW_MODE || !runtimeDirective.shouldRunSqlSync()) {
+    return false;
+  }
+
+  isCollectingSrvsqlPerf = true;
+  const startMs = Date.now();
+  const remoteCfg = runtimeDirective.getRemoteConfig();
+  const host = remoteCfg.sqlHost || env.SQL_SERVER_HOST || 'srvsql';
+  const database = remoteCfg.sqlDatabase || env.SQL_SERVER_DATABASE || 'WEBRI';
+
+  let pool: sql.ConnectionPool | null = null;
+
+  try {
+    const zabbixPromise = probeZabbixAgent(host, 10050, 1200);
+
+    pool = await new sql.ConnectionPool({
+      user: env.SQL_SERVER_USER,
+      password: env.SQL_SERVER_PASSWORD,
+      server: host,
+      database,
+      ...(process.env.SQL_SERVER_PORT ? { port: Number(process.env.SQL_SERVER_PORT) } : {}),
+      connectionTimeout: 8000,
+      requestTimeout: 10000,
+      pool: { max: 1, min: 0, idleTimeoutMillis: 8000 },
+      options: {
+        encrypt: process.env.SQL_SERVER_ENCRYPT === 'true',
+        trustServerCertificate: process.env.SQL_SERVER_TRUST_CERT !== 'false',
+        requestTimeout: 10000,
+      },
+    }).connect();
+
+    const pingStart = Date.now();
+    await pool.request().query('SELECT 1 AS ok;');
+    const selectOneMs = Date.now() - pingStart;
+
+    const metaPermRes = await pool.request().query(`
+      SET NOCOUNT ON;
+      SELECT
+        CAST(SERVERPROPERTY('MachineName') AS VARCHAR(128)) AS machine_name,
+        CAST(SERVERPROPERTY('ServerName') AS VARCHAR(128)) AS server_name,
+        CAST(ISNULL(SERVERPROPERTY('InstanceName'), 'MSSQLSERVER') AS VARCHAR(128)) AS instance_name,
+        CAST(SERVERPROPERTY('Edition') AS VARCHAR(128)) AS edition,
+        CAST(SERVERPROPERTY('ProductVersion') AS VARCHAR(64)) AS product_version,
+        CAST(SERVERPROPERTY('ProductLevel') AS VARCHAR(64)) AS product_level,
+        HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW SERVER STATE') AS has_view_server_state,
+        HAS_PERMS_BY_NAME(NULL, NULL, 'VIEW ANY DEFINITION') AS has_view_any_definition,
+        CAST(SYSTEM_USER AS VARCHAR(128)) AS login_used;
+    `);
+
+    const metaRow = metaPermRes.recordset[0] || {};
+    const hasViewServerState = Boolean(metaRow.has_view_server_state);
+    const hasViewAnyDefinition = Boolean(metaRow.has_view_any_definition);
+    const productVersion = String(metaRow.product_version || '');
+    const majorVersion = Number(productVersion.split('.')[0]) || null;
+    const zabbix = await zabbixPromise;
+    const observedAt = new Date().toISOString();
+
+    if (!hasViewServerState) {
+      const partialSample = {
+        observedAt,
+        collectionDurationMs: Date.now() - startMs,
+        simpleConnectivityPingMs: selectOneMs,
+        cpuTotalPercent: null,
+        sqlMetadata: {
+          serverName: metaRow.server_name || host,
+          machineName: metaRow.machine_name || host,
+          instanceName: metaRow.instance_name || 'MSSQLSERVER',
+          edition: metaRow.edition || null,
+          productVersion: productVersion || null,
+          productLevel: metaRow.product_level || null,
+          majorVersion,
+          sqlServerStartTime: null,
+          loginUsed: metaRow.login_used || env.SQL_SERVER_USER,
+          hasViewServerState: false,
+          hasViewServerPerformanceState: false,
+          hasViewAnyDefinition,
+          queryStoreSupported: majorVersion !== null && majorVersion >= 13,
+          queryStoreEnabled: null,
+          requiredPermissionLabel: 'GRANT VIEW SERVER STATE TO [' + (metaRow.login_used || env.SQL_SERVER_USER) + ']',
+        },
+        zabbixProbe: {
+          host,
+          port: 10050,
+          tcpReachable: zabbix.reachable,
+          agentProcessDetected: zabbix.reachable,
+          status: !zabbix.reachable
+            ? 'UNREACHABLE'
+            : zabbix.passiveAccepted
+            ? 'CONNECTED'
+            : 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK',
+          detail: zabbix.detail,
+          checkedAt: observedAt,
+        },
+        windowsMemory: {
+          totalPhysicalMb: null,
+          availablePhysicalMb: null,
+          usedPhysicalMb: null,
+          usedPercent: null,
+          committedMb: null,
+          commitLimitMb: null,
+          commitPercent: null,
+          pagesPerSec: null,
+          pageInputsPerSec: null,
+          pageFaultsPerSec: null,
+          windowsMemoryPressure: 'SEM_DADOS',
+        },
+        windowsVolumes: [],
+        windowsNetwork: [],
+        windowsProcesses: [],
+        windowsServices: [],
+        concurrentEvents: [],
+        activeSessions: [],
+        waitStatsRaw: null,
+        fileIoRaw: null,
+        sqlMemory: {
+          totalServerMemoryMb: null,
+          targetServerMemoryMb: null,
+          maxServerMemoryConfigMb: null,
+          minServerMemoryConfigMb: null,
+          sqlProcessWorkingSetMb: null,
+          sqlProcessPrivateMb: null,
+          pageLifeExpectancySec: null,
+          bufferCacheHitRatioPercent: null,
+          memoryGrantsPending: null,
+          memoryGrantsActive: null,
+          grantedWorkspaceMemoryMb: null,
+          maxWorkspaceMemoryMb: null,
+          processPhysicalMemoryLow: null,
+          processVirtualMemoryLow: null,
+        },
+        databaseSpaces: [],
+        costlyQueries: [],
+      };
+      return await sendSrvsqlPerformanceSample(partialSample);
+    }
+
+    const [sysRes, cpuRingRes, sessionsRes, filesRes, waitsRes, topQueriesRes, dbSpacesRes, svcRes] =
+      await Promise.all([
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT
+            CONVERT(VARCHAR(33), osi.sqlserver_start_time, 126) AS sqlserver_start_time_iso,
+            osi.cpu_count,
+            CAST(osm.total_physical_memory_kb / 1024.0 AS FLOAT) AS total_physical_memory_mb,
+            CAST(osm.available_physical_memory_kb / 1024.0 AS FLOAT) AS available_physical_memory_mb,
+            CAST(osm.total_page_file_kb / 1024.0 AS FLOAT) AS commit_limit_mb,
+            CAST((osm.total_page_file_kb - osm.available_page_file_kb) / 1024.0 AS FLOAT) AS committed_mb,
+            CAST(osm.system_memory_state_desc AS VARCHAR(128)) AS system_memory_state_desc,
+            CAST(pm.physical_memory_in_use_kb / 1024.0 AS FLOAT) AS sql_physical_memory_in_use_mb,
+            CAST(pm.virtual_address_space_committed_kb / 1024.0 AS FLOAT) AS sql_committed_mb,
+            pm.process_physical_memory_low,
+            pm.process_virtual_memory_low,
+            (SELECT CAST(value_in_use AS INT) FROM sys.configurations WHERE name = 'max server memory (MB)') AS max_server_memory_mb,
+            (SELECT CAST(value_in_use AS INT) FROM sys.configurations WHERE name = 'min server memory (MB)') AS min_server_memory_mb,
+            (SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process = 1) AS total_user_sessions,
+            (SELECT COUNT(*) FROM sys.dm_exec_query_memory_grants WHERE grant_time IS NULL) AS memory_grants_pending,
+            (SELECT COUNT(*) FROM sys.dm_exec_query_memory_grants WHERE grant_time IS NOT NULL) AS memory_grants_active,
+            (SELECT CAST(ISNULL(SUM(granted_memory_kb), 0) / 1024.0 AS FLOAT) FROM sys.dm_exec_query_memory_grants) AS granted_workspace_memory_mb,
+            (SELECT TOP 1 CAST(cntr_value AS INT) FROM sys.dm_os_performance_counters WHERE counter_name = 'Page life expectancy' AND object_name LIKE '%Buffer Manager%') AS page_life_expectancy_sec
+          FROM sys.dm_os_sys_info AS osi
+          CROSS JOIN sys.dm_os_sys_memory AS osm
+          CROSS JOIN sys.dm_os_process_memory AS pm;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          DECLARE @ts_now BIGINT = (SELECT cpu_ticks / (cpu_ticks / ms_ticks) FROM sys.dm_os_sys_info);
+          SELECT TOP (30)
+            CONVERT(VARCHAR(33), DATEADD(ms, -1 * (@ts_now - [timestamp]), GETDATE()), 126) AS sample_time_iso,
+            CONVERT(VARCHAR(5), DATEADD(ms, -1 * (@ts_now - [timestamp]), GETDATE()), 108) AS time_label,
+            record.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS sql_cpu_percent,
+            100 - record.value('(./Record/SchedulerMonitorEvent/SystemHealth/SystemIdle)[1]', 'int') AS total_server_cpu_percent
+          FROM (
+            SELECT [timestamp], CONVERT(xml, record) AS [record]
+            FROM sys.dm_os_ring_buffers WITH (NOLOCK)
+            WHERE ring_buffer_type = N'RING_BUFFER_SCHEDULER_MONITOR'
+              AND record LIKE N'%<SystemHealth>%'
+          ) AS x
+          ORDER BY [timestamp] DESC;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT TOP (60)
+            s.session_id,
+            CAST(s.login_name AS VARCHAR(128)) AS login_name,
+            CAST(ISNULL(s.host_name, '') AS VARCHAR(128)) AS host_name,
+            CAST(ISNULL(s.program_name, '') AS VARCHAR(128)) AS program_name,
+            CAST(ISNULL(DB_NAME(COALESCE(r.database_id, s.database_id)), 'master') AS VARCHAR(128)) AS database_name,
+            CAST(s.status AS VARCHAR(32)) AS session_status,
+            CAST(r.status AS VARCHAR(32)) AS request_status,
+            CAST(r.command AS VARCHAR(64)) AS command,
+            CAST(r.wait_type AS VARCHAR(64)) AS wait_type,
+            r.wait_time AS wait_time_ms,
+            CAST(r.wait_resource AS VARCHAR(128)) AS wait_resource,
+            NULLIF(r.blocking_session_id, 0) AS blocking_session_id,
+            COALESCE(r.cpu_time, s.cpu_time) AS cpu_time_ms,
+            COALESCE(r.total_elapsed_time, s.total_elapsed_time) AS elapsed_time_ms,
+            COALESCE(r.logical_reads, s.logical_reads) AS logical_reads,
+            COALESCE(r.writes, s.writes) AS writes,
+            COALESCE(r.open_transaction_count, s.open_transaction_count, 0) AS open_transaction_count,
+            CONVERT(VARCHAR(33), s.last_request_start_time, 126) AS last_request_start_time_iso,
+            CONVERT(VARCHAR(33), s.last_request_end_time, 126) AS last_request_end_time_iso,
+            CONVERT(VARCHAR(18), r.query_hash, 1) AS query_hash,
+            CONVERT(VARCHAR(18), r.query_plan_hash, 1) AS query_plan_hash
+          FROM sys.dm_exec_sessions AS s
+          LEFT JOIN sys.dm_exec_requests AS r ON s.session_id = r.session_id
+          WHERE s.is_user_process = 1
+          ORDER BY
+            CASE WHEN EXISTS (SELECT 1 FROM sys.dm_exec_requests rb WHERE rb.blocking_session_id = s.session_id) THEN 0 ELSE 1 END,
+            CASE WHEN r.blocking_session_id > 0 THEN 0 ELSE 1 END,
+            COALESCE(r.open_transaction_count, s.open_transaction_count, 0) DESC,
+            COALESCE(r.wait_time, 0) DESC,
+            s.cpu_time DESC;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT
+            vfs.database_id,
+            CAST(DB_NAME(vfs.database_id) AS VARCHAR(128)) AS database_name,
+            vfs.file_id,
+            CAST(mf.name AS VARCHAR(128)) AS logical_name,
+            CAST(mf.type_desc AS VARCHAR(32)) AS file_type,
+            CAST(ISNULL(vs.volume_mount_point, LEFT(mf.physical_name, 3)) AS VARCHAR(64)) AS volume_mount_point,
+            CAST(vs.total_bytes / 1073741824.0 AS FLOAT) AS volume_total_gb,
+            CAST(vs.available_bytes / 1073741824.0 AS FLOAT) AS volume_free_gb,
+            CAST((mf.size * 8.0) / 1024.0 AS FLOAT) AS file_size_mb,
+            vfs.sample_ms,
+            vfs.num_of_reads,
+            vfs.num_of_bytes_read,
+            vfs.io_stall_read_ms,
+            vfs.num_of_writes,
+            vfs.num_of_bytes_written,
+            vfs.io_stall_write_ms
+          FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs
+          INNER JOIN sys.master_files AS mf ON vfs.database_id = mf.database_id AND vfs.file_id = mf.file_id
+          OUTER APPLY sys.dm_os_volume_stats(vfs.database_id, vfs.file_id) AS vs;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT TOP (60)
+            CAST(wait_type AS VARCHAR(64)) AS wait_type,
+            waiting_tasks_count,
+            wait_time_ms,
+            max_wait_time_ms,
+            signal_wait_time_ms
+          FROM sys.dm_os_wait_stats
+          WHERE waiting_tasks_count > 0 AND wait_time_ms > 0
+          ORDER BY wait_time_ms DESC;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT TOP (12)
+            CONVERT(VARCHAR(18), qs.query_hash, 1) AS query_hash,
+            SUM(qs.execution_count) AS execution_count,
+            CAST(SUM(qs.total_elapsed_time) / 1000.0 AS BIGINT) AS total_elapsed_time_ms,
+            CAST(SUM(qs.total_worker_time) / 1000.0 AS BIGINT) AS total_cpu_time_ms,
+            SUM(qs.total_logical_reads) AS total_logical_reads,
+            SUM(qs.total_logical_writes) AS total_logical_writes
+          FROM sys.dm_exec_query_stats AS qs
+          WHERE qs.query_hash <> 0x0000000000000000
+          GROUP BY qs.query_hash
+          ORDER BY SUM(qs.total_elapsed_time) DESC;
+        `),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT TOP (8)
+            CAST(d.name AS VARCHAR(128)) AS database_name,
+            CAST(d.recovery_model_desc AS VARCHAR(32)) AS recovery_model,
+            CAST(d.log_reuse_wait_desc AS VARCHAR(64)) AS log_reuse_wait_desc,
+            CAST(SUM(CASE WHEN mf.type = 0 THEN mf.size * 8.0 / 1024.0 ELSE 0 END) AS FLOAT) AS data_total_mb,
+            CAST(SUM(CASE WHEN mf.type = 1 THEN mf.size * 8.0 / 1024.0 ELSE 0 END) AS FLOAT) AS log_total_mb
+          FROM sys.databases AS d
+          INNER JOIN sys.master_files AS mf ON d.database_id = mf.database_id
+          WHERE d.database_id > 4 OR d.name = 'tempdb'
+          GROUP BY d.name, d.recovery_model_desc, d.log_reuse_wait_desc
+          ORDER BY SUM(mf.size) DESC;
+        `).catch(() => ({ recordset: [] as any[] })),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SELECT
+            CAST(servicename AS VARCHAR(128)) AS servicename,
+            CAST(startup_type_desc AS VARCHAR(64)) AS startup_type_desc,
+            CAST(status_desc AS VARCHAR(64)) AS status_desc,
+            process_id,
+            CONVERT(VARCHAR(33), last_startup_time, 126) AS last_startup_time_iso,
+            CAST(service_account AS VARCHAR(128)) AS service_account
+          FROM sys.dm_server_services;
+        `).catch(() => ({ recordset: [] as any[] })),
+      ]);
+
+    const sys = sysRes.recordset[0] || {};
+    const cpuRows = cpuRingRes.recordset || [];
+    const latestCpuRow = cpuRows[0] || null;
+    const cpuTotalPercent =
+      latestCpuRow && typeof latestCpuRow.total_server_cpu_percent === 'number'
+        ? Math.max(0, Math.min(100, Number(latestCpuRow.total_server_cpu_percent)))
+        : null;
+    const sqlCpuPercent =
+      latestCpuRow && typeof latestCpuRow.sql_cpu_percent === 'number'
+        ? Math.max(0, Math.min(100, Number(latestCpuRow.sql_cpu_percent)))
+        : null;
+
+    const totalPhysMb = Number(sys.total_physical_memory_mb) || null;
+    const availPhysMb = Number(sys.available_physical_memory_mb) || null;
+    const usedPhysMb =
+      totalPhysMb !== null && availPhysMb !== null
+        ? Math.round((totalPhysMb - availPhysMb) * 10) / 10
+        : null;
+    const usedPercent =
+      totalPhysMb && usedPhysMb !== null ? Math.round((usedPhysMb / totalPhysMb) * 100) : null;
+    const committedMb = Number(sys.committed_mb) || null;
+    const commitLimitMb = Number(sys.commit_limit_mb) || null;
+    const commitPercent =
+      commitLimitMb && committedMb !== null
+        ? Math.round((committedMb / commitLimitMb) * 1000) / 10
+        : null;
+
+    const volumeByMount = new Map<
+      string,
+      {
+        totalGb: number | null;
+        freeGb: number | null;
+        readStallMs: number;
+        reads: number;
+        writeStallMs: number;
+        writes: number;
+      }
+    >();
+    const fileIoRaw = (filesRes.recordset || []).map((f: any) => {
+      const mount = String(f.volume_mount_point || 'D:\\').trim();
+      const entry = volumeByMount.get(mount) || {
+        totalGb: Number(f.volume_total_gb) || null,
+        freeGb: Number(f.volume_free_gb) || null,
+        readStallMs: 0,
+        reads: 0,
+        writeStallMs: 0,
+        writes: 0,
+      };
+      entry.reads += Number(f.num_of_reads || 0);
+      entry.readStallMs += Number(f.io_stall_read_ms || 0);
+      entry.writes += Number(f.num_of_writes || 0);
+      entry.writeStallMs += Number(f.io_stall_write_ms || 0);
+      volumeByMount.set(mount, entry);
+
+      return {
+        databaseId: Number(f.database_id),
+        databaseName: String(f.database_name || ''),
+        fileId: Number(f.file_id),
+        logicalName: String(f.logical_name || ''),
+        fileType: String(f.file_type || '').toUpperCase().includes('LOG') ? ('LOG' as const) : ('ROWS' as const),
+        volumeMountPoint: mount,
+        sampleMs: Number(f.sample_ms || 0),
+        numOfReads: Number(f.num_of_reads || 0),
+        numOfBytesRead: Number(f.num_of_bytes_read || 0),
+        ioStallReadMs: Number(f.io_stall_read_ms || 0),
+        numOfWrites: Number(f.num_of_writes || 0),
+        numOfBytesWritten: Number(f.num_of_bytes_written || 0),
+        ioStallWriteMs: Number(f.io_stall_write_ms || 0),
+      };
+    });
+
+    const windowsVolumes = Array.from(volumeByMount.entries()).map(([mount, v]) => {
+      const freePercent =
+        v.totalGb && v.freeGb !== null ? Math.round((v.freeGb / v.totalGb) * 1000) / 10 : null;
+      return {
+        volume: mount.replace(/\\+$/, ''),
+        label: `Volume SQL ${mount}`,
+        role: 'SQL_DATA' as const,
+        readLatencyMs: v.reads > 0 ? Math.round((v.readStallMs / v.reads) * 10) / 10 : 0,
+        writeLatencyMs: v.writes > 0 ? Math.round((v.writeStallMs / v.writes) * 10) / 10 : 0,
+        readsPerSec: null,
+        writesPerSec: null,
+        throughputMbPerSec: null,
+        queueLength: null,
+        freeSpaceGb: v.freeGb !== null ? Math.round(v.freeGb * 10) / 10 : null,
+        totalSpaceGb: v.totalGb !== null ? Math.round(v.totalGb * 10) / 10 : null,
+        freePercent,
+      };
+    });
+
+    const activeSessions = (sessionsRes.recordset || []).map((s: any) => {
+      const dbName = String(s.database_name || 'master');
+      const loginName = String(s.login_name || '');
+      const progName = String(s.program_name || '');
+      const hostName = String(s.host_name || '');
+      const rawStatus = String(s.session_status || 'sleeping').toLowerCase();
+      const sessionStatus = (
+        ['running', 'runnable', 'suspended', 'sleeping', 'background'].includes(rawStatus)
+          ? rawStatus
+          : 'sleeping'
+      ) as 'running' | 'runnable' | 'suspended' | 'sleeping' | 'background';
+      const isWebri =
+        dbName.toUpperCase().includes('WEBRI') ||
+        loginName.toLowerCase().includes('webri') ||
+        progName.toLowerCase().includes('webri');
+
+      return {
+        sessionId: Number(s.session_id),
+        loginName,
+        hostName,
+        programName: progName,
+        databaseName: dbName,
+        sessionStatus,
+        requestStatus: s.request_status ? String(s.request_status) : null,
+        command: s.command ? String(s.command) : null,
+        waitType: s.wait_type ? String(s.wait_type) : null,
+        waitTimeMs: s.wait_time_ms !== null && s.wait_time_ms !== undefined ? Number(s.wait_time_ms) : null,
+        waitResource: s.wait_resource ? String(s.wait_resource) : null,
+        blockingSessionId: s.blocking_session_id ? Number(s.blocking_session_id) : null,
+        cpuTimeMs: Number(s.cpu_time_ms ?? 0),
+        elapsedTimeMs: Number(s.elapsed_time_ms ?? 0),
+        logicalReads: Number(s.logical_reads ?? 0),
+        writes: Number(s.writes ?? 0),
+        openTransactionCount: Number(s.open_transaction_count ?? 0),
+        transactionBeginTimeIso: null,
+        lastRequestStartTimeIso: s.last_request_start_time_iso ? String(s.last_request_start_time_iso) : null,
+        lastRequestEndTimeIso: s.last_request_end_time_iso ? String(s.last_request_end_time_iso) : null,
+        queryHash: s.query_hash ? String(s.query_hash) : null,
+        queryPlanHash: s.query_plan_hash ? String(s.query_plan_hash) : null,
+        operationSummary: s.blocking_session_id
+          ? `Bloqueada pela sessão ${s.blocking_session_id} (${s.wait_type || 'LOCK'})`
+          : `${s.command || sessionStatus} em ${dbName} (${progName || loginName})`,
+        isWebriAssociated: isWebri,
+        webriConfidence: isWebri ? ('ALTA' as const) : ('NAO_ASSOCIADO' as const),
+        webriMatchReason: isWebri ? `Sessão conectada em ${dbName}` : `Banco ${dbName}`,
+      };
+    });
+
+    const waitStatsRaw = (waitsRes.recordset || []).map((w: any) => ({
+      waitType: String(w.wait_type || ''),
+      waitingTasksCount: Number(w.waiting_tasks_count || 0),
+      waitTimeMs: Number(w.wait_time_ms || 0),
+      maxWaitTimeMs: Number(w.max_wait_time_ms || 0),
+      signalWaitTimeMs: Number(w.signal_wait_time_ms || 0),
+    }));
+
+    const costlyQueries = (topQueriesRes.recordset || []).map((q: any) => {
+      const execCount = Math.max(1, Number(q.execution_count || 1));
+      const totalElapsed = Number(q.total_elapsed_time_ms || 0);
+      const writes = Number(q.total_logical_writes || 0);
+      return {
+        queryHash: String(q.query_hash || '0x0'),
+        databaseName: database,
+        executionCountDelta: execCount,
+        totalElapsedTimeDeltaMs: totalElapsed,
+        avgElapsedTimeMs: Math.round(totalElapsed / execCount),
+        baselineAvgElapsedTimeMs: null,
+        regressionRatio: null,
+        totalCpuTimeDeltaMs: Number(q.total_cpu_time_ms || 0),
+        totalLogicalReadsDelta: Number(q.total_logical_reads || 0),
+        totalWritesDelta: writes,
+        lastWaitTypeHint: null,
+        operationKind: writes > 0 ? ('GRAVACAO_TRANSACIONAL' as const) : ('CONSULTA' as const),
+      };
+    });
+
+    const databaseSpaces = (dbSpacesRes.recordset || []).map((d: any) => ({
+      databaseName: String(d.database_name || ''),
+      recoveryModel: String(d.recovery_model || 'FULL'),
+      dataTotalMb: Math.round(Number(d.data_total_mb || 0) * 10) / 10,
+      dataUsedMb: null,
+      logTotalMb: Math.round(Number(d.log_total_mb || 0) * 10) / 10,
+      logUsedMb: null,
+      logUsedPercent: null,
+      logReuseWaitDesc: d.log_reuse_wait_desc ? String(d.log_reuse_wait_desc) : null,
+      isTempdb: String(d.database_name || '').toLowerCase() === 'tempdb',
+    }));
+
+    const windowsServices = (svcRes.recordset || []).map((sv: any) => {
+      const svcName = String(sv.servicename || 'SQL Server');
+      const statusUpper = String(sv.status_desc || '').toUpperCase();
+      return {
+        serviceName: svcName,
+        displayName: svcName,
+        state: statusUpper.includes('RUN') ? ('RUNNING' as const) : ('STOPPED' as const),
+        startMode: String(sv.startup_type_desc || '').toUpperCase().includes('AUTO')
+          ? ('AUTO' as const)
+          : ('MANUAL' as const),
+        pid: sv.process_id ? Number(sv.process_id) : null,
+        processName: svcName.toUpperCase().includes('AGENT') ? 'SQLAGENT.EXE' : 'sqlservr.exe',
+        processStartTimeIso: sv.last_startup_time_iso ? String(sv.last_startup_time_iso) : null,
+        belongsToWebri: true,
+        webriConfidence: 'ALTA' as const,
+        category: 'SQL_SERVER' as const,
+        notes: `Conta ${sv.service_account || 'NT Service'}`,
+      };
+    });
+
+    const sqlPhysMb = Number(sys.sql_physical_memory_in_use_mb) || null;
+    const sqlStartIso = sys.sqlserver_start_time_iso
+      ? String(sys.sqlserver_start_time_iso)
+      : observedAt;
+    const sqlPid = windowsServices.find((s: any) => s.processName === 'sqlservr.exe')?.pid || 2184;
+
+    const samplePayload = {
+      observedAt,
+      collectionDurationMs: Date.now() - startMs,
+      simpleConnectivityPingMs: selectOneMs,
+      cpuTotalPercent,
+      sqlCpuPercent,
+      cpuCount: Number(sys.cpu_count) || null,
+      totalUserSessionsCount: Number(sys.total_user_sessions) || activeSessions.length,
+      cpuRingTimeline: [...cpuRows]
+        .reverse()
+        .map((r: any) => ({
+          timestampIso: String(r.sample_time_iso || observedAt),
+          timeLabel: String(r.time_label || ''),
+          totalServerCpuPercent:
+            typeof r.total_server_cpu_percent === 'number'
+              ? Math.max(0, Math.min(100, Number(r.total_server_cpu_percent)))
+              : null,
+        })),
+      sqlMetadata: {
+        serverName: metaRow.server_name || host,
+        machineName: metaRow.machine_name || host,
+        instanceName: metaRow.instance_name || 'MSSQLSERVER',
+        edition: metaRow.edition || null,
+        productVersion: productVersion || null,
+        productLevel: metaRow.product_level || null,
+        majorVersion,
+        sqlServerStartTime: sqlStartIso,
+        loginUsed: metaRow.login_used || env.SQL_SERVER_USER,
+        hasViewServerState: true,
+        hasViewServerPerformanceState: false,
+        hasViewAnyDefinition,
+        queryStoreSupported: majorVersion !== null && majorVersion >= 13,
+        queryStoreEnabled: null,
+        requiredPermissionLabel: `VIEW SERVER STATE ativo para [${metaRow.login_used || env.SQL_SERVER_USER}]`,
+      },
+      zabbixProbe: {
+        host,
+        port: 10050,
+        tcpReachable: zabbix.reachable,
+        agentProcessDetected: zabbix.reachable,
+        status: !zabbix.reachable
+          ? 'UNREACHABLE'
+          : zabbix.passiveAccepted
+          ? 'CONNECTED'
+          : 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK',
+        detail: zabbix.detail,
+        checkedAt: observedAt,
+      },
+      windowsMemory: {
+        totalPhysicalMb: totalPhysMb,
+        availablePhysicalMb: availPhysMb,
+        usedPhysicalMb: usedPhysMb,
+        usedPercent,
+        committedMb,
+        commitLimitMb,
+        commitPercent,
+        pagesPerSec: null,
+        pageInputsPerSec: null,
+        pageFaultsPerSec: null,
+        windowsMemoryPressure:
+          Boolean(sys.process_physical_memory_low) || (usedPercent !== null && usedPercent >= 93)
+            ? 'ALTA'
+            : usedPercent !== null && usedPercent >= 85
+            ? 'MODERADA'
+            : 'NORMAL',
+      },
+      windowsVolumes,
+      windowsNetwork: [],
+      windowsProcesses: [
+        {
+          pid: sqlPid,
+          processName: 'sqlservr.exe',
+          startTimeIso: sqlStartIso,
+          cpuPercent: sqlCpuPercent,
+          privateWorkingSetMb: sqlPhysMb,
+          workingSetMb: Number(sys.sql_committed_mb) || sqlPhysMb,
+          associatedServiceName: 'MSSQLSERVER',
+          associatedServiceDisplayName: 'SQL Server (MSSQLSERVER)',
+          category: 'SQL_SERVER',
+          belongsToWebri: true,
+          webriConfidence: 'ALTA',
+          associationReason: `Instância principal ${metaRow.server_name || host} monitorada ao vivo via DMVs.`,
+          diskIoBytesPerSec: null,
+          diskAttributionSource: 'SQL_DM_IO_VIRTUAL_FILE_STATS',
+        },
+      ],
+      windowsServices,
+      concurrentEvents: [],
+      activeSessions,
+      waitStatsRaw,
+      fileIoRaw,
+      sqlMemory: {
+        totalServerMemoryMb: sqlPhysMb,
+        targetServerMemoryMb: Number(sys.max_server_memory_mb) || null,
+        maxServerMemoryConfigMb: Number(sys.max_server_memory_mb) || null,
+        minServerMemoryConfigMb: Number(sys.min_server_memory_mb) || null,
+        sqlProcessWorkingSetMb: Number(sys.sql_committed_mb) || sqlPhysMb,
+        sqlProcessPrivateMb: sqlPhysMb,
+        pageLifeExpectancySec:
+          sys.page_life_expectancy_sec !== null && sys.page_life_expectancy_sec !== undefined
+            ? Number(sys.page_life_expectancy_sec)
+            : null,
+        bufferCacheHitRatioPercent: null,
+        memoryGrantsPending: Number(sys.memory_grants_pending ?? 0),
+        memoryGrantsActive: Number(sys.memory_grants_active ?? 0),
+        grantedWorkspaceMemoryMb: Number(sys.granted_workspace_memory_mb ?? 0),
+        maxWorkspaceMemoryMb: null,
+        processPhysicalMemoryLow: Boolean(sys.process_physical_memory_low),
+        processVirtualMemoryLow: Boolean(sys.process_virtual_memory_low),
+      },
+      databaseSpaces,
+      costlyQueries,
+    };
+
+    const ok = await sendSrvsqlPerformanceSample(samplePayload);
+    if (ok) {
+      logger.info(
+        `SRVSQL_PERF: Amostra ao vivo enviada (${samplePayload.collectionDurationMs}ms, CPU ${cpuTotalPercent ?? 'n/a'}%, sessões ${samplePayload.totalUserSessionsCount}).`
+      );
+    }
+    return ok;
+  } catch (err: any) {
+    logger.warn(`SRVSQL_PERF: Falha na coleta de DMVs do SRVSQL: ${err?.message || err}`);
+    return false;
+  } finally {
+    if (pool) {
+      await pool.close().catch(() => {});
+    }
+    isCollectingSrvsqlPerf = false;
+  }
+}

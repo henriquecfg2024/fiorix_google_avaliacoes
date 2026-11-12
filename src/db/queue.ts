@@ -57,6 +57,13 @@ class QueueManager {
     initializeChunkSchema(this.db);
     initializeCheckpointSchema(this.db);
 
+    // Prune legacy completed rows and orphaned chunk plans/chunks so SQLite stays compact.
+    this.db.exec(`
+      DELETE FROM sync_queue WHERE status = 'completed';
+      DELETE FROM sync_queue_chunks WHERE batch_id NOT IN (SELECT batch_id FROM sync_queue);
+      DELETE FROM sync_queue_chunk_plans WHERE batch_id NOT IN (SELECT batch_id FROM sync_queue);
+    `);
+
     // If Windows terminates/restarts the service while a request is in flight,
     // that row remains as "sending" and would otherwise never be retried.
     const recovered = this.db.prepare(`
@@ -98,12 +105,12 @@ class QueueManager {
 
   public getPendingBatches(limit: number = 10): SyncBatch[] {
     const now = new Date().toISOString();
-    const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
+    // Recover only batches whose in-flight lease (set by markSending) has expired.
     this.db.prepare(`
       UPDATE sync_queue
       SET status = 'pending', next_retry_at = ?
-      WHERE status = 'sending' AND (next_retry_at <= ? OR created_at <= ?)
-    `).run(now, twoMinutesAgo, twoMinutesAgo);
+      WHERE status = 'sending' AND next_retry_at <= ?
+    `).run(now, now);
 
     const stmt = this.db.prepare(`
       SELECT * FROM sync_queue 
@@ -115,12 +122,15 @@ class QueueManager {
   }
 
   public markSending(id: number) {
-    this.db.prepare(`UPDATE sync_queue SET status = 'sending' WHERE id = ?`).run(id);
+    const leaseExpiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    this.db.prepare(`UPDATE sync_queue SET status = 'sending', next_retry_at = ? WHERE id = ?`).run(leaseExpiresAt, id);
   }
 
   public markSuccess(id: number, source: string) {
     const batch = this.db.prepare(`SELECT batch_id FROM sync_queue WHERE id = ?`).get(id) as { batch_id: string } | undefined;
     const deleteStmt = this.db.prepare(`DELETE FROM sync_queue WHERE id = ?`);
+    const deleteChunksStmt = this.db.prepare(`DELETE FROM sync_queue_chunks WHERE batch_id = ?`);
+    const deleteChunkPlanStmt = this.db.prepare(`DELETE FROM sync_queue_chunk_plans WHERE batch_id = ?`);
     const updateHealth = this.db.prepare(`
       INSERT INTO sync_health (source, last_success_at) 
       VALUES (?, ?) 
@@ -130,7 +140,11 @@ class QueueManager {
     // node:sqlite doesn't have a high-level transaction wrapper yet, we do it manually
     this.db.exec('BEGIN TRANSACTION;');
     try {
-      if (batch) commitCheckpointForBatch(this.db, batch.batch_id);
+      if (batch) {
+        commitCheckpointForBatch(this.db, batch.batch_id);
+        deleteChunksStmt.run(batch.batch_id);
+        deleteChunkPlanStmt.run(batch.batch_id);
+      }
       deleteStmt.run(id);
       updateHealth.run(source, new Date().toISOString());
       this.db.exec('COMMIT;');

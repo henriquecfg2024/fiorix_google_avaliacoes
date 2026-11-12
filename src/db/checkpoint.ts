@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { addSecondsToSqlDateTime2Local } from '../utils/sqlDateTime.js';
 
@@ -10,6 +11,28 @@ export type SyncCheckpoint = {
   last_reconciliation_at: string | null;
   updated_at: string;
 };
+
+export type RecordHashCandidate = {
+  recordKey: string;
+  payloadHash: string;
+};
+
+function canonicalizeForHash(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeForHash);
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => [k, canonicalizeForHash(v)]);
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
+export function computeRecordPayloadHash(record: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(canonicalizeForHash(record))).digest('hex');
+}
 
 export function initializeCheckpointSchema(db: DatabaseSync) {
   db.exec(`
@@ -29,6 +52,21 @@ export function initializeCheckpointSchema(db: DatabaseSync) {
       tie_breaker TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS sync_record_hashes (
+      source TEXT NOT NULL,
+      record_key TEXT NOT NULL,
+      payload_hash TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (source, record_key)
+    );
+    CREATE TABLE IF NOT EXISTS sync_record_hash_candidates (
+      batch_id TEXT NOT NULL,
+      source TEXT NOT NULL,
+      record_key TEXT NOT NULL,
+      payload_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (batch_id, record_key)
+    );
   `);
   const columns = db.prepare(`PRAGMA table_info(sync_checkpoints)`).all() as Array<{ name: string }>;
   if (!columns.some((column) => column.name === 'last_batch_id')) {
@@ -41,6 +79,90 @@ export function initializeCheckpointSchema(db: DatabaseSync) {
       SELECT source, cursor_value, tie_breaker, updated_at, updated_at FROM sync_checkpoint;
     `);
   }
+}
+
+export function countStoredRecordHashes(db: DatabaseSync, source: string): number {
+  initializeCheckpointSchema(db);
+  const row = db
+    .prepare(`SELECT COUNT(*) AS count FROM sync_record_hashes WHERE source = ?`)
+    .get(source) as { count: number } | undefined;
+  return Number(row?.count ?? 0);
+}
+
+export function filterChangedRecordsByHash<T extends Record<string, unknown> & { record_key: string }>(
+  db: DatabaseSync,
+  source: string,
+  records: T[],
+): { changedRecords: T[]; candidateHashes: RecordHashCandidate[]; allHashes: RecordHashCandidate[] } {
+  initializeCheckpointSchema(db);
+  const existingRows = db
+    .prepare(`SELECT record_key, payload_hash FROM sync_record_hashes WHERE source = ?`)
+    .all(source) as Array<{ record_key: string; payload_hash: string }>;
+  const existingMap = new Map(existingRows.map((row) => [row.record_key, row.payload_hash]));
+
+  const changedRecords: T[] = [];
+  const candidateHashes: RecordHashCandidate[] = [];
+  const allHashes: RecordHashCandidate[] = [];
+
+  for (const record of records) {
+    const payloadHash = computeRecordPayloadHash(record);
+    allHashes.push({ recordKey: record.record_key, payloadHash });
+    if (existingMap.get(record.record_key) !== payloadHash) {
+      changedRecords.push(record);
+      candidateHashes.push({ recordKey: record.record_key, payloadHash });
+    }
+  }
+
+  return { changedRecords, candidateHashes, allHashes };
+}
+
+export function stageRecordHashCandidates(
+  db: DatabaseSync,
+  batchId: string,
+  source: string,
+  candidates: RecordHashCandidate[],
+) {
+  if (!candidates.length) return;
+  initializeCheckpointSchema(db);
+  const insertStmt = db.prepare(`
+    INSERT INTO sync_record_hash_candidates (batch_id, source, record_key, payload_hash)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(batch_id, record_key) DO UPDATE SET
+      source = excluded.source,
+      payload_hash = excluded.payload_hash
+  `);
+  db.exec('BEGIN TRANSACTION;');
+  try {
+    db.prepare(`DELETE FROM sync_record_hash_candidates WHERE created_at <= datetime('now', '-7 days')`).run();
+    for (const cand of candidates) {
+      insertStmt.run(batchId, source, cand.recordKey, cand.payloadHash);
+    }
+    db.exec('COMMIT;');
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  }
+}
+
+export function commitRecordHashesForBatch(db: DatabaseSync, batchId: string): number {
+  initializeCheckpointSchema(db);
+  const rows = db
+    .prepare(`SELECT source, record_key, payload_hash FROM sync_record_hash_candidates WHERE batch_id = ?`)
+    .all(batchId) as Array<{ source: string; record_key: string; payload_hash: string }>;
+  if (!rows.length) return 0;
+
+  const upsertStmt = db.prepare(`
+    INSERT INTO sync_record_hashes (source, record_key, payload_hash, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(source, record_key) DO UPDATE SET
+      payload_hash = excluded.payload_hash,
+      updated_at = CURRENT_TIMESTAMP
+  `);
+  for (const row of rows) {
+    upsertStmt.run(row.source, row.record_key, row.payload_hash);
+  }
+  db.prepare(`DELETE FROM sync_record_hash_candidates WHERE batch_id = ?`).run(batchId);
+  return rows.length;
 }
 
 export function stageCheckpointCandidate(
@@ -60,6 +182,7 @@ export function stageCheckpointCandidate(
 
 export function commitCheckpointForBatch(db: DatabaseSync, batchId: string): boolean {
   initializeCheckpointSchema(db);
+  commitRecordHashesForBatch(db, batchId);
   const candidate = db.prepare(`
     SELECT source, cursor_value, tie_breaker FROM sync_checkpoint_candidates WHERE batch_id=?
   `).get(batchId) as { source: string; cursor_value: string; tie_breaker: string | null } | undefined;
