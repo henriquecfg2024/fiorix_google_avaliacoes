@@ -229,8 +229,19 @@ export async function readSearch(id: string, tenantId: string, userId?: string) 
   return job;
 }
 
+const EXPIRED_CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+const lastExpiredCleanupByTenant = new Map<string, number>();
+
 export async function claimSearch(tenantId: string, connectorId: string) {
-  await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId} AND "expiresAt" <= NOW()`;
+  const now = Date.now();
+  const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
+  const lastCleanup = lastExpiredCleanupByTenant.get(tenantId) || 0;
+
+  if (isTestEnv || now - lastCleanup >= EXPIRED_CLEANUP_INTERVAL_MS) {
+    lastExpiredCleanupByTenant.set(tenantId, now);
+    await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId} AND "expiresAt" <= NOW()`.catch(() => {});
+  }
+
   const rows = await prisma.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
     UPDATE "DocumentSearchRequest" SET status = 'running'
     WHERE id = (SELECT id FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId}

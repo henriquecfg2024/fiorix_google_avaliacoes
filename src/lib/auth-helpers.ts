@@ -13,7 +13,10 @@ export interface AuthenticatedUser {
 
 import { prisma } from '@/lib/prisma';
 
-const userMetaCache = new Map<string, { role?: string; departamento?: string; cargo?: string; exp: number }>();
+const userMetaCache = new Map<string, { role?: string; departamento?: string; cargo?: string; exists: boolean; exp: number }>();
+const validTenantCache = new Map<string, number>();
+const TENANT_CACHE_TTL_MS = 60_000; // 60 segundos
+const USER_META_CACHE_TTL_MS = 30_000; // 30 segundos
 
 export async function requireAuth(): Promise<AuthenticatedUser> {
   const session = await auth();
@@ -22,22 +25,29 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     throw new Error('Não autorizado: Sessão não encontrada ou inválida.');
   }
 
+  const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
   let tenantId: string | undefined = session.user.tenantId;
 
   if (tenantId) {
-    try {
-      const tenantValido = await prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: { id: true },
-      });
-      if (!tenantValido) {
-        const defaultTenant = await prisma.tenant.findFirst({ select: { id: true } });
-        if (defaultTenant) {
-          tenantId = defaultTenant.id;
+    const cachedTenantExp = !isTestEnv ? validTenantCache.get(tenantId) : undefined;
+    if (!cachedTenantExp || cachedTenantExp <= Date.now()) {
+      try {
+        const tenantValido = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { id: true },
+        });
+        if (tenantValido) {
+          if (!isTestEnv) validTenantCache.set(tenantId, Date.now() + TENANT_CACHE_TTL_MS);
+        } else {
+          const defaultTenant = await prisma.tenant.findFirst({ select: { id: true } });
+          if (defaultTenant) {
+            tenantId = defaultTenant.id;
+            if (!isTestEnv) validTenantCache.set(tenantId, Date.now() + TENANT_CACHE_TTL_MS);
+          }
         }
+      } catch (err) {
+        console.warn('Erro ao validar tenantId:', err);
       }
-    } catch (err) {
-      console.warn('Erro ao validar tenantId:', err);
     }
   }
 
@@ -69,12 +79,14 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
   let liveRole: string | undefined = undefined;
   let departamento: string | undefined = undefined;
   let cargo: string | undefined = undefined;
+  let userConfirmedInDb = false;
 
-  const cachedDept = userMetaCache.get(session.user.id);
+  const cachedDept = !isTestEnv ? userMetaCache.get(session.user.id) : undefined;
   if (cachedDept && cachedDept.exp > Date.now()) {
     liveRole = cachedDept.role;
     departamento = cachedDept.departamento;
     cargo = cachedDept.cargo;
+    userConfirmedInDb = cachedDept.exists;
   } else {
     try {
       const rawUser = await prisma.$queryRawUnsafe<any[]>(
@@ -85,12 +97,16 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
         liveRole = rawUser[0].role || undefined;
         departamento = rawUser[0].departamento || undefined;
         cargo = rawUser[0].cargo || undefined;
-        userMetaCache.set(session.user.id, {
-          role: liveRole,
-          departamento,
-          cargo,
-          exp: Date.now() + 15_000,
-        });
+        userConfirmedInDb = true;
+        if (!isTestEnv) {
+          userMetaCache.set(session.user.id, {
+            role: liveRole,
+            departamento,
+            cargo,
+            exists: true,
+            exp: Date.now() + USER_META_CACHE_TTL_MS,
+          });
+        }
       }
     } catch (err) {
       console.warn('Erro ao buscar departamento do usuário:', err);
@@ -98,21 +114,23 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
   }
 
   let userId = session.user.id;
-  try {
-    const userDb = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-    if (!userDb) {
-      const fallbackUser = await prisma.user.findFirst({
-        where: { tenantId },
+  if (!userConfirmedInDb || isTestEnv) {
+    try {
+      const userDb = await prisma.user.findUnique({
+        where: { id: userId },
         select: { id: true },
       });
-      if (fallbackUser) {
-        userId = fallbackUser.id;
+      if (!userDb) {
+        const fallbackUser = await prisma.user.findFirst({
+          where: { tenantId },
+          select: { id: true },
+        });
+        if (fallbackUser) {
+          userId = fallbackUser.id;
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   return {
     id: userId,

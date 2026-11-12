@@ -230,8 +230,11 @@ export function VisualizadorDedicado({
       setSidebarOpen(false);
     }
 
-    // Carrega conectores e acompanha chaveamento automático do servidor ATIVO
-    const carregarConectores = () => {
+    // Carrega conectores e acompanha chaveamento automático do servidor ATIVO (pausado quando aba oculta)
+    let ultimaCargaConnMs = 0;
+    const carregarConectores = (forcar = false) => {
+      if (!forcar && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      ultimaCargaConnMs = Date.now();
       fetch('/api/gestao-documental', { cache: 'no-store' })
         .then(async res => {
           if (!res.ok) return;
@@ -247,10 +250,17 @@ export function VisualizadorDedicado({
         })
         .catch(() => {});
     };
-    carregarConectores();
-    const intervaloConn = window.setInterval(carregarConectores, 30000);
+    const aoFocarVisualizador = () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultimaCargaConnMs >= 30000) {
+        carregarConectores(true);
+      }
+    };
+    carregarConectores(true);
+    document.addEventListener('visibilitychange', aoFocarVisualizador);
+    const intervaloConn = window.setInterval(() => carregarConectores(false), 120000);
     return () => {
       window.clearInterval(intervaloConn);
+      document.removeEventListener('visibilitychange', aoFocarVisualizador);
       window.removeEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sincronizarFavoritos);
       window.removeEventListener('storage', sincronizarFavoritos);
     };

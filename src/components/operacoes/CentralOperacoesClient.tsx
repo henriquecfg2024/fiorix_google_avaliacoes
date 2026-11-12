@@ -152,7 +152,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
     }, 60000);
 
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && secondsAgo >= 30) {
         refreshHealth(false, false);
       }
     };

@@ -11,10 +11,10 @@ import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
 import {
   loadCurrentUserOnce,
+  loadUserNavPermissionsOnce,
   fetchNavigationStatsFresh,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
-import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
 
 export function FiorixTopbar() {
   const router = useRouter();
@@ -31,8 +31,8 @@ export function FiorixTopbar() {
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
-  const refreshStats = useCallback(() => {
-    fetchNavigationStatsFresh()
+  const refreshStats = useCallback((force = false) => {
+    fetchNavigationStatsFresh(force)
       .then((stats) => {
         setNavigationStats(stats);
         setPendingCount(Number(stats.pendingReviewsCount || 0));
@@ -47,7 +47,7 @@ export function FiorixTopbar() {
       })
       .catch(() => {});
 
-    getUserNavPermissionsAction()
+    loadUserNavPermissionsOnce()
       .then((res) => {
         if (res && res.enabled) {
           setAllowedItemIds(res.allowedItemIds);
@@ -60,13 +60,13 @@ export function FiorixTopbar() {
   }, [refreshStats]);
 
   useEffect(() => {
-    const handleStatsUpdated = () => refreshStats();
+    const handleStatsUpdated = () => refreshStats(true);
     window.addEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
     return () => window.removeEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
   }, [refreshStats]);
 
   useEffect(() => {
-    refreshStats();
+    refreshStats(false);
   }, [pathname, refreshStats]);
 
   useEffect(() => {

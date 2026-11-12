@@ -5,9 +5,22 @@ import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const PRODUTIVIDADE_CACHE_TTL_MS = 60_000; // 60s de cache por tenant para evitar transferências repetidas
+const produtividadeTenantCache = new Map<string, { rows: Record<string, unknown>[]; exp: number }>();
+
+export async function GET(request: Request) {
   try {
     const user = await requireTenant();
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get("refresh") === "true";
+    const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === "test");
+
+    if (!forceRefresh && !isTestEnv) {
+      const cached = produtividadeTenantCache.get(user.tenantId);
+      if (cached && cached.exp > Date.now()) {
+        return NextResponse.json({ success: true, data: cached.rows, cached: true });
+      }
+    }
 
     const rows: Record<string, unknown>[] = await prisma.$queryRaw(
       Prisma.sql`
@@ -25,9 +38,16 @@ export async function GET() {
         FROM public.fiorix_produtividade_dados
         WHERE tenant_id = ${user.tenantId}
         ORDER BY "data" DESC, "hora" DESC NULLS LAST
-        LIMIT 200000;
+        LIMIT 50000;
       `
     );
+
+    if (!isTestEnv) {
+      produtividadeTenantCache.set(user.tenantId, {
+        rows,
+        exp: Date.now() + PRODUTIVIDADE_CACHE_TTL_MS,
+      });
+    }
 
     return NextResponse.json({ success: true, data: rows });
   } catch (error: unknown) {

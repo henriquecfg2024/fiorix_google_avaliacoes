@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { checkRouteAccessWithFallbackAction } from '@/app/actions/nav-permissions';
+import { checkRouteAccessCached } from '@/lib/navigation/client-data';
 import { VisitorAccessBanner } from '@/components/layout/VisitorAccessBanner';
 
 export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
@@ -22,7 +22,7 @@ export function RouteAccessGuard({ children }: { children: React.ReactNode }) {
 
     let isMounted = true;
 
-    checkRouteAccessWithFallbackAction(pathname)
+    checkRouteAccessCached(pathname)
       .then((res) => {
         if (!isMounted) return;
         setFallbackHref(res.fallbackHref || '/minha-conta');

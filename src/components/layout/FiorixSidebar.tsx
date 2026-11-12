@@ -10,13 +10,13 @@ import { handleSignOut } from "@/app/actions/auth";
 import {
   loadCurrentUserOnce,
   loadNavigationStatsOnce,
+  loadUserNavPermissionsOnce,
   fetchNavigationStatsFresh,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
 import { FiorixLogoIcon } from "@/components/layout/FiorixLogoIcon";
 
 export function FiorixSidebar() {
@@ -39,8 +39,8 @@ export function FiorixSidebar() {
 
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
 
-  const refreshStats = useCallback(() => {
-    fetchNavigationStatsFresh()
+  const refreshStats = useCallback((force = false) => {
+    fetchNavigationStatsFresh(force)
       .then((stats) => {
         setNavigationStats(stats);
         setPendingCount(Number(stats.pendingReviewsCount || 0));
@@ -64,7 +64,7 @@ export function FiorixSidebar() {
       })
       .catch(() => {});
 
-    getUserNavPermissionsAction()
+    loadUserNavPermissionsOnce()
       .then((res) => {
         if (res && res.enabled) {
           setAllowedItemIds(res.allowedItemIds);
@@ -85,7 +85,7 @@ export function FiorixSidebar() {
   }, []);
 
   useEffect(() => {
-    const handleStatsUpdated = () => refreshStats();
+    const handleStatsUpdated = () => refreshStats(true);
     window.addEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
     return () => window.removeEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
   }, [refreshStats]);
@@ -94,7 +94,7 @@ export function FiorixSidebar() {
   useEffect(() => {
     setNavigatingTo(null);
     setUserPopoverOpen(false);
-    refreshStats();
+    refreshStats(false);
   }, [pathname, refreshStats]);
 
   const getInitials = (name?: string) => {

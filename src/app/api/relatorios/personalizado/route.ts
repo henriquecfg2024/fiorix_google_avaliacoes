@@ -85,6 +85,7 @@ export interface RegistroRelatorioPersonalizadoDTO {
 
 async function carregarRegistrosReaisWebri(params: {
   tenantId: string;
+  userRole?: string;
   dataInicial?: string;
   dataFinal?: string;
   atendente?: string;
@@ -153,16 +154,27 @@ async function carregarRegistrosReaisWebri(params: {
     };
   }
 
+  const pedidoSelect = {
+    id: true,
+    numeroPedido: true,
+    protocoloExterno: true,
+    dataPedido: true,
+    requerenteJson: true,
+    valoresJson: true,
+    observacoesOrigem: true,
+  } as const;
+
   let tenantIdEfetivo = params.tenantId;
   let pedidosDb = await prisma.fiorixCvPedido.findMany({
     where,
+    select: pedidoSelect,
     orderBy: [{ dataPedido: 'desc' }, { numeroPedido: 'desc' }],
     take: 5000,
   });
 
-  // Se o colaborador autenticado estiver vinculado a um tenant secundário/homologação sem pedidos próprios,
-  // utiliza o tenant principal da serventia em fiorix_cv_pedidos para que todos os colaboradores visualizem os pedidos reais.
-  if (pedidosDb.length === 0) {
+  // Fallback de homologação restrito exclusivamente ao perfil MASTER
+  const isMaster = String(params.userRole || '').toUpperCase() === 'MASTER';
+  if (pedidosDb.length === 0 && isMaster) {
     const primeiroPedidoServentia = await prisma.fiorixCvPedido.findFirst({
       select: { tenantId: true },
       orderBy: { dataPedido: 'desc' },
@@ -175,6 +187,7 @@ async function carregarRegistrosReaisWebri(params: {
       where.tenantId = tenantIdEfetivo;
       pedidosDb = await prisma.fiorixCvPedido.findMany({
         where,
+        select: pedidoSelect,
         orderBy: [{ dataPedido: 'desc' }, { numeroPedido: 'desc' }],
         take: 5000,
       });
@@ -406,6 +419,7 @@ export async function GET(req: Request) {
 
     const dados = await carregarRegistrosReaisWebri({
       tenantId: user.tenantId,
+      userRole: String(user.role || ''),
       dataInicial,
       dataFinal,
       atendente,

@@ -8,7 +8,7 @@ interface AutoRefreshProps {
   enabled?: boolean;
 }
 
-export function AutoRefresh({ intervalMs = 60000, enabled = true }: AutoRefreshProps) {
+export function AutoRefresh({ intervalMs = 300000, enabled = true }: AutoRefreshProps) {
   const router = useRouter();
 
   useEffect(() => {

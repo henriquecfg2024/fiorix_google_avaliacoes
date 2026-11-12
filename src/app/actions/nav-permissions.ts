@@ -194,6 +194,7 @@ export async function savePermissionsBatchAction(params: {
 }) {
   try {
     const master = await requireRole('MASTER');
+    sessionUserCtxCache.clear();
 
     return await saveNavPermissionsBatch({
       ...params,
@@ -217,6 +218,7 @@ export async function clearDepartmentUsersOverridesAction(params: {
 }) {
   try {
     const master = await requireRole('MASTER');
+    sessionUserCtxCache.clear();
     return await clearDepartmentUsersIndividualOverrides({
       ...params,
       masterUser: master,
@@ -231,6 +233,8 @@ export async function clearDepartmentUsersOverridesAction(params: {
   }
 }
 
+const sessionUserCtxCache = new Map<string, { role: string; tenantId: string; departamento: string | null; exp: number }>();
+
 async function resolveSessionUserContext() {
   const session = await auth();
   if (!session?.user) return null;
@@ -239,8 +243,13 @@ async function resolveSessionUserContext() {
   let tenantId = (session.user as any).tenantId || '';
   let departamento: string | null = (session.user as any).departamento || null;
   const id = session.user.id || '';
+  const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
 
   if (id) {
+    const cached = !isTestEnv ? sessionUserCtxCache.get(id) : undefined;
+    if (cached && cached.exp > Date.now()) {
+      return { id, role: cached.role, tenantId: cached.tenantId, departamento: cached.departamento };
+    }
     try {
       const dbUser = await prisma.user.findUnique({
         where: { id },
@@ -250,6 +259,14 @@ async function resolveSessionUserContext() {
         role = String(dbUser.role || role);
         tenantId = dbUser.tenantId || tenantId;
         departamento = dbUser.departamento ?? departamento;
+        if (!isTestEnv) {
+          sessionUserCtxCache.set(id, {
+            role,
+            tenantId,
+            departamento,
+            exp: Date.now() + 30_000,
+          });
+        }
       }
     } catch {
       // Mantém contexto da sessão caso o banco oscile

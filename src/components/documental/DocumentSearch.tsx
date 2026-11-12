@@ -462,10 +462,10 @@ export function DocumentSearch({
       }
     })();
 
-    // Fila compartilhada: atualiza ao voltar para a aba e a cada minuto
+    // Fila compartilhada: atualiza ao voltar para a aba e a cada 2 minutos quando visível
     const aoFocar = () => { if (document.visibilityState === 'visible') void recarregarFila(); };
     document.addEventListener('visibilitychange', aoFocar);
-    const intervalo = window.setInterval(aoFocar, 60000);
+    const intervalo = window.setInterval(aoFocar, 120000);
     return () => {
       ativo = false;
       document.removeEventListener('visibilitychange', aoFocar);
@@ -993,7 +993,10 @@ export function DocumentSearch({
 
   useEffect(() => {
     const controller = new AbortController();
-    const carregar = () => {
+    let ultimaCargaMs = 0;
+    const carregar = (forcar = false) => {
+      if (!forcar && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      ultimaCargaMs = Date.now();
       fetch('/api/gestao-documental', { cache: 'no-store', signal: controller.signal })
         .then(async response => {
           const body = await response.json();
@@ -1010,10 +1013,18 @@ export function DocumentSearch({
         .catch(reason => { if (!controller.signal.aborted) setError(reason.message); });
     };
 
-    carregar();
-    const intervalo = setInterval(carregar, 30000);
+    const aoMudarVisibilidade = () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultimaCargaMs >= 30000) {
+        carregar(true);
+      }
+    };
+
+    carregar(true);
+    document.addEventListener('visibilitychange', aoMudarVisibilidade);
+    const intervalo = setInterval(() => carregar(false), 120000);
     return () => {
       controller.abort();
+      document.removeEventListener('visibilitychange', aoMudarVisibilidade);
       clearInterval(intervalo);
       abort.current?.abort();
     };

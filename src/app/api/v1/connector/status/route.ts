@@ -195,19 +195,18 @@ export async function POST(req: Request) {
       return jsonResponse(requestId, { error: 'Heartbeat not persisted' }, 409);
     }
 
-    // Persistir estado das fontes (inclusive execuções vazias com 0 registros)
-    if (sources && typeof sources === 'object') {
+    // Persistir estado das fontes em lote único (evita até 7 roundtrips sequenciais por heartbeat)
+    if (sources && typeof sources === 'object' && prisma.connectorSourceStatus?.upsert) {
       const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes', 'safras'];
-      for (const [sourceKey, sourceData] of Object.entries(sources)) {
-        if (!allowedSources.includes(sourceKey)) continue;
+      const upsertOperations = Object.entries(sources)
+        .filter(([sourceKey]) => allowedSources.includes(sourceKey))
+        .map(([sourceKey, sourceData]) => {
+          const lastSuccessDate = sourceData.lastSuccessAt ? new Date(sourceData.lastSuccessAt) : null;
+          const lastRunDate = sourceData.lastRunAt ? new Date(sourceData.lastRunAt) : null;
+          const statusVal = sourceData.lastError ? 'error' : 'healthy';
+          const lastErrorVal = sourceData.lastError ? sourceData.lastError.substring(0, 255) : null;
 
-        const lastSuccessDate = sourceData.lastSuccessAt ? new Date(sourceData.lastSuccessAt) : null;
-        const lastRunDate = sourceData.lastRunAt ? new Date(sourceData.lastRunAt) : null;
-
-        if (!prisma.connectorSourceStatus?.upsert) continue;
-
-        await prisma.connectorSourceStatus
-          .upsert({
+          return prisma.connectorSourceStatus.upsert({
             where: {
               tenantId_connectorId_source: {
                 tenantId,
@@ -219,8 +218,8 @@ export async function POST(req: Request) {
               lastSyncAt: lastRunDate || receivedAt,
               lastSuccessAt: lastSuccessDate || undefined,
               recordsLastSync: sourceData.lastSqlRecords ?? 0,
-              status: sourceData.lastError ? 'error' : 'healthy',
-              lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
+              status: statusVal,
+              lastError: lastErrorVal,
             },
             create: {
               tenantId,
@@ -229,13 +228,22 @@ export async function POST(req: Request) {
               lastSyncAt: lastRunDate || receivedAt,
               lastSuccessAt: lastSuccessDate,
               recordsLastSync: sourceData.lastSqlRecords ?? 0,
-              status: sourceData.lastError ? 'error' : 'healthy',
-              lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
+              status: statusVal,
+              lastError: lastErrorVal,
             },
-          })
-          .catch((upsertErr) => {
-            console.warn(`[Connector Status] Falha no upsert da fonte ${sourceKey}:`, upsertErr?.message);
           });
+        });
+
+      if (upsertOperations.length > 0) {
+        try {
+          if (typeof (prisma as any).$transaction === 'function') {
+            await prisma.$transaction(upsertOperations);
+          } else {
+            await Promise.all(upsertOperations);
+          }
+        } catch (upsertErr: any) {
+          console.warn('[Connector Status] Falha no upsert em lote das fontes:', upsertErr?.message);
+        }
       }
     }
 
