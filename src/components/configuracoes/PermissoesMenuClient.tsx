@@ -38,6 +38,7 @@ import {
   getPermissionsForTargetAction,
   savePermissionsBatchAction,
 } from '@/app/actions/nav-permissions';
+import { invalidateNavPermissionsClientCache } from '@/lib/navigation/client-data';
 
 interface PermissoesMenuClientProps {
   initialTenants: TenantContextItem[];
@@ -344,6 +345,9 @@ export function PermissoesMenuClient({
       const next = { ...prev };
       for (const itemState of items) {
         const item = itemState.item;
+        if (action === 'ALLOW' && item.id === 'validacao_autenticidade_documental') {
+          continue;
+        }
         if (!itemState.isBlockedBySystem && !item.isMasterOnly && !item.isProtected) {
           next[item.id] = action;
           if (item.sharedWithId) {
@@ -458,6 +462,7 @@ export function PermissoesMenuClient({
 
       setSaveSuccessMsg(result.message);
       setDraftChanges({});
+      invalidateNavPermissionsClientCache();
 
       if (switchTargetAfterSave && pendingTargetSwitch) {
         applyPendingSwitch();
@@ -999,6 +1004,70 @@ export function PermissoesMenuClient({
             </div>
           </div>
         )}
+
+        {/* CONTROLE DEDICADO: ABA VALIDAÇÃO DE AUTENTICIDADE (GESTÃO DOCUMENTAL) */}
+        {(() => {
+          const autRaw = treeData?.itemsState.find(
+            (i) => i.item.id === 'validacao_autenticidade_documental'
+          );
+          if (!autRaw) return null;
+          const autResolved = resolveDraftItemState(autRaw);
+          const isAtiva = autResolved.isEffectiveVisible;
+
+          return (
+            <div className="p-3.5 rounded-xl border border-cyan-500/25 bg-[#10172A] flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-semibold text-white flex items-center gap-2 flex-wrap">
+                    <span>Aba: Validação de Autenticidade (Gestão Documental)</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        isAtiva
+                          ? 'border border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                          : 'border border-slate-700 bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      {isAtiva ? 'Ativada' : 'Desativada (Padrão)'}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-[11px] mt-0.5">
+                    Exibe a aba &ldquo;Validação de autenticidade&rdquo; no painel Revisão dos dados. Desativada por padrão para todos os usuários; ative apenas quando necessário.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setItemDraftAction('validacao_autenticidade_documental', 'ALLOW')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isAtiva
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300'
+                  }`}
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  Ativar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItemDraftAction('validacao_autenticidade_documental', 'DENY')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    !isAtiva
+                      ? 'bg-red-500/25 border border-red-500/50 text-red-200'
+                      : 'border border-red-500/25 bg-red-500/10 hover:bg-red-500/20 text-red-300'
+                  }`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Desativar
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* BARRA DE BUSCA DE MENUS */}
         <div className="relative">

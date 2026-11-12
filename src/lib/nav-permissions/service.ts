@@ -29,6 +29,7 @@ export function isNavPermissionsFeatureEnabled(
  * Deriva se o item do catálogo é visível no menu legado para o papel informado.
  */
 export function isItemVisibleInLegacy(item: NavCatalogItem, role: string): boolean {
+  if (item.id === 'validacao_autenticidade_documental') return false;
   if (item.isMasterOnly) return role === 'MASTER';
   if (item.id === 'inicio' || item.href === '/dashboard') {
     const upper = String(role || '').toUpperCase();
@@ -489,6 +490,23 @@ export async function saveNavPermissionsBatch(params: {
           isVisible,
           masterUser.id
         );
+        if (itemId === 'validacao_autenticidade_documental' && targetId === 'ADMIN') {
+          await tx.$executeRawUnsafe(
+            `INSERT INTO public.fiorix_nav_role_rules 
+               (id, tenant_id, role, item_id, visible, created_at, updated_at, updated_by)
+             VALUES 
+               (gen_random_uuid(), $1, 'MASTER', $2, $3, NOW(), NOW(), $4)
+             ON CONFLICT (tenant_id, role, item_id)
+             DO UPDATE SET 
+               visible = EXCLUDED.visible,
+               updated_at = NOW(),
+               updated_by = EXCLUDED.updated_by`,
+            tenantId,
+            itemId,
+            isVisible,
+            masterUser.id
+          );
+        }
         updatedCount++;
       } else if (isDeptMode) {
         if (action === 'HERDAR') {
@@ -614,6 +632,7 @@ export async function getEffectiveUserNavigation(user: {
     if (group.isMasterOnly) continue;
 
     const visibleItems = group.items.filter((item) => {
+      if (item.id === 'validacao_autenticidade_documental') return false;
       // 1. Guarda estrutural
       const structural = checkStructuralRestriction(item, user.role);
       if (structural.isBlocked) return false;
@@ -733,9 +752,27 @@ export async function getAllowedNavItemsForUser(user: {
   }
 
   if (user.role === 'MASTER') {
+    let autenticidadeAtivaParaMaster = false;
+    try {
+      const rows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT visible FROM public.fiorix_nav_role_rules
+         WHERE tenant_id = $1 AND item_id = 'validacao_autenticidade_documental' AND role IN ('MASTER', 'ADMIN')
+         ORDER BY CASE WHEN role = 'MASTER' THEN 0 ELSE 1 END
+         LIMIT 1`,
+        user.tenantId
+      );
+      if (rows.length > 0) {
+        autenticidadeAtivaParaMaster = Boolean(rows[0].visible);
+      }
+    } catch {
+      autenticidadeAtivaParaMaster = false;
+    }
+
     return {
       enabled: true,
-      allowedItemIds: ALL_NAV_CATALOG_ITEMS.map((i) => i.id),
+      allowedItemIds: ALL_NAV_CATALOG_ITEMS
+        .filter((i) => i.id !== 'validacao_autenticidade_documental' || autenticidadeAtivaParaMaster)
+        .map((i) => i.id),
     };
   }
 

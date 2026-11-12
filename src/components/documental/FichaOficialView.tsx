@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
+import { loadUserNavPermissionsOnce } from '@/lib/navigation/client-data';
 import {
   enriquecerEValidarOrigemCampos,
   gerarDiagnosticoSegurancaFormulario,
@@ -932,6 +933,28 @@ export function FichaOficialView({
   const [origemAberta, setOrigemAberta] = useState(false);
   const [painelRevisaoAberto, setPainelRevisaoAberto] = useState(false);
   const [abaRevisao, setAbaRevisao] = useState<'pendencias' | 'origem' | 'autenticidade'>('pendencias');
+  const [abaAutenticidadePermitida, setAbaAutenticidadePermitida] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    loadUserNavPermissionsOnce()
+      .then((perms) => {
+        if (!ativo) return;
+        const liberado =
+          Array.isArray(perms?.allowedItemIds) &&
+          perms.allowedItemIds.includes('validacao_autenticidade_documental');
+        setAbaAutenticidadePermitida(liberado);
+        if (!liberado) {
+          setAbaRevisao((prev) => (prev === 'autenticidade' ? 'pendencias' : prev));
+        }
+      })
+      .catch(() => {
+        if (ativo) setAbaAutenticidadePermitida(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [painelRevisaoAberto]);
   const [guiaAberto, setGuiaAberto] = useState(false);
   const [confirmacao, setConfirmacao] = useState<Confirmacao | null>(null);
   const [divergenciasRevisadas, setDivergenciasRevisadas] = useState<Record<string, string>>({});
@@ -3459,7 +3482,11 @@ export function FichaOficialView({
             aria-haspopup="dialog"
             aria-expanded={painelRevisaoAberto}
             className="group flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200/90 bg-[#F8F7F4] px-2.5 py-2 text-left text-xs font-semibold text-[#1E293B] transition hover:border-[#B8A082] hover:bg-white hover:shadow-2xs cursor-pointer"
-            title="Abrir painel de Revisão dos Dados, Origem OCR e Validação de Autenticidade"
+            title={
+              abaAutenticidadePermitida
+                ? 'Abrir painel de Revisão dos Dados, Origem OCR e Validação de Autenticidade'
+                : 'Abrir painel de Revisão dos Dados e Origem OCR'
+            }
           >
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 font-bold text-[#1E293B]">
@@ -3477,7 +3504,9 @@ export function FichaOficialView({
               <div className="truncate pl-5 font-mono text-[10px] text-gray-500">
                 {pendenciasAtivas.length > 0
                   ? `${pendenciasAtivas.length} pendência(s)`
-                  : 'Alertas • OCR • Autenticidade'}
+                  : abaAutenticidadePermitida
+                  ? 'Alertas • OCR • Autenticidade'
+                  : 'Alertas • Origem OCR'}
               </div>
             </div>
             <Eye className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-[#1E293B]" />
@@ -4577,10 +4606,12 @@ export function FichaOficialView({
 
             <div role="tablist" aria-label="Seções da revisão" className="flex gap-1 overflow-x-auto border-b border-white/10 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {([
-                { id: 'pendencias', rotulo: 'Pendências e alertas' },
-                { id: 'origem', rotulo: 'Origem e confiança do OCR' },
-                { id: 'autenticidade', rotulo: 'Validação de autenticidade' },
-              ] as const).map(aba => {
+                { id: 'pendencias' as const, rotulo: 'Pendências e alertas' },
+                { id: 'origem' as const, rotulo: 'Origem e confiança do OCR' },
+                ...(abaAutenticidadePermitida
+                  ? [{ id: 'autenticidade' as const, rotulo: 'Validação de autenticidade' }]
+                  : []),
+              ]).map(aba => {
                 const ativa = abaRevisao === aba.id;
                 return (
                   <button
@@ -4775,7 +4806,7 @@ export function FichaOficialView({
                 )
               )}
 
-              {abaRevisao === 'autenticidade' && (
+              {abaRevisao === 'autenticidade' && abaAutenticidadePermitida && (
                 <ValidacaoAutenticidadeView dados={dados} arquivoOrigem={arquivoOrigem} />
               )}
             </div>

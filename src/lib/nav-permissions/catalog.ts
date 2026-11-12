@@ -76,6 +76,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         groupLabel: 'GESTÃO DOCUMENTAL',
         description: 'Andamentos e rascunhos de manifestações no FIORIX',
       },
+      {
+        id: 'validacao_autenticidade_documental',
+        label: 'ABA: VALIDAÇÃO DE AUTENTICIDADE',
+        href: '/gestao-documental#validacao-autenticidade',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Exibe a aba "Validação de autenticidade" dentro da Revisão dos dados na Gestão Documental (desativada por padrão para todos os usuários)',
+      },
     ],
   },
   {
