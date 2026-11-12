@@ -91,7 +91,7 @@ export async function deleteImportRecord(
         where: { id, tenantId: user.tenantId },
       });
       await prisma.$executeRaw(
-        Prisma.sql`DELETE FROM public.fiorix_bi_data WHERE tenant_id = ${user.tenantId}`
+        Prisma.sql`DELETE FROM public.fiorix_bi_data WHERE tenant_id = ${user.tenantId} AND import_id = ${id}`
       );
     }
 

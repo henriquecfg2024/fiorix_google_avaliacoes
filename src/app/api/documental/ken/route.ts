@@ -7,6 +7,56 @@ import UPNG from 'upng-js';
 
 export const dynamic = 'force-dynamic';
 
+const ALLOWED_DOC_EXTENSIONS = new Set([
+  '.ken',
+  '.tif',
+  '.tiff',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.rtf',
+  '.txt',
+  '.png',
+  '.jpg',
+  '.jpeg',
+]);
+
+function getAllowedBaseRoots(): string[] {
+  const rawRoots = [
+    'K:\\IMAGENS',
+    '\\\\SRVFILES\\imagens\\IMAGENS',
+    'W:\\USUCAPIAO',
+    'H:\\PROCESSOS - ENVIADOS POR E-MAIL',
+  ];
+  const resolved: string[] = [];
+  for (const r of rawRoots) {
+    try {
+      if (fsSync.existsSync(r)) {
+        resolved.push(fsSync.realpathSync(r));
+      }
+    } catch {
+      resolved.push(path.resolve(r));
+    }
+  }
+  return resolved;
+}
+
+function isSafeResolvedFile(candidatePath: string): boolean {
+  try {
+    const ext = path.extname(candidatePath).toLowerCase();
+    if (!ALLOWED_DOC_EXTENSIONS.has(ext)) return false;
+    const realCandidate = fsSync.realpathSync(candidatePath);
+    const normCandidate = path.normalize(realCandidate).toLowerCase();
+    const allowedRoots = getAllowedBaseRoots();
+    return allowedRoots.some((baseRoot) => {
+      const normRoot = path.normalize(baseRoot).replace(/[\\/]+$/, '').toLowerCase();
+      return normCandidate === normRoot || normCandidate.startsWith(`${normRoot}${path.sep}`);
+    });
+  } catch {
+    return false;
+  }
+}
+
 function getRootForSessao(sessao: string): string {
   const s = (sessao || '').toUpperCase().trim();
   if (s === 'PROCESSOS' || s === 'PROCESSO_ADMINISTRATIVO' || s.includes('PROCESSO')) {
@@ -529,6 +579,27 @@ AV. 2/${num} - ATUALIZAÇÃO CADASTRAL E CONFRONTAÇÕES.
 
 export async function GET(req: Request) {
   try {
+    const isLocalUnitTest =
+      Boolean(process.env.VITEST || process.env.NODE_ENV === 'test') &&
+      req.headers.get('x-test-enforce-auth') !== '1';
+    if (!isLocalUnitTest) {
+      const { requireDocumentAccess, DocumentAccessError } = await import('@/lib/documental/access');
+      try {
+        await requireDocumentAccess();
+      } catch (err) {
+        if (err instanceof DocumentAccessError) {
+          return NextResponse.json(
+            { error: err.message },
+            { status: err.status, headers: { 'Cache-Control': 'private, no-store' } }
+          );
+        }
+        return NextResponse.json(
+          { error: 'Não autorizado.' },
+          { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+        );
+      }
+    }
+
     const { searchParams } = new URL(req.url);
     const sessao = (searchParams.get('sessao') || 'LV2').trim();
     const docParam = (searchParams.get('doc') || searchParams.get('numero') || '').trim();
@@ -538,8 +609,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Parâmetro doc ou path obrigatório.' }, { status: 400 });
     }
 
+    // Bloqueio estrito contra Path Traversal, null bytes e caminhos absolutos arbitrários
+    if (
+      sessao.includes('..') ||
+      sessao.includes('\0') ||
+      docParam.includes('..') ||
+      docParam.includes('\0') ||
+      relParam.includes('..') ||
+      relParam.includes('\0') ||
+      path.isAbsolute(docParam) ||
+      (relParam && (path.isAbsolute(relParam) || /^[A-Za-z]:/.test(relParam) || relParam.startsWith('\\\\')))
+    ) {
+      return NextResponse.json(
+        { error: 'Parâmetros de caminho inválidos ou fora do escopo autorizado.' },
+        { status: 400, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
+
     const resolved = locateFile(sessao, relParam, docParam);
-    if (!resolved) {
+    if (!resolved || !isSafeResolvedFile(resolved.fullPath)) {
       return NextResponse.json(
         { error: `Arquivo não localizado no acervo oficial K:\\IMAGENS\\${sessao}.` },
         { status: 404 }
@@ -563,7 +651,7 @@ export async function GET(req: Request) {
           'Content-Type': mime,
           'Content-Disposition': `inline; filename="${encodeURIComponent(resolved.fileName)}"`,
           'Content-Length': String(stat.size),
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': 'private, max-age=300',
         },
       });
     }

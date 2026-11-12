@@ -35,6 +35,7 @@ import {
 import { navigationGroups } from "./navigation";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
+import { clearClientSessionCaches } from "@/lib/navigation/client-data";
 import { getPendingCount } from "@/app/actions/reviews";
 import { getHomeRouteForRole } from "@/lib/permissions";
 
@@ -355,7 +356,7 @@ export function FiorixHeader() {
                     👤 Minha Conta
                   </button>
 
-                  <form action={handleSignOut} className="mt-1">
+                  <form action={handleSignOut} onSubmit={() => clearClientSessionCaches()} className="mt-1">
                     <button
                       type="submit"
                       className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10 text-left cursor-pointer"
@@ -512,7 +513,7 @@ export function FiorixHeader() {
                   </span>
                 </div>
 
-                <form action={handleSignOut} className="pt-1">
+                <form action={handleSignOut} onSubmit={() => clearClientSessionCaches()} className="pt-1">
                   <button
                     type="submit"
                     className="w-full bg-red-500/10 hover:bg-red-500/15 text-red-300 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-red-500/20 cursor-pointer"

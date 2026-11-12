@@ -5,6 +5,7 @@ import {
   sanitizarDescricaoImovel,
   sanitizarLogradouroConfrontacao,
 } from '@/lib/confrontacoes';
+import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -277,6 +278,15 @@ async function consultarIntegracaoIptuGeoSampa(
 
 export async function POST(req: NextRequest) {
   try {
+    try {
+      await requireDocumentAccess();
+    } catch (err) {
+      if (err instanceof DocumentAccessError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const sqlInput = String(body.sql || '').trim();
     const imovelRaw = String(body.imovel || '').trim();

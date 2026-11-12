@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
+import { authenticateConnector } from '@/lib/connectorAuth';
 import { buildSiplanIncidentReport } from '@/lib/srvsql-performance/engine';
 import {
-  buildSrvsqlPerformanceSnapshot,
-  ingestCollectorSample,
+  loadSrvsqlPerformanceSnapshot,
+  persistAndIngestCollectorSample,
   recordUserSlownessIncident,
   updateAlertRulesConfig,
   updateWebriAssociationConfig,
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     const rawWindow = (req.nextUrl.searchParams.get('window') || '30m') as TimeWindowPreset;
     const windowPreset: TimeWindowPreset = VALID_WINDOWS.has(rawWindow) ? rawWindow : '30m';
 
-    const snapshot = buildSrvsqlPerformanceSnapshot(tenantId, scenario, windowPreset);
+    const snapshot = await loadSrvsqlPerformanceSnapshot(tenantId, scenario, windowPreset);
 
     if (req.nextUrl.searchParams.get('export') === 'siplan') {
       const dossier = buildSiplanIncidentReport(snapshot);
@@ -65,10 +66,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO');
-    const tenantId = user.tenantId || 'default-tenant';
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || '');
+
+    // M2M Autenticação direta do FIORIX Connector para ingestão contínua de amostras DMVs do SRVSQL
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ') && action === 'ingest_collector_sample') {
+      const secret = authHeader.slice('Bearer '.length).trim();
+      const connectorId = String(body?.connectorId || '').trim();
+      const authResult = await authenticateConnector(connectorId, secret);
+      if (!authResult.success || !authResult.tenant || !authResult.connector) {
+        return NextResponse.json({ error: 'Credenciais do conector inválidas.' }, { status: 401 });
+      }
+      if (!body?.sample || typeof body.sample !== 'object') {
+        return NextResponse.json({ error: 'Amostra de telemetria inválida.' }, { status: 400 });
+      }
+      const result = await persistAndIngestCollectorSample(authResult.tenant.id, body.sample);
+      return NextResponse.json({ ok: true, ...result }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
+
+    const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO');
+    const tenantId = user.tenantId || 'default-tenant';
 
     if (action === 'record_slowness') {
       const affectedOperation = String(body?.affectedOperation || '').trim();
@@ -141,7 +159,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'ingest_collector_sample' && body?.sample) {
-      const result = ingestCollectorSample(tenantId, body.sample);
+      const result = await persistAndIngestCollectorSample(tenantId, body.sample);
       return NextResponse.json({ ok: true, ...result });
     }
 

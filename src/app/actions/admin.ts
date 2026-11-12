@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth, requireRole } from '@/lib/auth-helpers';
+import { requireAuth, requireRole, invalidateUserMetaCache } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { isValidCPF, formatCPF } from '@/lib/cpf-validator';
 import { revalidatePath } from 'next/cache';
@@ -290,6 +290,7 @@ export async function updateUserRole(
       newRole,
       userId
     );
+    invalidateUserMetaCache(userId);
 
     await recordAuditLog({
       modulo: 'USUARIOS',
@@ -356,6 +357,10 @@ export async function updateUserCpf(userId: string, newCpf: string) {
     return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
+  if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
   const cpfDigits = (newCpf || '').replace(/\D/g, '');
   const cleanCpf = cpfDigits.length > 0 ? formatCPF(cpfDigits) : '';
   if (cpfDigits.length > 0) {
@@ -363,9 +368,10 @@ export async function updateUserCpf(userId: string, newCpf: string) {
       return { error: 'CPF inválido. Verifique os dígitos ou deixe o campo em branco.' };
     }
     const existing = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
+      `SELECT id FROM public."User" WHERE "tenantId" = $3 AND cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
       cpfDigits,
-      userId
+      userId,
+      targetUser.tenantId
     );
     if (existing.length > 0) {
       return { error: 'Este CPF já está cadastrado para outro colaborador.' };
@@ -376,10 +382,11 @@ export async function updateUserCpf(userId: string, newCpf: string) {
     `
     UPDATE public."User"
     SET cpf = $1, "updatedAt" = NOW()
-    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
   `,
     cleanCpf || null,
-    userId
+    userId,
+    targetUser.tenantId
   );
 
   await recordAuditLog({
@@ -405,9 +412,14 @@ export async function toggleUserStatus(userId: string) {
     return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
+  if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
   const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT status FROM public."User" WHERE id = $1`,
-    userId
+    `SELECT status FROM public."User" WHERE id = $1 AND "tenantId" = $2`,
+    userId,
+    targetUser.tenantId
   );
   const currentStatus = rows[0]?.status || 'ativo';
   const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo';
@@ -416,11 +428,13 @@ export async function toggleUserStatus(userId: string) {
     `
     UPDATE public."User"
     SET status = $1, "updatedAt" = NOW()
-    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
   `,
     newStatus,
-    userId
+    userId,
+    targetUser.tenantId
   );
+  invalidateUserMetaCache(userId);
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -559,6 +573,7 @@ export async function updateUserProfile(
   `;
 
   await prisma.$executeRawUnsafe(query, ...params);
+  invalidateUserMetaCache(userId);
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -598,9 +613,11 @@ export async function deleteInactiveUser(userId: string) {
   }
 
   await prisma.$executeRawUnsafe(
-    `DELETE FROM public."User" WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
-    userId
+    `DELETE FROM public."User" WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
+    userId,
+    targetUser.tenantId
   );
+  invalidateUserMetaCache(userId);
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -749,8 +766,7 @@ export async function bulkToggleUsers2FA(enable: boolean) {
             "updatedAt" = NOW()
         WHERE "tenantId" = $1
           AND role != 'MASTER'
-          AND email != 'admin@fiorix.com.br'
-          AND COALESCE(status, 'ativo') != 'inativo';
+          AND email != 'admin@fiorix.com.br';
       `,
         currentUser.tenantId
       );

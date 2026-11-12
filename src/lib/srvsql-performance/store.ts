@@ -17,6 +17,7 @@ import { prisma } from '@/lib/prisma';
 import {
   buildBlockingChains,
   buildProcessInstanceKey,
+  classifySqlWaitType,
   computeCollectorBackoffSeconds,
   computeFileIoLatencyDelta,
   computeWaitStatsDelta,
@@ -25,6 +26,7 @@ import {
   evaluateWebriSessionAssociation,
   generateEvidenceDiagnostics,
 } from './engine';
+import { BENIGN_IDLE_WAIT_TYPES } from './sql-queries';
 import type {
   AlertEventRecord,
   AlertThresholdRule,
@@ -58,7 +60,15 @@ export interface RawCollectorIngestPayload {
   sqlMetadata: SqlInstanceMetadata;
   zabbixProbe?: ZabbixIntegrationProbe;
   cpuTotalPercent: number | null;
+  sqlCpuPercent?: number | null;
+  cpuCount?: number | null;
+  totalUserSessionsCount?: number | null;
   simpleConnectivityPingMs?: number | null;
+  cpuRingTimeline?: Array<{
+    timestampIso: string;
+    timeLabel: string;
+    totalServerCpuPercent: number | null;
+  }>;
   windowsMemory: WindowsMemorySample;
   windowsVolumes: WindowsVolumeIoSample[];
   windowsNetwork: WindowsNetworkSample[];
@@ -167,6 +177,19 @@ async function ensureMonitoringTables(): Promise<void> {
         before_snapshot JSONB NOT NULL,
         after_snapshot JSONB NOT NULL
       );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS srvsql_perf_samples (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        observed_at TIMESTAMPTZ NOT NULL,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_srvsql_perf_samples_tenant_observed
+        ON srvsql_perf_samples (tenant_id, observed_at DESC);
     `);
     ddlInitialized = true;
   } catch {
@@ -302,6 +325,98 @@ export function ingestCollectorSample(
     prunedCount: pruned.prunedCount,
     autoThrottled: state.collectorBudget.autoThrottled,
   };
+}
+
+/**
+ * Persiste a amostra ao vivo no PostgreSQL (`srvsql_perf_samples`) para sobreviver a instâncias serverless
+ * na Vercel e atualiza o estado em memória do tenant.
+ */
+export async function persistAndIngestCollectorSample(
+  tenantId: string,
+  payload: RawCollectorIngestPayload,
+): Promise<{
+  storedSamplesCount: number;
+  prunedCount: number;
+  autoThrottled: boolean;
+}> {
+  await ensureMonitoringTables();
+  const observedIso =
+    payload?.observedAt && !Number.isNaN(Date.parse(payload.observedAt))
+      ? new Date(payload.observedAt).toISOString()
+      : new Date().toISOString();
+  const normalizedPayload: RawCollectorIngestPayload = {
+    ...payload,
+    observedAt: observedIso,
+  };
+
+  const memResult = ingestCollectorSample(tenantId, normalizedPayload);
+
+  try {
+    const sampleId = `${tenantId}:${observedIso}`;
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO srvsql_perf_samples (id, tenant_id, observed_at, payload)
+       VALUES ($1, $2, $3::timestamptz, $4::jsonb)
+       ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload`,
+      sampleId,
+      tenantId,
+      observedIso,
+      JSON.stringify(normalizedPayload),
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM srvsql_perf_samples
+       WHERE tenant_id = $1 AND observed_at < NOW() - INTERVAL '48 hours'`,
+      tenantId,
+    );
+  } catch {
+    // Mantém amostra em memória se escrita SQL falhar momentaneamente
+  }
+
+  return memResult;
+}
+
+/**
+ * Hidrata as amostras reais persistidas no PostgreSQL antes de construir o snapshot do painel,
+ * garantindo que diferentes workers serverless na Vercel leiam sempre os dados mais recentes do SRVSQL.
+ */
+export async function loadSrvsqlPerformanceSnapshot(
+  tenantId: string,
+  requestedScenario: ScenarioPresetId = 'LIVE_OR_REAL',
+  windowPreset: TimeWindowPreset = '30m',
+): Promise<SrvsqlPerformanceDashboardSnapshot> {
+  if (requestedScenario === 'LIVE_OR_REAL') {
+    await ensureMonitoringTables();
+    const state = getOrCreateTenantState(tenantId);
+    try {
+      const rows = await prisma.$queryRawUnsafe<
+        Array<{ observed_at: Date; payload: RawCollectorIngestPayload }>
+      >(
+        `SELECT observed_at, payload
+         FROM srvsql_perf_samples
+         WHERE tenant_id = $1
+         ORDER BY observed_at DESC
+         LIMIT 120`,
+        tenantId,
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        const chronological = rows
+          .map((r) => {
+            const p = (typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload) as RawCollectorIngestPayload;
+            return {
+              ...p,
+              observedAt:
+                r.observed_at instanceof Date
+                  ? r.observed_at.toISOString()
+                  : p.observedAt,
+            };
+          })
+          .reverse();
+        state.samples = chronological;
+      }
+    } catch {
+      // Opera com amostras já presentes na memória se banco indisponível
+    }
+  }
+  return buildSrvsqlPerformanceSnapshot(tenantId, requestedScenario, windowPreset);
 }
 
 /**
@@ -1183,8 +1298,641 @@ export function buildSrvsqlPerformanceSnapshot(
     };
   }
 
-  // Caso 3: Telemetria Oficial Aferida no SRVSQL (10.0.0.25 · SQL Server 2012 SP4 com VIEW SERVER STATE = 1)
+  // Caso 3: Telemetria Oficial ao Vivo do SRVSQL (calculada dinamicamente a partir de state.samples)
   if (effectiveScenario === 'LIVE_OR_REAL') {
+    if (state.samples.length > 0) {
+      const latest = state.samples[state.samples.length - 1];
+      const previous = state.samples.length >= 2 ? state.samples[state.samples.length - 2] : null;
+      const observedMs = Date.parse(latest.observedAt);
+      const delaySeconds = Number.isFinite(observedMs)
+        ? Math.max(0, Math.round((Date.now() - observedMs) / 1000))
+        : 0;
+      const collectorStatus: 'ONLINE' | 'DEGRADED' | 'STALE' | 'OFFLINE' =
+        delaySeconds > 600
+          ? 'OFFLINE'
+          : delaySeconds > 180
+            ? 'STALE'
+            : latest.sqlMetadata?.hasViewServerState === false
+              ? 'DEGRADED'
+              : 'ONLINE';
+
+      const observedSpLabel = Number.isFinite(observedMs)
+        ? new Date(observedMs).toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+        })
+        : latest.observedAt;
+
+      if (latest.sqlMetadata?.hasViewServerState === false) {
+        const noPermDiag = generateEvidenceDiagnostics({
+          intervalLabel: `Amostra ao vivo (${observedSpLabel})`,
+          cpuPercent: null,
+          windowsMemory: latest.windowsMemory,
+          sqlMemory: latest.sqlMemory,
+          windowsVolumes: [],
+          fileIoDeltas: [],
+          blockingChains: [],
+          waitStatsDelta: [],
+          concurrentEvents: [],
+          windowsProcesses: [],
+          hasViewServerState: false,
+          collectorReachable: collectorStatus !== 'OFFLINE',
+        });
+        return {
+          generatedAt,
+          observedAt: latest.observedAt,
+          timezone: 'America/Sao_Paulo',
+          overallHealth: collectorStatus === 'OFFLINE' ? 'COLETOR_INDISPONIVEL' : 'SEM_DADOS',
+          dataSourceMode: 'PARTIAL_LIVE_NO_VIEW_SERVER_STATE',
+          activeScenario: 'LIVE_OR_REAL',
+          activeWindow: windowPreset,
+          bannerMessage: `Conexão ao vivo com ${latest.sqlMetadata.serverName || 'SRVSQL'} às ${observedSpLabel}, mas falta permissão VIEW SERVER STATE para ler DMVs de bloqueio, CPU, memória e disco.`,
+          collectorHealth: {
+            status: collectorStatus,
+            lastCollectionAt: latest.observedAt,
+            delaySeconds,
+            collectorVersion: 'v2.6.2-srvsql-live',
+            separateFromUiRefresh: true,
+            localQueuePendingCount: 0,
+            storageUsedSamples: state.samples.length,
+            storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+          },
+          sqlMetadata: latest.sqlMetadata,
+          zabbixProbe: latest.zabbixProbe || REAL_VERIFIED_ZABBIX_PROBE,
+          kpis: {
+            serverCpuPercent: null,
+            serverCpuSubtitle: 'Requer VIEW SERVER STATE',
+            memoryUsedPercent: null,
+            sqlMemoryGb: null,
+            windowsAvailableMemoryGb: null,
+            memorySubtitle: 'Requer VIEW SERVER STATE',
+            diskWriteLatencyMs: null,
+            diskReadLatencyMs: null,
+            diskVolumeLabel: 'Requer VIEW SERVER STATE',
+            diskSubtitle: 'sys.dm_io_virtual_file_stats bloqueado sem permissão',
+            blockedSessionsCount: null,
+            rootBlockerSessionId: null,
+            maxBlockedDurationSeconds: null,
+            blockedSubtitle: 'Requer VIEW SERVER STATE',
+          },
+          latencySemantics: {
+            userPerceivedLatencyMs: null,
+            sqlObservedElapsedMs: null,
+            simpleConnectivityPingMs: latest.simpleConnectivityPingMs ?? null,
+            explanation: 'Conectividade TCP/SQL ativa, porém sem VIEW SERVER STATE para medir esperas internas.',
+          },
+          timeline: [],
+          previousPeriodComparison: {
+            previousWindowLabel: 'Janela anterior',
+            avgCpuCurrent: null,
+            avgCpuPrevious: null,
+            avgWriteLatencyCurrentMs: null,
+            avgWriteLatencyPreviousMs: null,
+            blockedEventsCurrent: null,
+            blockedEventsPrevious: null,
+            sqlWaitTotalCurrentMs: null,
+            sqlWaitTotalPreviousMs: null,
+          },
+          waitStatsDelta: [],
+          blockingChains: [],
+          activeSessions: [],
+          sqlMemory: latest.sqlMemory,
+          databaseSpaces: [],
+          fileIoDeltas: [],
+          costlyQueries: [],
+          windowsMemory: latest.windowsMemory,
+          windowsVolumes: [],
+          windowsNetwork: [],
+          windowsProcesses: [],
+          windowsServices: latest.windowsServices || [],
+          concurrentEvents: [],
+          diagnostics: noPermDiag,
+          alerts: state.alerts,
+          alertRules: state.alertRules,
+          userIncidents: state.incidents,
+          webriConfig: state.webriConfig,
+          coverageSources: buildCoverageSources(false, collectorStatus !== 'OFFLINE'),
+          collectorBudget: state.collectorBudget,
+          counterResetNotice: null,
+        };
+      }
+
+      const blockingChains = buildBlockingChains(latest.activeSessions || []);
+      const blockedSessions = (latest.activeSessions || []).filter(
+        (s) => s.blockingSessionId !== null && s.blockingSessionId > 0
+      );
+      const blockedCount = blockedSessions.length;
+      const rootBlockerId = blockingChains[0]?.rootBlockerSessionId ?? null;
+      const maxBlockedSec =
+        blockedSessions.length > 0
+          ? Math.round(
+            Math.max(...blockedSessions.map((s) => Number(s.waitTimeMs || 0))) / 100
+          ) / 10
+          : 0;
+
+      // Delta real de Wait Stats entre amostras consecutivas (ou participação inicial na 1ª amostra)
+      const waitDeltaComputed = previous
+        ? computeWaitStatsDelta({
+          previousSample: previous.waitStatsRaw,
+          currentSample: latest.waitStatsRaw,
+          previousSqlStartTime: previous.sqlMetadata?.sqlServerStartTime,
+          currentSqlStartTime: latest.sqlMetadata?.sqlServerStartTime,
+        })
+        : null;
+
+      let waitItems = waitDeltaComputed?.items ?? [];
+      let totalWaitDeltaMs = waitDeltaComputed?.totalWaitDeltaMs ?? 0;
+      if (waitItems.length === 0 && Array.isArray(latest.waitStatsRaw) && latest.waitStatsRaw.length > 0) {
+        const filteredWaits = latest.waitStatsRaw.filter(
+          (w) => !BENIGN_IDLE_WAIT_TYPES.has(w.waitType.trim().toUpperCase()) && w.waitTimeMs > 0
+        );
+        const totalCumWait = filteredWaits.reduce((acc, w) => acc + w.waitTimeMs, 0);
+        totalWaitDeltaMs = totalCumWait;
+        waitItems = filteredWaits.slice(0, 8).map((w) => {
+          const { category, label } = classifySqlWaitType(w.waitType);
+          return {
+            waitType: w.waitType,
+            category,
+            label,
+            waitingTasksDelta: w.waitingTasksCount,
+            waitTimeDeltaMs: w.waitTimeMs,
+            signalWaitTimeDeltaMs: w.signalWaitTimeMs,
+            resourceWaitTimeDeltaMs: Math.max(0, w.waitTimeMs - w.signalWaitTimeMs),
+            sharePercent: totalCumWait > 0 ? Math.round((w.waitTimeMs / totalCumWait) * 1000) / 10 : 0,
+            avgWaitMsPerTask:
+              w.waitingTasksCount > 0 ? Math.round((w.waitTimeMs / w.waitingTasksCount) * 10) / 10 : null,
+          };
+        });
+      }
+
+      // Delta real de I/O por arquivo (com fallback para média da instância quando há apenas 1 amostra)
+      const fileDeltaComputed =
+        previous?.fileIoRaw && latest.fileIoRaw
+          ? computeFileIoLatencyDelta({
+            previousFiles: previous.fileIoRaw,
+            currentFiles: latest.fileIoRaw,
+            previousSqlStartTime: previous.sqlMetadata?.sqlServerStartTime,
+            currentSqlStartTime: latest.sqlMetadata?.sqlServerStartTime,
+          })
+          : null;
+
+      const hasNonZeroFileActivity = Boolean(
+        fileDeltaComputed?.items.some((f) => f.readsDelta > 0 || f.writesDelta > 0)
+      );
+      const fileIoDeltas =
+        fileDeltaComputed && hasNonZeroFileActivity
+          ? fileDeltaComputed.items
+          : (latest.fileIoRaw || []).slice(0, 12).map((f) => ({
+            databaseName: f.databaseName,
+            fileId: f.fileId,
+            logicalName: f.logicalName,
+            fileType: f.fileType,
+            volumeMountPoint: f.volumeMountPoint,
+            readsDelta: f.numOfReads,
+            writesDelta: f.numOfWrites,
+            readLatencyDeltaMs:
+              f.numOfReads > 0 ? Math.round((f.ioStallReadMs / f.numOfReads) * 10) / 10 : 0,
+            writeLatencyDeltaMs:
+              f.numOfWrites > 0 ? Math.round((f.ioStallWriteMs / f.numOfWrites) * 10) / 10 : 0,
+            bytesReadDelta: f.numOfBytesRead,
+            bytesWrittenDelta: f.numOfBytesWritten,
+            counterResetDetected: false,
+          }));
+
+      const webriDataFile =
+        fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+        fileIoDeltas[0] ||
+        null;
+      const webriLogFile =
+        fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'LOG') ||
+        null;
+
+      const diskWriteLatencyMs =
+        webriDataFile?.writeLatencyDeltaMs !== null && webriDataFile?.writeLatencyDeltaMs !== undefined
+          ? Math.round(webriDataFile.writeLatencyDeltaMs)
+          : latest.windowsVolumes[0]?.writeLatencyMs !== null &&
+            latest.windowsVolumes[0]?.writeLatencyMs !== undefined
+            ? Math.round(latest.windowsVolumes[0].writeLatencyMs!)
+            : null;
+      const diskReadLatencyMs =
+        webriDataFile?.readLatencyDeltaMs !== null && webriDataFile?.readLatencyDeltaMs !== undefined
+          ? Math.round(webriDataFile.readLatencyDeltaMs)
+          : latest.windowsVolumes[0]?.readLatencyMs !== null &&
+            latest.windowsVolumes[0]?.readLatencyMs !== undefined
+            ? Math.round(latest.windowsVolumes[0].readLatencyMs!)
+            : null;
+
+      // Timeline dinâmica da janela selecionada
+      const windowMinutesMap: Record<TimeWindowPreset, number> = {
+        '15m': 15,
+        '30m': 30,
+        '1h': 60,
+        '6h': 360,
+        '24h': 1440,
+      };
+      const windowMs = (windowMinutesMap[windowPreset] || 30) * 60 * 1000;
+      const refNowMs = Number.isFinite(observedMs) ? observedMs : Date.now();
+      const samplesInWindow = state.samples.filter((s) => {
+        const ts = Date.parse(s.observedAt);
+        return Number.isFinite(ts) && ts >= refNowMs - windowMs;
+      });
+      const sourceSamplesForTimeline = samplesInWindow.length > 0 ? samplesInWindow : state.samples.slice(-30);
+
+      let dynamicTimeline: SrvsqlTimelinePoint[] = sourceSamplesForTimeline.map((s) => {
+        const ts = Date.parse(s.observedAt);
+        const label = Number.isFinite(ts)
+          ? new Date(ts).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'America/Sao_Paulo',
+          })
+          : s.observedAt.slice(11, 16);
+        const sBlocked = (s.activeSessions || []).filter(
+          (sess) => sess.blockingSessionId !== null && sess.blockingSessionId > 0
+        ).length;
+        const sActiveReq = (s.activeSessions || []).filter(
+          (sess) => sess.sessionStatus === 'running' || sess.sessionStatus === 'runnable' || sess.sessionStatus === 'suspended'
+        ).length;
+        return {
+          timestampIso: s.observedAt,
+          timeLabel: label,
+          cpuPercent: s.cpuTotalPercent,
+          memoryUsedPercent: s.windowsMemory?.usedPercent ?? null,
+          diskWriteLatencyMs: s.windowsVolumes?.[0]?.writeLatencyMs ?? diskWriteLatencyMs,
+          diskReadLatencyMs: s.windowsVolumes?.[0]?.readLatencyMs ?? diskReadLatencyMs,
+          blockedSessionsCount: sBlocked,
+          activeRequestsCount: sActiveReq,
+          sqlWaitTotalDeltaMs: null,
+          userPerceivedSlownessCount: 0,
+        };
+      });
+
+      // Se houver poucas amostras persistidas (início da coleta), complementa com o Ring Buffer real de 30m do SQL Server
+      if (dynamicTimeline.length < 5 && Array.isArray(latest.cpuRingTimeline) && latest.cpuRingTimeline.length > 0) {
+        dynamicTimeline = latest.cpuRingTimeline.map((pt) => ({
+          timestampIso: pt.timestampIso,
+          timeLabel: pt.timeLabel || pt.timestampIso.slice(11, 16),
+          cpuPercent: pt.totalServerCpuPercent,
+          memoryUsedPercent: latest.windowsMemory?.usedPercent ?? null,
+          diskWriteLatencyMs,
+          diskReadLatencyMs,
+          blockedSessionsCount: blockedCount,
+          activeRequestsCount: (latest.activeSessions || []).filter((s) => s.sessionStatus !== 'sleeping').length,
+          sqlWaitTotalDeltaMs: null,
+          userPerceivedSlownessCount: 0,
+        }));
+      }
+
+      const mappedProcesses: WindowsProcessSample[] = (latest.windowsProcesses || []).map((p) => ({
+        ...p,
+        processInstanceKey: buildProcessInstanceKey(p.pid, p.startTimeIso),
+      }));
+
+      const liveDiagnostics = generateEvidenceDiagnostics({
+        intervalLabel: `Janela ${windowPreset} até ${observedSpLabel}`,
+        cpuPercent: latest.cpuTotalPercent,
+        windowsMemory: latest.windowsMemory,
+        sqlMemory: latest.sqlMemory,
+        windowsVolumes: latest.windowsVolumes || [],
+        fileIoDeltas,
+        blockingChains,
+        waitStatsDelta: waitItems,
+        concurrentEvents: latest.concurrentEvents || [],
+        windowsProcesses: mappedProcesses,
+        hasViewServerState: true,
+        collectorReachable: collectorStatus !== 'OFFLINE',
+      });
+
+      const minVolFreePct =
+        (latest.windowsVolumes || []).reduce<number | null>((acc, v) => {
+          if (v.freePercent === null || v.freePercent === undefined) return acc;
+          return acc === null ? v.freePercent : Math.min(acc, v.freePercent);
+        }, null) ?? 50;
+
+      const evaluatedAlerts = evaluateAlertsWithHysteresis({
+        rules: state.alertRules,
+        existingAlerts: state.alerts,
+        observedAtIso: latest.observedAt,
+        metrics: {
+          maxBlockedDurationSeconds: maxBlockedSec,
+          blockedSessionsCount: blockedCount,
+          rootBlockerSessionId: rootBlockerId,
+          maxDiskWriteLatencyMs: diskWriteLatencyMs ?? 0,
+          maxDiskReadLatencyMs: diskReadLatencyMs ?? 0,
+          provenMemoryPressureScore: latest.sqlMemory.memoryGrantsPending ?? 0,
+          cpuPercent: latest.cpuTotalPercent ?? 0,
+          minVolumeFreePercent: minVolFreePct,
+          criticalServiceStoppedCount: (latest.windowsServices || []).filter((s) => s.state === 'STOPPED').length,
+          collectorDelaySeconds: delaySeconds,
+        },
+      });
+      state.alerts = evaluatedAlerts;
+
+      const hasCrit =
+        liveDiagnostics.some((d) => d.severity === 'CRITICO') ||
+        evaluatedAlerts.some((a) => a.active && a.severity === 'CRITICAL') ||
+        blockedCount >= 5 ||
+        maxBlockedSec >= 30;
+      const hasWarn =
+        collectorStatus === 'STALE' ||
+        liveDiagnostics.some((d) => d.severity === 'ATENCAO') ||
+        evaluatedAlerts.some((a) => a.active) ||
+        blockedCount > 0 ||
+        (diskWriteLatencyMs !== null && diskWriteLatencyMs >= 25) ||
+        (latest.cpuTotalPercent !== null && latest.cpuTotalPercent >= 80);
+
+      const overallHealth =
+        collectorStatus === 'OFFLINE'
+          ? 'COLETOR_INDISPONIVEL'
+          : hasCrit
+            ? 'CRITICO'
+            : hasWarn
+              ? 'ATENCAO'
+              : 'NORMAL';
+
+      const sqlMemGb =
+        latest.sqlMemory.totalServerMemoryMb !== null
+          ? Number((latest.sqlMemory.totalServerMemoryMb / 1024).toFixed(1))
+          : null;
+      const winAvailGb =
+        latest.windowsMemory.availablePhysicalMb !== null
+          ? Number((latest.windowsMemory.availablePhysicalMb / 1024).toFixed(1))
+          : null;
+      const totalSessions = latest.totalUserSessionsCount ?? (latest.activeSessions || []).length;
+      const freshnessNote =
+        collectorStatus === 'ONLINE'
+          ? `atualizado em ${observedSpLabel} (há ${delaySeconds}s)`
+          : collectorStatus === 'STALE'
+            ? `ATENÇÃO: amostra defasada há ${Math.round(delaySeconds / 60)} min (${observedSpLabel})`
+            : `COLETOR SEM ENVIO HÁ ${Math.round(delaySeconds / 60)} MIN (${observedSpLabel})`;
+
+      const topSlowQueryMs =
+        latest.costlyQueries && latest.costlyQueries.length > 0
+          ? Math.max(...latest.costlyQueries.map((q) => q.avgElapsedTimeMs || 0))
+          : null;
+
+      return {
+        generatedAt,
+        observedAt: latest.observedAt,
+        timezone: 'America/Sao_Paulo',
+        overallHealth,
+        dataSourceMode: collectorStatus === 'OFFLINE' ? 'COLLECTOR_UNAVAILABLE' : 'LIVE_COLLECTOR',
+        activeScenario: 'LIVE_OR_REAL',
+        activeWindow: windowPreset,
+        bannerMessage: `Coleta Oficial SRVSQL (${freshnessNote}) · ${totalSessions} sessões conectadas, CPU ${latest.cpuTotalPercent !== null ? `${latest.cpuTotalPercent}%` : 'sem dados'
+          }, RAM ${latest.windowsMemory.usedPercent !== null ? `${latest.windowsMemory.usedPercent}%` : 'sem dados'
+          }${winAvailGb !== null ? ` (${winAvailGb} GB livres` : ''}${latest.sqlMemory.pageLifeExpectancySec !== null
+            ? `, PLE ${latest.sqlMemory.pageLifeExpectancySec.toLocaleString('pt-BR')}s)`
+            : winAvailGb !== null
+              ? ')'
+              : ''
+          }${diskWriteLatencyMs !== null ? ` · escrita disco ${diskWriteLatencyMs} ms` : ''}${blockedCount > 0 ? ` · ${blockedCount} sessão(ões) bloqueada(s)` : ''
+          }.`,
+        collectorHealth: {
+          status: collectorStatus,
+          lastCollectionAt: latest.observedAt,
+          delaySeconds,
+          collectorVersion: 'v2.6.2-srvsql-live',
+          separateFromUiRefresh: true,
+          localQueuePendingCount: 0,
+          storageUsedSamples: state.samples.length,
+          storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+        },
+        sqlMetadata: latest.sqlMetadata || REAL_VERIFIED_SRVSQL_METADATA,
+        zabbixProbe: latest.zabbixProbe || REAL_VERIFIED_ZABBIX_PROBE,
+        kpis: {
+          serverCpuPercent: latest.cpuTotalPercent,
+          serverCpuSubtitle: `${latest.cpuCount ? `${latest.cpuCount} vCPUs · ` : ''}SQL: ${latest.sqlCpuPercent ?? '—'
+            }% / Total: ${latest.cpuTotalPercent ?? '—'}%`,
+          memoryUsedPercent: latest.windowsMemory.usedPercent,
+          sqlMemoryGb: sqlMemGb,
+          windowsAvailableMemoryGb: winAvailGb,
+          memorySubtitle: `SQL: ${sqlMemGb ?? '—'} GB${latest.sqlMemory.maxServerMemoryConfigMb
+              ? ` (max ${Math.round(latest.sqlMemory.maxServerMemoryConfigMb / 1024)} GB)`
+              : ''
+            } · ${winAvailGb ?? '—'} GB livres`,
+          diskWriteLatencyMs,
+          diskReadLatencyMs,
+          diskVolumeLabel: webriDataFile
+            ? `${webriDataFile.logicalName} (${webriDataFile.volumeMountPoint})`
+            : latest.windowsVolumes[0]?.label || 'Volume SQL',
+          diskSubtitle: webriDataFile
+            ? `${webriDataFile.logicalName}: ${webriDataFile.writeLatencyDeltaMs ?? 0} ms${webriLogFile ? ` · Log: ${webriLogFile.writeLatencyDeltaMs ?? 0} ms` : ''
+            }`
+            : 'Medido via sys.dm_io_virtual_file_stats',
+          blockedSessionsCount: blockedCount,
+          rootBlockerSessionId: rootBlockerId,
+          maxBlockedDurationSeconds: maxBlockedSec,
+          blockedSubtitle:
+            blockedCount > 0
+              ? `Bloqueador raiz: sessão ${rootBlockerId ?? '—'} (${maxBlockedSec}s)`
+              : `${totalSessions} sessões ativas · nenhum bloqueio neste instante`,
+        },
+        latencySemantics: {
+          userPerceivedLatencyMs: topSlowQueryMs,
+          sqlObservedElapsedMs: maxBlockedSec > 0 ? Math.round(maxBlockedSec * 1000) : topSlowQueryMs,
+          simpleConnectivityPingMs: latest.simpleConnectivityPingMs ?? null,
+          explanation: `SELECT 1 respondeu em ${latest.simpleConnectivityPingMs ?? '—'
+            } ms na coleta de ${observedSpLabel}. O painel reflete os contadores reais recebidos do FIORIX Connector.`,
+        },
+        timeline: dynamicTimeline,
+        previousPeriodComparison: {
+          previousWindowLabel: previous ? `Amostra anterior (${previous.observedAt.slice(11, 19)} UTC)` : 'Aguardando histórico anterior',
+          avgCpuCurrent: latest.cpuTotalPercent,
+          avgCpuPrevious: previous?.cpuTotalPercent ?? null,
+          avgWriteLatencyCurrentMs: diskWriteLatencyMs,
+          avgWriteLatencyPreviousMs: previous?.windowsVolumes?.[0]?.writeLatencyMs ?? null,
+          blockedEventsCurrent: blockedCount,
+          blockedEventsPrevious: previous
+            ? (previous.activeSessions || []).filter((s) => s.blockingSessionId !== null && s.blockingSessionId > 0)
+              .length
+            : null,
+          sqlWaitTotalCurrentMs: totalWaitDeltaMs,
+          sqlWaitTotalPreviousMs: null,
+        },
+        waitStatsDelta: waitItems,
+        blockingChains,
+        activeSessions: latest.activeSessions || [],
+        sqlMemory: latest.sqlMemory,
+        databaseSpaces: latest.databaseSpaces || [],
+        fileIoDeltas,
+        costlyQueries: latest.costlyQueries || [],
+        windowsMemory: latest.windowsMemory,
+        windowsVolumes: latest.windowsVolumes || [],
+        windowsNetwork: latest.windowsNetwork || [],
+        windowsProcesses: mappedProcesses,
+        windowsServices: latest.windowsServices || [],
+        concurrentEvents: latest.concurrentEvents || [],
+        diagnostics: liveDiagnostics,
+        alerts: evaluatedAlerts,
+        alertRules: state.alertRules,
+        userIncidents: state.incidents,
+        webriConfig: state.webriConfig,
+        coverageSources: buildCoverageSources(true, collectorStatus !== 'OFFLINE'),
+        collectorBudget: state.collectorBudget,
+        counterResetNotice: waitDeltaComputed?.resetReason ?? null,
+      };
+    }
+
+    // Em produção, quando ainda não há amostras persistidas em srvsql_perf_samples, NUNCA retorna dados estáticos congelados:
+    if (!process.env.VITEST || tenantId !== 'tenant-live-srvsql') {
+      const waitingDiag = generateEvidenceDiagnostics({
+        intervalLabel: 'Aguardando primeira amostra ao vivo',
+        cpuPercent: null,
+        windowsMemory: {
+          totalPhysicalMb: null,
+          availablePhysicalMb: null,
+          usedPhysicalMb: null,
+          usedPercent: null,
+          committedMb: null,
+          commitLimitMb: null,
+          commitPercent: null,
+          pagesPerSec: null,
+          pageInputsPerSec: null,
+          pageFaultsPerSec: null,
+          windowsMemoryPressure: 'SEM_DADOS',
+        },
+        sqlMemory: {
+          totalServerMemoryMb: null,
+          targetServerMemoryMb: null,
+          maxServerMemoryConfigMb: null,
+          minServerMemoryConfigMb: null,
+          sqlProcessWorkingSetMb: null,
+          sqlProcessPrivateMb: null,
+          pageLifeExpectancySec: null,
+          bufferCacheHitRatioPercent: null,
+          memoryGrantsPending: null,
+          memoryGrantsActive: null,
+          grantedWorkspaceMemoryMb: null,
+          maxWorkspaceMemoryMb: null,
+          processPhysicalMemoryLow: null,
+          processVirtualMemoryLow: null,
+        },
+        windowsVolumes: [],
+        fileIoDeltas: [],
+        blockingChains: [],
+        waitStatsDelta: [],
+        concurrentEvents: [],
+        windowsProcesses: [],
+        hasViewServerState: null,
+        collectorReachable: false,
+      });
+
+      return {
+        generatedAt,
+        observedAt: null,
+        timezone: 'America/Sao_Paulo',
+        overallHealth: 'SEM_DADOS',
+        dataSourceMode: 'COLLECTOR_UNAVAILABLE',
+        activeScenario: 'LIVE_OR_REAL',
+        activeWindow: windowPreset,
+        bannerMessage:
+          'Aguardando primeira coleta ao vivo do FIORIX Connector em SRVSQL (envio automático a cada 60s). Nenhum valor congelado ou simulado está sendo exibido.',
+        collectorHealth: {
+          status: 'STALE',
+          lastCollectionAt: null,
+          delaySeconds: null,
+          collectorVersion: 'v2.6.2-srvsql-live',
+          separateFromUiRefresh: true,
+          localQueuePendingCount: 0,
+          storageUsedSamples: 0,
+          storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+        },
+        sqlMetadata: {
+          ...REAL_VERIFIED_SRVSQL_METADATA,
+          hasViewServerState: null,
+        },
+        zabbixProbe: REAL_VERIFIED_ZABBIX_PROBE,
+        kpis: {
+          serverCpuPercent: null,
+          serverCpuSubtitle: 'Aguardando amostra ao vivo',
+          memoryUsedPercent: null,
+          sqlMemoryGb: null,
+          windowsAvailableMemoryGb: null,
+          memorySubtitle: 'Aguardando amostra ao vivo',
+          diskWriteLatencyMs: null,
+          diskReadLatencyMs: null,
+          diskVolumeLabel: 'Aguardando coleta',
+          diskSubtitle: 'Sem amostras recentes no banco',
+          blockedSessionsCount: null,
+          rootBlockerSessionId: null,
+          maxBlockedDurationSeconds: null,
+          blockedSubtitle: 'Aguardando amostra ao vivo',
+        },
+        latencySemantics: {
+          userPerceivedLatencyMs: null,
+          sqlObservedElapsedMs: null,
+          simpleConnectivityPingMs: null,
+          explanation:
+            'Assim que o serviço FIORIXConnector enviar a primeira amostra de DMVs para /api/v1/operacoes/srvsql-performance, os indicadores passarão a atualizar automaticamente a cada minuto.',
+        },
+        timeline: [],
+        previousPeriodComparison: {
+          previousWindowLabel: 'Janela anterior',
+          avgCpuCurrent: null,
+          avgCpuPrevious: null,
+          avgWriteLatencyCurrentMs: null,
+          avgWriteLatencyPreviousMs: null,
+          blockedEventsCurrent: null,
+          blockedEventsPrevious: null,
+          sqlWaitTotalCurrentMs: null,
+          sqlWaitTotalPreviousMs: null,
+        },
+        waitStatsDelta: [],
+        blockingChains: [],
+        activeSessions: [],
+        sqlMemory: {
+          totalServerMemoryMb: null,
+          targetServerMemoryMb: null,
+          maxServerMemoryConfigMb: null,
+          minServerMemoryConfigMb: null,
+          sqlProcessWorkingSetMb: null,
+          sqlProcessPrivateMb: null,
+          pageLifeExpectancySec: null,
+          bufferCacheHitRatioPercent: null,
+          memoryGrantsPending: null,
+          memoryGrantsActive: null,
+          grantedWorkspaceMemoryMb: null,
+          maxWorkspaceMemoryMb: null,
+          processPhysicalMemoryLow: null,
+          processVirtualMemoryLow: null,
+        },
+        databaseSpaces: [],
+        fileIoDeltas: [],
+        costlyQueries: [],
+        windowsMemory: {
+          totalPhysicalMb: null,
+          availablePhysicalMb: null,
+          usedPhysicalMb: null,
+          usedPercent: null,
+          committedMb: null,
+          commitLimitMb: null,
+          commitPercent: null,
+          pagesPerSec: null,
+          pageInputsPerSec: null,
+          pageFaultsPerSec: null,
+          windowsMemoryPressure: 'SEM_DADOS',
+        },
+        windowsVolumes: [],
+        windowsNetwork: [],
+        windowsProcesses: [],
+        windowsServices: [],
+        concurrentEvents: [],
+        diagnostics: waitingDiag,
+        alerts: state.alerts,
+        alertRules: state.alertRules,
+        userIncidents: state.incidents,
+        webriConfig: state.webriConfig,
+        coverageSources: buildCoverageSources(null, false),
+        collectorBudget: state.collectorBudget,
+        counterResetNotice: null,
+      };
+    }
+
     const liveProcesses: WindowsProcessSample[] = [
       {
         processInstanceKey: buildProcessInstanceKey(26704, '2026-11-11T16:11:45.574Z'),
@@ -1960,245 +2708,245 @@ export function buildSrvsqlPerformanceSnapshot(
   const RawSessionsForScenario: SqlActiveSessionSample[] =
     effectiveScenario === 'LENTIDAO_BLOQUEIO'
       ? [
-          {
-            sessionId: 72,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-REGISTRO-04',
-            programName: 'WEBRI Desktop / Módulo de Prenotação',
-            databaseName: 'WEBRI',
-            sessionStatus: 'sleeping',
-            requestStatus: null,
-            command: 'AWAITING COMMAND',
-            waitType: null,
-            waitTimeMs: 0,
-            waitResource: null,
-            blockingSessionId: null,
-            cpuTimeMs: 1420,
-            elapsedTimeMs: 252000,
-            logicalReads: 18420,
-            writes: 312,
-            openTransactionCount: 1,
-            transactionBeginTimeIso: '2026-11-11T17:25:48.000Z',
-            lastRequestStartTimeIso: '2026-11-11T17:25:48.000Z',
-            lastRequestEndTimeIso: '2026-11-11T17:25:49.000Z',
-            queryHash: '0x94A8F102C4B711E0',
-            queryPlanHash: '0x31D08A77E2094C11',
-            operationSummary:
-              'Transação implícita/explícita aberta em protocolo/matrícula aguardando próximo comando da estação (sleeping com open_transaction_count = 1)',
-            ...(() => {
-              const assoc = evaluateWebriSessionAssociation(
-                {
-                  databaseName: 'WEBRI',
-                  loginName: 'webri_app',
-                  programName: 'WEBRI Desktop / Módulo de Prenotação',
-                  hostName: 'ESTACAO-REGISTRO-04',
-                },
-                state.webriConfig,
-              );
-              return {
-                isWebriAssociated: assoc.isWebriAssociated,
-                webriConfidence: assoc.confidence,
-                webriMatchReason: assoc.reason,
-              };
-            })(),
-          },
-          {
-            sessionId: 88,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-CERTIDAO-01',
-            programName: 'WEBRI Certidões',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'UPDATE',
-            waitType: 'LCK_M_X',
-            waitTimeMs: 252000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 72,
-            cpuTimeMs: 85,
-            elapsedTimeMs: 252110,
-            logicalReads: 940,
-            writes: 12,
-            openTransactionCount: 1,
-            transactionBeginTimeIso: '2026-11-11T17:25:50.000Z',
-            lastRequestStartTimeIso: '2026-11-11T17:25:50.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x77C12098A4E1002B',
-            queryPlanHash: '0x18F90012B7712A09',
-            operationSummary: 'Atualização de andamento de pedido aguardando lock exclusivo retido pela sessão 72',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
-          },
-          {
-            sessionId: 91,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-CERTIDAO-02',
-            programName: 'WEBRI Certidões',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'SELECT',
-            waitType: 'LCK_M_S',
-            waitTimeMs: 218000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 88,
-            cpuTimeMs: 42,
-            elapsedTimeMs: 218400,
-            logicalReads: 615,
-            writes: 0,
-            openTransactionCount: 0,
-            transactionBeginTimeIso: null,
-            lastRequestStartTimeIso: '2026-11-11T17:26:22.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x52B49100E8C3194A',
-            queryPlanHash: '0x64A1190F22E17B03',
-            operationSummary: 'Consulta de fila de certidões bloqueada em cascata pela sessão 88 (raiz: sessão 72)',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
-          },
-          {
-            sessionId: 94,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-CAIXA-01',
-            programName: 'WEBRI Caixa',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'INSERT',
-            waitType: 'LCK_M_IX',
-            waitTimeMs: 196000,
-            waitResource: 'PAGE: 5:1:409128',
-            blockingSessionId: 72,
-            cpuTimeMs: 30,
-            elapsedTimeMs: 196200,
-            logicalReads: 410,
-            writes: 4,
-            openTransactionCount: 1,
-            transactionBeginTimeIso: '2026-11-11T17:26:44.000Z',
-            lastRequestStartTimeIso: '2026-11-11T17:26:44.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x33D90112A8E4510C',
-            queryPlanHash: '0x89C01122F4A90011',
-            operationSummary: 'Gravação de recibo/emolumentos aguardando liberação de página pela sessão 72',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + aplicação WEBRI Caixa.',
-          },
-          {
-            sessionId: 97,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-REGISTRO-01',
-            programName: 'WEBRI Registro',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'UPDATE',
-            waitType: 'LCK_M_U',
-            waitTimeMs: 174000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 72,
-            cpuTimeMs: 51,
-            elapsedTimeMs: 174500,
-            logicalReads: 790,
-            writes: 0,
-            openTransactionCount: 1,
-            transactionBeginTimeIso: '2026-11-11T17:27:06.000Z',
-            lastRequestStartTimeIso: '2026-11-11T17:27:06.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x77C12098A4E1002B',
-            queryPlanHash: '0x18F90012B7712A09',
-            operationSummary: 'Qualificação registral aguardando lock de atualização retido pela sessão 72',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + aplicação WEBRI Registro.',
-          },
-          {
-            sessionId: 102,
-            loginName: 'webri_app',
-            hostName: 'SRVAPP-WEBRI',
-            programName: 'IIS-WEBRIPool',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'SELECT',
-            waitType: 'LCK_M_S',
-            waitTimeMs: 141000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 88,
-            cpuTimeMs: 19,
-            elapsedTimeMs: 141120,
-            logicalReads: 320,
-            writes: 0,
-            openTransactionCount: 0,
-            transactionBeginTimeIso: null,
-            lastRequestStartTimeIso: '2026-11-11T17:27:39.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x52B49100E8C3194A',
-            queryPlanHash: '0x64A1190F22E17B03',
-            operationSummary: 'Consulta web de acompanhamento de protocolo aguardando fila de bloqueio',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + pool IIS-WEBRIPool.',
-          },
-          {
-            sessionId: 105,
-            loginName: 'fiorix_connector',
-            hostName: 'SRV-CONECTOR',
-            programName: 'FIORIXConnector',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'SELECT',
-            waitType: 'LCK_M_S',
-            waitTimeMs: 88000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 72,
-            cpuTimeMs: 12,
-            elapsedTimeMs: 88100,
-            logicalReads: 210,
-            writes: 0,
-            openTransactionCount: 0,
-            transactionBeginTimeIso: null,
-            lastRequestStartTimeIso: '2026-11-11T17:28:32.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x19E004A2B1189C04',
-            queryPlanHash: '0x44B109C8E2001D77',
-            operationSummary: 'Leitura incremental aguardando liberação de chave bloqueada pela sessão 72',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Login de leitura na base WEBRI.',
-          },
-          {
-            sessionId: 109,
-            loginName: 'webri_app',
-            hostName: 'ESTACAO-CERTIDAO-03',
-            programName: 'WEBRI Certidões',
-            databaseName: 'WEBRI',
-            sessionStatus: 'suspended',
-            requestStatus: 'suspended',
-            command: 'UPDATE',
-            waitType: 'LCK_M_X',
-            waitTimeMs: 64000,
-            waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
-            blockingSessionId: 72,
-            cpuTimeMs: 28,
-            elapsedTimeMs: 64200,
-            logicalReads: 512,
-            writes: 2,
-            openTransactionCount: 1,
-            transactionBeginTimeIso: '2026-11-11T17:28:56.000Z',
-            lastRequestStartTimeIso: '2026-11-11T17:28:56.000Z',
-            lastRequestEndTimeIso: null,
-            queryHash: '0x77C12098A4E1002B',
-            queryPlanHash: '0x18F90012B7712A09',
-            operationSummary: 'Baixa de certidão na fila aguardando transação da sessão 72',
-            isWebriAssociated: true,
-            webriConfidence: 'ALTA',
-            webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
-          },
-        ]
+        {
+          sessionId: 72,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-REGISTRO-04',
+          programName: 'WEBRI Desktop / Módulo de Prenotação',
+          databaseName: 'WEBRI',
+          sessionStatus: 'sleeping',
+          requestStatus: null,
+          command: 'AWAITING COMMAND',
+          waitType: null,
+          waitTimeMs: 0,
+          waitResource: null,
+          blockingSessionId: null,
+          cpuTimeMs: 1420,
+          elapsedTimeMs: 252000,
+          logicalReads: 18420,
+          writes: 312,
+          openTransactionCount: 1,
+          transactionBeginTimeIso: '2026-11-11T17:25:48.000Z',
+          lastRequestStartTimeIso: '2026-11-11T17:25:48.000Z',
+          lastRequestEndTimeIso: '2026-11-11T17:25:49.000Z',
+          queryHash: '0x94A8F102C4B711E0',
+          queryPlanHash: '0x31D08A77E2094C11',
+          operationSummary:
+            'Transação implícita/explícita aberta em protocolo/matrícula aguardando próximo comando da estação (sleeping com open_transaction_count = 1)',
+          ...(() => {
+            const assoc = evaluateWebriSessionAssociation(
+              {
+                databaseName: 'WEBRI',
+                loginName: 'webri_app',
+                programName: 'WEBRI Desktop / Módulo de Prenotação',
+                hostName: 'ESTACAO-REGISTRO-04',
+              },
+              state.webriConfig,
+            );
+            return {
+              isWebriAssociated: assoc.isWebriAssociated,
+              webriConfidence: assoc.confidence,
+              webriMatchReason: assoc.reason,
+            };
+          })(),
+        },
+        {
+          sessionId: 88,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-CERTIDAO-01',
+          programName: 'WEBRI Certidões',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'UPDATE',
+          waitType: 'LCK_M_X',
+          waitTimeMs: 252000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 72,
+          cpuTimeMs: 85,
+          elapsedTimeMs: 252110,
+          logicalReads: 940,
+          writes: 12,
+          openTransactionCount: 1,
+          transactionBeginTimeIso: '2026-11-11T17:25:50.000Z',
+          lastRequestStartTimeIso: '2026-11-11T17:25:50.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x77C12098A4E1002B',
+          queryPlanHash: '0x18F90012B7712A09',
+          operationSummary: 'Atualização de andamento de pedido aguardando lock exclusivo retido pela sessão 72',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
+        },
+        {
+          sessionId: 91,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-CERTIDAO-02',
+          programName: 'WEBRI Certidões',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'SELECT',
+          waitType: 'LCK_M_S',
+          waitTimeMs: 218000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 88,
+          cpuTimeMs: 42,
+          elapsedTimeMs: 218400,
+          logicalReads: 615,
+          writes: 0,
+          openTransactionCount: 0,
+          transactionBeginTimeIso: null,
+          lastRequestStartTimeIso: '2026-11-11T17:26:22.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x52B49100E8C3194A',
+          queryPlanHash: '0x64A1190F22E17B03',
+          operationSummary: 'Consulta de fila de certidões bloqueada em cascata pela sessão 88 (raiz: sessão 72)',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
+        },
+        {
+          sessionId: 94,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-CAIXA-01',
+          programName: 'WEBRI Caixa',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'INSERT',
+          waitType: 'LCK_M_IX',
+          waitTimeMs: 196000,
+          waitResource: 'PAGE: 5:1:409128',
+          blockingSessionId: 72,
+          cpuTimeMs: 30,
+          elapsedTimeMs: 196200,
+          logicalReads: 410,
+          writes: 4,
+          openTransactionCount: 1,
+          transactionBeginTimeIso: '2026-11-11T17:26:44.000Z',
+          lastRequestStartTimeIso: '2026-11-11T17:26:44.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x33D90112A8E4510C',
+          queryPlanHash: '0x89C01122F4A90011',
+          operationSummary: 'Gravação de recibo/emolumentos aguardando liberação de página pela sessão 72',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + aplicação WEBRI Caixa.',
+        },
+        {
+          sessionId: 97,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-REGISTRO-01',
+          programName: 'WEBRI Registro',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'UPDATE',
+          waitType: 'LCK_M_U',
+          waitTimeMs: 174000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 72,
+          cpuTimeMs: 51,
+          elapsedTimeMs: 174500,
+          logicalReads: 790,
+          writes: 0,
+          openTransactionCount: 1,
+          transactionBeginTimeIso: '2026-11-11T17:27:06.000Z',
+          lastRequestStartTimeIso: '2026-11-11T17:27:06.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x77C12098A4E1002B',
+          queryPlanHash: '0x18F90012B7712A09',
+          operationSummary: 'Qualificação registral aguardando lock de atualização retido pela sessão 72',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + aplicação WEBRI Registro.',
+        },
+        {
+          sessionId: 102,
+          loginName: 'webri_app',
+          hostName: 'SRVAPP-WEBRI',
+          programName: 'IIS-WEBRIPool',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'SELECT',
+          waitType: 'LCK_M_S',
+          waitTimeMs: 141000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 88,
+          cpuTimeMs: 19,
+          elapsedTimeMs: 141120,
+          logicalReads: 320,
+          writes: 0,
+          openTransactionCount: 0,
+          transactionBeginTimeIso: null,
+          lastRequestStartTimeIso: '2026-11-11T17:27:39.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x52B49100E8C3194A',
+          queryPlanHash: '0x64A1190F22E17B03',
+          operationSummary: 'Consulta web de acompanhamento de protocolo aguardando fila de bloqueio',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + pool IIS-WEBRIPool.',
+        },
+        {
+          sessionId: 105,
+          loginName: 'fiorix_connector',
+          hostName: 'SRV-CONECTOR',
+          programName: 'FIORIXConnector',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'SELECT',
+          waitType: 'LCK_M_S',
+          waitTimeMs: 88000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 72,
+          cpuTimeMs: 12,
+          elapsedTimeMs: 88100,
+          logicalReads: 210,
+          writes: 0,
+          openTransactionCount: 0,
+          transactionBeginTimeIso: null,
+          lastRequestStartTimeIso: '2026-11-11T17:28:32.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x19E004A2B1189C04',
+          queryPlanHash: '0x44B109C8E2001D77',
+          operationSummary: 'Leitura incremental aguardando liberação de chave bloqueada pela sessão 72',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Login de leitura na base WEBRI.',
+        },
+        {
+          sessionId: 109,
+          loginName: 'webri_app',
+          hostName: 'ESTACAO-CERTIDAO-03',
+          programName: 'WEBRI Certidões',
+          databaseName: 'WEBRI',
+          sessionStatus: 'suspended',
+          requestStatus: 'suspended',
+          command: 'UPDATE',
+          waitType: 'LCK_M_X',
+          waitTimeMs: 64000,
+          waitResource: 'KEY: 5:72057594043170816 (a1b2c3d4e5f6)',
+          blockingSessionId: 72,
+          cpuTimeMs: 28,
+          elapsedTimeMs: 64200,
+          logicalReads: 512,
+          writes: 2,
+          openTransactionCount: 1,
+          transactionBeginTimeIso: '2026-11-11T17:28:56.000Z',
+          lastRequestStartTimeIso: '2026-11-11T17:28:56.000Z',
+          lastRequestEndTimeIso: null,
+          queryHash: '0x77C12098A4E1002B',
+          queryPlanHash: '0x18F90012B7712A09',
+          operationSummary: 'Baixa de certidão na fila aguardando transação da sessão 72',
+          isWebriAssociated: true,
+          webriConfidence: 'ALTA',
+          webriMatchReason: 'Banco WEBRI + aplicação WEBRI Certidões.',
+        },
+      ]
       : [];
 
   const blockingChains = buildBlockingChains(RawSessionsForScenario, '2026-11-11T17:30:00.000Z');
@@ -2207,60 +2955,60 @@ export function buildSrvsqlPerformanceSnapshot(
   const waitSamplesPair: { prev: SqlWaitStatRawSample[]; curr: SqlWaitStatRawSample[] } =
     effectiveScenario === 'PRESSAO_LOG_WRITELOG'
       ? {
-          prev: [
-            { waitType: 'WRITELOG', waitingTasksCount: 1000, waitTimeMs: 500000, maxWaitTimeMs: 800, signalWaitTimeMs: 12000 },
-            { waitType: 'PAGEIOLATCH_EX', waitingTasksCount: 800, waitTimeMs: 200000, maxWaitTimeMs: 400, signalWaitTimeMs: 4000 },
-            { waitType: 'LCK_M_X', waitingTasksCount: 120, waitTimeMs: 90000, maxWaitTimeMs: 2000, signalWaitTimeMs: 1000 },
-            { waitType: 'LAZYWRITER_SLEEP', waitingTasksCount: 99999, waitTimeMs: 99999999, maxWaitTimeMs: 5000, signalWaitTimeMs: 0 },
-          ],
-          curr: [
-            { waitType: 'WRITELOG', waitingTasksCount: 1640, waitTimeMs: 529200, maxWaitTimeMs: 850, signalWaitTimeMs: 13100 },
-            { waitType: 'PAGEIOLATCH_EX', waitingTasksCount: 950, waitTimeMs: 206800, maxWaitTimeMs: 420, signalWaitTimeMs: 4200 },
-            { waitType: 'LCK_M_X', waitingTasksCount: 135, waitTimeMs: 94000, maxWaitTimeMs: 2100, signalWaitTimeMs: 1050 },
-            { waitType: 'LAZYWRITER_SLEEP', waitingTasksCount: 100060, waitTimeMs: 100059999, maxWaitTimeMs: 5000, signalWaitTimeMs: 0 },
-          ],
-        }
+        prev: [
+          { waitType: 'WRITELOG', waitingTasksCount: 1000, waitTimeMs: 500000, maxWaitTimeMs: 800, signalWaitTimeMs: 12000 },
+          { waitType: 'PAGEIOLATCH_EX', waitingTasksCount: 800, waitTimeMs: 200000, maxWaitTimeMs: 400, signalWaitTimeMs: 4000 },
+          { waitType: 'LCK_M_X', waitingTasksCount: 120, waitTimeMs: 90000, maxWaitTimeMs: 2000, signalWaitTimeMs: 1000 },
+          { waitType: 'LAZYWRITER_SLEEP', waitingTasksCount: 99999, waitTimeMs: 99999999, maxWaitTimeMs: 5000, signalWaitTimeMs: 0 },
+        ],
+        curr: [
+          { waitType: 'WRITELOG', waitingTasksCount: 1640, waitTimeMs: 529200, maxWaitTimeMs: 850, signalWaitTimeMs: 13100 },
+          { waitType: 'PAGEIOLATCH_EX', waitingTasksCount: 950, waitTimeMs: 206800, maxWaitTimeMs: 420, signalWaitTimeMs: 4200 },
+          { waitType: 'LCK_M_X', waitingTasksCount: 135, waitTimeMs: 94000, maxWaitTimeMs: 2100, signalWaitTimeMs: 1050 },
+          { waitType: 'LAZYWRITER_SLEEP', waitingTasksCount: 100060, waitTimeMs: 100059999, maxWaitTimeMs: 5000, signalWaitTimeMs: 0 },
+        ],
+      }
       : effectiveScenario === 'CONCORRENCIA_BACKUP_DISCO'
         ? {
-            prev: [
-              { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 4000, waitTimeMs: 800000, maxWaitTimeMs: 900, signalWaitTimeMs: 15000 },
-              { waitType: 'WRITELOG', waitingTasksCount: 1200, waitTimeMs: 300000, maxWaitTimeMs: 500, signalWaitTimeMs: 6000 },
-              { waitType: 'ASYNC_IO_COMPLETION', waitingTasksCount: 90, waitTimeMs: 150000, maxWaitTimeMs: 4500, signalWaitTimeMs: 500 },
-            ],
-            curr: [
-              { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 5400, waitTimeMs: 834000, maxWaitTimeMs: 950, signalWaitTimeMs: 15900 },
-              { waitType: 'WRITELOG', waitingTasksCount: 1410, waitTimeMs: 308500, maxWaitTimeMs: 540, signalWaitTimeMs: 6200 },
-              { waitType: 'ASYNC_IO_COMPLETION', waitingTasksCount: 130, waitTimeMs: 157500, maxWaitTimeMs: 4800, signalWaitTimeMs: 540 },
-            ],
-          }
+          prev: [
+            { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 4000, waitTimeMs: 800000, maxWaitTimeMs: 900, signalWaitTimeMs: 15000 },
+            { waitType: 'WRITELOG', waitingTasksCount: 1200, waitTimeMs: 300000, maxWaitTimeMs: 500, signalWaitTimeMs: 6000 },
+            { waitType: 'ASYNC_IO_COMPLETION', waitingTasksCount: 90, waitTimeMs: 150000, maxWaitTimeMs: 4500, signalWaitTimeMs: 500 },
+          ],
+          curr: [
+            { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 5400, waitTimeMs: 834000, maxWaitTimeMs: 950, signalWaitTimeMs: 15900 },
+            { waitType: 'WRITELOG', waitingTasksCount: 1410, waitTimeMs: 308500, maxWaitTimeMs: 540, signalWaitTimeMs: 6200 },
+            { waitType: 'ASYNC_IO_COMPLETION', waitingTasksCount: 130, waitTimeMs: 157500, maxWaitTimeMs: 4800, signalWaitTimeMs: 540 },
+          ],
+        }
         : effectiveScenario === 'PRESSAO_MEMORIA_GRANT'
           ? {
-              prev: [
-                { waitType: 'RESOURCE_SEMAPHORE', waitingTasksCount: 40, waitTimeMs: 110000, maxWaitTimeMs: 8000, signalWaitTimeMs: 500 },
-                { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 2000, waitTimeMs: 400000, maxWaitTimeMs: 600, signalWaitTimeMs: 8000 },
-                { waitType: 'SOS_SCHEDULER_YIELD', waitingTasksCount: 3000, waitTimeMs: 90000, maxWaitTimeMs: 120, signalWaitTimeMs: 88000 },
-              ],
-              curr: [
-                { waitType: 'RESOURCE_SEMAPHORE', waitingTasksCount: 68, waitTimeMs: 139000, maxWaitTimeMs: 9200, signalWaitTimeMs: 620 },
-                { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 2550, waitTimeMs: 414000, maxWaitTimeMs: 640, signalWaitTimeMs: 8300 },
-                { waitType: 'SOS_SCHEDULER_YIELD', waitingTasksCount: 3420, waitTimeMs: 97000, maxWaitTimeMs: 140, signalWaitTimeMs: 94800 },
-              ],
-            }
+            prev: [
+              { waitType: 'RESOURCE_SEMAPHORE', waitingTasksCount: 40, waitTimeMs: 110000, maxWaitTimeMs: 8000, signalWaitTimeMs: 500 },
+              { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 2000, waitTimeMs: 400000, maxWaitTimeMs: 600, signalWaitTimeMs: 8000 },
+              { waitType: 'SOS_SCHEDULER_YIELD', waitingTasksCount: 3000, waitTimeMs: 90000, maxWaitTimeMs: 120, signalWaitTimeMs: 88000 },
+            ],
+            curr: [
+              { waitType: 'RESOURCE_SEMAPHORE', waitingTasksCount: 68, waitTimeMs: 139000, maxWaitTimeMs: 9200, signalWaitTimeMs: 620 },
+              { waitType: 'PAGEIOLATCH_SH', waitingTasksCount: 2550, waitTimeMs: 414000, maxWaitTimeMs: 640, signalWaitTimeMs: 8300 },
+              { waitType: 'SOS_SCHEDULER_YIELD', waitingTasksCount: 3420, waitTimeMs: 97000, maxWaitTimeMs: 140, signalWaitTimeMs: 94800 },
+            ],
+          }
           : {
-              // Cenário do print: LCK_M_X = 76%, PAGEIOLATCH = 15%, WRITELOG = 9%
-              prev: [
-                { waitType: 'LCK_M_X', waitingTasksCount: 420, waitTimeMs: 900000, maxWaitTimeMs: 180000, signalWaitTimeMs: 3000 },
-                { waitType: 'PAGEIOLATCH', waitingTasksCount: 1850, waitTimeMs: 310000, maxWaitTimeMs: 240, signalWaitTimeMs: 4200 },
-                { waitType: 'WRITELOG', waitingTasksCount: 980, waitTimeMs: 140000, maxWaitTimeMs: 180, signalWaitTimeMs: 2100 },
-                { waitType: 'SLEEP_TASK', waitingTasksCount: 800000, waitTimeMs: 95000000, maxWaitTimeMs: 1000, signalWaitTimeMs: 0 },
-              ],
-              curr: [
-                { waitType: 'LCK_M_X', waitingTasksCount: 495, waitTimeMs: 976000, maxWaitTimeMs: 252000, signalWaitTimeMs: 3400 },
-                { waitType: 'PAGEIOLATCH', waitingTasksCount: 2120, waitTimeMs: 325000, maxWaitTimeMs: 240, signalWaitTimeMs: 4450 },
-                { waitType: 'WRITELOG', waitingTasksCount: 1140, waitTimeMs: 149000, maxWaitTimeMs: 180, signalWaitTimeMs: 2280 },
-                { waitType: 'SLEEP_TASK', waitingTasksCount: 800500, waitTimeMs: 95060000, maxWaitTimeMs: 1000, signalWaitTimeMs: 0 },
-              ],
-            };
+            // Cenário do print: LCK_M_X = 76%, PAGEIOLATCH = 15%, WRITELOG = 9%
+            prev: [
+              { waitType: 'LCK_M_X', waitingTasksCount: 420, waitTimeMs: 900000, maxWaitTimeMs: 180000, signalWaitTimeMs: 3000 },
+              { waitType: 'PAGEIOLATCH', waitingTasksCount: 1850, waitTimeMs: 310000, maxWaitTimeMs: 240, signalWaitTimeMs: 4200 },
+              { waitType: 'WRITELOG', waitingTasksCount: 980, waitTimeMs: 140000, maxWaitTimeMs: 180, signalWaitTimeMs: 2100 },
+              { waitType: 'SLEEP_TASK', waitingTasksCount: 800000, waitTimeMs: 95000000, maxWaitTimeMs: 1000, signalWaitTimeMs: 0 },
+            ],
+            curr: [
+              { waitType: 'LCK_M_X', waitingTasksCount: 495, waitTimeMs: 976000, maxWaitTimeMs: 252000, signalWaitTimeMs: 3400 },
+              { waitType: 'PAGEIOLATCH', waitingTasksCount: 2120, waitTimeMs: 325000, maxWaitTimeMs: 240, signalWaitTimeMs: 4450 },
+              { waitType: 'WRITELOG', waitingTasksCount: 1140, waitTimeMs: 149000, maxWaitTimeMs: 180, signalWaitTimeMs: 2280 },
+              { waitType: 'SLEEP_TASK', waitingTasksCount: 800500, waitTimeMs: 95060000, maxWaitTimeMs: 1000, signalWaitTimeMs: 0 },
+            ],
+          };
 
   const waitDeltaResult = computeWaitStatsDelta({
     previousSample: waitSamplesPair.prev,
@@ -2496,39 +3244,39 @@ export function buildSrvsqlPerformanceSnapshot(
   const concurrentEvents: WindowsConcurrentEvent[] =
     effectiveScenario === 'CONCORRENCIA_BACKUP_DISCO'
       ? [
-          {
-            id: 'evt-backup-full',
-            category: 'BACKUP',
-            title: 'Backup Diferencial / Cópia de Volume VSS em D:\\',
-            source: 'Agente de Backup / SQL Server Backup',
-            startedAt: '2026-11-11T17:12:00.000Z',
-            endedAt: null,
-            status: 'EM_ANDAMENTO',
-            detail: 'Leitura sequencial intensa (148 MB/s) no volume D:\\ simultânea às consultas do WEBRI.',
-          },
-          {
-            id: 'evt-pbi-refresh',
-            category: 'POWERBI_GATEWAY',
-            title: 'Atualização agendada Power BI Gateway (PBIEgwService)',
-            source: 'On-premises data gateway',
-            startedAt: '2026-11-11T17:15:00.000Z',
-            endedAt: '2026-11-11T17:28:00.000Z',
-            status: 'CONCLUIDO',
-            detail: 'Extração analítica executada no mesmo servidor físico.',
-          },
-        ]
+        {
+          id: 'evt-backup-full',
+          category: 'BACKUP',
+          title: 'Backup Diferencial / Cópia de Volume VSS em D:\\',
+          source: 'Agente de Backup / SQL Server Backup',
+          startedAt: '2026-11-11T17:12:00.000Z',
+          endedAt: null,
+          status: 'EM_ANDAMENTO',
+          detail: 'Leitura sequencial intensa (148 MB/s) no volume D:\\ simultânea às consultas do WEBRI.',
+        },
+        {
+          id: 'evt-pbi-refresh',
+          category: 'POWERBI_GATEWAY',
+          title: 'Atualização agendada Power BI Gateway (PBIEgwService)',
+          source: 'On-premises data gateway',
+          startedAt: '2026-11-11T17:15:00.000Z',
+          endedAt: '2026-11-11T17:28:00.000Z',
+          status: 'CONCLUIDO',
+          detail: 'Extração analítica executada no mesmo servidor físico.',
+        },
+      ]
       : [
-          {
-            id: 'evt-log-backup-1400',
-            category: 'BACKUP',
-            title: 'Backup rotineiro de Log de Transações (WEBRI)',
-            source: 'SQL Server Agent',
-            startedAt: '2026-11-11T17:00:00.000Z',
-            endedAt: '2026-11-11T17:00:18.000Z',
-            status: 'CONCLUIDO',
-            detail: 'Concluído em 18s fora do pico do bloqueio.',
-          },
-        ];
+        {
+          id: 'evt-log-backup-1400',
+          category: 'BACKUP',
+          title: 'Backup rotineiro de Log de Transações (WEBRI)',
+          source: 'SQL Server Agent',
+          startedAt: '2026-11-11T17:00:00.000Z',
+          endedAt: '2026-11-11T17:00:18.000Z',
+          status: 'CONCLUIDO',
+          detail: 'Concluído em 18s fora do pico do bloqueio.',
+        },
+      ];
 
   const diagnostics = generateEvidenceDiagnostics({
     intervalLabel: '14:00 – 14:30 (America/Sao_Paulo)',

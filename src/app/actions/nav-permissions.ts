@@ -10,6 +10,7 @@ import {
   getAllowedNavItemsForUser,
   getFirstAllowedRouteForUser,
   isRouteAllowedForUser,
+  resolveFirstAllowedRouteFromAllowedIds,
   saveNavPermissionsBatch,
 } from '@/lib/nav-permissions/service';
 import {
@@ -290,7 +291,11 @@ export async function getUserNavPermissionsAction(): Promise<{
   }
 
   const perms = await getAllowedNavItemsForUser(ctx);
-  const firstAllowedHref = await getFirstAllowedRouteForUser(ctx);
+  const firstAllowedHref = resolveFirstAllowedRouteFromAllowedIds(
+    ctx.role,
+    perms.allowedItemIds,
+    perms.enabled
+  );
   return { ...perms, firstAllowedHref };
 }
 

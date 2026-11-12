@@ -473,39 +473,57 @@ export async function saveNavPermissionsBatch(params: {
   await prisma.$transaction(async (tx) => {
     for (const [itemId, action] of normalizedChangesMap.entries()) {
       if (isRoleMode) {
-        const isVisible = action === 'ALLOW';
-        await tx.$executeRawUnsafe(
-          `INSERT INTO public.fiorix_nav_role_rules 
-             (id, tenant_id, role, item_id, visible, created_at, updated_at, updated_by)
-           VALUES 
-             (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5)
-           ON CONFLICT (tenant_id, role, item_id)
-           DO UPDATE SET 
-             visible = EXCLUDED.visible,
-             updated_at = NOW(),
-             updated_by = EXCLUDED.updated_by`,
-          tenantId,
-          targetId,
-          itemId,
-          isVisible,
-          masterUser.id
-        );
-        if (itemId === 'validacao_autenticidade_documental' && targetId === 'ADMIN') {
+        if (action === 'HERDAR') {
+          await tx.$executeRawUnsafe(
+            `DELETE FROM public.fiorix_nav_role_rules
+             WHERE tenant_id = $1 AND role = $2 AND item_id = $3`,
+            tenantId,
+            targetId,
+            itemId
+          );
+          if (itemId === 'validacao_autenticidade_documental' && targetId === 'ADMIN') {
+            await tx.$executeRawUnsafe(
+              `DELETE FROM public.fiorix_nav_role_rules
+               WHERE tenant_id = $1 AND role = 'MASTER' AND item_id = $2`,
+              tenantId,
+              itemId
+            );
+          }
+        } else {
+          const isVisible = action === 'ALLOW';
           await tx.$executeRawUnsafe(
             `INSERT INTO public.fiorix_nav_role_rules 
                (id, tenant_id, role, item_id, visible, created_at, updated_at, updated_by)
              VALUES 
-               (gen_random_uuid(), $1, 'MASTER', $2, $3, NOW(), NOW(), $4)
+               (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW(), $5)
              ON CONFLICT (tenant_id, role, item_id)
              DO UPDATE SET 
                visible = EXCLUDED.visible,
                updated_at = NOW(),
                updated_by = EXCLUDED.updated_by`,
             tenantId,
+            targetId,
             itemId,
             isVisible,
             masterUser.id
           );
+          if (itemId === 'validacao_autenticidade_documental' && targetId === 'ADMIN') {
+            await tx.$executeRawUnsafe(
+              `INSERT INTO public.fiorix_nav_role_rules 
+                 (id, tenant_id, role, item_id, visible, created_at, updated_at, updated_by)
+               VALUES 
+                 (gen_random_uuid(), $1, 'MASTER', $2, $3, NOW(), NOW(), $4)
+               ON CONFLICT (tenant_id, role, item_id)
+               DO UPDATE SET 
+                 visible = EXCLUDED.visible,
+                 updated_at = NOW(),
+                 updated_by = EXCLUDED.updated_by`,
+              tenantId,
+              itemId,
+              isVisible,
+              masterUser.id
+            );
+          }
         }
         updatedCount++;
       } else if (isDeptMode) {
@@ -829,22 +847,20 @@ export async function getAllowedNavItemsForUser(user: {
 }
 
 /**
- * Resolve a primeira rota permitida para o usuário quando sua rota padrão (ou /dashboard) estiver desativada.
- * Evita redirecionamento indevido para /dashboard quando o menu INICIAL está desativado.
+ * Resolve a primeira rota permitida a partir da lista já calculada de allowedItemIds,
+ * evitando consultas SQL duplicadas na mesma requisição.
  */
-export async function getFirstAllowedRouteForUser(user: {
-  id: string;
-  role: string;
-  tenantId: string;
-  departamento?: string | null;
-}): Promise<string> {
-  const defaultRoleHome = getHomeRouteForRole(user.role);
+export function resolveFirstAllowedRouteFromAllowedIds(
+  role: string,
+  allowedItemIds: string[],
+  enabled: boolean = isNavPermissionsFeatureEnabled()
+): string {
+  const defaultRoleHome = getHomeRouteForRole(role);
 
-  if (!isNavPermissionsFeatureEnabled() || user.role === 'MASTER') {
+  if (!enabled || role === 'MASTER') {
     return defaultRoleHome;
   }
 
-  const { allowedItemIds } = await getAllowedNavItemsForUser(user);
   const allowedSet = new Set(allowedItemIds);
 
   // 1. Se a rota canônica do perfil estiver permitida, prioriza-a
@@ -878,4 +894,22 @@ export async function getFirstAllowedRouteForUser(user: {
 
   // 4. Fallback seguro sempre acessível caso nenhum menu esteja ativo
   return '/minha-conta';
+}
+
+/**
+ * Resolve a primeira rota permitida para o usuário quando sua rota padrão (ou /dashboard) estiver desativada.
+ * Evita redirecionamento indevido para /dashboard quando o menu INICIAL está desativado.
+ */
+export async function getFirstAllowedRouteForUser(user: {
+  id: string;
+  role: string;
+  tenantId: string;
+  departamento?: string | null;
+}): Promise<string> {
+  if (!isNavPermissionsFeatureEnabled() || user.role === 'MASTER') {
+    return getHomeRouteForRole(user.role);
+  }
+
+  const { enabled, allowedItemIds } = await getAllowedNavItemsForUser(user);
+  return resolveFirstAllowedRouteFromAllowedIds(user.role, allowedItemIds, enabled);
 }

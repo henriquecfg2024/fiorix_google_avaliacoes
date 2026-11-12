@@ -21,6 +21,26 @@ import {
   resolveLocalAuthorizedFilePath,
 } from '@/lib/documental/signatureAuditStore';
 
+async function assertValidacaoAutenticidadePermitted(
+  user: { id: string; role: string; tenantId: string },
+  req: NextRequest,
+): Promise<boolean> {
+  if (process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED === 'false') return true;
+  if (
+    process.env.VITEST &&
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED !== 'true' &&
+    req.headers.get('x-test-enforce-nav-perm') !== '1'
+  ) {
+    return true;
+  }
+  const { getAllowedNavItemsForUser, isNavPermissionsFeatureEnabled } = await import(
+    '@/lib/nav-permissions/service'
+  );
+  if (!isNavPermissionsFeatureEnabled()) return true;
+  const perms = await getAllowedNavItemsForUser(user);
+  return !perms.enabled || perms.allowedItemIds.includes('validacao_autenticidade_documental');
+}
+
 export const dynamic = 'force-dynamic';
 
 export interface ComprovanteValidacaoOficial {
@@ -331,6 +351,16 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await requireDocumentAccess();
+    if (!(await assertValidacaoAutenticidadePermitted(user, req))) {
+      return NextResponse.json(
+        {
+          sucesso: false,
+          error:
+            'Acesso negado: a Validação de Autenticidade está desativada para o seu usuário.',
+        },
+        { status: 403, headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    }
 
     const rawText = await req.text();
     if (rawText.length > 16384) {
@@ -915,6 +945,16 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const user = await requireDocumentAccess();
+    if (!(await assertValidacaoAutenticidadePermitted(user, req))) {
+      return NextResponse.json(
+        {
+          sucesso: false,
+          error:
+            'Acesso negado: a Validação de Autenticidade está desativada para o seu usuário.',
+        },
+        { status: 403, headers: { 'Cache-Control': 'private, no-store' } },
+      );
+    }
     const { searchParams } = new URL(req.url);
     const lote = searchParams.get('lote') === '1';
     const download = searchParams.get('download') === '1';

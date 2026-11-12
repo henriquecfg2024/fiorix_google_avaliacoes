@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const SAFE_ORIGIN_ALLOWLIST = /^https:\/\/(fiorix\.app|[a-z0-9-]+\.fiorix\.app)$/i;
+const SAFE_DEV_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d{2,5})?$/i;
+
 function resolveOrigin(req: NextRequest): string {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (envUrl && envUrl.startsWith('http')) {
-    return envUrl.replace(/\/+$/, '');
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/+$/, '');
+  if (envUrl && (SAFE_ORIGIN_ALLOWLIST.test(envUrl) || SAFE_DEV_ORIGIN.test(envUrl))) {
+    return envUrl;
   }
-  const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
-  const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
-  if (forwardedHost) {
-    const proto =
-      forwardedHost.includes('localhost') || forwardedHost.startsWith('127.0.0.1')
-        ? 'http'
-        : forwardedProto;
-    return `${proto}://${forwardedHost}`.replace(/\/+$/, '');
+  if (process.env.NODE_ENV === 'development') {
+    const host = (req.headers.get('host') || '').trim();
+    const candidate = `http://${host}`;
+    if (SAFE_DEV_ORIGIN.test(candidate)) {
+      return candidate;
+    }
   }
   return 'https://fiorix.app';
 }

@@ -333,6 +333,31 @@ export async function sendMessage(params: {
       return { success: false, error: 'Acesso negado: Você não participa desta conversa.' };
     }
 
+    if (
+      membership.conversa.tipo === 'GROUP' &&
+      membership.conversa.permissaoEnvio === 'ADMIN_ONLY' &&
+      membership.papel !== 'ADMIN'
+    ) {
+      return { success: false, error: 'Somente administradores podem enviar mensagens neste grupo.' };
+    }
+
+    let validReplyToId: string | null = null;
+    if (replyToId) {
+      const targetMsg = await prisma.mensagem.findFirst({
+        where: {
+          id: replyToId,
+          conversaId: conversationId,
+          tenantId: user.tenantId,
+          isDeleted: false,
+        },
+        select: { id: true },
+      });
+      if (!targetMsg) {
+        return { success: false, error: 'A mensagem respondida não pertence a esta conversa.' };
+      }
+      validReplyToId = targetMsg.id;
+    }
+
     const now = new Date();
 
     // Cria a mensagem e anexo em transação
@@ -343,7 +368,7 @@ export async function sendMessage(params: {
           conversaId: conversationId,
           remetenteId: user.id,
           conteudo: sanitized,
-          respostaAId: replyToId || null,
+          respostaAId: validReplyToId,
           createdAt: now,
         },
         include: {

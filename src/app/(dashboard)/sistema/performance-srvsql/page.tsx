@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
 import type { Metadata } from 'next';
 import { requireRole } from '@/lib/auth-helpers';
-import { buildSrvsqlPerformanceSnapshot } from '@/lib/srvsql-performance/store';
+import { loadSrvsqlPerformanceSnapshot } from '@/lib/srvsql-performance/store';
 import { PerformanceSrvsqlClient } from '@/components/operacoes/PerformanceSrvsqlClient';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ export default async function PerformanceSrvsqlPage() {
     redirect('/dashboard');
   }
 
-  const initialSnapshot = buildSrvsqlPerformanceSnapshot(
+  const initialSnapshot = await loadSrvsqlPerformanceSnapshot(
     user.tenantId,
     'LIVE_OR_REAL',
     '30m',

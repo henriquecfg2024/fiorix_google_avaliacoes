@@ -52,15 +52,18 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId + ':' + userId}))`;
     await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId} AND "expiresAt" <= NOW()`;
 
-    // Se for solicitado forceFresh, exclui jobs anteriores desse mesmo arquivo/busca para limpar cache
+    // Se for solicitado forceFresh, invalida apenas resultados concluídos anteriores desse mesmo arquivo/busca,
+    // preservando registros status='failed' para auditoria de falhas no Worker de Gestão Documental 24/7
     if (forceFresh) {
       if (type === 'search' && query) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
+            AND status = 'complete'
             AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', ''))`;
       } else if ((type === 'extract_petition' || type === 'analyze_signatures' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
+            AND status = 'complete'
             AND type = ${type} AND "rootId" = ${rootId} AND "relativePath" = ${relativePath}`;
       }
     }
@@ -212,8 +215,8 @@ export async function readSearch(id: string, tenantId: string, userId?: string) 
   const rows = await prisma.$queryRaw<SearchJob[]>`SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt" FROM "DocumentSearchRequest"
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "expiresAt" > NOW()`;
   const job = rows[0] || null;
-  // Blocos de transferência de PDF são descartados assim que entregues ao navegador para não ocupar espaço no banco
-  if (job && job.type === 'read_document_chunk' && (job.status === 'complete' || job.status === 'failed')) {
+  // Blocos de transferência de PDF concluídos são descartados assim que entregues ao navegador; falhas permanecem 7 dias para auditoria
+  if (job && job.type === 'read_document_chunk' && job.status === 'complete') {
     await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${id} AND "tenantId" = ${tenantId}`.catch(() => {});
   }
   if (job && job.type === 'analyze_signatures' && job.status === 'complete' && job.result) {
@@ -255,11 +258,14 @@ export async function claimSearch(tenantId: string, connectorId: string) {
 }
 
 export async function finishSearch(id: string, tenantId: string, connectorId: string, result: unknown, failed = false) {
-  const ehChunkEfemero = Boolean(result && typeof result === 'object' && (result as Record<string, unknown>).isChunk === true);
-  const expiracaoCurta = failed || ehChunkEfemero;
+  const ehChunkEfemero = !failed && Boolean(result && typeof result === 'object' && (result as Record<string, unknown>).isChunk === true);
   return prisma.$executeRaw`UPDATE "DocumentSearchRequest" SET status = ${failed ? 'failed' : 'complete'},
     result = ${result === null ? null : JSON.stringify(result)}::jsonb,
-    "expiresAt" = CASE WHEN ${expiracaoCurta}::boolean THEN NOW() + INTERVAL '2 minutes' ELSE NOW() + INTERVAL '24 hours' END
+    "expiresAt" = CASE
+      WHEN ${failed}::boolean THEN NOW() + INTERVAL '7 days'
+      WHEN ${ehChunkEfemero}::boolean THEN NOW() + INTERVAL '2 minutes'
+      ELSE NOW() + INTERVAL '24 hours'
+    END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
       AND status = 'running' AND "expiresAt" > NOW()`;
 }

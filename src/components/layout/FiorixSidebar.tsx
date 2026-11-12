@@ -8,6 +8,7 @@ import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
 import { handleSignOut } from "@/app/actions/auth";
 import {
+  clearClientSessionCaches,
   loadCurrentUserOnce,
   loadNavigationStatsOnce,
   loadUserNavPermissionsOnce,
@@ -224,7 +225,7 @@ export function FiorixSidebar() {
         <span>👤 Minha Conta</span>
       </button>
 
-      <form action={handleSignOut} className="mt-1">
+      <form action={handleSignOut} onSubmit={() => clearClientSessionCaches()} className="mt-1">
         <button
           type="submit"
           className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-400/90 transition hover:bg-rose-500/10 hover:text-rose-300"

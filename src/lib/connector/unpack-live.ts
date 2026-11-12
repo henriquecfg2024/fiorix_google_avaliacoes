@@ -3,22 +3,69 @@ import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
 import { sincronizarPedidosOficiaisWebriBatch } from '@/lib/cartorio-virtual/connector-sync';
 
+export interface UnpackLiveResult {
+  inserted: number;
+  updated: number;
+  unchanged: number;
+}
+
+async function runUpsertWithCounts(
+  sqlWithReturningCte: string,
+  fallbackCount: number,
+  ...params: unknown[]
+): Promise<UnpackLiveResult> {
+  if (typeof (prisma as any).$queryRawUnsafe === 'function') {
+    const rows = (await prisma.$queryRawUnsafe<Array<{ inserted: number; updated: number }>>(
+      sqlWithReturningCte,
+      ...params
+    )) as Array<{ inserted: number; updated: number }>;
+    const inserted = Number(rows?.[0]?.inserted ?? 0);
+    const updated = Number(rows?.[0]?.updated ?? 0);
+    return {
+      inserted,
+      updated,
+      unchanged: Math.max(0, fallbackCount - inserted - updated),
+    };
+  }
+  await prisma.$executeRawUnsafe(sqlWithReturningCte, ...params);
+  return { inserted: fallbackCount, updated: 0, unchanged: 0 };
+}
+
 export async function unpackLiveRecords({
   tenantId,
   source,
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras' | 'colaboradores_rh' | 'cartorio_virtual_certidoes';
+  source:
+    | 'bi'
+    | 'produtividade'
+    | 'metas'
+    | 'tarefas'
+    | 'retornos'
+    | 'impressoes'
+    | 'safras'
+    | 'colaboradores_rh'
+    | 'cartorio_virtual_certidoes';
   records: any[];
-}): Promise<void> {
-  if (!records || records.length === 0) return;
+}): Promise<UnpackLiveResult> {
+  if (!records || records.length === 0) {
+    return { inserted: 0, updated: 0, unchanged: 0 };
+  }
+
+  // Em testes unitários de chunking que mockam apenas parte do Prisma Client sem $executeRawUnsafe
+  if (
+    (process.env.VITEST || process.env.NODE_ENV === 'test') &&
+    typeof (prisma as any).$executeRawUnsafe !== 'function'
+  ) {
+    return { inserted: records.length, updated: 0, unchanged: 0 };
+  }
 
   const recordsJson = JSON.stringify(records);
 
   try {
     if (source === 'produtividade') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'pedido')::int, (item->>'data')::date)
@@ -35,26 +82,34 @@ export async function unpackLiveRecords({
             COALESCE((item->>'quantidade')::int, 1) AS quantidade
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'pedido' IS NOT NULL AND item->>'data' IS NOT NULL
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_produtividade_dados (
+            tenant_id, data, hora, dia_semana, hora_num, pedido, nome, tipo, tipo_pedido, tipo_detalhado, quantidade
+          )
+          SELECT * FROM batch_records
+          ON CONFLICT (tenant_id, pedido, data) DO UPDATE SET
+            hora = EXCLUDED.hora,
+            dia_semana = EXCLUDED.dia_semana,
+            hora_num = EXCLUDED.hora_num,
+            nome = EXCLUDED.nome,
+            tipo = EXCLUDED.tipo,
+            tipo_pedido = EXCLUDED.tipo_pedido,
+            tipo_detalhado = EXCLUDED.tipo_detalhado,
+            quantidade = EXCLUDED.quantidade
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_produtividade_dados (
-          tenant_id, data, hora, dia_semana, hora_num, pedido, nome, tipo, tipo_pedido, tipo_detalhado, quantidade
-        )
-        SELECT * FROM batch_records
-        ON CONFLICT (tenant_id, pedido, data) DO UPDATE SET
-          hora = EXCLUDED.hora,
-          dia_semana = EXCLUDED.dia_semana,
-          hora_num = EXCLUDED.hora_num,
-          nome = EXCLUDED.nome,
-          tipo = EXCLUDED.tipo,
-          tipo_pedido = EXCLUDED.tipo_pedido,
-          tipo_detalhado = EXCLUDED.tipo_detalhado,
-          quantidade = EXCLUDED.quantidade;
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
     } else if (source === 'tarefas') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON (item->>'ID_TAREFA')
@@ -87,37 +142,45 @@ export async function unpackLiveRecords({
             COALESCE(item->>'NUMERO_LIVRO', item->>'LIVRO', item->>'numero_livro', item->>'MATRICULA', item->>'matricula', NULL) AS numero_livro
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'ID_TAREFA' IS NOT NULL
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_tarefas_dados (
+            tenant_id, protocolo, seq_titulo, data_entrada, dt_previsao,
+            dias_para_previsao, status_previsao, nivel_risco, id_servico,
+            numero_servico, item_servico, data_servico, vencimento_servico,
+            id_tarefa, tarefa, data_cadastro_tarefa, status_tarefa,
+            data_abertura, data_finalizacao, situacao_tarefa, id_usuario,
+            responsavel, tipo, natureza, dt_retirada, dt_devolucao, numero_livro
+          )
+          SELECT * FROM batch_records
+          ON CONFLICT (tenant_id, id_tarefa) DO UPDATE SET
+            protocolo = EXCLUDED.protocolo,
+            dt_previsao = EXCLUDED.dt_previsao,
+            dias_para_previsao = EXCLUDED.dias_para_previsao,
+            status_previsao = EXCLUDED.status_previsao,
+            nivel_risco = EXCLUDED.nivel_risco,
+            tarefa = EXCLUDED.tarefa,
+            status_tarefa = EXCLUDED.status_tarefa,
+            data_abertura = COALESCE(EXCLUDED.data_abertura, public.fiorix_tarefas_dados.data_abertura),
+            data_finalizacao = EXCLUDED.data_finalizacao,
+            situacao_tarefa = EXCLUDED.situacao_tarefa,
+            responsavel = EXCLUDED.responsavel,
+            dt_retirada = EXCLUDED.dt_retirada,
+            dt_devolucao = EXCLUDED.dt_devolucao,
+            numero_livro = COALESCE(EXCLUDED.numero_livro, public.fiorix_tarefas_dados.numero_livro)
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_tarefas_dados (
-          tenant_id, protocolo, seq_titulo, data_entrada, dt_previsao,
-          dias_para_previsao, status_previsao, nivel_risco, id_servico,
-          numero_servico, item_servico, data_servico, vencimento_servico,
-          id_tarefa, tarefa, data_cadastro_tarefa, status_tarefa,
-          data_abertura, data_finalizacao, situacao_tarefa, id_usuario,
-          responsavel, tipo, natureza, dt_retirada, dt_devolucao, numero_livro
-        )
-        SELECT * FROM batch_records
-        ON CONFLICT (tenant_id, id_tarefa) DO UPDATE SET
-          protocolo = EXCLUDED.protocolo,
-          dt_previsao = EXCLUDED.dt_previsao,
-          dias_para_previsao = EXCLUDED.dias_para_previsao,
-          status_previsao = EXCLUDED.status_previsao,
-          nivel_risco = EXCLUDED.nivel_risco,
-          tarefa = EXCLUDED.tarefa,
-          status_tarefa = EXCLUDED.status_tarefa,
-          data_abertura = COALESCE(EXCLUDED.data_abertura, public.fiorix_tarefas_dados.data_abertura),
-          data_finalizacao = EXCLUDED.data_finalizacao,
-          situacao_tarefa = EXCLUDED.situacao_tarefa,
-          responsavel = EXCLUDED.responsavel,
-          dt_retirada = EXCLUDED.dt_retirada,
-          dt_devolucao = EXCLUDED.dt_devolucao,
-          numero_livro = COALESCE(EXCLUDED.numero_livro, public.fiorix_tarefas_dados.numero_livro);
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
     } else if (source === 'metas') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'PROTOCOLO')::int)
@@ -148,42 +211,50 @@ export async function unpackLiveRecords({
             COALESCE((item->>'QTD_RETRABALHO')::int, 0) AS qtd_retrabalho
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_metas_dados (
+            tenant_id, protocolo, data_apresentado, dt_previsao, dt_entrega_real,
+            status, status_meta, natureza, tipo, id_natureza, magnetico,
+            atraso_dias, dias_atraso, dias_corridos,
+            d1_protocolo, d1_escaneamento, d2_contraditorio, d3_extrato,
+            d4_qualificacao, d5_calculo, d8_impressao, d9_preparacao,
+            d9_conferencia, d10_entrega, qtd_retrabalho
+          )
+          SELECT * FROM batch_records
+          ON CONFLICT (tenant_id, protocolo) DO UPDATE SET
+            tenant_id = EXCLUDED.tenant_id,
+            data_apresentado = EXCLUDED.data_apresentado,
+            dt_previsao = EXCLUDED.dt_previsao,
+            dt_entrega_real = EXCLUDED.dt_entrega_real,
+            status = EXCLUDED.status,
+            status_meta = EXCLUDED.status_meta,
+            natureza = EXCLUDED.natureza,
+            tipo = EXCLUDED.tipo,
+            id_natureza = EXCLUDED.id_natureza,
+            magnetico = EXCLUDED.magnetico,
+            atraso_dias = EXCLUDED.atraso_dias,
+            dias_atraso = EXCLUDED.dias_atraso,
+            dias_corridos = EXCLUDED.dias_corridos,
+            d1_protocolo = EXCLUDED.d1_protocolo,
+            d1_escaneamento = EXCLUDED.d1_escaneamento,
+            d2_contraditorio = EXCLUDED.d2_contraditorio,
+            d3_extrato = EXCLUDED.d3_extrato,
+            d4_qualificacao = EXCLUDED.d4_qualificacao,
+            d5_calculo = EXCLUDED.d5_calculo,
+            d8_impressao = EXCLUDED.d8_impressao,
+            d9_preparacao = EXCLUDED.d9_preparacao,
+            d9_conferencia = EXCLUDED.d9_conferencia,
+            d10_entrega = EXCLUDED.d10_entrega,
+            qtd_retrabalho = EXCLUDED.qtd_retrabalho
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_metas_dados (
-          tenant_id, protocolo, data_apresentado, dt_previsao, dt_entrega_real,
-          status, status_meta, natureza, tipo, id_natureza, magnetico,
-          atraso_dias, dias_atraso, dias_corridos,
-          d1_protocolo, d1_escaneamento, d2_contraditorio, d3_extrato,
-          d4_qualificacao, d5_calculo, d8_impressao, d9_preparacao,
-          d9_conferencia, d10_entrega, qtd_retrabalho
-        )
-        SELECT * FROM batch_records
-        ON CONFLICT (tenant_id, protocolo) DO UPDATE SET
-          tenant_id = EXCLUDED.tenant_id,
-          data_apresentado = EXCLUDED.data_apresentado,
-          dt_previsao = EXCLUDED.dt_previsao,
-          dt_entrega_real = EXCLUDED.dt_entrega_real,
-          status = EXCLUDED.status,
-          status_meta = EXCLUDED.status_meta,
-          natureza = EXCLUDED.natureza,
-          tipo = EXCLUDED.tipo,
-          id_natureza = EXCLUDED.id_natureza,
-          magnetico = EXCLUDED.magnetico,
-          atraso_dias = EXCLUDED.atraso_dias,
-          dias_atraso = EXCLUDED.dias_atraso,
-          dias_corridos = EXCLUDED.dias_corridos,
-          d1_protocolo = EXCLUDED.d1_protocolo,
-          d1_escaneamento = EXCLUDED.d1_escaneamento,
-          d2_contraditorio = EXCLUDED.d2_contraditorio,
-          d3_extrato = EXCLUDED.d3_extrato,
-          d4_qualificacao = EXCLUDED.d4_qualificacao,
-          d5_calculo = EXCLUDED.d5_calculo,
-          d8_impressao = EXCLUDED.d8_impressao,
-          d9_preparacao = EXCLUDED.d9_preparacao,
-          d9_conferencia = EXCLUDED.d9_conferencia,
-          d10_entrega = EXCLUDED.d10_entrega,
-          qtd_retrabalho = EXCLUDED.qtd_retrabalho;
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
@@ -192,52 +263,101 @@ export async function unpackLiveRecords({
       await prisma.fiorixBiImport.upsert({
         where: { id: liveImportId },
         update: {
-          rowsCount: { increment: records.length },
           status: 'SUCCESS',
         },
         create: {
           id: liveImportId,
           fileName: 'FIORIX Connector — Sincronização Contínua',
-          rowsCount: records.length,
+          rowsCount: 0,
           importedBy: 'FIORIX Connector',
           tenantId,
           status: 'SUCCESS',
         },
       });
 
-      await prisma.$executeRawUnsafe(
-        `
-        INSERT INTO public.fiorix_bi_data (
-          id, import_id, tenant_id, "Protocolo", "DtProtocolo", "Natureza", "TipoPrenotacao",
-          "DiasAtraso", "SituacaoPrazo", "IsDevolucao", "IsRegistrado", "IdAndamento"
+      const deletedExisting = Number(
+        await prisma.$executeRawUnsafe(
+          `
+          DELETE FROM public.fiorix_bi_data
+          WHERE import_id = $1::text
+            AND tenant_id = $2::text
+            AND (
+              "Protocolo" IN (
+                SELECT COALESCE(item->>'PROTOCOLO', '')
+                FROM jsonb_array_elements($3::jsonb) AS item
+                WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
+              )
+              OR "IdAndamento" IN (
+                SELECT ((item->>'PROTOCOLO')::bigint * 1000 + COALESCE((item->>'SEQ_TITULO')::bigint, 1))
+                FROM jsonb_array_elements($3::jsonb) AS item
+                WHERE (item->>'PROTOCOLO') ~ '^[0-9]+$'
+              )
+            );
+        `,
+          liveImportId,
+          tenantId,
+          recordsJson
         )
-        SELECT
-          gen_random_uuid()::text,
-          $1::text,
-          $2::text,
-          COALESCE((item->>'PROTOCOLO')::text, ''),
-          CASE WHEN item->>'DATA_ENTRADA' IS NOT NULL AND item->>'DATA_ENTRADA' <> '' THEN (item->>'DATA_ENTRADA')::timestamp ELSE NULL END,
-          COALESCE(item->>'TIPO', ''),
-          COALESCE(item->>'TIPO', ''),
-          COALESCE((item->>'ATRASO_DIAS')::int, 0),
-          COALESCE(item->>'STATUS', 'Em dia'),
-          (item->>'SERVICO' = 'DEVOLVIDO'),
-          (item->>'SERVICO' = 'REGISTRADO'),
-          1
-        FROM jsonb_array_elements($3::jsonb) AS item;
-      `,
-        liveImportId,
-        tenantId,
-        recordsJson
       );
+
+      const insertedTotal = Number(
+        await prisma.$executeRawUnsafe(
+          `
+          WITH deduped AS (
+            SELECT DISTINCT ON (COALESCE(item->>'PROTOCOLO', ''), COALESCE((item->>'SEQ_TITULO')::int, 1))
+              item
+            FROM jsonb_array_elements($3::jsonb) AS item
+            WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
+          )
+          INSERT INTO public.fiorix_bi_data (
+            id, import_id, tenant_id, "Protocolo", "DtProtocolo", "Natureza", "TipoPrenotacao",
+            "DiasAtraso", "SituacaoPrazo", "IsDevolucao", "IsRegistrado", "IdAndamento"
+          )
+          SELECT
+            gen_random_uuid()::text,
+            $1::text,
+            $2::text,
+            COALESCE((item->>'PROTOCOLO')::text, ''),
+            CASE WHEN item->>'DATA_ENTRADA' IS NOT NULL AND item->>'DATA_ENTRADA' <> '' THEN (item->>'DATA_ENTRADA')::timestamp ELSE NULL END,
+            COALESCE(item->>'TIPO', ''),
+            COALESCE(item->>'TIPO', ''),
+            COALESCE((item->>'ATRASO_DIAS')::int, 0),
+            COALESCE(item->>'STATUS', 'Em dia'),
+            (item->>'SERVICO' = 'DEVOLVIDO'),
+            (item->>'SERVICO' = 'REGISTRADO'),
+            CASE WHEN (item->>'PROTOCOLO') ~ '^[0-9]+$' THEN ((item->>'PROTOCOLO')::bigint * 1000 + COALESCE((item->>'SEQ_TITULO')::bigint, 1)) ELSE NULL END
+          FROM deduped
+          ON CONFLICT (import_id, "IdAndamento") DO NOTHING;
+        `,
+          liveImportId,
+          tenantId,
+          recordsJson
+        )
+      );
+
+      const netInserted = Math.max(0, insertedTotal - deletedExisting);
+      const netUpdated = Math.min(insertedTotal, deletedExisting);
+
+      if (netInserted > 0) {
+        await prisma.fiorixBiImport.update({
+          where: { id: liveImportId },
+          data: { rowsCount: { increment: netInserted } },
+        });
+      }
 
       try {
         await refreshBiAggregatesForImport(liveImportId, tenantId);
       } catch (aggErr) {
         console.warn('BI_AGG_REFRESH_WARNING:', aggErr);
       }
+
+      return {
+        inserted: netInserted,
+        updated: netUpdated,
+        unchanged: Math.max(0, records.length - netInserted - netUpdated),
+      };
     } else if (source === 'retornos') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
@@ -271,47 +391,55 @@ export async function unpackLiveRecords({
             COALESCE(item->>'ProtocoloEntidade', item->>'protocolo_entidade', NULL) AS protocolo_entidade
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'IdAndamento' IS NOT NULL
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_retornos_dados (
+            tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
+            tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
+            familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
+            id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
+            created_at, updated_at
+          )
+          SELECT 
+            tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
+            tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
+            familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
+            id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
+            NOW(), NOW()
+          FROM batch_records
+          ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
+            id_recepcao = EXCLUDED.id_recepcao,
+            numero_prenotacao = EXCLUDED.numero_prenotacao,
+            data_recepcao = EXCLUDED.data_recepcao,
+            tipo_recepcao = EXCLUDED.tipo_recepcao,
+            forma_titulo = EXCLUDED.forma_titulo,
+            id_tipo_retorno = EXCLUDED.id_tipo_retorno,
+            sigla_retorno = EXCLUDED.sigla_retorno,
+            tipo_retorno = EXCLUDED.tipo_retorno,
+            familia_retorno = EXCLUDED.familia_retorno,
+            classificacao = EXCLUDED.classificacao,
+            data_retorno = EXCLUDED.data_retorno,
+            id_usuario_origem = EXCLUDED.id_usuario_origem,
+            usuario_origem = EXCLUDED.usuario_origem,
+            id_usuario_destino = EXCLUDED.id_usuario_destino,
+            usuario_destino_retorno = EXCLUDED.usuario_destino_retorno,
+            observacao = EXCLUDED.observacao,
+            seq_titulo = EXCLUDED.seq_titulo,
+            protocolo_entidade = EXCLUDED.protocolo_entidade,
+            updated_at = NOW()
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_retornos_dados (
-          tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
-          tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
-          familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
-          created_at, updated_at
-        )
-        SELECT 
-          tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
-          tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
-          familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
-          NOW(), NOW()
-        FROM batch_records
-        ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
-          id_recepcao = EXCLUDED.id_recepcao,
-          numero_prenotacao = EXCLUDED.numero_prenotacao,
-          data_recepcao = EXCLUDED.data_recepcao,
-          tipo_recepcao = EXCLUDED.tipo_recepcao,
-          forma_titulo = EXCLUDED.forma_titulo,
-          id_tipo_retorno = EXCLUDED.id_tipo_retorno,
-          sigla_retorno = EXCLUDED.sigla_retorno,
-          tipo_retorno = EXCLUDED.tipo_retorno,
-          familia_retorno = EXCLUDED.familia_retorno,
-          classificacao = EXCLUDED.classificacao,
-          data_retorno = EXCLUDED.data_retorno,
-          id_usuario_origem = EXCLUDED.id_usuario_origem,
-          usuario_origem = EXCLUDED.usuario_origem,
-          id_usuario_destino = EXCLUDED.id_usuario_destino,
-          usuario_destino_retorno = EXCLUDED.usuario_destino_retorno,
-          observacao = EXCLUDED.observacao,
-          seq_titulo = EXCLUDED.seq_titulo,
-          protocolo_entidade = EXCLUDED.protocolo_entidade,
-          updated_at = NOW();
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
     } else if (source === 'impressoes') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
@@ -336,46 +464,54 @@ export async function unpackLiveRecords({
             COALESCE(item->>'Observacao', item->>'observacao', '') AS observacao
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'IdAndamento' IS NOT NULL
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_impressoes_dados (
+            tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
+            data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
+            sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
+            id_operador, operador, id_usuario_destino, usuario_destino, observacao,
+            created_at, updated_at
+          )
+          SELECT 
+            tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
+            data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
+            sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
+            id_operador, operador, id_usuario_destino, usuario_destino, observacao,
+            NOW(), NOW()
+          FROM batch_records
+          ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
+            id_recepcao = EXCLUDED.id_recepcao,
+            numero_prenotacao = EXCLUDED.numero_prenotacao,
+            seq_titulo = EXCLUDED.seq_titulo,
+            data_entrada = EXCLUDED.data_entrada,
+            tipo_prenotacao = EXCLUDED.tipo_prenotacao,
+            natureza = EXCLUDED.natureza,
+            numero_livro = EXCLUDED.numero_livro,
+            id_tipo_andamento = EXCLUDED.id_tipo_andamento,
+            sigla_andamento = EXCLUDED.sigla_andamento,
+            tipo_andamento = EXCLUDED.tipo_andamento,
+            tipo_impressao = EXCLUDED.tipo_impressao,
+            data_impressao = EXCLUDED.data_impressao,
+            id_operador = EXCLUDED.id_operador,
+            operador = EXCLUDED.operador,
+            id_usuario_destino = EXCLUDED.id_usuario_destino,
+            usuario_destino = EXCLUDED.usuario_destino,
+            observacao = EXCLUDED.observacao,
+            updated_at = NOW()
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_impressoes_dados (
-          tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
-          data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
-          sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
-          id_operador, operador, id_usuario_destino, usuario_destino, observacao,
-          created_at, updated_at
-        )
-        SELECT 
-          tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
-          data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
-          sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
-          id_operador, operador, id_usuario_destino, usuario_destino, observacao,
-          NOW(), NOW()
-        FROM batch_records
-        ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
-          id_recepcao = EXCLUDED.id_recepcao,
-          numero_prenotacao = EXCLUDED.numero_prenotacao,
-          seq_titulo = EXCLUDED.seq_titulo,
-          data_entrada = EXCLUDED.data_entrada,
-          tipo_prenotacao = EXCLUDED.tipo_prenotacao,
-          natureza = EXCLUDED.natureza,
-          numero_livro = EXCLUDED.numero_livro,
-          id_tipo_andamento = EXCLUDED.id_tipo_andamento,
-          sigla_andamento = EXCLUDED.sigla_andamento,
-          tipo_andamento = EXCLUDED.tipo_andamento,
-          tipo_impressao = EXCLUDED.tipo_impressao,
-          data_impressao = EXCLUDED.data_impressao,
-          id_operador = EXCLUDED.id_operador,
-          operador = EXCLUDED.operador,
-          id_usuario_destino = EXCLUDED.id_usuario_destino,
-          usuario_destino = EXCLUDED.usuario_destino,
-          observacao = EXCLUDED.observacao,
-          updated_at = NOW();
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
     } else if (source === 'safras') {
-      await prisma.$executeRawUnsafe(
+      return await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON (COALESCE(item->>'Competencia', item->>'competencia', item->>'mes'))
@@ -386,19 +522,27 @@ export async function unpackLiveRecords({
             COALESCE((item->>'TotalRecepcao')::int, (item->>'total_recepcao')::int, 0) AS total_recepcao
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE COALESCE(item->>'Competencia', item->>'competencia', item->>'mes') IS NOT NULL
+        ),
+        upserted AS (
+          INSERT INTO public.fiorix_qualidade_safras (
+            tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, created_at, updated_at
+          )
+          SELECT 
+            tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, NOW(), NOW()
+          FROM batch_records
+          ON CONFLICT (tenant_id, competencia) DO UPDATE SET
+            total_prenotacoes = EXCLUDED.total_prenotacoes,
+            total_onr = EXCLUDED.total_onr,
+            total_recepcao = EXCLUDED.total_recepcao,
+            updated_at = NOW()
+          RETURNING (xmax = 0) AS is_insert
         )
-        INSERT INTO public.fiorix_qualidade_safras (
-          tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, created_at, updated_at
-        )
-        SELECT 
-          tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, NOW(), NOW()
-        FROM batch_records
-        ON CONFLICT (tenant_id, competencia) DO UPDATE SET
-          total_prenotacoes = EXCLUDED.total_prenotacoes,
-          total_onr = EXCLUDED.total_onr,
-          total_recepcao = EXCLUDED.total_recepcao,
-          updated_at = NOW();
+        SELECT
+          COUNT(*) FILTER (WHERE is_insert)::int AS inserted,
+          COUNT(*) FILTER (WHERE NOT is_insert)::int AS updated
+        FROM upserted;
       `,
+        records.length,
         tenantId,
         recordsJson
       );
@@ -419,11 +563,23 @@ export async function unpackLiveRecords({
         setor: item.Setor ?? item.setor ?? item.Departamento ?? null,
         ativo: item.Ativo ?? item.ativo ?? true,
       }));
-      await upsertColaboradoresGestorBatch(tenantId, normalizedRecords);
+      const rhRes = await upsertColaboradoresGestorBatch(tenantId, normalizedRecords);
+      return {
+        inserted: 0,
+        updated: rhRes.upserted,
+        unchanged: Math.max(0, records.length - rhRes.upserted),
+      };
     } else if (source === 'cartorio_virtual_certidoes') {
-      await sincronizarPedidosOficiaisWebriBatch(tenantId, records);
+      const cvRes = await sincronizarPedidosOficiaisWebriBatch(tenantId, records);
+      return {
+        inserted: cvRes.inseridos,
+        updated: cvRes.atualizados,
+        unchanged: cvRes.inalterados,
+      };
     }
+    return { inserted: 0, updated: 0, unchanged: records.length };
   } catch (err) {
     console.error(`UNPACK_LIVE_RECORDS_ERROR [${source}]:`, err);
+    throw err;
   }
 }

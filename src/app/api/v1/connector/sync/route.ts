@@ -181,6 +181,32 @@ export async function POST(req: Request) {
     if (batch.chunkCount !== chunk_count) throw new Error('CHUNK_COUNT_MISMATCH');
     if (batch.syncMode !== sync_mode) throw new Error('SYNC_MODE_MISMATCH');
 
+    // Pre-check idempotency before running live unpack so duplicate retries never re-run heavy writes.
+    const preExistingChunk = await prisma.connectorSyncStaging.findUnique({
+      where: {
+        tenantId_connectorId_source_batchId_chunkIndex: {
+          tenantId,
+          connectorId: connector_id,
+          source,
+          batchId: batch_id,
+          chunkIndex: chunk_index,
+        },
+      },
+    });
+
+    if (preExistingChunk) {
+      console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      return NextResponse.json({
+        success: true,
+        alreadyProcessed: true,
+        batch_id,
+        chunk_index,
+        chunk_count,
+        recordsReceived: batch.recordsReceived,
+        status: batch.status,
+      });
+    }
+
     // This upsert is idempotent and intentionally runs outside the interactive
     // transaction. A retry can safely execute it again without holding a pool
     // connection while the remaining bookkeeping is performed.
@@ -223,6 +249,43 @@ export async function POST(req: Request) {
       }
     }
 
+    // Descarrega registros em tempo real diretamente para as tabelas operacionais ANTES de confirmar o chunk.
+    // Se falhar (CRIT-09), retorna HTTP 500 sem gravar staging, permitindo retry idempotente pelo conector.
+    let unpackStats = { inserted: 0, updated: 0, unchanged: 0 };
+    try {
+      unpackStats = await unpackLiveRecords({ tenantId, source, records });
+    } catch (err) {
+      console.error('LIVE_UNPACK_ERROR:', err);
+      const errMsg = err instanceof Error ? err.message.slice(0, 500) : 'LIVE_UNPACK_ERROR';
+      await prisma.connectorSyncBatch
+        .update({
+          where: { id: batch.id },
+          data: { status: 'failed', errorMessage: errMsg },
+        })
+        .catch(() => {});
+      await prisma.connectorSourceStatus
+        .upsert({
+          where: {
+            tenantId_connectorId_source: {
+              tenantId,
+              connectorId: connector_id,
+              source,
+            },
+          },
+          update: { status: 'degraded', lastError: errMsg, lastSyncAt: new Date() },
+          create: {
+            tenantId,
+            connectorId: connector_id,
+            source,
+            status: 'degraded',
+            lastError: errMsg,
+            lastSyncAt: new Date(),
+          },
+        })
+        .catch(() => {});
+      throw err;
+    }
+
     // Only the idempotency marker and counters need atomicity. Keeping this
     // transaction small prevents one import from blocking every other request.
     const result = await prisma.$transaction(async (tx) => {
@@ -262,7 +325,9 @@ export async function POST(req: Request) {
         data: {
           chunksReceived: { increment: 1 },
           recordsReceived: { increment: records.length },
-          recordsInserted: { increment: records.length },
+          recordsInserted: { increment: unpackStats.inserted },
+          recordsUpdated: { increment: unpackStats.updated },
+          errorMessage: null,
           status,
           processedAt: completed ? new Date() : null,
           durationMs: completed ? Date.now() - startTime : null,
@@ -283,13 +348,6 @@ export async function POST(req: Request) {
         recordsReceived: result.batch.recordsReceived,
         status: result.batch.status,
       });
-    }
-
-    // Descarrega registros em tempo real diretamente para as tabelas de dashboard
-    try {
-      await unpackLiveRecords({ tenantId, source, records });
-    } catch (err) {
-      console.error('LIVE_UNPACK_ERROR:', err);
     }
 
     const now = new Date();
@@ -341,6 +399,8 @@ export async function POST(req: Request) {
       chunk_index,
       chunk_count,
       recordsReceived: result.batch.recordsReceived,
+      recordsInserted: result.batch.recordsInserted,
+      recordsUpdated: result.batch.recordsUpdated,
       status: result.batch.status,
     });
 

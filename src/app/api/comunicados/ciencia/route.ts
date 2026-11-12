@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth"; // Assumindo o NextAuth setup
+import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { PessoasRepository } from "@/lib/pessoas/repository";
 import { generateCienciaHash } from "@/lib/security/hash";
@@ -8,13 +8,15 @@ import { logAuditEvent } from "@/lib/audit/log";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
+    let user;
+    try {
+      user = await requireAuth();
+    } catch {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const tenantId = session.user.tenantId;
-    const usuarioId = session.user.id;
+    const tenantId = user.tenantId;
+    const usuarioId = user.id;
 
     const { comunicadoId, comunicadoHash, scrollPercent } = await req.json();
 
@@ -25,8 +27,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Valida se o comunicado existe e o usuário tem acesso (sem fallback — previne forja de comprovantes)
-    const comunicado = await PessoasRepository.getComunicadoById(tenantId, comunicadoId, usuarioId);
+    // Valida se o comunicado existe no tenant e o usuário tem acesso (sem fallback — previne forja de comprovantes)
+    const comunicado = await PessoasRepository.getComunicadoById(
+      tenantId,
+      comunicadoId,
+      usuarioId,
+      user.role
+    );
     if (!comunicado) {
       return NextResponse.json(
         { error: "Comunicado não encontrado ou sem permissão de acesso." },

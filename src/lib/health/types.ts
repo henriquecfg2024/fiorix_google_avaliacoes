@@ -55,6 +55,20 @@ export interface ConnectorSmbRootTelemetry {
   provenance: Provenance;
 }
 
+export interface ConnectorDocumentalFailureItem {
+  id: string;
+  type: string;
+  typeLabel: string;
+  target: string;
+  error: string;
+  failedAt: string;
+  failedAtFormatted: string;
+  resolved: boolean;
+  resolvedAt: string | null;
+  resolvedAtFormatted: string | null;
+  resolutionReason: string;
+}
+
 export interface ConnectorSubsystemsSnapshot {
   provenance: Provenance;
   documental: {
@@ -69,6 +83,9 @@ export interface ConnectorSubsystemsSnapshot {
     jobs24hTotal: number;
     jobs24hCompleted: number;
     jobs24hFailed: number;
+    jobs24hFailedActive?: number;
+    jobs24hFailedResolved?: number;
+    recentFailures?: ConnectorDocumentalFailureItem[];
     avgJobDurationMs: number | null;
     jobsByType: {
       search: number;
@@ -233,12 +250,12 @@ export interface ConnectorClusterInfo {
     active: boolean;
     targetVersion: string;
     phase:
-      | 'UPDATING_STANDBY'
-      | 'UPDATING_FORMER_ACTIVE'
-      | 'COMPLETED'
-      | 'CANCELLED'
-      | 'TIMED_OUT'
-      | 'STAGED_AWAITING_RESTART';
+    | 'UPDATING_STANDBY'
+    | 'UPDATING_FORMER_ACTIVE'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'TIMED_OUT'
+    | 'STAGED_AWAITING_RESTART';
     originalPrimaryId: string | null;
     startedAt: string;
     message?: string;

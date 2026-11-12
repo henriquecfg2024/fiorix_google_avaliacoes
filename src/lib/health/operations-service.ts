@@ -23,6 +23,7 @@ import type {
   IncrementalModuleKey,
   IncrementalModuleStatus,
   ConnectorSmbRootTelemetry,
+  ConnectorDocumentalFailureItem,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   ConnectorClusterNodeSummary,
@@ -45,6 +46,7 @@ export type {
   IncrementalModuleKey,
   IncrementalModuleStatus,
   ConnectorSmbRootTelemetry,
+  ConnectorDocumentalFailureItem,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   ConnectorClusterNodeSummary,
@@ -682,12 +684,57 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         tenantId
       ).catch(() => []);
 
+      const failedRows = await prisma.$queryRawUnsafe<
+        Array<{
+          id: string;
+          connector_id: string | null;
+          type: string;
+          query: string | null;
+          root_id: string | null;
+          relative_path: string | null;
+          result: any;
+          failed_at: Date;
+          resolved_at: Date | null;
+        }>
+      >(
+        `SELECT
+          f.id,
+          f."connectorId" AS connector_id,
+          COALESCE(f.type, 'search') AS type,
+          f.query,
+          f."rootId" AS root_id,
+          f."relativePath" AS relative_path,
+          f.result,
+          f."createdAt" AS failed_at,
+          ok.resolved_at
+        FROM "DocumentSearchRequest" f
+        LEFT JOIN LATERAL (
+          SELECT MIN(c."createdAt") AS resolved_at
+          FROM "DocumentSearchRequest" c
+          WHERE c."tenantId" = f."tenantId"
+            AND c.status = 'complete'
+            AND c."createdAt" > f."createdAt"
+            AND COALESCE(c.type, 'search') = COALESCE(f.type, 'search')
+            AND COALESCE(c."rootId", '') = COALESCE(f."rootId", '')
+            AND COALESCE(c."relativePath", '') = COALESCE(f."relativePath", '')
+            AND COALESCE(c.query, '') = COALESCE(f.query, '')
+        ) ok ON TRUE
+        WHERE f."tenantId" = $1
+          AND f."createdAt" >= $2
+          AND f.status = 'failed'
+        ORDER BY f."createdAt" DESC
+        LIMIT 25`,
+        tenantId,
+        oneDayAgo
+      ).catch(() => []);
+
       return {
         docJobs: docRows[0] ?? null,
         manif: manifRows[0] ?? null,
+        failedJobs: failedRows,
       };
     } catch {
-      return { docJobs: null, manif: null };
+      return { docJobs: null, manif: null, failedJobs: [] };
     }
   };
 
@@ -894,6 +941,181 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   // D. Síntese Completa dos Subsistemas do Connector (Gestão Documental 24/7, SMB, Servidor :8765, CLI Rust e SQLite WAL)
   const docJobsRow = documentalDbStats?.docJobs ?? null;
   const manifRow = documentalDbStats?.manif ?? null;
+  const dbFailedJobRows = documentalDbStats?.failedJobs ?? [];
+
+  const formatDocJobTypeLabel = (jobType: string): string => {
+    switch (jobType) {
+      case 'extract_petition':
+        return 'Petição Inicial';
+      case 'read_document_text':
+        return 'Leitura KEN/DOC';
+      case 'read_document_chunk':
+        return 'Blocos HTTPS';
+      case 'analyze_signatures':
+        return 'Assinaturas ICP';
+      case 'list_directory':
+        return 'Listagem Pastas';
+      case 'inspect_matricula_acervo':
+        return 'Inspeção Matrícula';
+      case 'comunicacao_api':
+        return 'Comunicação API';
+      case 'search':
+        return 'Busca no Acervo';
+      default:
+        return jobType || 'Operação Documental';
+    }
+  };
+
+  const formatSpDateTimeShort = (isoOrDate: string | Date): string => {
+    const dt = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+    if (Number.isNaN(dt.getTime())) return '—';
+    return dt.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+  };
+
+  const buildDocumentalFailureSummary = (
+    docTelemetry: any,
+    options: { includeDbRows: boolean; filterConnectorId?: string | null; fallbackDbFailed24h?: number }
+  ) => {
+    const byId = new Map<string, ConnectorDocumentalFailureItem>();
+
+    if (options.includeDbRows) {
+      for (const row of dbFailedJobRows) {
+        if (options.filterConnectorId && row.connector_id && row.connector_id !== options.filterConnectorId) {
+          continue;
+        }
+        const jobType = String(row.type || 'search');
+        const fileBase = row.relative_path
+          ? row.relative_path.replace(/\\/g, '/').split('/').pop() || row.relative_path
+          : null;
+        const target =
+          row.root_id && fileBase
+            ? `[${String(row.root_id).toUpperCase()}] ${fileBase}`
+            : row.query
+            ? `Consulta "${String(row.query).slice(0, 64)}"`
+            : formatDocJobTypeLabel(jobType);
+        const rawErr =
+          row.result && typeof row.result === 'object' && typeof (row.result as any).error === 'string'
+            ? (row.result as any).error
+            : 'Falha ao executar operação documental no conector';
+        const failedIso =
+          row.failed_at instanceof Date ? row.failed_at.toISOString() : new Date(row.failed_at).toISOString();
+        const resolvedIso = row.resolved_at
+          ? row.resolved_at instanceof Date
+            ? row.resolved_at.toISOString()
+            : new Date(row.resolved_at).toISOString()
+          : null;
+        const resolved = Boolean(resolvedIso);
+        const resolvedFmt = resolvedIso ? formatSpDateTimeShort(resolvedIso) : null;
+
+        byId.set(row.id, {
+          id: row.id,
+          type: jobType,
+          typeLabel: formatDocJobTypeLabel(jobType),
+          target,
+          error: String(rawErr).slice(0, 200),
+          failedAt: failedIso,
+          failedAtFormatted: formatSpDateTimeShort(failedIso),
+          resolved,
+          resolvedAt: resolvedIso,
+          resolvedAtFormatted: resolvedFmt,
+          resolutionReason: resolved
+            ? `Corrigida em nova execução concluída com sucesso (${resolvedFmt}).`
+            : 'Não corrigida — aguarda nova execução bem-sucedida ou verificação do arquivo/compartilhamento.',
+        });
+      }
+    }
+
+    const hasModernLiveFailures = Array.isArray(docTelemetry?.recentFailures);
+    if (hasModernLiveFailures) {
+      for (const lf of docTelemetry.recentFailures) {
+        if (!lf || typeof lf !== 'object') continue;
+        const id = String(lf.id || `live-${lf.failedAt || Date.now()}`);
+        const existing = byId.get(id);
+        const resolved = Boolean(lf.resolved) || Boolean(existing?.resolved);
+        const resolvedIso = lf.resolvedAt || existing?.resolvedAt || null;
+        const resolvedFmt = resolvedIso ? formatSpDateTimeShort(resolvedIso) : null;
+        const failedIso = typeof lf.failedAt === 'string' ? lf.failedAt : existing?.failedAt || new Date().toISOString();
+        const jobType = String(lf.type || existing?.type || 'search');
+
+        byId.set(id, {
+          id,
+          type: jobType,
+          typeLabel: formatDocJobTypeLabel(jobType),
+          target: String(lf.target || existing?.target || formatDocJobTypeLabel(jobType)),
+          error: String(lf.error || existing?.error || 'Falha reportada pelo worker documental').slice(0, 200),
+          failedAt: failedIso,
+          failedAtFormatted: formatSpDateTimeShort(failedIso),
+          resolved,
+          resolvedAt: resolvedIso,
+          resolvedAtFormatted: resolvedFmt,
+          resolutionReason: resolved
+            ? `Corrigida automaticamente pelo worker${resolvedFmt ? ` (${resolvedFmt})` : ''}.`
+            : 'Não corrigida — aguarda reprocessamento ou disponibilidade do recurso.',
+        });
+      }
+    } else if (docTelemetry) {
+      // Compatibilidade imediata com conector antes de atualizar binário local:
+      // jobsFailedTotal era cumulativo desde o boot e lastError é limpo quando jobs posteriores têm sucesso.
+      const legacyBootFailures = Number(docTelemetry.jobsFailedTotal ?? 0);
+      if (legacyBootFailures > byId.size) {
+        const unaccounted = legacyBootFailures - byId.size;
+        const activeLastErr = typeof docTelemetry.lastError === 'string' && docTelemetry.lastError.trim()
+          ? docTelemetry.lastError.trim()
+          : null;
+        const isSuperada = !activeLastErr;
+        const refIso = docTelemetry.lastJobAt || docTelemetry.lastPollAt || new Date().toISOString();
+        const refFmt = formatSpDateTimeShort(refIso);
+        byId.set(`legacy-boot-summary-${options.filterConnectorId || 'main'}`, {
+          id: `legacy-boot-summary-${options.filterConnectorId || 'main'}`,
+          type: 'historico_boot',
+          typeLabel: 'Histórico do Serviço',
+          target: `${unaccounted} ocorrência(s) anterior(es) desde o início do serviço Windows`,
+          error: activeLastErr || 'Falha transitória anterior expirada antes da retenção estendida de 7 dias.',
+          failedAt: refIso,
+          failedAtFormatted: refFmt,
+          resolved: isSuperada,
+          resolvedAt: isSuperada ? refIso : null,
+          resolvedAtFormatted: isSuperada ? refFmt : null,
+          resolutionReason: isSuperada
+            ? `Corrigida — o worker processou novos jobs normalmente sem erro ativo (último job: ${refFmt}).`
+            : 'Não corrigida — último erro reportado pelo worker permanece ativo.',
+        });
+      }
+    }
+
+    const recentFailures = Array.from(byId.values()).sort(
+      (a, b) => Date.parse(b.failedAt) - Date.parse(a.failedAt)
+    );
+    const activeFromItems = recentFailures.filter((f) => !f.resolved).length;
+    const resolvedFromItems = recentFailures.filter((f) => f.resolved).length;
+
+    const liveFailedCount =
+      typeof docTelemetry?.jobsFailed24h === 'number'
+        ? docTelemetry.jobsFailed24h
+        : Number(docTelemetry?.jobsFailedTotal ?? 0);
+    const totalFailed24h = Math.max(
+      options.fallbackDbFailed24h ?? 0,
+      liveFailedCount,
+      recentFailures.length
+    );
+
+    const jobs24hFailedActive = activeFromItems;
+    const jobs24hFailedResolved = Math.max(resolvedFromItems, Math.max(0, totalFailed24h - jobs24hFailedActive));
+
+    return {
+      totalFailed24h,
+      jobs24hFailedActive,
+      jobs24hFailedResolved,
+      recentFailures,
+    };
+  };
 
   const liveDoc = (rawDetails?.documental && typeof rawDetails.documental === 'object') ? rawDetails.documental : null;
   const liveSqlite = (rawDetails?.sqlite && typeof rawDetails.sqlite === 'object') ? rawDetails.sqlite : null;
@@ -984,6 +1206,18 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       ? 0
       : netPendingAfterSending;
 
+  const mainDocFailureSummary = buildDocumentalFailureSummary(liveDoc, {
+    includeDbRows: true,
+    filterConnectorId: targetConnector?.id ?? null,
+    fallbackDbFailed24h: dbFailed24h,
+  });
+  const liveProcessed24h =
+    typeof liveDoc?.jobsProcessed24h === 'number'
+      ? liveDoc.jobsProcessed24h
+      : Number(liveDoc?.jobsProcessedTotal ?? 0);
+  const mergedCompleted24h = Math.max(dbCompleted24h, liveProcessed24h);
+  const mergedTotal24h = Math.max(dbTotal24h, mergedCompleted24h + mainDocFailureSummary.totalFailed24h);
+
   const subsystems: ConnectorSubsystemsSnapshot = {
     provenance: hasLiveSubsystems ? 'live' : 'calculated',
     documental: {
@@ -999,9 +1233,12 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         : dbLastJobAt,
       lastError: typeof liveDoc?.lastError === 'string' ? liveDoc.lastError : null,
       activeQueueCount: dbActiveQueue,
-      jobs24hTotal: Math.max(dbTotal24h, Number(liveDoc?.jobsProcessedTotal ?? 0) + Number(liveDoc?.jobsFailedTotal ?? 0)),
-      jobs24hCompleted: Math.max(dbCompleted24h, Number(liveDoc?.jobsProcessedTotal ?? 0)),
-      jobs24hFailed: Math.max(dbFailed24h, Number(liveDoc?.jobsFailedTotal ?? 0)),
+      jobs24hTotal: mergedTotal24h,
+      jobs24hCompleted: mergedCompleted24h,
+      jobs24hFailed: mainDocFailureSummary.totalFailed24h,
+      jobs24hFailedActive: mainDocFailureSummary.jobs24hFailedActive,
+      jobs24hFailedResolved: mainDocFailureSummary.jobs24hFailedResolved,
+      recentFailures: mainDocFailureSummary.recentFailures,
       avgJobDurationMs: typeof liveDoc?.avgJobDurationMs === 'number' ? liveDoc.avgJobDurationMs : null,
       jobsByType: mergedJobsByType,
       manifestacoes: {
@@ -1442,9 +1679,24 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
             : null,
           lastError: typeof extraDoc?.lastError === 'string' ? extraDoc.lastError : null,
           activeQueueCount: 0,
-          jobs24hTotal: Number(extraDoc?.jobsProcessedTotal ?? 0) + Number(extraDoc?.jobsFailedTotal ?? 0),
-          jobs24hCompleted: Number(extraDoc?.jobsProcessedTotal ?? 0),
-          jobs24hFailed: Number(extraDoc?.jobsFailedTotal ?? 0),
+          ...(() => {
+            const nodeFailSummary = buildDocumentalFailureSummary(extraDoc, {
+              includeDbRows: true,
+              filterConnectorId: node.connectorId,
+            });
+            const nodeProcessed24h =
+              typeof extraDoc?.jobsProcessed24h === 'number'
+                ? extraDoc.jobsProcessed24h
+                : Number(extraDoc?.jobsProcessedTotal ?? 0);
+            return {
+              jobs24hTotal: nodeProcessed24h + nodeFailSummary.totalFailed24h,
+              jobs24hCompleted: nodeProcessed24h,
+              jobs24hFailed: nodeFailSummary.totalFailed24h,
+              jobs24hFailedActive: nodeFailSummary.jobs24hFailedActive,
+              jobs24hFailedResolved: nodeFailSummary.jobs24hFailedResolved,
+              recentFailures: nodeFailSummary.recentFailures,
+            };
+          })(),
           avgJobDurationMs: typeof extraDoc?.avgJobDurationMs === 'number' ? extraDoc.avgJobDurationMs : null,
           jobsByType: {
             search: Number(extraDoc?.jobsByType?.search ?? 0),

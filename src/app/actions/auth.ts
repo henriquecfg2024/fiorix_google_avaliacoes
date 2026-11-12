@@ -112,6 +112,23 @@ export async function checkCredentials(email: string, password: string): Promise
       return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
     }
 
+    // Bloqueia contas marcadas como inativas pela administração
+    try {
+      const statusRows = await prisma.$queryRawUnsafe<Array<{ status: string }>>(
+        `SELECT COALESCE(status, 'ativo') as status FROM public."User" WHERE id = $1 LIMIT 1`,
+        user.id
+      );
+      if (statusRows[0]?.status?.trim().toLowerCase() === 'inativo') {
+        return {
+          valid: false,
+          requires2FA: false,
+          error: 'Sua conta está desativada. Contate a administração do cartório.',
+        };
+      }
+    } catch {
+      // Ignora em ambientes sem coluna status
+    }
+
     // Sucesso na verificação de senha -> limpa histórico de falhas
     await clearLoginAttempts(normalizedEmail);
 
@@ -327,21 +344,53 @@ export async function getCurrentUser() {
 
   if (session.user.id) {
     try {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { name: true, email: true, role: true, tenantId: true },
-      });
-      if (dbUser) {
+      const rows = await prisma.$queryRawUnsafe<
+        Array<{ name: string | null; email: string; role: string; tenantId: string; status: string }>
+      >(
+        `SELECT name, email, role::text as role, "tenantId", COALESCE(status, 'ativo') as status FROM public."User" WHERE id = $1 LIMIT 1`,
+        session.user.id
+      );
+      if (rows.length === 0) {
+        return null;
+      }
+      const dbUser = rows[0];
+      if (dbUser.status?.trim().toLowerCase() === 'inativo') {
+        return null;
+      }
+      const effectiveRole = dbUser.role || session.user.role || 'USER';
+      const effectiveTenantId =
+        effectiveRole === 'MASTER'
+          ? (session.user as any).tenantId || dbUser.tenantId || ''
+          : dbUser.tenantId || '';
+      return {
+        id: session.user.id,
+        name: dbUser.name || session.user.name || '',
+        email: dbUser.email || session.user.email || '',
+        role: effectiveRole,
+        tenantId: effectiveTenantId,
+      };
+    } catch {
+      // Fallback para findUnique sem coluna status
+      try {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { name: true, email: true, role: true, tenantId: true },
+        });
+        if (!dbUser) return null;
+        const effectiveRole = dbUser.role || session.user.role || 'USER';
         return {
           id: session.user.id,
           name: dbUser.name || session.user.name || '',
           email: dbUser.email || session.user.email || '',
-          role: dbUser.role || session.user.role || 'USER',
-          tenantId: dbUser.tenantId || (session.user as any).tenantId || '',
+          role: effectiveRole,
+          tenantId:
+            effectiveRole === 'MASTER'
+              ? (session.user as any).tenantId || dbUser.tenantId || ''
+              : dbUser.tenantId || '',
         };
+      } catch {
+        // Fallback em indisponibilidade transitória de banco
       }
-    } catch {
-      // Fallback para sessão JWT se houver indisponibilidade momentânea
     }
   }
 

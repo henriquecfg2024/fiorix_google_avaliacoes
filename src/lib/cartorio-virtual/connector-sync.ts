@@ -190,9 +190,9 @@ async function garantirRegrasPadraoTenant(tenantId: string): Promise<void> {
 export async function sincronizarPedidosOficiaisWebriBatch(
   tenantId: string,
   records: any[]
-): Promise<{ processados: number; inseridos: number; atualizados: number }> {
+): Promise<{ processados: number; inseridos: number; atualizados: number; inalterados: number }> {
   if (!records || records.length === 0) {
-    return { processados: 0, inseridos: 0, atualizados: 0 };
+    return { processados: 0, inseridos: 0, atualizados: 0, inalterados: 0 };
   }
 
   await garantirRegrasPadraoTenant(tenantId);
@@ -207,7 +207,7 @@ export async function sincronizarPedidosOficiaisWebriBatch(
   );
 
   if (numerosPedidosLote.length === 0) {
-    return { processados: 0, inseridos: 0, atualizados: 0 };
+    return { processados: 0, inseridos: 0, atualizados: 0, inalterados: 0 };
   }
 
   const existentes = await prisma.fiorixCvPedido.findMany({
@@ -218,6 +218,9 @@ export async function sincronizarPedidosOficiaisWebriBatch(
     select: {
       id: true,
       numeroPedido: true,
+      protocoloExterno: true,
+      observacoesOrigem: true,
+      prioridade: true,
       versaoDadosFonteHash: true,
       estadoOperacional: true,
       valoresJson: true,
@@ -231,6 +234,7 @@ export async function sincronizarPedidosOficiaisWebriBatch(
 
   let inseridos = 0;
   let atualizados = 0;
+  let inalterados = 0;
 
   for (const raw of records) {
     const numeroPedido = String(raw?.numeroPedido ?? raw?.Pk_NrPedido ?? "").trim();
@@ -634,6 +638,46 @@ export async function sincronizarPedidosOficiaisWebriBatch(
         ? "URGENTE"
         : "NORMAL";
 
+    const hashSyncCompleto = createHash("sha256")
+      .update(
+        JSON.stringify({
+          versaoDadosFonteHash,
+          protocoloExterno,
+          origem,
+          estadoSugerido: avaliacao.estadoSugerido,
+          prioridade,
+          observacoesOrigem,
+          valoresOficiais: valoresJsonFinal._valoresOficiaisWebri,
+          webriMeta: webriMetaObj,
+        })
+      )
+      .digest("hex");
+
+    const ultimoHashSyncSalvo =
+      typeof valoresExistentes._syncPayloadHash === "string"
+        ? valoresExistentes._syncPayloadHash
+        : null;
+
+    const semAlteracaoRelevante =
+      Boolean(existente) &&
+      (ultimoHashSyncSalvo === hashSyncCompleto ||
+        (existente!.versaoDadosFonteHash === versaoDadosFonteHash &&
+          existente!.estadoOperacional === avaliacao.estadoSugerido &&
+          (existente!.observacoesOrigem ?? null) === (observacoesOrigem ?? null) &&
+          (existente!.protocoloExterno ?? null) === (protocoloExterno ?? null) &&
+          existente!.prioridade === prioridade &&
+          JSON.stringify(valoresExistentes._valoresOficiaisWebri ?? null) ===
+            JSON.stringify(valoresJsonFinal._valoresOficiaisWebri) &&
+          JSON.stringify(valoresExistentes._webriMeta ?? null) ===
+            JSON.stringify(webriMetaObj)));
+
+    if (semAlteracaoRelevante) {
+      inalterados++;
+      continue;
+    }
+
+    valoresJsonFinal._syncPayloadHash = hashSyncCompleto;
+
     const pedidoId = existente?.id || `cv-webri-${tenantId.slice(-6)}-${numeroPedido}`;
 
     await prisma.fiorixCvPedido.upsert({
@@ -822,5 +866,6 @@ export async function sincronizarPedidosOficiaisWebriBatch(
     processados: inseridos + atualizados,
     inseridos,
     atualizados,
+    inalterados,
   };
 }

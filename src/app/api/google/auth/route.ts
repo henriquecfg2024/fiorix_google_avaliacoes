@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getGoogleAuthUrl } from '@/lib/google';
-import { auth } from '@/auth';
+import { requireRole } from '@/lib/auth-helpers';
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.tenantId) {
-    return new NextResponse('Unauthorized', { status: 401 });
+  try {
+    await requireRole('MASTER');
+    // Redireciona para a rota oficial autenticada com state assinado via HMAC-SHA256
+    return NextResponse.redirect(new URL('/api/auth/google', request.url));
+  } catch {
+    return NextResponse.json({ error: 'Não autorizado.' }, { status: 403 });
   }
-
-  const url = getGoogleAuthUrl(session.user.tenantId);
-  return NextResponse.redirect(url as unknown as string);
 }

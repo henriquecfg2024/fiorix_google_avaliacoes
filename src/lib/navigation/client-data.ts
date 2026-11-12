@@ -13,10 +13,14 @@ export type NavigationStats = Record<string, string | number> & {
   pendingReviewsCount?: number;
 };
 
+const USER_TTL_MS = 15_000; // 15 segundos para identidade no cliente
 const STATS_TTL_MS = 30_000; // 30 segundos entre revalidações automáticas de navegação
 const NAV_PERMS_TTL_MS = 60_000; // 60 segundos para permissões de menu no cliente
 
 let currentUserPromise: Promise<CurrentUser> | null = null;
+let currentUserFetchedAt = 0;
+let lastResolvedIdentityKey: string | null = null;
+
 let navigationStatsPromise: Promise<NavigationStats> | null = null;
 let navigationStatsFetchedAt = 0;
 
@@ -31,32 +35,85 @@ export function invalidateNavPermissionsClientCache() {
   routeAccessCache.clear();
 }
 
+export function clearClientSessionCaches() {
+  currentUserPromise = null;
+  currentUserFetchedAt = 0;
+  lastResolvedIdentityKey = null;
+  navigationStatsPromise = null;
+  navigationStatsFetchedAt = 0;
+  invalidateNavPermissionsClientCache();
+
+  if (typeof window !== "undefined") {
+    for (const storage of [window.localStorage, window.sessionStorage]) {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < storage.length; i++) {
+          const k = storage.key(i);
+          if (
+            k &&
+            (k.startsWith("fiorix.") ||
+              k.startsWith("fiorix:") ||
+              k.startsWith("fiorix_") ||
+              k.startsWith("gestao-documental") ||
+              k.startsWith("documental:"))
+          ) {
+            keysToRemove.push(k);
+          }
+        }
+        for (const k of keysToRemove) {
+          storage.removeItem(k);
+        }
+      } catch {
+        // Ignora bloqueios de storage do navegador
+      }
+    }
+  }
+}
+
 export function checkRouteAccessCached(pathname: string): Promise<RouteAccessCheckResult> {
   const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === "test");
   const now = Date.now();
-  const cached = routeAccessCache.get(pathname);
+  const scopePrefix = lastResolvedIdentityKey || "anon";
+  const cacheKey = `${scopePrefix}::${pathname}`;
+  const cached = routeAccessCache.get(cacheKey);
   if (!isTestEnv && cached && now - cached.fetchedAt < NAV_PERMS_TTL_MS) {
     return cached.promise;
   }
 
   const promise = checkRouteAccessWithFallbackAction(pathname).catch((err) => {
-    routeAccessCache.delete(pathname);
+    routeAccessCache.delete(cacheKey);
     throw err;
   });
 
   if (!isTestEnv) {
-    routeAccessCache.set(pathname, { promise, fetchedAt: now });
+    routeAccessCache.set(cacheKey, { promise, fetchedAt: now });
   }
   return promise;
 }
 
-export function loadCurrentUserOnce() {
-  if (!currentUserPromise) {
-    currentUserPromise = getCurrentUser().catch((error) => {
+export function loadCurrentUserOnce(force = false) {
+  const now = Date.now();
+  if (!force && currentUserPromise && now - currentUserFetchedAt < USER_TTL_MS) {
+    return currentUserPromise;
+  }
+
+  currentUserFetchedAt = now;
+  currentUserPromise = getCurrentUser()
+    .then((user) => {
+      const nextKey = user ? `${user.id}:${user.tenantId}:${user.role}` : null;
+      if (lastResolvedIdentityKey !== null && lastResolvedIdentityKey !== nextKey) {
+        invalidateNavPermissionsClientCache();
+        navigationStatsPromise = null;
+        navigationStatsFetchedAt = 0;
+      }
+      lastResolvedIdentityKey = nextKey;
+      return user;
+    })
+    .catch((error) => {
       currentUserPromise = null;
+      currentUserFetchedAt = 0;
       throw error;
     });
-  }
 
   return currentUserPromise;
 }

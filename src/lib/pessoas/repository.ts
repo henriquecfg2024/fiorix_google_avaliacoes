@@ -39,11 +39,30 @@ export class PessoasRepository {
     }
   }
 
-  static async getComunicadoById(tenantId: string, comunicadoId: string, authorId?: string) {
+  static async getComunicadoById(
+    tenantId: string,
+    comunicadoId: string,
+    userId?: string,
+    userRole?: string
+  ) {
     try {
       if (!tenantId || !comunicadoId) return null;
-      let com = await prisma.fiorixComunicado.findFirst({
-        where: { id: comunicadoId },
+      const isPrivileged = userRole ? ["ADMIN", "MASTER", "RH"].includes(userRole) : false;
+      const com = await prisma.fiorixComunicado.findFirst({
+        where: {
+          id: comunicadoId,
+          tenantId,
+          ...(userId && userRole && !isPrivileged
+            ? {
+                status: "PUBLICADO",
+                OR: [
+                  { destinatarios: { has: "TODOS" } },
+                  { destinatarios: { has: userRole } },
+                  { destinatarios: { has: userId } },
+                ],
+              }
+            : {}),
+        },
         include: {
           anexos: true,
         },

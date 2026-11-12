@@ -22,10 +22,10 @@ export interface UsuarioManifestacao {
 
 export interface EventoHistoricoManifestacao {
   tipo:
-    | 'SALVO_EM_CONFERENCIA'
-    | 'CONFERENCIA_CONCLUIDA'
-    | 'CONFERENCIA_REABERTA'
-    | 'ETAPA2_FINALIZADA_E_ARQUIVADA';
+  | 'SALVO_EM_CONFERENCIA'
+  | 'CONFERENCIA_CONCLUIDA'
+  | 'CONFERENCIA_REABERTA'
+  | 'ETAPA2_FINALIZADA_E_ARQUIVADA';
   dataHora: string;
   usuarioId?: string | null;
   usuarioNome?: string | null;
@@ -201,12 +201,12 @@ export async function salvarFichaEmConferencia(
     const conferidoPorNome =
       statusConferencia === 'CONFERIDO'
         ? texto(dadosBanco?.conferido_por_nome, 200) ??
-          (podeConferir ? texto(entrada.dados.conferido_por_nome, 200) ?? nomeUsuario(usuario) : null)
+        (podeConferir ? texto(entrada.dados.conferido_por_nome, 200) ?? nomeUsuario(usuario) : null)
         : null;
     const conferidoEm =
       statusConferencia === 'CONFERIDO'
         ? texto(dadosBanco?.conferido_em, 60) ??
-          (podeConferir ? texto(entrada.dados.conferido_em, 60) ?? new Date().toISOString() : null)
+        (podeConferir ? texto(entrada.dados.conferido_em, 60) ?? new Date().toISOString() : null)
         : null;
 
     const historicoAnterior = Array.isArray(dadosBanco?.historico_eventos)
@@ -589,14 +589,14 @@ export interface LogGestaoDocumentalItem {
   modulo: 'GESTÃO DOCUMENTAL';
   acao: string;
   categoria:
-    | 'PESQUISA'
-    | 'EXTRACAO_PETICAO'
-    | 'LEITURA_ACERVO'
-    | 'VALIDACAO_ASSINATURA'
-    | 'RASCUNHO_CONFERENCIA'
-    | 'CONFERENCIA_OFICIAL'
-    | 'ARQUIVAMENTO'
-    | 'AUDITORIA';
+  | 'PESQUISA'
+  | 'EXTRACAO_PETICAO'
+  | 'LEITURA_ACERVO'
+  | 'VALIDACAO_ASSINATURA'
+  | 'RASCUNHO_CONFERENCIA'
+  | 'CONFERENCIA_OFICIAL'
+  | 'ARQUIVAMENTO'
+  | 'AUDITORIA';
   processo: string | null;
   matricula: string | null;
   requerente: string | null;
@@ -655,7 +655,7 @@ export async function listarLogsGestaoDocumental(
       if (r.detalhes_json) {
         try {
           detalhes = JSON.parse(r.detalhes_json) as Record<string, unknown>;
-        } catch {}
+        } catch { }
       }
       const dataIso = r.criado_em instanceof Date ? r.criado_em.toISOString() : new Date(r.criado_em).toISOString();
       const acaoUpper = (r.acao || 'AUDITORIA').toUpperCase();
@@ -663,19 +663,19 @@ export async function listarLogsGestaoDocumental(
         acaoUpper === 'ARQUIVAMENTO'
           ? 'ARQUIVAMENTO'
           : acaoUpper === 'CONFERENCIA'
-          ? 'CONFERENCIA_OFICIAL'
-          : acaoUpper === 'INCLUSAO' || acaoUpper === 'ALTERACAO' || acaoUpper === 'EXCLUSAO'
-          ? 'RASCUNHO_CONFERENCIA'
-          : 'AUDITORIA';
+            ? 'CONFERENCIA_OFICIAL'
+            : acaoUpper === 'INCLUSAO' || acaoUpper === 'ALTERACAO' || acaoUpper === 'EXCLUSAO'
+              ? 'RASCUNHO_CONFERENCIA'
+              : 'AUDITORIA';
       const statusConf = typeof detalhes.statusConferencia === 'string' ? detalhes.statusConferencia : null;
       const desc =
         acaoUpper === 'ARQUIVAMENTO'
           ? `Manifestação finalizada e arquivada na Etapa 2 (${r.registro_descricao || 'Processo'})`
           : acaoUpper === 'CONFERENCIA'
-          ? statusConf === 'CONFERIDO'
-            ? `Conferência Oficial concluída — marcado como CONFERIDO (${r.registro_descricao || 'Processo'})`
-            : `Status retornado para Aguardando Conferência (${r.registro_descricao || 'Processo'})`
-          : `${r.acao}: ${r.registro_descricao || 'Registro da Gestão Documental'}`;
+            ? statusConf === 'CONFERIDO'
+              ? `Conferência Oficial concluída — marcado como CONFERIDO (${r.registro_descricao || 'Processo'})`
+              : `Status retornado para Aguardando Conferência (${r.registro_descricao || 'Processo'})`
+            : `${r.acao}: ${r.registro_descricao || 'Registro da Gestão Documental'}`;
 
       const chaveDedup = `${categoria}:${r.registro_id || ''}:${dataIso.slice(0, 16)}`;
       chavesVistas.add(chaveDedup);
@@ -762,8 +762,8 @@ export async function listarLogsGestaoDocumental(
           ev.tipo === 'ETAPA2_FINALIZADA_E_ARQUIVADA'
             ? 'ARQUIVAMENTO'
             : ev.tipo === 'CONFERENCIA_CONCLUIDA' || ev.tipo === 'CONFERENCIA_REABERTA'
-            ? 'CONFERENCIA_OFICIAL'
-            : 'RASCUNHO_CONFERENCIA';
+              ? 'CONFERENCIA_OFICIAL'
+              : 'RASCUNHO_CONFERENCIA';
         const chaveDedup = `${categoria}:${m.id}:${ev.dataHora.slice(0, 16)}`;
         if (chavesVistas.has(chaveDedup)) continue;
         chavesVistas.add(chaveDedup);
@@ -776,10 +776,10 @@ export async function listarLogsGestaoDocumental(
             ev.tipo === 'ETAPA2_FINALIZADA_E_ARQUIVADA'
               ? 'ARQUIVAMENTO'
               : ev.tipo === 'CONFERENCIA_CONCLUIDA'
-              ? 'CONFERIDO'
-              : ev.tipo === 'CONFERENCIA_REABERTA'
-              ? 'REABERTO'
-              : 'ATUALIZAÇÃO',
+                ? 'CONFERIDO'
+                : ev.tipo === 'CONFERENCIA_REABERTA'
+                  ? 'REABERTO'
+                  : 'ATUALIZAÇÃO',
           categoria,
           processo: proc,
           matricula: matLimpa,
@@ -837,35 +837,47 @@ export async function listarLogsGestaoDocumental(
         }
       }
     }
-  } catch {}
+  } catch { }
 
   // 3. Operações de Pesquisa, Extração OCR/IA de Petições, Leitura de Imagens (.KEN/PDF) e Validação ICP-Brasil na Gestão Documental
   try {
     const reqRows = await prisma.$queryRaw<
       Array<{
         id: string;
-        query: string;
+        type: string | null;
+        query: string | null;
+        rootId: string | null;
+        relativePath: string | null;
         status: string;
         createdAt: Date;
-        completedAt: Date | null;
       }>
     >`
-      SELECT "id", "query", "status", "createdAt", "completedAt"
+      SELECT "id", "type", "query", "rootId", "relativePath", "status", "createdAt"
       FROM "DocumentSearchRequest"
       WHERE "tenantId" = ${tenantId}
+        AND COALESCE("type", 'search') <> 'read_document_chunk'
       ORDER BY "createdAt" DESC
       LIMIT 300
     `;
 
     for (const req of reqRows) {
       let qObj: { type?: string; query?: string; rootId?: string; relativePath?: string } = {};
-      try {
-        qObj = JSON.parse(req.query) as typeof qObj;
-      } catch {
-        qObj = { type: 'search', query: req.query };
+      if (req.type || req.rootId || req.relativePath) {
+        qObj = {
+          type: req.type || 'search',
+          query: req.query || undefined,
+          rootId: req.rootId || undefined,
+          relativePath: req.relativePath || undefined,
+        };
+      } else if (req.query) {
+        try {
+          qObj = JSON.parse(req.query) as typeof qObj;
+        } catch {
+          qObj = { type: 'search', query: req.query };
+        }
       }
       const tipoReq = qObj.type || 'search';
-      const dataRef = req.completedAt || req.createdAt;
+      const dataRef = req.createdAt;
       const dataIso = dataRef instanceof Date ? dataRef.toISOString() : new Date(dataRef).toISOString();
 
       let categoria: LogGestaoDocumentalItem['categoria'] = 'PESQUISA';
@@ -877,11 +889,11 @@ export async function listarLogsGestaoDocumental(
       const cnjMatch = (qObj.query || qObj.relativePath || '').match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
       if (cnjMatch) processo = cnjMatch[0];
 
-      if (tipoReq === 'extract_petition_data') {
+      if (tipoReq === 'extract_petition' || tipoReq === 'extract_petition_data') {
         categoria = 'EXTRACAO_PETICAO';
         acao = 'EXTRAÇÃO OCR / IA';
         descricao = `Extração automática de dados da Petição Inicial (${qObj.relativePath || 'PDF dos autos'})`;
-      } else if (tipoReq === 'validate_pdf_signature') {
+      } else if (tipoReq === 'analyze_signatures' || tipoReq === 'validate_pdf_signature') {
         categoria = 'VALIDACAO_ASSINATURA';
         acao = 'VALIDAÇÃO ICP-BRASIL';
         descricao = `Validação criptográfica de assinatura digital ICP-Brasil (${qObj.relativePath || 'PDF'})`;
@@ -918,7 +930,7 @@ export async function listarLogsGestaoDocumental(
         manifestacaoId: null,
       });
     }
-  } catch {}
+  } catch { }
 
   // Filtros por data (fuso America/Sao_Paulo), categoria/tipo e busca textual
   const deLimite = filtros.de ? new Date(`${filtros.de}T00:00:00-03:00`).getTime() : null;

@@ -711,15 +711,16 @@ export async function atualizarNivelMatriz(
 }
 
 export async function toggleColaboradorTutor(usuarioId: string, novoStatus: boolean) {
-  await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
 
-  // Proteção Master: nunca alterar admin@fiorix.com.br
+  // Proteção Master e escopo estrito do tenant
   await prisma.$queryRawUnsafe(
     `UPDATE public."User"
      SET pode_ser_tutor = $1
-     WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
+     WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
     novoStatus,
-    usuarioId
+    usuarioId,
+    currentUser.tenantId
   );
 
   revalidatePath('/administracao/its');
@@ -1227,7 +1228,7 @@ export async function adicionarFaqExcecao(itId: string, pergunta: string, respos
 }
 
 export async function getGovernancaRhData() {
-  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER', 'VISITANTE');
   const tenantId = currentUser.tenantId;
 
   // 1. KPIs
@@ -2877,7 +2878,7 @@ export async function getHistoricoVersoes(
   itId: string
 ): Promise<{ success: boolean; data?: HistoricoVersoesData; error?: string }> {
   try {
-    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER', 'RH');
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER', 'RH', 'VISITANTE');
     const tenantId = currentUser.tenantId;
 
     // Dados da IT
@@ -3136,10 +3137,11 @@ export async function adicionarParticipanteIt(params: {
       if (isRespPrincipal.length) return { success: false, error: 'O responsável principal não pode ser adicionado como corresponsável.' };
     }
 
-    // Verificar setor do novo participante
+    // Verificar setor do novo participante (restrito ao mesmo tenant)
     const novoUser = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, name, email, departamento FROM public."User" WHERE id = $1 LIMIT 1`,
-      params.usuarioId
+      `SELECT id, name, email, departamento FROM public."User" WHERE id = $1 AND "tenantId" = $2 LIMIT 1`,
+      params.usuarioId,
+      tenantId
     );
     if (!novoUser.length) return { success: false, error: 'Usuário não encontrado.' };
 
@@ -3312,10 +3314,11 @@ export async function transferirResponsabilidadeIt(params: {
       if (!papelAtual.length) return { success: false, error: 'Apenas o responsável principal ou gestão podem transferir a responsabilidade.' };
     }
 
-    // Verificar se o novo responsável existe
+    // Verificar se o novo responsável existe no mesmo tenant
     const novoResp = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, name, email FROM public."User" WHERE id = $1 LIMIT 1`,
-      params.novoResponsavelId
+      `SELECT id, name, email FROM public."User" WHERE id = $1 AND "tenantId" = $2 LIMIT 1`,
+      params.novoResponsavelId,
+      tenantId
     );
     if (!novoResp.length) return { success: false, error: 'Novo responsável não encontrado.' };
 

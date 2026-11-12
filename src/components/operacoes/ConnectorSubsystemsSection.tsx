@@ -7,7 +7,6 @@ import {
   Server,
   Terminal,
   Database,
-  ShieldCheck,
   HardDrive,
   CheckCircle2,
   AlertTriangle,
@@ -43,7 +42,7 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
   return (
     <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm space-y-5">
       {/* Header da Seção */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:items-center sm:flex-row justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
             <h3 className="text-sm font-semibold text-[#F1F5F9] tracking-wide">
@@ -117,9 +116,24 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
               </div>
               <div className="p-2 rounded-lg bg-[#151A2C] border border-[#1E293B]">
                 <span className="text-[10px] text-[#64748B] block font-sans">Falhas (24h)</span>
-                <span className={`text-sm font-bold ${documental.jobs24hFailed > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                <span
+                  className={`text-sm font-bold ${
+                    (documental.jobs24hFailedActive ?? documental.jobs24hFailed) > 0
+                      ? 'text-rose-400'
+                      : documental.jobs24hFailed > 0
+                      ? 'text-amber-300'
+                      : 'text-emerald-400'
+                  }`}
+                >
                   {documental.jobs24hFailed}
                 </span>
+                {documental.jobs24hFailed > 0 && (
+                  <span className="text-[9px] text-[#94A3B8] block font-sans leading-tight mt-0.5">
+                    {(documental.jobs24hFailedActive ?? 0) > 0
+                      ? `${documental.jobs24hFailedActive} pendente(s)`
+                      : `${documental.jobs24hFailedResolved ?? documental.jobs24hFailed} corrigida(s)`}
+                  </span>
+                )}
               </div>
               <div className="p-2 rounded-lg bg-[#151A2C] border border-[#1E293B]">
                 <span className="text-[10px] text-[#64748B] block font-sans">Média Job</span>
@@ -155,6 +169,82 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
                 <span className="text-[#94A3B8] font-sans truncate pr-1">Listagem Pastas</span>
                 <span className="text-[#F1F5F9] font-semibold">{documental.jobsByType.list_directory}</span>
               </div>
+            </div>
+
+            {/* Diagnóstico sempre visível de falhas do Worker Documental (identificação + status de correção) */}
+            <div className="rounded-lg bg-[#111827] border border-[#1E293B] p-2.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-[#E2E8F0] flex items-center gap-1.5">
+                  {(documental.jobs24hFailedActive ?? 0) > 0 ? (
+                    <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  )}
+                  Diagnóstico de Falhas (24h)
+                </span>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {documental.jobs24hFailedResolved ?? 0} corrigida(s)
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded border ${
+                      (documental.jobs24hFailedActive ?? 0) > 0
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/25 font-bold'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                    }`}
+                  >
+                    {documental.jobs24hFailedActive ?? 0} pendente(s)
+                  </span>
+                </div>
+              </div>
+
+              {!documental.recentFailures || documental.recentFailures.length === 0 ? (
+                <p className="text-[11px] text-emerald-400/90 leading-relaxed">
+                  Nenhuma falha registrada nas últimas 24h — buscas, leituras KEN/PDF, extrações e validações operam sem pendências.
+                </p>
+              ) : (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {documental.recentFailures.map((fail) => (
+                    <div
+                      key={fail.id}
+                      className={`rounded-md border px-2.5 py-2 text-[11px] space-y-1 ${
+                        fail.resolved
+                          ? 'bg-[#0F172A]/80 border-emerald-500/20'
+                          : 'bg-rose-950/20 border-rose-500/30'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="px-1.5 py-0.5 rounded bg-[#1E293B] text-[#CBD5E1] font-mono text-[10px] shrink-0">
+                            {fail.typeLabel}
+                          </span>
+                          <span className="text-[#F1F5F9] font-medium truncate" title={fail.target}>
+                            {fail.target}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 font-mono text-[10px]">
+                          <span className="text-[#64748B]">{fail.failedAtFormatted}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded font-bold border ${
+                              fail.resolved
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : 'bg-rose-500/15 text-rose-400 border-rose-500/35'
+                            }`}
+                          >
+                            {fail.resolved ? 'CORRIGIDA' : 'NÃO CORRIGIDA'}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[#CBD5E1] font-mono text-[10px] break-words">
+                        Motivo: {fail.error}
+                      </p>
+                      <p className={`text-[10px] ${fail.resolved ? 'text-emerald-400/90' : 'text-amber-300/90'}`}>
+                        {fail.resolutionReason}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -466,4 +556,3 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
     </section>
   );
 }
-

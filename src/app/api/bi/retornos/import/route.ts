@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-helpers";
+import { requireRole } from "@/lib/auth-helpers";
 import { ensureRetornosImportsTable } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
 import { recordAuditLog } from "@/lib/audit";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const user = await requireTenant();
+    const user = await requireRole("ADMIN", "MASTER");
     const body = await request.json();
 
     if (body.action === "mark_failed") {

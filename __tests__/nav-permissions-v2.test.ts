@@ -134,9 +134,9 @@ describe('FIORIX — Precedência e Herança', () => {
     expect(isItemVisibleInLegacy(central, 'COLABORADOR')).toBe(false);
   });
 
-  it('feature flag: desativada por padrão preserva comportamento legado', () => {
+  it('feature flag: ativa por padrão e permite desativação explícita para fallback legado', () => {
     expect(isNavPermissionsFeatureEnabled({ FEATURE_NAV_PERMISSIONS_V1_ENABLED: 'false' })).toBe(false);
-    expect(isNavPermissionsFeatureEnabled({})).toBe(false);
+    expect(isNavPermissionsFeatureEnabled({})).toBe(true);
     expect(isNavPermissionsFeatureEnabled({ FEATURE_NAV_PERMISSIONS_V1_ENABLED: 'true' })).toBe(true);
   });
 });
@@ -307,6 +307,9 @@ describe('FIORIX — Gestão Documental liberada para todos os grupos via Permis
       { item_id: 'inicio', override: 'DENY' },
       { item_id: 'gestao_documental', override: 'ALLOW' },
       { item_id: 'visualizador_documental', override: 'ALLOW' },
+      { item_id: 'conferencia_documental', override: 'DENY' },
+      { item_id: 'arquivo_documental', override: 'DENY' },
+      { item_id: 'historico_documental', override: 'ALLOW' },
       { item_id: 'avaliacoes', override: 'DENY' },
       { item_id: 'estatisticas', override: 'DENY' },
       { item_id: 'relatorios', override: 'DENY' },
@@ -338,7 +341,11 @@ describe('FIORIX — Gestão Documental liberada para todos os grupos via Permis
       .mockResolvedValueOnce([] as any); // deptRules
 
     const nav = await getAllowedNavItemsForUser(falanga);
-    expect(nav.allowedItemIds).toEqual(['gestao_documental', 'visualizador_documental']);
+    expect(nav.allowedItemIds).toEqual([
+      'gestao_documental',
+      'visualizador_documental',
+      'historico_documental',
+    ]);
 
     // Sidebar exibe o grupo GESTÃO DOCUMENTAL mesmo para role USER ou COLABORADOR
     const sidebarGroups = filterNavigationByRole('USER', nav.allowedItemIds);
@@ -346,6 +353,7 @@ describe('FIORIX — Gestão Documental liberada para todos os grupos via Permis
     expect(sidebarGroups.documental.items.map((i: any) => i.href)).toEqual([
       '/gestao-documental',
       '/gestao-documental/visualizador',
+      '/gestao-documental/historico',
     ]);
 
     const colabSidebar = filterNavigationByRole('COLABORADOR', ['gestao_documental']);
@@ -590,6 +598,10 @@ describe('FIORIX — Menu INICIAL (/dashboard) configurável em Permissões de M
 
     const saraUserRules = [
       { item_id: 'qualidade', override: 'ALLOW' },
+      { item_id: 'cv_visao_geral', override: 'DENY' },
+      { item_id: 'cv_impressao', override: 'DENY' },
+      { item_id: 'cv_historico', override: 'DENY' },
+      { item_id: 'cv_relatorios', override: 'DENY' },
       { item_id: 'espera', override: 'DENY' },
       { item_id: 'impressoes', override: 'DENY' },
       { item_id: 'rastreio', override: 'DENY' },
