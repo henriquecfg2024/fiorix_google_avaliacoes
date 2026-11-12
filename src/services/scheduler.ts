@@ -121,6 +121,7 @@ export class Scheduler {
   private startupCatchupScheduledCount = 0;
   private lastCpuUsage = process.cpuUsage();
   private lastCpuSampleTimeMs = Date.now();
+  private lastTelemetryPingAtMs = 0;
 
   constructor(db?: DatabaseSync) {
     const dbName = process.env.NODE_ENV === 'test'
@@ -363,12 +364,12 @@ export class Scheduler {
     }
   }
 
-  public startAlwaysOnDirectiveLoop(intervalMs = 20000) {
+  public startAlwaysOnDirectiveLoop(intervalMs = 60000) {
     if (this.directiveLoopId) return;
     this.directiveLoopId = setInterval(() => {
-      const sec = new Date().getSeconds();
-      // Evita disparo duplicado caso o agendador já vá enviar no segundo 50
-      if (this.isRunning && sec >= 47 && sec <= 53) return;
+      // Quando o agendador principal (tick 1s) está ativo, ele já envia o heartbeat consolidado no segundo 50 de cada minuto.
+      // Só dispara pelo loop auxiliar se o agendador estiver parado ou se houver mais de 75s sem pulso.
+      if (this.isRunning && Date.now() - this.lastTelemetryPingAtMs < 75000) return;
       this.sendTelemetryPing().catch(() => {});
     }, intervalMs);
     this.directiveLoopId.unref?.();
@@ -531,6 +532,7 @@ export class Scheduler {
         health.connectorStatus === 'unhealthy' ? 'degraded' : 'online';
 
       const prevState = runtimeDirective.getOperationalState();
+      this.lastTelemetryPingAtMs = Date.now();
       const hbResult = await sendHeartbeat({
         version: process.env.NODE_ENV === 'test' ? '0.1.0' : AGENT_VERSION,
         status: mappedStatus,
@@ -865,10 +867,13 @@ export class Scheduler {
 
         healthManager.recordRunSuccess(config.name as any, 0, 0, durationMs, null, runTime);
 
-        // Dispara envio imediato de status/telemetria para que o painel SaaS zere o contador de atraso
-        this.sendTelemetryPing().catch((tErr) => {
-          logger.warn(`TELEMETRY_PING_WARN: Falha ao enviar telemetria após verificação vazia de ${config.name}: ${tErr.message}`);
-        });
+        // Quando o loop de 1s (isRunning) está ativo, o segundo 50 de cada minuto já consolida todas as fontes em um único heartbeat.
+        // Só envia ping imediato avulso se o agendador não estiver rodando (execução manual/teste) ou se o último pulso tiver > 55s.
+        if (!this.isRunning || Date.now() - this.lastTelemetryPingAtMs >= 55000) {
+          this.sendTelemetryPing().catch((tErr) => {
+            logger.warn(`TELEMETRY_PING_WARN: Falha ao enviar telemetria após verificação vazia de ${config.name}: ${tErr.message}`);
+          });
+        }
 
         return;
       }

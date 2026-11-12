@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { getSaoPauloDateTime } from '../utils/businessHours.js';
 import { postDocumentMessage } from './api.js';
 import { runtimeDirective } from './runtime-directive.js';
 import {
@@ -69,6 +70,7 @@ const workerRuntime = {
   disabledReason: null as string | null,
   authorizedRoots: [] as DocumentRoot[],
   servidorArquivos: null as ServidorArquivosLocal | null,
+  currentPollIntervalMs: 750,
   lastPollAt: null as string | null,
   lastJobAt: null as string | null,
   lastError: null as string | null,
@@ -108,8 +110,8 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
     enabled: workerRuntime.enabled,
     running: workerRuntime.running,
     disabledReason: workerRuntime.disabledReason,
-    pollingIntervalIdleMs: 450,
-    pollingIntervalActiveMs: 100,
+    pollingIntervalIdleMs: workerRuntime.currentPollIntervalMs,
+    pollingIntervalActiveMs: 150,
     lastPollAt: workerRuntime.lastPollAt,
     lastJobAt: workerRuntime.lastJobAt,
     lastError: workerRuntime.lastError,
@@ -215,13 +217,43 @@ export function startDocumentWorker(): () => void {
 
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  // Intervalos de consulta: logo após um job (usuário navegando/abrindo arquivos), ocioso, standby e após falha de rede
-  const INTERVALO_APOS_JOB_MS = 100;
-  const INTERVALO_OCIOSO_MS = 450;
-  const INTERVALO_STANDBY_MS = 1500;
+  let ultimoJobTimestampMs = Date.now();
+
+  // Intervalos adaptativos: sub-segundo durante navegação ativa e backoff progressivo em ociosidade
+  const INTERVALO_APOS_JOB_MS = 150;
+  const INTERVALO_JANELA_ATIVA_MS = 750;
+  const INTERVALO_OCIOSO_CURTO_MS = 1500;
+  const INTERVALO_OCIOSO_MEDIO_MS = 3000;
+  const INTERVALO_OCIOSO_MAX_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_IDLE_MAX_MS) || 5000;
+  const INTERVALO_OCIOSO_FORA_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_OFFHOURS_POLL_MS) || 15000;
+  const INTERVALO_STANDBY_MS = 10000;
   const INTERVALO_ERRO_MS = 5000;
+
+  function calcularProximoIntervaloOcioso(): number {
+    const agoraMs = Date.now();
+    const tempoSemJobMs = Math.max(0, agoraMs - ultimoJobTimestampMs);
+
+    // Primeiros 30s após qualquer ação do usuário: mantém resposta sub-segundo (750ms)
+    if (tempoSemJobMs <= 30_000) {
+      return INTERVALO_JANELA_ATIVA_MS;
+    }
+    // De 30s a 2 minutos sem busca: 1,5s
+    if (tempoSemJobMs <= 120_000) {
+      return INTERVALO_OCIOSO_CURTO_MS;
+    }
+    // De 2 a 10 minutos sem busca: 3,0s
+    if (tempoSemJobMs <= 600_000) {
+      return INTERVALO_OCIOSO_MEDIO_MS;
+    }
+
+    // Acima de 10 minutos ocioso: 5s no expediente (Seg-Sáb 07h-19h BRT) ou 15s fora do expediente
+    const sp = getSaoPauloDateTime(new Date(agoraMs));
+    const emExpediente = sp.dayOfWeek >= 1 && sp.dayOfWeek <= 6 && sp.hour >= 7 && sp.hour < 19;
+    return emExpediente ? INTERVALO_OCIOSO_MAX_EXPEDIENTE_MS : INTERVALO_OCIOSO_FORA_EXPEDIENTE_MS;
+  }
+
   async function tick() {
-    let proximoIntervalo = INTERVALO_OCIOSO_MS;
+    let proximoIntervalo = calcularProximoIntervaloOcioso();
     try {
       if (!runtimeDirective.shouldRunDocumentWorker()) {
         workerRuntime.running = false;
@@ -229,6 +261,7 @@ export function startDocumentWorker(): () => void {
           ? 'Pausado manualmente (modo manutenção)'
           : 'Em Hot-Standby (aguardando promoção)';
         proximoIntervalo = INTERVALO_STANDBY_MS;
+        workerRuntime.currentPollIntervalMs = proximoIntervalo;
         return;
       }
 
@@ -237,6 +270,7 @@ export function startDocumentWorker(): () => void {
         workerRuntime.running = false;
         workerRuntime.disabledReason = 'Aguardando mapeamento de pastas no painel';
         proximoIntervalo = INTERVALO_STANDBY_MS;
+        workerRuntime.currentPollIntervalMs = proximoIntervalo;
         return;
       }
 
@@ -247,7 +281,9 @@ export function startDocumentWorker(): () => void {
       workerRuntime.lastPollAt = new Date().toISOString();
       const job = response.data.job as ClaimedJob | null;
       if (job && !stopped) {
+        ultimoJobTimestampMs = Date.now();
         proximoIntervalo = INTERVALO_APOS_JOB_MS;
+        workerRuntime.currentPollIntervalMs = INTERVALO_JANELA_ATIVA_MS;
         const inicioJob = Date.now();
         const tipoJob = (job.type || 'search') as keyof typeof workerRuntime.jobsByType;
         try {
@@ -355,9 +391,11 @@ export function startDocumentWorker(): () => void {
             result = await searchDocuments(activeRoots, job.query || '');
           }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
-          const durJob = Date.now() - inicioJob;
+          const fimJob = Date.now();
+          ultimoJobTimestampMs = fimJob;
+          const durJob = fimJob - inicioJob;
           workerRuntime.jobsProcessedTotal++;
-          workerRuntime.lastJobAt = new Date().toISOString();
+          workerRuntime.lastJobAt = new Date(fimJob).toISOString();
           workerRuntime.lastError = null;
           if (tipoJob in workerRuntime.jobsByType) workerRuntime.jobsByType[tipoJob]++;
           else workerRuntime.jobsByType.search++;
@@ -369,12 +407,15 @@ export function startDocumentWorker(): () => void {
           logger.error(`DOCUMENTAL: erro ao processar job ${job.id} (${job.type || 'search'}): ${jobErr?.message || jobErr}`);
           if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id, error: String(jobErr?.message || jobErr).replace(/[A-Za-z]:\\[^\s"']+/g, '[caminho-protegido]').slice(0, 200) });
         }
+      } else {
+        workerRuntime.currentPollIntervalMs = proximoIntervalo;
       }
     } catch (err: any) {
       proximoIntervalo = INTERVALO_ERRO_MS;
+      workerRuntime.currentPollIntervalMs = proximoIntervalo;
       workerRuntime.lastError = String(err?.response?.data?.error || err?.message || err).slice(0, 200);
       // Never log search terms, file names or authentication headers.
-      logger.warn(`DOCUMENTAL: comunicação indisponível (${err?.response?.data?.error || err?.message || err}); nova tentativa em 10 segundos.`);
+      logger.warn(`DOCUMENTAL: comunicação indisponível (${err?.response?.data?.error || err?.message || err}); nova tentativa em 5 segundos.`);
     } finally {
       if (!stopped) timer = setTimeout(tick, proximoIntervalo);
     }

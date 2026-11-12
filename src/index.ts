@@ -40,8 +40,8 @@ if (env.SCHEDULER_ENABLED) {
   logger.warn('SCHEDULER_ENABLED=false. O agendador automático está desativado. Processamento será manual.');
 }
 
-// Mantém pulso 24/7 (a cada 20s) mesmo em STANDBY, PAUSED ou com SCHEDULER_ENABLED=false
-scheduler.startAlwaysOnDirectiveLoop(20000);
+// Mantém pulso 24/7 (a cada 60s) mesmo em STANDBY, PAUSED ou com SCHEDULER_ENABLED=false
+scheduler.startAlwaysOnDirectiveLoop(60000);
 
 // Envia pulso inicial de telemetria completa logo após a partida do serviço
 void scheduler.sendTelemetryPing();
