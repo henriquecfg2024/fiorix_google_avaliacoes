@@ -239,7 +239,10 @@ export function extrairNumeroMatricula(textoOuNome: string): string | null {
   if (!textoOuNome) return null;
   const match = textoOuNome.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*[:.\s]*([0-9.\-]+)/i);
   if (match) {
-    const rawNum = match[1].trim().replace(/[.\-]+$/, '');
+    const rawNum = match[1]
+      .trim()
+      .replace(/[.\-]+$/, '')
+      .replace(/^(?:0+\.)*0+([1-9]\d*)/, '$1');
     if (rawNum.length >= 2) {
       const rotulo = /transcri/i.test(match[0]) ? 'Transcrição' : 'Matrícula';
       return `${rotulo} nº ${rawNum}`;
@@ -1447,6 +1450,134 @@ async function lerTextoCacheOcrRecente(filePath: string, numeroProcesso?: string
   return chunks.join('\n');
 }
 
+export function ehEnderecoTimbreInstitucional(texto?: unknown): boolean {
+  if (typeof texto !== 'string' || !texto) return false;
+  const v = texto.replace(/\s+/g, ' ').trim();
+  if (!v) return false;
+  return (
+    /rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356\b/i.test(v) ||
+    /\b(?:3218-0527|01304-000)\b/i.test(v) ||
+    /\bav(?:enida|\.)?\s+(?:da\s+)?liberdade[,\s]+(?:n[ºo°.]?\s*)?32\b/i.test(v) ||
+    /\b01502-000\b/i.test(v) ||
+    /\bdefensoria\.sp\.def\.br\b/i.test(v) ||
+    /\bunidade\s+c[íi]vel\s+central\s+da\s+capital\b/i.test(v) ||
+    /\brua\s+boa\s+vista[,\s]+(?:n[ºo°.]?\s*)?(?:103|150|200)\b/i.test(v) ||
+    /\brua\s+l[íi]bero\s+badar[óo][,\s]+(?:n[ºo°.]?\s*)?613\b/i.test(v) ||
+    /\b(?:pra[çc]a|f[óo]rum)\s+jo[ãa]o\s+mendes\b/i.test(v) ||
+    /\bviaduto\s+dona\s+paulina\b/i.test(v) ||
+    /\brua\s+conde\s+de\s+sarzedas\b/i.test(v) ||
+    /\brua\s+riachuelo[,\s]+(?:n[ºo°.]?\s*)?115\b/i.test(v) ||
+    /\bviaduto\s+do\s+ch[áa][,\s]+(?:n[ºo°.]?\s*)?15\b/i.test(v)
+  );
+}
+
+export function sanitizarDescricaoImovel(imovel?: unknown): string {
+  if (typeof imovel !== 'string' || !imovel) return '';
+  let limpo = imovel
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!limpo) return '';
+
+  limpo = limpo
+    .replace(
+      /\s*(?:\b\d+\s+)?(?:[_\-.\s]*[ªº°]\s*VARA\b|\b\d+\s*VARA\b|\b[_\-]{2,}\s*[ªº°]?\s*VARA\b|\bVARA\s+(?:DE\s+REGISTROS\s+P[ÚU]BLICOS|C[ÍI]VEL|DA\s+FAZENDA|DE\s+FAM[ÍI]LIA|DO\s+JUIZADO|FEDERAL|CRIMINAL|EMPRESARIAL|[ÚU]NICA|DISTRITAL))[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*\b(?:EXCELENT[ÍI]SSIM[OA]|EXM[OA]\.?\s*SR|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ|DOUTOR[A]?\s+JUIZ|AO\s+JU[ÍI]ZO|JU[ÍI]ZO\s+DE\s+DIREITO|FORO\s+(?:CENTRAL|REGIONAL)|COMARCA\s+(?:DA\s+CAPITAL|DE\s+S[ÃA]O\s+PAULO)|UNIDADE\s+C[ÍI]VEL|DEFENSORIA\s+P[ÚU]BLICA|MINIST[ÉE]RIO\s+P[ÚU]BLICO|TRIBUNAL\s+DE\s+JUSTI[ÇC]A|PODER\s+JUDICI[ÁA]RIO)[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*(?:https?:\/\/\S+|www\.\S+|\b\S+\.(?:def|jus|gov|org|adv|com)\.br\S*)[\s\S]*$/i,
+      '',
+    )
+    .replace(
+      /\s*\b(?:PROCESSO\s+(?:DIGITAL\s+|N[ºO°.]?\s*)?\d{7}-\d{2}|PARA\s+CONFERIR\s+O\s+ORIGINAL|ESTE\s+DOCUMENTO\s+[ÉE]\s+C[ÓO]PIA|ASSINADO\s+DIGITALMENTE)[\s\S]*$/i,
+      '',
+    )
+    .replace(/[\s,;:\-–—/]+$/, '')
+    .trim();
+
+  if (/\bvara\b/i.test(limpo)) {
+    limpo = limpo
+      .replace(/\s*(?:\b\d+\s*)?[_\-.\sªº°]*\bvara\b[\s\S]*$/i, '')
+      .replace(/[\s,;:\-–—/]+$/, '')
+      .trim();
+  }
+
+  if (!limpo) return '';
+
+  if (ehEnderecoTimbreInstitucional(limpo) || ehEnderecoTimbreInstitucional(imovel)) {
+    const contemLogradouroInstitucional =
+      /\b(?:rua\s+augusta|av(?:enida|\.)?\s+(?:da\s+)?liberdade|rua\s+boa\s+vista|rua\s+l[íi]bero\s+badar[óo]|pra[çc]a\s+jo[ãa]o\s+mendes|viaduto\s+dona\s+paulina|rua\s+conde\s+de\s+sarzedas|rua\s+riachuelo|viaduto\s+do\s+ch[áa])\b/i.test(
+        limpo,
+      );
+    if (contemLogradouroInstitucional) return '';
+  }
+
+  if (
+    /^(?:im[óo]vel(?:\s+usucapiendo)?(?:\s+situado|\s+localizado)?(?:\s+[àa]|\s+na|\s+no)?|situado\s+[àa]|localizado\s+na)$/i.test(
+      limpo,
+    )
+  ) {
+    return '';
+  }
+
+  return limpo;
+}
+
+export function sanitizarLogradouroConfrontacao(rua?: unknown, imovelOriginal?: unknown): string {
+  if (typeof rua !== 'string' || !rua) return '';
+  const limpo = sanitizarDescricaoImovel(rua);
+  if (!limpo) return '';
+
+  const ehRuaInstitucionalSemNumero =
+    /^(?:rua\s+augusta|av(?:enida|\.)?\s+(?:da\s+)?liberdade|rua\s+boa\s+vista|rua\s+l[íi]bero\s+badar[óo]|pra[çc]a\s+jo[ãa]o\s+mendes|viaduto\s+dona\s+paulina|rua\s+conde\s+de\s+sarzedas|rua\s+riachuelo|viaduto\s+do\s+ch[áa])$/i.test(
+      limpo.trim(),
+    );
+
+  if (ehRuaInstitucionalSemNumero && !sanitizarDescricaoImovel(imovelOriginal)) {
+    return '';
+  }
+  return limpo;
+}
+
+export function extrairImovelDoTextoAutos(texto?: string | null): { imovel: string; rua: string } {
+  if (!texto) return { imovel: '', rua: '' };
+  const norm = texto
+    .replace(/\uFB01/g, 'fi')
+    .replace(/\uFB02/g, 'fl')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const padroes = [
+    /\b(?:im[óo]vel\s+(?:usucapiendo|objeto\s+da\s+presente|objeto\s+desta|em\s+quest[ãa]o|consistente)[^.;]{0,60}?(?:situado|localizado)\s+(?:na|no|[àa])\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^.;]{5,180})/gi,
+    /\b(?:(?:im[óo]vel|terreno|pr[ée]dio|casa)\s+(?:situad[oa]|localizad[oa])\s+(?:na|no|[àa])\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^.;]{5,180})/gi,
+    /\b(?:casa\s+que\s+recebeu\s+o\s+n[ºo°.]?\s*\d+\s+da\s+(?:Rua|Avenida|Av\.|Travessa|Alameda|Viela|Estrada)\s+[^.;,]{2,120}(?:,\s*com\s+a\s+[áa]rea\s+[^.;]{3,80})?)/gi,
+  ];
+
+  for (const regex of padroes) {
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(norm)) !== null) {
+      const candidato = sanitizarDescricaoImovel(m[0]);
+      if (candidato && candidato.length >= 12) {
+        const ruaMatch = candidato.match(
+          /\b((?:Rua|Avenida|Av\.|Travessa|Alameda|Pra[çc]a|Viela|Estrada)\s+[^,.;]+(?:\s*,\s*n[ºo°.]?\s*\d+[A-Za-z0-9\-]*)?)/i,
+        );
+        const rua = ruaMatch ? sanitizarLogradouroConfrontacao(ruaMatch[1], candidato) : '';
+        return {
+          imovel: /^im[óo]vel/i.test(candidato) ? candidato : `Imóvel: ${candidato}`,
+          rua,
+        };
+      }
+    }
+  }
+
+  return { imovel: '', rua: '' };
+}
+
 export function enrichPetitionData(
   data: Record<string, any>,
   relativePath?: string,
@@ -1454,25 +1585,26 @@ export function enrichPetitionData(
 ): Record<string, any> {
   const result = { ...data };
 
-  // Limpa ruídos comuns capturados pelo OCR em ofícios de resposta do próprio 7º RI
+  // Limpa ruídos comuns capturados pelo OCR em ofícios de resposta do próprio 7º RI e timbres institucionais (ex.: Defensoria Pública)
   if (typeof result.requerente === 'string' && result.requerente) {
     result.requerente = result.requerente
       .replace(/\s+(?:USUCAPI[ÃA]O|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ[A]?|EXCELENT[ÍI]SSIM[OA]|DOUTOR[A]?\s+JUIZ[A]?).*$/i, '')
       .trim();
   }
-  const ehTimbreSetimoRi = (val: unknown) =>
-    typeof val === 'string' &&
-    (/rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356/i.test(val) || /3218-0527|01304-000/i.test(val));
-  if (ehTimbreSetimoRi(result.imovel)) {
-    result.imovel = '';
+  const imovelOriginal = result.imovel;
+  result.imovel = sanitizarDescricaoImovel(result.imovel);
+  result.rua_olhar_confrontacao = sanitizarLogradouroConfrontacao(result.rua_olhar_confrontacao, imovelOriginal);
+  if (Array.isArray(result.origem_campos)) {
+    result.origem_campos = result.origem_campos.map((o: any) =>
+      o?.campo === 'imovel' && o.trecho
+        ? { ...o, trecho: sanitizarDescricaoImovel(o.trecho) }
+        : o,
+    );
   }
-  if (
-    ehTimbreSetimoRi(result.rua_olhar_confrontacao) ||
-    (typeof result.rua_olhar_confrontacao === 'string' &&
-      /^rua\s+augusta$/i.test(result.rua_olhar_confrontacao.trim()) &&
-      !result.imovel)
-  ) {
-    result.rua_olhar_confrontacao = '';
+  if (!result.imovel && extraFullText) {
+    const rec = extrairImovelDoTextoAutos(extraFullText);
+    if (rec.imovel) result.imovel = rec.imovel;
+    if (!result.rua_olhar_confrontacao && rec.rua) result.rua_olhar_confrontacao = rec.rua;
   }
 
   if ((!result.numero_processo || !String(result.numero_processo).trim()) && relativePath) {
@@ -1622,6 +1754,9 @@ export function enrichPetitionData(
   }
 
   if (result.matricula_transcricao) {
+    result.matricula_transcricao = String(result.matricula_transcricao)
+      .replace(/(^|[^\d.])(?:0+\.)*0+([1-9]\d*)/g, '$1$2')
+      .trim();
     if (relativePath) registrarMatriculaNoCache(relativePath, String(result.matricula_transcricao));
     if (result.numero_processo) registrarMatriculaNoCache(String(result.numero_processo), String(result.matricula_transcricao));
   }
