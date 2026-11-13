@@ -30,7 +30,10 @@ const report = {
   status: passed ? 'PASS' : 'FAIL',
 };
 
-const outPath = path.join(os.tmpdir(), 'fiorix-connector-perf-baseline.json');
+const outPath = path.join(
+  process.env.RUNNER_TEMP || os.tmpdir(),
+  'fiorix-connector-perf-baseline.json',
+);
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
 console.log(JSON.stringify(report, null, 2));
 

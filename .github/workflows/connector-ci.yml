@@ -24,8 +24,6 @@ jobs:
     name: connector-verify-and-build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      TMPDIR: ${{ runner.temp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -52,6 +50,8 @@ jobs:
         run: npm run build
 
       - name: Measure connector bundle size baseline
+        env:
+          TMPDIR: ${{ runner.temp }}
         run: npm run perf:baseline
 
       - name: Upload connector performance baseline
