@@ -3,6 +3,10 @@ import { requireTenant } from '@/lib/auth-helpers';
 import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 import { prisma } from '@/lib/prisma';
 import { ControleImpressoesData, ImpressaoItemRow } from '@/types/controle-impressoes';
+import {
+  buildImpressoesCacheKey,
+  impressoesTenantCache,
+} from '@/lib/bi-impressoes-cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +26,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'todos';
     const operador = (searchParams.get('operador') || '').trim();
     const isExport = searchParams.get('export') === 'true';
+    const forceRefresh = searchParams.get('refresh') === 'true';
+    const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
     const sortBy = searchParams.get('sortBy') || 'ultimoRegistro';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
@@ -34,6 +40,29 @@ export async function GET(request: NextRequest) {
     const dataFimStr = dataFimParam || now.toISOString().split('T')[0];
     const defaultDataInicio = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const dataInicioStr = dataInicioParam || defaultDataInicio;
+
+    const shouldUseCache = !forceRefresh && !isExport && !busca && !isTestEnv;
+    const cacheKey = buildImpressoesCacheKey(tenantId, {
+      dataInicioStr,
+      dataFimStr,
+      visao,
+      tipoImpressao,
+      status,
+      operador,
+      sortBy,
+      sortOrder,
+      page,
+      pageSize,
+    });
+
+    if (shouldUseCache) {
+      const cached = impressoesTenantCache.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(cached, {
+          headers: { 'Cache-Control': 'private, no-store' },
+        });
+      }
+    }
 
     // 1. Query Principal de Itens
     // 1. Query Principal de Itens apurada pelos andamentos reais (fiorix_impressoes_dados)
@@ -564,7 +593,13 @@ export async function GET(request: NextRequest) {
       operadores,
     };
 
-    return NextResponse.json(payload);
+    if (shouldUseCache) {
+      impressoesTenantCache.set(cacheKey, payload);
+    }
+
+    return NextResponse.json(payload, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   } catch (err: any) {
     const msg = String(err?.message || '');
     if (msg.includes('Não autenticado') || msg.includes('Sessão expirada') || msg.includes('Conta desativada')) {

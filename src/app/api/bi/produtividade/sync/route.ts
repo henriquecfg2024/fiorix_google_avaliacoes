@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth-helpers";
 import { invalidateProdutividadeTenantCache } from "@/lib/bi-produtividade-cache";
+import { invalidateMetasTenantCache } from "@/lib/bi-metas-cache";
 
 export async function POST(request: Request) {
   try {
@@ -161,6 +162,7 @@ export async function POST(request: Request) {
     }
 
     invalidateProdutividadeTenantCache(tenantId);
+    invalidateMetasTenantCache(tenantId);
 
     return NextResponse.json({
       success: true,

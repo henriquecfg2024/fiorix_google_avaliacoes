@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
+import { BoundedTtlMap } from '@/lib/security/bounded-ttl-map';
 import { auth } from '@/auth';
 import {
   clearDepartmentUsersIndividualOverrides,
@@ -234,7 +235,10 @@ export async function clearDepartmentUsersOverridesAction(params: {
   }
 }
 
-const sessionUserCtxCache = new Map<string, { role: string; tenantId: string; departamento: string | null; exp: number }>();
+const sessionUserCtxCache = new BoundedTtlMap<
+  string,
+  { role: string; tenantId: string; departamento: string | null }
+>(256, 30_000);
 
 async function resolveSessionUserContext() {
   const session = await auth();
@@ -248,7 +252,7 @@ async function resolveSessionUserContext() {
 
   if (id) {
     const cached = !isTestEnv ? sessionUserCtxCache.get(id) : undefined;
-    if (cached && cached.exp > Date.now()) {
+    if (cached) {
       return { id, role: cached.role, tenantId: cached.tenantId, departamento: cached.departamento };
     }
     try {
@@ -265,7 +269,6 @@ async function resolveSessionUserContext() {
             role,
             tenantId,
             departamento,
-            exp: Date.now() + 30_000,
           });
         }
       }

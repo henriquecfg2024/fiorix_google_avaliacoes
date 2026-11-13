@@ -5,6 +5,8 @@ import { ensureProdutividadeDataTable, upsertProdutividadeImportRecord } from "@
 import { Prisma } from "@prisma/client";
 import { produtividadeImportSchema } from "@/lib/zod-schemas";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { invalidateProdutividadeTenantCache } from "@/lib/bi-produtividade-cache";
+import { invalidateMetasTenantCache } from "@/lib/bi-metas-cache";
 
 const MAX_BATCH_SIZE = 5000;
 
@@ -164,6 +166,8 @@ export async function POST(request: Request) {
         `
       );
       insertedTotal = values.length;
+      invalidateProdutividadeTenantCache(user.tenantId);
+      invalidateMetasTenantCache(user.tenantId);
     }
 
     if (

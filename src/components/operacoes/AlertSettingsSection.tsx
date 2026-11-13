@@ -29,6 +29,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AlertChannelConfig, AlertLogItem } from '@/lib/health/types';
+import {
+  fetchOperationsAlertsCached,
+  invalidateOperationsAlertsCache,
+} from '@/lib/operacoes/alerts-client-cache';
 
 interface ExtendedConfig extends AlertChannelConfig {
   notifyDatabaseDegraded?: boolean;
@@ -87,25 +91,25 @@ export function AlertSettingsSection() {
   const [logChannelFilter, setLogChannelFilter] = useState<'all' | 'whatsapp' | 'email' | 'webhook'>('all');
   const [logStatusFilter, setLogStatusFilter] = useState<'all' | 'success' | 'error'>('all');
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (force = false) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/operacoes/alerts', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.config) {
-          const rawEmails = data.config.emailRecipients || '';
+      const data = await fetchOperationsAlertsCached(force);
+      if (data) {
+        const cfg = data.config;
+        if (cfg) {
+          const rawEmails = cfg.emailRecipients || '';
           setEmailList(
             rawEmails
               ? rawEmails.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0)
               : []
           );
 
-          const wConfig = data.config.whatsappConfig || {};
+          const wConfig = cfg.whatsappConfig || {};
 
           setConfig((prev) => ({
             ...prev,
-            ...data.config,
+            ...cfg,
             notifyDatabaseDegraded: wConfig.notifyDatabaseDegraded ?? true,
             notifyZeroRecordsAnomalous: wConfig.notifyZeroRecordsAnomalous ?? true,
             quietHoursEnabled: wConfig.quietHoursEnabled ?? false,
@@ -117,7 +121,7 @@ export function AlertSettingsSection() {
               user: '',
               pass: '',
               from: '',
-              ...data.config.emailConfig,
+              ...cfg.emailConfig,
             },
             whatsappConfig: {
               apikey: '',
@@ -137,7 +141,7 @@ export function AlertSettingsSection() {
   };
 
   useEffect(() => {
-    fetchSettings();
+    fetchSettings(false);
   }, []);
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -171,7 +175,8 @@ export function AlertSettingsSection() {
         toast.success('Configurações salvas com sucesso!', {
           description: 'Canais e regras de notificação atualizados.',
         });
-        fetchSettings();
+        invalidateOperationsAlertsCache();
+        await fetchSettings(true);
         window.dispatchEvent(new CustomEvent('alerts-config-updated'));
       } else {
         const errData = await res.json();
@@ -210,7 +215,8 @@ export function AlertSettingsSection() {
         toast.success(`Notificação de teste enviada ao ${channel}!`, {
           description: data.message || 'Verifique o recebimento da mensagem.',
         });
-        fetchSettings();
+        invalidateOperationsAlertsCache();
+        await fetchSettings(true);
       } else {
         toast.error(`Falha ao entregar teste ao ${channel}.`, {
           description: data.error || 'Verifique o número, credenciais e permissões.',
@@ -1343,7 +1349,7 @@ export function AlertSettingsSection() {
 
             <button
               type="button"
-              onClick={fetchSettings}
+              onClick={() => fetchSettings(true)}
               disabled={loading}
               className="p-1.5 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#1E293B] transition-colors cursor-pointer"
               title="Atualizar Logs"

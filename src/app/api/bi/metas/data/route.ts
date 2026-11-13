@@ -3,8 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { isRouteAllowedForUser } from "@/lib/nav-permissions/service";
 import { Prisma } from "@prisma/client";
+import { buildMetasCacheKey, metasTenantCache } from "@/lib/bi-metas-cache";
 
 export const dynamic = "force-dynamic";
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const metasInFlight = new Map<string, Promise<Record<string, unknown>[]>>();
 
 export async function GET(request: Request) {
   try {
@@ -17,73 +21,184 @@ export async function GET(request: Request) {
     }
     const { searchParams } = new URL(request.url);
     const useSimulation = searchParams.get("simulate") === "true";
+    const forceRefresh = searchParams.get("refresh") === "true";
+    const dataInicioParam = searchParams.get("dataInicio")?.trim() || null;
+    const dataFimParam = searchParams.get("dataFim")?.trim() || null;
+    const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === "test");
 
-    let rawMetas: any[] = [];
-
-    // Tentar pegar do Postgres escopado por tenantId
-    try {
-      rawMetas = await prisma.$queryRaw(
-        Prisma.sql`
-          WITH eventos_bi AS (
-            SELECT
-              b.tenant_id,
-              b."Protocolo" AS protocolo,
-              BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
-              BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
-            FROM public.fiorix_bi_data b
-            WHERE b.tenant_id = ${user.tenantId}
-            GROUP BY b.tenant_id, b."Protocolo"
-          ),
-          eventos_prod AS (
-            SELECT
-              p.tenant_id,
-              p.pedido::text AS protocolo,
-              BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
-              BOOL_OR(
-                p.tipo_detalhado ILIKE '%Devolver%'
-                OR p.tipo_detalhado ILIKE '%Devolu%'
-              ) AS has_devolucao
-            FROM public.fiorix_produtividade_dados p
-            WHERE p.tenant_id = ${user.tenantId}
-            GROUP BY p.tenant_id, p.pedido
-          ),
-          eventos AS (
-            SELECT
-              tenant_id,
-              protocolo,
-              BOOL_OR(has_registro) AS has_registro,
-              BOOL_OR(has_devolucao) AS has_devolucao
-            FROM (
-              SELECT * FROM eventos_bi
-              UNION ALL
-              SELECT * FROM eventos_prod
-            ) fontes
-            GROUP BY tenant_id, protocolo
-          )
-          SELECT
-            m.*,
-            COALESCE(e.has_registro, false) AS "hasRegistro",
-            COALESCE(e.has_devolucao, false) AS "hasDevolucao"
-          FROM public.fiorix_metas_dados m
-          LEFT JOIN eventos e
-            ON e.tenant_id = m.tenant_id
-            AND e.protocolo = m.protocolo::text
-          WHERE m.tenant_id = ${user.tenantId}
-          ORDER BY m.data_apresentado DESC
-        `
+    if (
+      (dataInicioParam && !ISO_DATE_RE.test(dataInicioParam)) ||
+      (dataFimParam && !ISO_DATE_RE.test(dataFimParam))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Parâmetro de data inválido. Use YYYY-MM-DD." },
+        { status: 400 }
       );
-    } catch (dbError) {
+    }
+
+    // Dados de demonstração só podem ser exibidos quando solicitados explicitamente.
+    // Uma base vazia deve permanecer vazia após o usuário limpar as importações.
+    if (useSimulation) {
+      const simulatedMetas = [
+        {
+          protocolo: 642139,
+          natureza: "Certidão",
+          dataApresentado: new Date("2026-08-14T08:33:00Z"),
+          dtPrevisao: new Date("2026-08-18T00:00:00Z"),
+          dtEntregaReal: null,
+          status: "Em dia",
+          atrasoDias: 0,
+          d1Protocolo: new Date("2026-08-14T08:33:00Z"),
+          d1Escaneamento: null,
+          d2Contraditorio: null,
+          d3Extrato: null,
+          d4Qualificacao: null,
+          d5Calculo: null,
+          d8Impressao: null,
+          d9Preparacao: null,
+          d9Conferencia: null,
+          d10Entrega: null,
+          dBalcaoRegistrado: null,
+          dBalcaoDevolvido: null,
+          qtdRetrabalho: 0,
+          diasD1D2: 0,
+          diasD2D3: null,
+          diasD3D4: null,
+          diasD4D5: null,
+          diasD5D8: null,
+          diasD8D9: null,
+        } as any,
+        {
+          protocolo: 629999,
+          natureza: "Escritura de Compra e Venda",
+          dataApresentado: new Date("2026-04-16T12:04:00Z"),
+          dtPrevisao: new Date("2026-04-19T00:00:00Z"),
+          dtEntregaReal: new Date("2026-04-28T00:00:00Z"),
+          status: "Entregue com Atraso",
+          atrasoDias: 9,
+          d1Protocolo: new Date("2026-04-16T12:04:00Z"),
+          d1Escaneamento: new Date("2026-04-16T14:30:00Z"),
+          d2Contraditorio: new Date("2026-04-17T09:00:00Z"),
+          d3Extrato: new Date("2026-04-18T10:00:00Z"),
+          d4Qualificacao: new Date("2026-04-25T14:00:00Z"),
+          d5Calculo: new Date("2026-04-28T10:00:00Z"),
+          d8Impressao: new Date("2026-04-28T11:00:00Z"),
+          d9Preparacao: new Date("2026-04-28T11:30:00Z"),
+          d9Conferencia: new Date("2026-04-28T11:45:00Z"),
+          d10Entrega: new Date("2026-04-28T12:00:00Z"),
+          dBalcaoRegistrado: new Date("2026-04-28T11:50:00Z"),
+          dBalcaoDevolvido: new Date("2026-04-28T12:00:00Z"),
+          qtdRetrabalho: 1,
+          diasD1D2: 1,
+          diasD2D3: 1,
+          diasD3D4: 7,
+          diasD4D5: 3,
+          diasD5D8: 0,
+          diasD8D9: 0,
+        } as any,
+      ];
+      const safeSimulated = JSON.parse(
+        JSON.stringify(simulatedMetas, (_, v) => (typeof v === "bigint" ? Number(v) : v))
+      );
+      return NextResponse.json(
+        { success: true, data: safeSimulated },
+        { headers: { "Cache-Control": "private, no-store" } }
+      );
+    }
+
+    const cacheKey = buildMetasCacheKey(user.tenantId, dataInicioParam, dataFimParam);
+
+    if (!forceRefresh && !useSimulation && !isTestEnv) {
+      const cached = metasTenantCache.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(
+          { success: true, data: cached, cached: true },
+          { headers: { "Cache-Control": "private, no-store" } }
+        );
+      }
+    }
+
+    const loadMetasData = async (): Promise<Record<string, unknown>[]> => {
+      const startFilter = dataInicioParam
+        ? Prisma.sql`AND m.data_apresentado >= ${dataInicioParam}::date`
+        : Prisma.sql``;
+      const endFilter = dataFimParam
+        ? Prisma.sql`AND m.data_apresentado < (${dataFimParam}::date + INTERVAL '1 day')`
+        : Prisma.sql``;
+
+      let rawMetas: any[] = [];
+
+      // Tentar pegar do Postgres escopado por tenantId
       try {
         rawMetas = await prisma.$queryRaw(
           Prisma.sql`
-            SELECT * FROM public.fiorix_metas_dados 
-            WHERE tenant_id = ${user.tenantId}
+            WITH eventos_bi AS (
+              SELECT
+                b.tenant_id,
+                b."Protocolo" AS protocolo,
+                BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
+                BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
+              FROM public.fiorix_bi_data b
+              WHERE b.tenant_id = ${user.tenantId}
+              GROUP BY b.tenant_id, b."Protocolo"
+            ),
+            eventos_prod AS (
+              SELECT
+                p.tenant_id,
+                p.pedido::text AS protocolo,
+                BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
+                BOOL_OR(
+                  p.tipo_detalhado ILIKE '%Devolver%'
+                  OR p.tipo_detalhado ILIKE '%Devolu%'
+                ) AS has_devolucao
+              FROM public.fiorix_produtividade_dados p
+              WHERE p.tenant_id = ${user.tenantId}
+              GROUP BY p.tenant_id, p.pedido
+            ),
+            eventos AS (
+              SELECT
+                tenant_id,
+                protocolo,
+                BOOL_OR(has_registro) AS has_registro,
+                BOOL_OR(has_devolucao) AS has_devolucao
+              FROM (
+                SELECT * FROM eventos_bi
+                UNION ALL
+                SELECT * FROM eventos_prod
+              ) fontes
+              GROUP BY tenant_id, protocolo
+            )
+            SELECT
+              m.*,
+              COALESCE(e.has_registro, false) AS "hasRegistro",
+              COALESCE(e.has_devolucao, false) AS "hasDevolucao"
+            FROM public.fiorix_metas_dados m
+            LEFT JOIN eventos e
+              ON e.tenant_id = m.tenant_id
+              AND e.protocolo = m.protocolo::text
+            WHERE m.tenant_id = ${user.tenantId}
+              ${startFilter}
+              ${endFilter}
+            ORDER BY m.data_apresentado DESC
+            LIMIT 50000
           `
         );
-      } catch (err2) {
-        console.warn("Postgres fetch error for Metas:", err2);
+      } catch {
+        try {
+          rawMetas = await prisma.$queryRaw(
+            Prisma.sql`
+              SELECT m.* FROM public.fiorix_metas_dados m
+              WHERE m.tenant_id = ${user.tenantId}
+                ${startFilter}
+                ${endFilter}
+              ORDER BY m.data_apresentado DESC
+              LIMIT 50000
+            `
+          );
+        } catch (err2) {
+          console.warn("Postgres fetch error for Metas:", err2);
+        }
       }
-    }
 
     // Fallback para SQL Server restrito exclusivamente a ambientes com flag explícita e tenant proprietário validado
     const allowDirectMssql =
@@ -216,77 +331,32 @@ export async function GET(request: Request) {
       };
     };
 
-    let metas = (rawMetas || []).map(normalizeRow);
+      // Sanitize BigInt values that Prisma $queryRaw may return for SERIAL/INTEGER columns
+      const metas = (rawMetas || []).map(normalizeRow);
+      return JSON.parse(
+        JSON.stringify(metas, (_, v) => (typeof v === "bigint" ? Number(v) : v))
+      ) as Record<string, unknown>[];
+    };
 
-    // Dados de demonstração só podem ser exibidos quando solicitados explicitamente.
-    // Uma base vazia deve permanecer vazia após o usuário limpar as importações.
-    if (useSimulation) {
-      metas = [
-        {
-          protocolo: 642139,
-          natureza: "Certidão",
-          dataApresentado: new Date("2026-08-14T08:33:00Z"),
-          dtPrevisao: new Date("2026-08-18T00:00:00Z"),
-          dtEntregaReal: null,
-          status: "Em dia",
-          atrasoDias: 0,
-          d1Protocolo: new Date("2026-08-14T08:33:00Z"),
-          d1Escaneamento: null,
-          d2Contraditorio: null,
-          d3Extrato: null,
-          d4Qualificacao: null,
-          d5Calculo: null,
-          d8Impressao: null,
-          d9Preparacao: null,
-          d9Conferencia: null,
-          d10Entrega: null,
-          dBalcaoRegistrado: null,
-          dBalcaoDevolvido: null,
-          qtdRetrabalho: 0,
-          diasD1D2: 0,
-          diasD2D3: null,
-          diasD3D4: null,
-          diasD4D5: null,
-          diasD5D8: null,
-          diasD8D9: null,
-        } as any,
-        {
-          protocolo: 629999,
-          natureza: "Escritura de Compra e Venda",
-          dataApresentado: new Date("2026-04-16T12:04:00Z"),
-          dtPrevisao: new Date("2026-04-19T00:00:00Z"),
-          dtEntregaReal: new Date("2026-04-28T00:00:00Z"),
-          status: "Entregue com Atraso",
-          atrasoDias: 9,
-          d1Protocolo: new Date("2026-04-16T12:04:00Z"),
-          d1Escaneamento: new Date("2026-04-16T14:30:00Z"),
-          d2Contraditorio: new Date("2026-04-17T09:00:00Z"),
-          d3Extrato: new Date("2026-04-18T10:00:00Z"),
-          d4Qualificacao: new Date("2026-04-25T14:00:00Z"),
-          d5Calculo: new Date("2026-04-28T10:00:00Z"),
-          d8Impressao: new Date("2026-04-28T11:00:00Z"),
-          d9Preparacao: new Date("2026-04-28T11:30:00Z"),
-          d9Conferencia: new Date("2026-04-28T11:45:00Z"),
-          d10Entrega: new Date("2026-04-28T12:00:00Z"),
-          dBalcaoRegistrado: new Date("2026-04-28T11:50:00Z"),
-          dBalcaoDevolvido: new Date("2026-04-28T12:00:00Z"),
-          qtdRetrabalho: 1,
-          diasD1D2: 1,
-          diasD2D3: 1,
-          diasD3D4: 7,
-          diasD4D5: 3,
-          diasD5D8: 0,
-          diasD8D9: 0,
-        } as any
-      ];
+    let safeData: Record<string, unknown>[];
+    if (!forceRefresh && !isTestEnv) {
+      let running = metasInFlight.get(cacheKey);
+      if (!running) {
+        running = loadMetasData().finally(() => {
+          metasInFlight.delete(cacheKey);
+        });
+        metasInFlight.set(cacheKey, running);
+      }
+      safeData = await running;
+      metasTenantCache.set(cacheKey, safeData);
+    } else {
+      safeData = await loadMetasData();
     }
 
-    // Sanitize BigInt values that Prisma $queryRaw may return for SERIAL/INTEGER columns
-    const safeData = JSON.parse(
-      JSON.stringify(metas, (_, v) => (typeof v === "bigint" ? Number(v) : v))
+    return NextResponse.json(
+      { success: true, data: safeData },
+      { headers: { "Cache-Control": "private, no-store" } }
     );
-
-    return NextResponse.json({ success: true, data: safeData });
   } catch (error: any) {
     console.error("Metas API Error:", error);
     return NextResponse.json({ success: false, error: "Erro ao consultar banco de dados" }, { status: 500 });

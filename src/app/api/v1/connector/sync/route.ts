@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { unpackLiveRecords } from '@/lib/connector/unpack-live';
 import { evaluateConnectorSyncPermission } from '@/lib/connector/ha-manager';
+import { isConnectorVerboseLogEnabled } from '@/lib/connector/verbose-log';
 
 // Rate limiting em memória para evitar pressão adicional no banco.
 // Cada connector_id é limitado a MAX_REQUESTS_PER_WINDOW por janela temporal.
@@ -117,7 +118,9 @@ export async function POST(req: Request) {
 
     const syncGate = await evaluateConnectorSyncPermission(tenantId, connector_id);
     if (!syncGate.allowed) {
-      console.info(`SYNC_PAUSED_GATE: Tenant ${tenantId}, Connector ${connector_id} blocked (${syncGate.operationalState})`);
+      if (isConnectorVerboseLogEnabled()) {
+        console.info(`SYNC_PAUSED_GATE: Tenant ${tenantId}, Connector ${connector_id} blocked (${syncGate.operationalState})`);
+      }
       return NextResponse.json(
         {
           error: syncGate.reason || 'Connector paused by operator',
@@ -127,7 +130,9 @@ export async function POST(req: Request) {
       );
     }
 
-    console.info(`SYNC_RECEIVED: Tenant ${tenantId}, Connector ${connector_id}, Source ${source}, Batch ${batch_id}`);
+    if (isConnectorVerboseLogEnabled()) {
+      console.info(`SYNC_RECEIVED: Tenant ${tenantId}, Connector ${connector_id}, Source ${source}, Batch ${batch_id}`);
+    }
 
     // Resolve batch metadata before opening a transaction. In Neon transaction
     // pooling, keeping JSON persistence and authentication inside an interactive
@@ -195,7 +200,9 @@ export async function POST(req: Request) {
     });
 
     if (preExistingChunk) {
-      console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      if (isConnectorVerboseLogEnabled()) {
+        console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      }
       return NextResponse.json({
         success: true,
         alreadyProcessed: true,
@@ -338,7 +345,9 @@ export async function POST(req: Request) {
     }, { timeout: 10000, maxWait: 10000 });
 
     if (result.alreadyProcessed) {
-      console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      if (isConnectorVerboseLogEnabled()) {
+        console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      }
       return NextResponse.json({
         success: true,
         alreadyProcessed: true,
@@ -390,7 +399,9 @@ export async function POST(req: Request) {
       console.warn('SYNC_METADATA_WARNING: source status update failed', error);
     }
 
-    console.info(`SYNC_SUCCESS: Batch ${batch_id} processed successfully`);
+    if (isConnectorVerboseLogEnabled()) {
+      console.info(`SYNC_SUCCESS: Batch ${batch_id} processed successfully`);
+    }
 
     return NextResponse.json({
       success: true,

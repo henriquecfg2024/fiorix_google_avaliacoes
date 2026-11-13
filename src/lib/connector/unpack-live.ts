@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { invalidateBiDashboardCache } from '@/lib/bi-dashboard';
 import { invalidateProdutividadeTenantCache } from '@/lib/bi-produtividade-cache';
+import { invalidateMetasTenantCache } from '@/lib/bi-metas-cache';
+import { invalidateImpressoesTenantCache } from '@/lib/bi-impressoes-cache';
 import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
 import { sincronizarPedidosOficiaisWebriBatch } from '@/lib/cartorio-virtual/connector-sync';
 
@@ -111,9 +113,10 @@ export async function unpackLiveRecords({
         recordsJson
       );
       invalidateProdutividadeTenantCache(tenantId);
+      invalidateMetasTenantCache(tenantId);
       return prodRes;
     } else if (source === 'tarefas') {
-      return await runUpsertWithCounts(
+      const tarefasRes = await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON (item->>'ID_TAREFA')
@@ -183,8 +186,10 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
+      invalidateImpressoesTenantCache(tenantId);
+      return tarefasRes;
     } else if (source === 'metas') {
-      return await runUpsertWithCounts(
+      const metasRes = await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'PROTOCOLO')::int)
@@ -262,6 +267,9 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
+      invalidateMetasTenantCache(tenantId);
+      invalidateImpressoesTenantCache(tenantId);
+      return metasRes;
     } else if (source === 'bi') {
       const liveImportId = `connector-bi-live-${tenantId}`;
       await prisma.fiorixBiImport.upsert({
@@ -356,6 +364,7 @@ export async function unpackLiveRecords({
       }
 
       invalidateBiDashboardCache(tenantId);
+      invalidateMetasTenantCache(tenantId);
 
       return {
         inserted: netInserted,
@@ -445,7 +454,7 @@ export async function unpackLiveRecords({
         recordsJson
       );
     } else if (source === 'impressoes') {
-      return await runUpsertWithCounts(
+      const impRes = await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
@@ -516,6 +525,8 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
+      invalidateImpressoesTenantCache(tenantId);
+      return impRes;
     } else if (source === 'safras') {
       return await runUpsertWithCounts(
         `

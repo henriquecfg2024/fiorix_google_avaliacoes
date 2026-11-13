@@ -20,7 +20,10 @@ export async function POST(req: Request) {
     const message = parsed.data;
     const auth = await authenticateConnector(message.connectorId, secret);
     if (!auth.success || !auth.connector || !auth.tenant) {
-      console.log('[DOCUMENTOS] Falha de autenticacao do conector:', { connectorId: message.connectorId, auth });
+      console.warn('[DOCUMENTOS] Falha de autenticacao do conector:', {
+        connectorId: message.connectorId,
+        error: auth.error,
+      });
       return reply({ error: `Não autorizado: ${auth.error || 'falha de conector ou tenant'}` }, 401);
     }
     const tenantId = auth.tenant.id;

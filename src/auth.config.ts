@@ -184,6 +184,8 @@ export const authConfig = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.id = user.id;
+        token.departamento = user.departamento ?? null;
+        token.cargo = user.cargo ?? null;
         token.authAt = Date.now();
       }
       return token;
@@ -193,6 +195,8 @@ export const authConfig = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as string;
         session.user.id = token.id as string;
+        session.user.departamento = (token.departamento as string | null) ?? null;
+        session.user.cargo = (token.cargo as string | null) ?? null;
         (session.user as { authAt?: number }).authAt =
           typeof token.authAt === 'number' ? token.authAt : undefined;
       }

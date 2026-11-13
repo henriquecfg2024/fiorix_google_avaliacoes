@@ -6,6 +6,8 @@ import { Prisma } from "@prisma/client";
 import { metasImportSchema } from "@/lib/zod-schemas";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { recordAuditLog } from "@/lib/audit";
+import { invalidateMetasTenantCache } from "@/lib/bi-metas-cache";
+import { invalidateImpressoesTenantCache } from "@/lib/bi-impressoes-cache";
 
 export const maxDuration = 60;
 
@@ -257,6 +259,8 @@ export async function POST(req: Request) {
           userOverride: user,
         });
       }
+      invalidateMetasTenantCache(user.tenantId);
+      invalidateImpressoesTenantCache(user.tenantId);
     }
 
     return NextResponse.json({ success: true, count: insertedCount });

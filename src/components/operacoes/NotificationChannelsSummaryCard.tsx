@@ -12,6 +12,10 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
+import {
+  fetchOperationsAlertsCached,
+  invalidateOperationsAlertsCache,
+} from '@/lib/operacoes/alerts-client-cache';
 
 interface PhoneEntry {
   phone: string;
@@ -41,42 +45,39 @@ export function NotificationChannelsSummaryCard() {
   const [loading, setLoading] = useState(true);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
-  const loadConfig = useCallback(async () => {
+  const loadConfig = useCallback(async (force = false) => {
     try {
-      const res = await fetch('/api/v1/operacoes/alerts', { cache: 'no-store' });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.config) {
-          setRawConfig(json.config);
-          const primaryPhone = json.config.whatsappPhone || '';
-          const additionalPhones: PhoneEntry[] = Array.isArray(json.config.whatsappConfig?.phones)
-            ? json.config.whatsappConfig.phones
-                .filter((p: any) => p.phone && p.phone.length >= 8)
-                .map((p: any) => ({ phone: p.phone, label: p.label || '' }))
-            : [];
-          const allPhones: PhoneEntry[] = [];
-          if (primaryPhone && primaryPhone.length >= 8) {
-            allPhones.push({ phone: primaryPhone, label: 'Principal' });
-          }
-          allPhones.push(...additionalPhones);
-
-          setData({
-            whatsappEnabled: Boolean(json.config.whatsappEnabled),
-            whatsappPhone: primaryPhone,
-            whatsappProvider: json.config.whatsappProvider || 'callmebot',
-            whatsappPhones: allPhones,
-            emailEnabled: Boolean(json.config.emailEnabled),
-            emailRecipients: json.config.emailRecipients || '',
-            webhookEnabled: Boolean(json.config.enabled) && Boolean(json.config.webhookUrl),
-            webhookUrl: json.config.webhookUrl || '',
-            cooldownMinutes: Number(json.config.cooldownMinutes || 15),
-            notifyConnectorOffline: Boolean(json.config.notifyConnectorOffline),
-            notifySyncFailed: Boolean(json.config.notifySyncFailed),
-            notifyModuleDelayed: Boolean(json.config.notifyModuleDelayed),
-            notifyNextQsFailure: Boolean(json.config.notifyNextQsFailure),
-            notifyGoogleTokenExpiring: Boolean(json.config.notifyGoogleTokenExpiring),
-          });
+      const json = await fetchOperationsAlertsCached(force);
+      if (json?.config) {
+        setRawConfig(json.config);
+        const primaryPhone = json.config.whatsappPhone || '';
+        const additionalPhones: PhoneEntry[] = Array.isArray(json.config.whatsappConfig?.phones)
+          ? json.config.whatsappConfig.phones
+              .filter((p: any) => p.phone && p.phone.length >= 8)
+              .map((p: any) => ({ phone: p.phone, label: p.label || '' }))
+          : [];
+        const allPhones: PhoneEntry[] = [];
+        if (primaryPhone && primaryPhone.length >= 8) {
+          allPhones.push({ phone: primaryPhone, label: 'Principal' });
         }
+        allPhones.push(...additionalPhones);
+
+        setData({
+          whatsappEnabled: Boolean(json.config.whatsappEnabled),
+          whatsappPhone: primaryPhone,
+          whatsappProvider: json.config.whatsappProvider || 'callmebot',
+          whatsappPhones: allPhones,
+          emailEnabled: Boolean(json.config.emailEnabled),
+          emailRecipients: json.config.emailRecipients || '',
+          webhookEnabled: Boolean(json.config.enabled) && Boolean(json.config.webhookUrl),
+          webhookUrl: json.config.webhookUrl || '',
+          cooldownMinutes: Number(json.config.cooldownMinutes || 15),
+          notifyConnectorOffline: Boolean(json.config.notifyConnectorOffline),
+          notifySyncFailed: Boolean(json.config.notifySyncFailed),
+          notifyModuleDelayed: Boolean(json.config.notifyModuleDelayed),
+          notifyNextQsFailure: Boolean(json.config.notifyNextQsFailure),
+          notifyGoogleTokenExpiring: Boolean(json.config.notifyGoogleTokenExpiring),
+        });
       }
     } catch {
       // silently fail
@@ -86,10 +87,10 @@ export function NotificationChannelsSummaryCard() {
   }, []);
 
   useEffect(() => {
-    loadConfig();
+    loadConfig(false);
 
     const handleUpdate = () => {
-      loadConfig();
+      loadConfig(false);
     };
     window.addEventListener('alerts-config-updated', handleUpdate);
     return () => window.removeEventListener('alerts-config-updated', handleUpdate);
@@ -143,7 +144,8 @@ export function NotificationChannelsSummaryCard() {
       });
 
       if (res.ok) {
-        await loadConfig();
+        invalidateOperationsAlertsCache();
+        await loadConfig(true);
         window.dispatchEvent(new CustomEvent('alerts-config-updated'));
       } else {
         alert('Erro ao excluir telefone. Tente novamente.');
@@ -186,7 +188,8 @@ export function NotificationChannelsSummaryCard() {
       });
 
       if (res.ok) {
-        await loadConfig();
+        invalidateOperationsAlertsCache();
+        await loadConfig(true);
         window.dispatchEvent(new CustomEvent('alerts-config-updated'));
       } else {
         alert('Erro ao excluir e-mail. Tente novamente.');

@@ -221,7 +221,6 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
       setGerenciarSuccess('Responsabilidade transferida com sucesso.');
       const reload = await getParticipantesIt(itId);
       setParticipantes(reload.participantes || []);
-      router.refresh();
     } else {
       setGerenciarError(res.error || 'Erro ao transferir.');
     }
@@ -618,7 +617,6 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         setResumoMudancas('');
         setConfirmouRevisao(false);
         setUploadSuccess(false);
-        router.refresh();
       }, 1500);
     } catch (err: any) {
       console.error('Erro na publicação:', err);
@@ -662,7 +660,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
       });
       setTimeout(() => {
         setIsCadastroOpen(false); setCadastroSuccess(false); setCadastroTitulo('');
-        setCadastroObjetivo(''); setCadastroFile(null); router.refresh();
+        setCadastroObjetivo(''); setCadastroFile(null);
       }, 3500);
     } catch (err: any) {
       setCadastroError(err?.message || 'Erro inesperado.');

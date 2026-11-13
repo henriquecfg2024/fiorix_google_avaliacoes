@@ -5,6 +5,17 @@ import { requireRole } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { recordAuditLog } from "@/lib/audit";
+import { invalidateBiDashboardCache } from "@/lib/bi-dashboard";
+import { invalidateProdutividadeTenantCache } from "@/lib/bi-produtividade-cache";
+import { invalidateMetasTenantCache } from "@/lib/bi-metas-cache";
+import { invalidateImpressoesTenantCache } from "@/lib/bi-impressoes-cache";
+
+function invalidateAllBiCachesForTenant(tenantId: string): void {
+  invalidateBiDashboardCache(tenantId);
+  invalidateProdutividadeTenantCache(tenantId);
+  invalidateMetasTenantCache(tenantId);
+  invalidateImpressoesTenantCache(tenantId);
+}
 
 export async function deleteImportRecord(
   id: string,
@@ -103,6 +114,8 @@ export async function deleteImportRecord(
       userOverride: user,
     });
 
+    invalidateAllBiCachesForTenant(user.tenantId);
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/produtividade");
     revalidatePath("/bi/metas");
@@ -134,6 +147,8 @@ export async function clearAllProdutividadeData() {
       userOverride: user,
     });
 
+    invalidateAllBiCachesForTenant(user.tenantId);
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/produtividade");
     return { success: true };
@@ -159,6 +174,8 @@ export async function clearAllMetasData() {
       registroDescricao: "Limpeza total da base de Metas",
       userOverride: user,
     });
+
+    invalidateAllBiCachesForTenant(user.tenantId);
 
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/metas");
@@ -186,6 +203,8 @@ export async function clearAllTarefasData() {
       userOverride: user,
     });
 
+    invalidateAllBiCachesForTenant(user.tenantId);
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/tarefas");
     return { success: true };
@@ -212,6 +231,8 @@ export async function clearAllRetornosData() {
       userOverride: user,
     });
 
+    invalidateAllBiCachesForTenant(user.tenantId);
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/retornos");
     return { success: true };
@@ -237,6 +258,8 @@ export async function clearAllImpressoesData() {
       registroDescricao: "Limpeza total da base de Impressões",
       userOverride: user,
     });
+
+    invalidateAllBiCachesForTenant(user.tenantId);
 
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/controle-impressoes");

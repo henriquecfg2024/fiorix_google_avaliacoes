@@ -5,6 +5,8 @@ import {
   getUserNavPermissionsAction,
   checkRouteAccessWithFallbackAction,
 } from "@/app/actions/nav-permissions";
+import { evaluateRouteAccessFromAllowedIds } from "@/lib/nav-permissions/evaluator";
+import { invalidateOperationsAlertsCache } from "@/lib/operacoes/alerts-client-cache";
 
 type CurrentUser = Awaited<ReturnType<typeof getCurrentUser>>;
 export type UserNavPermissions = Awaited<ReturnType<typeof getUserNavPermissionsAction>>;
@@ -42,6 +44,7 @@ export function clearClientSessionCaches() {
   navigationStatsPromise = null;
   navigationStatsFetchedAt = 0;
   invalidateNavPermissionsClientCache();
+  invalidateOperationsAlertsCache();
 
   if (typeof window !== "undefined") {
     for (const storage of [window.localStorage, window.sessionStorage]) {
@@ -103,22 +106,38 @@ export function clearClientSessionCaches() {
 
 export function checkRouteAccessCached(pathname: string): Promise<RouteAccessCheckResult> {
   const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === "test");
+  if (isTestEnv) {
+    return checkRouteAccessWithFallbackAction(pathname);
+  }
+
   const now = Date.now();
   const scopePrefix = lastResolvedIdentityKey || "anon";
   const cacheKey = `${scopePrefix}::${pathname}`;
   const cached = routeAccessCache.get(cacheKey);
-  if (!isTestEnv && cached && now - cached.fetchedAt < NAV_PERMS_TTL_MS) {
+  if (cached && now - cached.fetchedAt < NAV_PERMS_TTL_MS) {
     return cached.promise;
   }
 
-  const promise = checkRouteAccessWithFallbackAction(pathname).catch((err) => {
-    routeAccessCache.delete(cacheKey);
-    throw err;
-  });
+  const promise = Promise.all([loadCurrentUserOnce(), loadUserNavPermissionsOnce()])
+    .then(([user, perms]) => {
+      if (user?.role && perms) {
+        return evaluateRouteAccessFromAllowedIds({
+          pathname,
+          role: user.role,
+          enabled: perms.enabled,
+          allowedItemIds: perms.allowedItemIds,
+        });
+      }
+      return checkRouteAccessWithFallbackAction(pathname);
+    })
+    .catch(() =>
+      checkRouteAccessWithFallbackAction(pathname).catch((err) => {
+        routeAccessCache.delete(cacheKey);
+        throw err;
+      })
+    );
 
-  if (!isTestEnv) {
-    routeAccessCache.set(cacheKey, { promise, fetchedAt: now });
-  }
+  routeAccessCache.set(cacheKey, { promise, fetchedAt: now });
   return promise;
 }
 

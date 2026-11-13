@@ -9,6 +9,12 @@ import {
   checkStructuralRestriction,
 } from './catalog';
 import {
+  PREFIX_SORTED_CATALOG_ITEMS,
+  resolveFirstAllowedRouteFromAllowedIds,
+} from './evaluator';
+
+export { resolveFirstAllowedRouteFromAllowedIds };
+import {
   DepartmentUserOverrideSummary,
   ItemEffectiveState,
   NavCatalogItem,
@@ -703,15 +709,6 @@ export async function getEffectiveUserNavigation(user: {
   return filteredGroups;
 }
 
-const PREFIX_SORTED_CATALOG_ITEMS: NavCatalogItem[] = ALL_NAV_CATALOG_ITEMS
-  .filter((item) => !item.href.includes('#'))
-  .slice()
-  .sort((a, b) => {
-    const baseA = a.href.split('?')[0].replace(/\/+$/, '') || '/';
-    const baseB = b.href.split('?')[0].replace(/\/+$/, '') || '/';
-    return baseB.length - baseA.length;
-  });
-
 async function isCatalogItemAllowedForUser(
   matchingItem: NavCatalogItem,
   user: { id: string; role: string; tenantId: string; departamento?: string | null }
@@ -954,56 +951,6 @@ export async function getAllowedNavItemsForUser(user: {
     enabled: true,
     allowedItemIds,
   };
-}
-
-/**
- * Resolve a primeira rota permitida a partir da lista já calculada de allowedItemIds,
- * evitando consultas SQL duplicadas na mesma requisição.
- */
-export function resolveFirstAllowedRouteFromAllowedIds(
-  role: string,
-  allowedItemIds: string[],
-  enabled: boolean = isNavPermissionsFeatureEnabled()
-): string {
-  const defaultRoleHome = getHomeRouteForRole(role);
-
-  if (!enabled || role === 'MASTER') {
-    return defaultRoleHome;
-  }
-
-  const allowedSet = new Set(allowedItemIds);
-
-  // 1. Se a rota canônica do perfil estiver permitida, prioriza-a
-  if (defaultRoleHome === '/sistema/pessoas') {
-    const rhHomeItem = ['gestao_comunicados', 'rh_ferias', 'rh_holerites']
-      .map((id) => ITEM_BY_ID.get(id))
-      .find((item) => item && allowedSet.has(item.id));
-    if (rhHomeItem) {
-      return rhHomeItem.href;
-    }
-  }
-  const roleHomeItem = ALL_NAV_CATALOG_ITEMS.find(
-    (item) => item.href === defaultRoleHome || item.href.split('?')[0] === defaultRoleHome
-  );
-  if (roleHomeItem && allowedSet.has(roleHomeItem.id)) {
-    return roleHomeItem.href;
-  }
-
-  // 2. Se o menu Início (/dashboard) estiver permitido, utiliza-o
-  if (allowedSet.has('inicio')) {
-    return '/dashboard';
-  }
-
-  // 3. Caso contrário, retorna o primeiro módulo permitido na ordem do catálogo (ex: /bi/qualidade)
-  const firstAllowedItem = ALL_NAV_CATALOG_ITEMS.find(
-    (item) => !item.isMasterOnly && allowedSet.has(item.id)
-  );
-  if (firstAllowedItem) {
-    return firstAllowedItem.href;
-  }
-
-  // 4. Fallback seguro sempre acessível caso nenhum menu esteja ativo
-  return '/minha-conta';
 }
 
 /**
