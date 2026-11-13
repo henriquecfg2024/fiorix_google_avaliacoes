@@ -7,6 +7,16 @@ import { sendSrvsqlPerformanceSample } from './api.js';
 
 let isCollectingSrvsqlPerf = false;
 
+interface PreviousFileIoStats {
+  sampleMs: number;
+  numOfReads: number;
+  ioStallReadMs: number;
+  numOfWrites: number;
+  ioStallWriteMs: number;
+}
+let previousFileIoMap = new Map<string, PreviousFileIoStats>();
+let previousSqlStartIso: string | null = null;
+
 async function probeZabbixAgent(
   host: string,
   port = 10050,
@@ -394,26 +404,63 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       {
         totalGb: number | null;
         freeGb: number | null;
-        readStallMs: number;
-        reads: number;
-        writeStallMs: number;
-        writes: number;
+        readStallDeltaMs: number;
+        readsDelta: number;
+        writeStallDeltaMs: number;
+        writesDelta: number;
+        hasDelta: boolean;
       }
     >();
+    const sqlStartForIo = sys.sqlserver_start_time_iso ? String(sys.sqlserver_start_time_iso) : null;
+    const sqlRestarted = Boolean(previousSqlStartIso && sqlStartForIo && previousSqlStartIso !== sqlStartForIo);
+    if (sqlRestarted) {
+      previousFileIoMap = new Map();
+    }
+    const nextFileIoMap = new Map<string, PreviousFileIoStats>();
+
     const fileIoRaw = (filesRes.recordset || []).map((f: any) => {
       const mount = String(f.volume_mount_point || 'D:\\').trim();
+      const fileKey = `${Number(f.database_id)}:${Number(f.file_id)}`;
+      const sampleMs = Number(f.sample_ms || 0);
+      const numOfReads = Number(f.num_of_reads || 0);
+      const ioStallReadMs = Number(f.io_stall_read_ms || 0);
+      const numOfWrites = Number(f.num_of_writes || 0);
+      const ioStallWriteMs = Number(f.io_stall_write_ms || 0);
+
+      nextFileIoMap.set(fileKey, {
+        sampleMs,
+        numOfReads,
+        ioStallReadMs,
+        numOfWrites,
+        ioStallWriteMs,
+      });
+
+      const prevFile = previousFileIoMap.get(fileKey);
+      const validDelta =
+        Boolean(prevFile) &&
+        sampleMs >= prevFile!.sampleMs &&
+        numOfReads >= prevFile!.numOfReads &&
+        ioStallReadMs >= prevFile!.ioStallReadMs &&
+        numOfWrites >= prevFile!.numOfWrites &&
+        ioStallWriteMs >= prevFile!.ioStallWriteMs;
+
       const entry = volumeByMount.get(mount) || {
         totalGb: Number(f.volume_total_gb) || null,
         freeGb: Number(f.volume_free_gb) || null,
-        readStallMs: 0,
-        reads: 0,
-        writeStallMs: 0,
-        writes: 0,
+        readStallDeltaMs: 0,
+        readsDelta: 0,
+        writeStallDeltaMs: 0,
+        writesDelta: 0,
+        hasDelta: false,
       };
-      entry.reads += Number(f.num_of_reads || 0);
-      entry.readStallMs += Number(f.io_stall_read_ms || 0);
-      entry.writes += Number(f.num_of_writes || 0);
-      entry.writeStallMs += Number(f.io_stall_write_ms || 0);
+
+      if (validDelta && prevFile) {
+        entry.hasDelta = true;
+        entry.readsDelta += numOfReads - prevFile.numOfReads;
+        entry.readStallDeltaMs += ioStallReadMs - prevFile.ioStallReadMs;
+        entry.writesDelta += numOfWrites - prevFile.numOfWrites;
+        entry.writeStallDeltaMs += ioStallWriteMs - prevFile.ioStallWriteMs;
+      }
       volumeByMount.set(mount, entry);
 
       return {
@@ -423,15 +470,18 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
         logicalName: String(f.logical_name || ''),
         fileType: String(f.file_type || '').toUpperCase().includes('LOG') ? ('LOG' as const) : ('ROWS' as const),
         volumeMountPoint: mount,
-        sampleMs: Number(f.sample_ms || 0),
-        numOfReads: Number(f.num_of_reads || 0),
+        sampleMs,
+        numOfReads,
         numOfBytesRead: Number(f.num_of_bytes_read || 0),
-        ioStallReadMs: Number(f.io_stall_read_ms || 0),
-        numOfWrites: Number(f.num_of_writes || 0),
+        ioStallReadMs,
+        numOfWrites,
         numOfBytesWritten: Number(f.num_of_bytes_written || 0),
-        ioStallWriteMs: Number(f.io_stall_write_ms || 0),
+        ioStallWriteMs,
       };
     });
+
+    previousFileIoMap = nextFileIoMap;
+    previousSqlStartIso = sqlStartForIo;
 
     const windowsVolumes = Array.from(volumeByMount.entries()).map(([mount, v]) => {
       const freePercent =
@@ -440,8 +490,17 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
         volume: mount.replace(/\\+$/, ''),
         label: `Volume SQL ${mount}`,
         role: 'SQL_DATA' as const,
-        readLatencyMs: v.reads > 0 ? Math.round((v.readStallMs / v.reads) * 10) / 10 : 0,
-        writeLatencyMs: v.writes > 0 ? Math.round((v.writeStallMs / v.writes) * 10) / 10 : 0,
+        // Usa exclusivamente delta do intervalo para não confundir média desde o boot com gargalo atual
+        readLatencyMs: !v.hasDelta
+          ? null
+          : v.readsDelta > 0
+            ? Math.round((v.readStallDeltaMs / v.readsDelta) * 10) / 10
+            : 0,
+        writeLatencyMs: !v.hasDelta
+          ? null
+          : v.writesDelta > 0
+            ? Math.round((v.writeStallDeltaMs / v.writesDelta) * 10) / 10
+            : 0,
         readsPerSec: null,
         writesPerSec: null,
         throughputMbPerSec: null,
@@ -543,17 +602,19 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
     const windowsServices = (svcRes.recordset || []).map((sv: any) => {
       const svcName = String(sv.servicename || 'SQL Server');
       const statusUpper = String(sv.status_desc || '').toUpperCase();
+      const startUpper = String(sv.startup_type_desc || '').toUpperCase();
+      const isRunning = statusUpper.includes('RUN');
+      const isAuto = startUpper.includes('AUTO');
+      const isCoreSql = svcName.toUpperCase().includes('SQL SERVER (');
       return {
         serviceName: svcName,
         displayName: svcName,
-        state: statusUpper.includes('RUN') ? ('RUNNING' as const) : ('STOPPED' as const),
-        startMode: String(sv.startup_type_desc || '').toUpperCase().includes('AUTO')
-          ? ('AUTO' as const)
-          : ('MANUAL' as const),
+        state: isRunning ? ('RUNNING' as const) : ('STOPPED' as const),
+        startMode: isAuto ? ('AUTO' as const) : ('MANUAL' as const),
         pid: sv.process_id ? Number(sv.process_id) : null,
         processName: svcName.toUpperCase().includes('AGENT') ? 'SQLAGENT.EXE' : 'sqlservr.exe',
         processStartTimeIso: sv.last_startup_time_iso ? String(sv.last_startup_time_iso) : null,
-        belongsToWebri: true,
+        belongsToWebri: isCoreSql || isRunning,
         webriConfidence: 'ALTA' as const,
         category: 'SQL_SERVER' as const,
         notes: `Conta ${sv.service_account || 'NT Service'}`,

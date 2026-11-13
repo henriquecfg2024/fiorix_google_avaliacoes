@@ -1,0 +1,66 @@
+name: Connector CI
+
+on:
+  pull_request:
+    branches:
+      - connector-main
+  push:
+    branches:
+      - connector-main
+  merge_group:
+    branches:
+      - connector-main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connector-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  connector-verify-and-build:
+    name: connector-verify-and-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TMPDIR: ${{ runner.temp }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+
+      - name: Secret, duplicate-file and workflow hygiene check
+        run: npm run ci:hygiene
+
+      - name: TypeScript typecheck (src + __tests__)
+        run: npm run typecheck:all
+
+      - name: Run full connector Vitest suite
+        run: npm test
+
+      - name: Production bundle build (tsup ESM)
+        run: npm run build
+
+      - name: Measure connector bundle size baseline
+        run: npm run perf:baseline
+
+      - name: Upload connector performance baseline
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: connector-perf-baseline
+          path: ${{ runner.temp }}/fiorix-connector-perf-baseline.json
+          retention-days: 14
+
+      - name: Dependency vulnerability triage (informational)
+        run: npm audit --omit=dev --audit-level=high || echo "::warning::npm audit reportou vulnerabilidades de producao no connector; analisar triagem documentada."
+
