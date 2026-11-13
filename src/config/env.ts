@@ -38,6 +38,8 @@ const envSchema = z.object({
   SQL_SERVER_DATABASE: z.string().min(1),
   SQL_SERVER_USER: z.string().min(1),
   SQL_SERVER_PASSWORD: z.string().min(1),
+  SQL_SERVER_ENCRYPT: z.enum(['true', 'false']).transform((val) => val === 'true').default('false'),
+  SQL_SERVER_TRUST_CERT: z.enum(['true', 'false']).transform((val) => val === 'true').default('true'),
   SYNC_INTERVAL_SECONDS: z.coerce.number().default(60),
   SHADOW_MODE: z.enum(['true', 'false']).transform((val) => val === 'true'),
   SCHEDULER_ENABLED: z.enum(['true', 'false']).transform((val) => val === 'true').default('false'),

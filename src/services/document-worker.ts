@@ -206,7 +206,7 @@ function resolveConfiguredDocumentRoots(): DocumentRoot[] {
     return parseDocumentRoots(rawRoots);
   }
 
-  // Configuração padrão das pastas oficiais quando presentes localmente
+  // Configuração padrão restrita exclusivamente às subpastas dedicadas (sem expor raízes inteiras H:\ ou W:\)
   const defaults: DocumentRoot[] = [];
   if (fsSync.existsSync('W:\\USUCAPIAO')) {
     defaults.push({ id: 'minutas', path: 'W:\\USUCAPIAO' });
@@ -219,12 +219,6 @@ function resolveConfiguredDocumentRoots(): DocumentRoot[] {
   }
   if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
     defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
-  }
-  if (fsSync.existsSync('H:\\')) {
-    defaults.push({ id: 'vol1', path: 'H:\\' });
-  }
-  if (fsSync.existsSync('W:\\')) {
-    defaults.push({ id: 'deptos', path: 'W:\\' });
   }
   return defaults;
 }

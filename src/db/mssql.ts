@@ -20,8 +20,8 @@ function getSqlConfig(): sql.config {
       idleTimeoutMillis: 30000
     },
     options: {
-      encrypt: false, // For local SQL Server instances usually false
-      trustServerCertificate: true, // Trust local self-signed certs
+      encrypt: process.env.SQL_SERVER_ENCRYPT !== undefined ? process.env.SQL_SERVER_ENCRYPT === 'true' : env.SQL_SERVER_ENCRYPT,
+      trustServerCertificate: process.env.SQL_SERVER_TRUST_CERT !== undefined ? process.env.SQL_SERVER_TRUST_CERT !== 'false' : env.SQL_SERVER_TRUST_CERT,
       requestTimeout: 45000
     }
   };

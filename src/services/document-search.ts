@@ -5,6 +5,11 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
 import mammoth from 'mammoth';
+import {
+  escapeHtmlEntities,
+  plainTextToSafeHtml,
+  sanitizeDocumentHtml,
+} from '../utils/html-sanitizer.js';
 // @ts-ignore
 import * as UTIFImport from 'utif';
 // @ts-ignore
@@ -182,15 +187,15 @@ const cliMetrics = {
 };
 
 export function resolveDocumentCliPath(): string {
-  const configured = process.env.DOCUMENTAL_CLI_PATH || process.env.FIORIX_GD_CLI_PATH;
-  if (configured && fsSync.existsSync(configured)) return configured;
-  if (process.env.FIORIX_GD_CLI_PATH) return process.env.FIORIX_GD_CLI_PATH;
-  if (process.env.DOCUMENTAL_CLI_PATH) return process.env.DOCUMENTAL_CLI_PATH;
+  const configured = (process.env.DOCUMENTAL_CLI_PATH || process.env.FIORIX_GD_CLI_PATH || '').trim();
+  if (configured) {
+    return path.resolve(configured);
+  }
   const localBundledBin = path.join(process.cwd(), 'bin', 'fiorix-gd-cli.exe');
   if (fsSync.existsSync(localBundledBin)) return localBundledBin;
   const adjacentRuntimeBin = path.resolve(path.dirname(process.execPath), '..', 'bin', 'fiorix-gd-cli.exe');
   if (fsSync.existsSync(adjacentRuntimeBin)) return adjacentRuntimeBin;
-  return 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
+  return localBundledBin;
 }
 
 export async function executeDocumentCli(
@@ -1187,7 +1192,7 @@ export async function readDocumentText(
         fileName,
         extension: ext,
         size: stat.size,
-        html: `<p>Não foi possível carregar o arquivo PDF ${fileName}.</p>`,
+        html: `<p>Não foi possível carregar o arquivo PDF ${escapeHtmlEntities(fileName)}.</p>`,
         text: `[Erro ao carregar PDF ${fileName}]`,
       };
     }
@@ -1198,11 +1203,12 @@ export async function readDocumentText(
     try {
       const htmlResult = await mammoth.convertToHtml({ path: filePath });
       const textResult = await mammoth.extractRawText({ path: filePath });
+      const safeText = textResult.value || '';
       return {
         fileName,
         extension: ext,
-        html: htmlResult.value || '<p>Documento sem texto detectável.</p>',
-        text: textResult.value || '',
+        html: sanitizeDocumentHtml(htmlResult.value, safeText),
+        text: safeText,
         size: stat.size,
       };
     } catch {
@@ -1210,7 +1216,7 @@ export async function readDocumentText(
       return {
         fileName,
         extension: ext,
-        html: `<p>${raw.replace(/\n/g, '<br/>')}</p>`,
+        html: plainTextToSafeHtml(raw),
         text: raw,
         size: stat.size,
       };
@@ -1223,11 +1229,11 @@ export async function readDocumentText(
       const extractor = new WordExtractor();
       const extracted = await extractor.extract(filePath);
       const text = String(extracted.getBody() || '');
-      const html = `<div style="font-family: inherit; line-height: 1.6;">${text.split('\n\n').filter(Boolean).map((p: string) => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')}</div>`;
+      const html = `<div>${plainTextToSafeHtml(text)}</div>`;
       return {
         fileName,
         extension: ext,
-        html: html || '<p>Documento Word sem texto detectável.</p>',
+        html,
         text: text || '',
         size: stat.size,
       };
@@ -1235,11 +1241,12 @@ export async function readDocumentText(
       try {
         const htmlResult = await mammoth.convertToHtml({ path: filePath });
         const textResult = await mammoth.extractRawText({ path: filePath });
+        const safeText = textResult.value || '';
         return {
           fileName,
           extension: ext,
-          html: htmlResult.value || '<p>Documento sem texto detectável.</p>',
-          text: textResult.value || '',
+          html: sanitizeDocumentHtml(htmlResult.value, safeText),
+          text: safeText,
           size: stat.size,
         };
       } catch {
@@ -1248,7 +1255,7 @@ export async function readDocumentText(
         return {
           fileName,
           extension: ext,
-          html: `<p>${clean}</p>`,
+          html: `<p>${escapeHtmlEntities(clean)}</p>`,
           text: clean,
           size: stat.size,
         };
@@ -1261,7 +1268,7 @@ export async function readDocumentText(
   return {
     fileName,
     extension: ext,
-    html: `<pre style="white-space: pre-wrap; font-family: inherit;">${raw}</pre>`,
+    html: `<pre>${escapeHtmlEntities(raw)}</pre>`,
     text: raw,
     size: stat.size,
   };

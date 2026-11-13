@@ -100,9 +100,9 @@ export class HealthManager {
     metas: 1800, // 30 minutes
     retornos: 300, // 5 minutes
     impressoes: 300, // 5 minutes
-    safras: 7200, // 2 hours
-    colaboradores_rh: 86400, // 24 hours
-    cartorio_virtual_certidoes: 3600, // 1 hour
+    safras: 7200, // 2 hours (2x 3600s)
+    colaboradores_rh: 7200, // 2 hours (2x 3600s)
+    cartorio_virtual_certidoes: 900, // 15 minutes (3x 300s)
   };
 
   private sourceHealth: Record<SourceName, SourceHealthState> = {
@@ -113,8 +113,8 @@ export class HealthManager {
     retornos: this.createInitialSourceHealth('retornos', 300),
     impressoes: this.createInitialSourceHealth('impressoes', 300),
     safras: this.createInitialSourceHealth('safras', 7200),
-    colaboradores_rh: this.createInitialSourceHealth('colaboradores_rh', 86400),
-    cartorio_virtual_certidoes: this.createInitialSourceHealth('cartorio_virtual_certidoes', 3600),
+    colaboradores_rh: this.createInitialSourceHealth('colaboradores_rh', 7200),
+    cartorio_virtual_certidoes: this.createInitialSourceHealth('cartorio_virtual_certidoes', 900),
   };
 
   private sourceMetrics: Record<SourceName, SourceMetrics> = {
@@ -366,9 +366,29 @@ export class HealthManager {
     let anyStale = false;
     let anySevereFailure = false;
 
-    for (const s of ['bi', 'produtividade', 'tarefas', 'metas', 'retornos', 'impressoes', 'safras'] as SourceName[]) {
+    const monitoredSources: SourceName[] = [
+      'bi',
+      'produtividade',
+      'tarefas',
+      'metas',
+      'retornos',
+      'impressoes',
+      'safras',
+      'colaboradores_rh',
+      'cartorio_virtual_certidoes',
+    ];
+
+    for (const s of monitoredSources) {
       const h = this.sourceHealth[s];
-      if (h.lastSuccessAt) {
+      const isOptionalInactiveModule =
+        s === 'cartorio_virtual_certidoes' &&
+        process.env.CARTORIO_VIRTUAL_SQL_ENABLED !== 'true' &&
+        !h.lastSuccessAt &&
+        h.consecutiveFailures === 0;
+
+      if (isOptionalInactiveModule) {
+        h.isStale = false;
+      } else if (h.lastSuccessAt) {
         const lastSuccessMs = new Date(h.lastSuccessAt).getTime();
         const diffSec = (now - lastSuccessMs) / 1000;
         h.isStale = diffSec > h.staleThresholdSec;

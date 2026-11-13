@@ -143,8 +143,8 @@ function getReadOnlySqlConfig(): sql.config {
       idleTimeoutMillis: 20000,
     },
     options: {
-      encrypt: false,
-      trustServerCertificate: true,
+      encrypt: process.env.SQL_SERVER_ENCRYPT !== undefined ? process.env.SQL_SERVER_ENCRYPT === 'true' : env.SQL_SERVER_ENCRYPT,
+      trustServerCertificate: process.env.SQL_SERVER_TRUST_CERT !== undefined ? process.env.SQL_SERVER_TRUST_CERT !== 'false' : env.SQL_SERVER_TRUST_CERT,
       readOnlyIntent: true,
       requestTimeout: 30000,
     },

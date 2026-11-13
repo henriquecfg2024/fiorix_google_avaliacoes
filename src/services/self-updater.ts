@@ -32,7 +32,11 @@ export function verifyBundleChecksum(buf: Buffer, expectedSha256: string): boole
   if (!buf || buf.length < 1024) return false;
   const normalizedExpected = (expectedSha256 || '').trim().toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(normalizedExpected)) return false;
-  return computeBufferSha256(buf) === normalizedExpected;
+  const computedHex = computeBufferSha256(buf);
+  const a = Buffer.from(computedHex, 'hex');
+  const b = Buffer.from(normalizedExpected, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 export function buildWindowsUpdatePowerShellScript(params: {

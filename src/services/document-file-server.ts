@@ -54,6 +54,25 @@ export interface ServidorArquivosLocal {
   parar(): void;
 }
 
+const MAX_TICKETS_ATIVOS = 2000;
+
+export function sanitizeLanFileServerUrl(candidateUrl?: string | null, fallbackUrl = 'http://localhost:8765'): string {
+  const raw = String(candidateUrl || '').trim();
+  if (!raw) return fallbackUrl.replace(/\/+$/, '');
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return fallbackUrl.replace(/\/+$/, '');
+    }
+    if (parsed.username || parsed.password) {
+      return fallbackUrl.replace(/\/+$/, '');
+    }
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return fallbackUrl.replace(/\/+$/, '');
+  }
+}
+
 function origensAutorizadas(fiorixApiUrl: string): Set<string> {
   const origens = new Set<string>(['http://localhost:3000', 'http://127.0.0.1:3000']);
   try { origens.add(new URL(fiorixApiUrl).origin); } catch { /* URL inválida: validada em env.ts */ }
@@ -80,9 +99,10 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
   const certPath = process.env.DOCUMENTAL_FILE_SERVER_TLS_CERT;
   const keyPath = process.env.DOCUMENTAL_FILE_SERVER_TLS_KEY;
   const usarTls = !!(certPath && keyPath);
+  const fallbackLocalUrl = `${usarTls ? 'https' : 'http'}://localhost:${porta}`;
   const resolverUrlBase = (customLanUrl?: string | null) => {
     const candidata = customLanUrl?.trim() || process.env.DOCUMENTAL_FILE_SERVER_PUBLIC_URL?.trim();
-    return (candidata || `${usarTls ? 'https' : 'http'}://localhost:${porta}`).replace(/\/+$/, '');
+    return sanitizeLanFileServerUrl(candidata, fallbackLocalUrl);
   };
   let urlPublica = resolverUrlBase(remoteCfg.lanUrl);
   const origens = origensAutorizadas(fiorixApiUrl);
@@ -213,6 +233,14 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
       }
     },
     emitirTicket(caminhoAutorizado, tamanho) {
+      if (tickets.size >= MAX_TICKETS_ATIVOS) {
+        limparExpirados();
+        while (tickets.size >= MAX_TICKETS_ATIVOS) {
+          const oldest = tickets.keys().next().value;
+          if (!oldest) break;
+          tickets.delete(oldest);
+        }
+      }
       ticketsEmitidosTotal++;
       const token = randomBytes(32).toString('base64url');
       const expiraEm = Date.now() + TTL_TICKET_MS;
