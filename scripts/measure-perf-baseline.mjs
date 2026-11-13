@@ -74,7 +74,10 @@ if (fs.existsSync(chunksDir)) {
   };
 }
 
-const outPath = path.join(os.tmpdir(), 'fiorix-perf-baseline.json');
+const outPath = path.join(
+  process.env.RUNNER_TEMP || os.tmpdir(),
+  'fiorix-perf-baseline.json',
+);
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
 
 console.log(`[perf-baseline] Relatório salvo em ${outPath}`);

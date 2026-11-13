@@ -111,7 +111,6 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: synthetic-ci-service-role-placeholder
       FIORIX_INTEGRATION_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
       NEXT_TELEMETRY_DISABLED: '1'
-      TMPDIR: ${{ runner.temp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -129,6 +128,8 @@ jobs:
         run: npm run build
 
       - name: Measure performance baseline & enforce connector bundle budget
+        env:
+          TMPDIR: ${{ runner.temp }}
         run: npm run perf:baseline
 
       - name: Upload performance baseline report

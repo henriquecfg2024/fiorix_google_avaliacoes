@@ -1,3 +1,6 @@
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -441,6 +444,51 @@ describe('Fase 2 — Otimizações Estruturais Vercel (Isolamento, Cache, Navega
       const verboseRes = await postConnectorSync(syncRequest());
       expect(verboseRes.status).toBe(200);
       expect(infoSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('6. Configuração vercel.json e scripts/vercel-ignore-build.mjs (HIGH-07)', () => {
+    it('garante ignoreCommand dentro do limite de 256 caracteres da Vercel e exit 1 quando há alterações em produção', () => {
+      const repoRoot = path.resolve(__dirname, '..');
+      const vercelJson = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'vercel.json'), 'utf8')
+      ) as { ignoreCommand?: string };
+
+      expect(typeof vercelJson.ignoreCommand).toBe('string');
+      expect((vercelJson.ignoreCommand || '').length).toBeLessThanOrEqual(256);
+
+      const scriptPath = path.join(repoRoot, 'scripts', 'vercel-ignore-build.mjs');
+      expect(fs.existsSync(scriptPath)).toBe(true);
+
+      const currentSha = spawnSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      }).stdout.trim();
+
+      const redeployResult = spawnSync('node', [scriptPath], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          VERCEL_ENV: 'production',
+          VERCEL_GIT_COMMIT_REF: 'main',
+          VERCEL_GIT_COMMIT_SHA: currentSha,
+          VERCEL_GIT_PREVIOUS_SHA: currentSha,
+        },
+        encoding: 'utf8',
+      });
+      expect(redeployResult.status).toBe(1);
+
+      const connectorBranchResult = spawnSync('node', [scriptPath], {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          VERCEL_ENV: 'preview',
+          VERCEL_GIT_COMMIT_REF: 'connector-main',
+          VERCEL_GIT_COMMIT_SHA: currentSha,
+        },
+        encoding: 'utf8',
+      });
+      expect(connectorBranchResult.status).toBe(0);
     });
   });
 });
