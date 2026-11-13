@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase';
-import { validateAttachmentFile, logMessagingAudit } from '@/lib/mensagens/security';
+import {
+  validateAttachmentFile,
+  validateAttachmentMetadata,
+  logMessagingAudit,
+} from '@/lib/mensagens/security';
 import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 import { getRequestIp } from '@/lib/security/requestIp';
 import crypto from 'crypto';
@@ -105,18 +109,22 @@ export async function POST(req: NextRequest) {
       }
 
       const maxBytes = policy?.maxAttachmentBytes || 26214400; // 25 MB
-      if (fileSize && fileSize > maxBytes) {
+      const metaValidation = validateAttachmentMetadata(fileName, mimeType, fileSize, maxBytes);
+      if (!metaValidation.valid) {
         return NextResponse.json(
-          { error: `Arquivo muito grande (${(fileSize / 1024 / 1024).toFixed(1)}MB). O tamanho máximo permitido é ${(maxBytes / 1024 / 1024).toFixed(0)}MB.` },
+          { error: metaValidation.error || 'Arquivo rejeitado por políticas de segurança.' },
           { status: 400 }
         );
       }
 
       await ensurePrivateBucketExists();
 
-      const sanitizedBaseName = fileName
+      const baseWithoutExt = String(fileName)
+        .slice(0, String(fileName).lastIndexOf('.'))
         .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .substring(0, 100);
+        .replace(/\.+/g, '_')
+        .substring(0, 80) || 'anexo';
+      const sanitizedBaseName = `${baseWithoutExt}${metaValidation.safeExtension}`;
       const fileUuid = crypto.randomUUID();
       const storagePath = `tenants/${user.tenantId}/conversations/${conversationId}/${Date.now()}_${fileUuid}_${sanitizedBaseName}`;
 

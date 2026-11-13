@@ -1,11 +1,30 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireAuth, requireRole, invalidateUserMetaCache } from '@/lib/auth-helpers';
+import {
+  requireAuth,
+  requireRole,
+  invalidateUserMetaCache,
+  revokeAllUserSessions,
+} from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { isValidCPF, formatCPF } from '@/lib/cpf-validator';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
+
+function canModifyAdminAccount(
+  currentUser: { id: string; role: string },
+  targetUser: { id: string; role: string }
+): boolean {
+  if (
+    targetUser.role === 'ADMIN' &&
+    targetUser.id !== currentUser.id &&
+    currentUser.role !== 'MASTER'
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export async function getUsers() {
   const user = await requireRole('ADMIN', 'MASTER');
@@ -78,13 +97,13 @@ export async function createUserAction(
       return { error: 'A senha inicial deve ter no mínimo 6 caracteres.' };
     }
 
-    // REGRA DE FUNÇÃO: Só Henrique Cesar pode ser ADMIN; demais funções seguem seleção permitida
+    // REGRA ESTRUTURAL DE FUNÇÃO: Apenas MASTER pode conceder perfil ADMIN
     let role = 'COLABORADOR';
     const requestedRole = (formData.get('role') as string) || 'COLABORADOR';
     if (requestedRole === 'ADMIN') {
-      if (!name.toLowerCase().includes('henrique cesar')) {
+      if (currentUser.role !== 'MASTER') {
         return {
-          error: 'Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.',
+          error: 'Apenas o MASTER da plataforma pode cadastrar contas com perfil ADMIN.',
         };
       }
       role = 'ADMIN';
@@ -118,8 +137,9 @@ export async function createUserAction(
         };
       }
       const existingCpf = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 LIMIT 1`,
-        cpfDigits
+        `SELECT id FROM public."User" WHERE "tenantId" = $2 AND cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 LIMIT 1`,
+        cpfDigits,
+        currentUser.tenantId
       );
       if (existingCpf.length > 0) {
         return { error: 'Já existe um colaborador cadastrado com este CPF.' };
@@ -235,16 +255,31 @@ export async function resetUserPassword(userId: string, newPassword: string) {
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode redefinir a senha de outra conta ADMIN.' };
+  }
+
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.$executeRawUnsafe(
     `
     UPDATE public."User"
     SET "passwordHash" = $1, "updatedAt" = NOW()
-    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
   `,
     passwordHash,
-    userId
+    userId,
+    targetUser.tenantId
   );
+
+  await revokeAllUserSessions(userId, { reason: 'admin_password_reset' });
+
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'ALTERACAO',
+    registroId: userId,
+    registroDescricao: `Senha de "${targetUser.name}" (${targetUser.email}) redefinida administrativamente`,
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
@@ -273,9 +308,18 @@ export async function updateUserRole(
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
-  // Só Henrique Cesar pode ser promovido a ADMIN
-  if (newRole === 'ADMIN' && !targetUser.name?.toLowerCase().includes('henrique cesar')) {
-    return { error: 'Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.' };
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode alterar a função de uma conta ADMIN.' };
+  }
+
+  if (
+    (newRole === 'ADMIN' || targetUser.role === 'ADMIN') &&
+    targetUser.role !== newRole &&
+    currentUser.role !== 'MASTER'
+  ) {
+    return {
+      error: 'Apenas o MASTER da plataforma pode conceder ou revogar o perfil ADMIN.',
+    };
   }
 
   try {
@@ -285,10 +329,11 @@ export async function updateUserRole(
       `
       UPDATE public."User"
       SET role = $1::"Role", "updatedAt" = NOW()
-      WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+      WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
     `,
       newRole,
-      userId
+      userId,
+      targetUser.tenantId
     );
     invalidateUserMetaCache(userId);
 
@@ -324,14 +369,19 @@ export async function updateUserName(userId: string, newName: string) {
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode alterar outra conta ADMIN.' };
+  }
+
   await prisma.$executeRawUnsafe(
     `
     UPDATE public."User"
     SET name = $1, "updatedAt" = NOW()
-    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    WHERE id = $2 AND "tenantId" = $3 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
   `,
     newName.trim(),
-    userId
+    userId,
+    targetUser.tenantId
   );
 
   await recordAuditLog({
@@ -359,6 +409,10 @@ export async function updateUserCpf(userId: string, newCpf: string) {
 
   if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
     return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode alterar outra conta ADMIN.' };
   }
 
   const cpfDigits = (newCpf || '').replace(/\D/g, '');
@@ -416,6 +470,14 @@ export async function toggleUserStatus(userId: string) {
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  if (targetUser.id === currentUser.id) {
+    return { error: 'Você não pode desativar sua própria conta.' };
+  }
+
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode alterar o status de outra conta ADMIN.' };
+  }
+
   const rows = await prisma.$queryRawUnsafe<any[]>(
     `SELECT status FROM public."User" WHERE id = $1 AND "tenantId" = $2`,
     userId,
@@ -435,6 +497,9 @@ export async function toggleUserStatus(userId: string) {
     targetUser.tenantId
   );
   invalidateUserMetaCache(userId);
+  if (newStatus === 'inativo') {
+    await revokeAllUserSessions(userId, { reason: 'user_deactivated' });
+  }
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -475,6 +540,14 @@ export async function updateUserProfile(
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode editar outra conta ADMIN.' };
+  }
+
+  if (data.status === 'inativo' && targetUser.id === currentUser.id) {
+    return { error: 'Você não pode desativar sua própria conta.' };
+  }
+
   // Validar e-mail único
   if (data.email && data.email.trim() !== targetUser.email) {
     const existingEmail = await prisma.$queryRawUnsafe<any[]>(
@@ -495,19 +568,30 @@ export async function updateUserProfile(
       return { error: 'CPF inválido. Verifique os dígitos ou deixe o campo em branco.' };
     }
     const existingCpf = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id FROM public."User" WHERE cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
+      `SELECT id FROM public."User" WHERE "tenantId" = $3 AND cpf IS NOT NULL AND regexp_replace(cpf, '\\D', '', 'g') = $1 AND id != $2 LIMIT 1`,
       cpfDigits,
-      userId
+      userId,
+      targetUser.tenantId
     );
     if (existingCpf.length > 0) {
       return { error: 'Este CPF já está cadastrado para outro colaborador.' };
     }
   }
 
-  // Validar role
+  // Validar role e prerrogativa estrutural de ADMIN
   const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'VISITANTE', 'ADMIN'];
   if (data.role && !validRoles.includes(data.role)) {
     return { error: 'Função inválida.' };
+  }
+  if (
+    data.role &&
+    (data.role === 'ADMIN' || targetUser.role === 'ADMIN') &&
+    data.role !== targetUser.role &&
+    currentUser.role !== 'MASTER'
+  ) {
+    return {
+      error: 'Apenas o MASTER da plataforma pode conceder ou revogar o perfil ADMIN.',
+    };
   }
 
   // Construir SET dinâmico
@@ -564,16 +648,23 @@ export async function updateUserProfile(
   }
 
   sets.push(`"updatedAt" = NOW()`);
-  params.push(userId);
+  params.push(userId, targetUser.tenantId);
 
   const query = `
     UPDATE public."User"
     SET ${sets.join(', ')}
-    WHERE id = $${paramIdx} AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    WHERE id = $${paramIdx} AND "tenantId" = $${paramIdx + 1} AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
   `;
 
   await prisma.$executeRawUnsafe(query, ...params);
   invalidateUserMetaCache(userId);
+
+  const totpChanged =
+    data.totpRequired !== undefined &&
+    Boolean(data.totpRequired) !== Boolean((targetUser as any).totpRequired);
+  if (data.status === 'inativo' || (totpChanged && userId !== currentUser.id)) {
+    await revokeAllUserSessions(userId, { reason: 'admin_profile_security_change' });
+  }
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -603,21 +694,47 @@ export async function deleteInactiveUser(userId: string) {
     return { error: 'Não autorizado.' };
   }
 
+  if (!canModifyAdminAccount(currentUser, targetUser)) {
+    return { error: 'Apenas o MASTER da plataforma pode excluir uma conta ADMIN.' };
+  }
+
   // Verificar se está inativo
   const rows = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT status FROM public."User" WHERE id = $1`,
-    userId
+    `SELECT status FROM public."User" WHERE id = $1 AND "tenantId" = $2`,
+    userId,
+    targetUser.tenantId
   );
   if ((rows[0]?.status || 'ativo') !== 'inativo') {
     return { error: 'Somente usuários com status INATIVO podem ser excluídos.' };
   }
 
-  await prisma.$executeRawUnsafe(
-    `DELETE FROM public."User" WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
-    userId,
-    targetUser.tenantId
-  );
+  try {
+    await prisma.pushSubscription.deleteMany({
+      where: { usuarioId: userId, tenantId: targetUser.tenantId },
+    });
+  } catch {
+    // Best-effort em bancos sem tabela de push
+  }
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public."User" WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
+      userId,
+      targetUser.tenantId
+    );
+  } catch (delErr: any) {
+    const code = delErr?.code || delErr?.meta?.code || '';
+    const msg = String(delErr?.message || '');
+    if (code === '23503' || code === 'P2003' || msg.includes('foreign key constraint')) {
+      return {
+        error:
+          'Este usuário possui histórico auditável vinculado (mensagens, comunicados ou documentos) e não pode ser removido fisicamente. Mantenha o status como INATIVO para bloquear o acesso preservando a trilha de auditoria.',
+      };
+    }
+    throw delErr;
+  }
   invalidateUserMetaCache(userId);
+  await revokeAllUserSessions(userId, { reason: 'user_deleted' });
 
   await recordAuditLog({
     modulo: 'USUARIOS',
@@ -657,6 +774,10 @@ export async function toggleUser2FA(userId: string, enable: boolean) {
       return { error: 'Não autorizado a alterar este usuário.' };
     }
 
+    if (!canModifyAdminAccount(currentUser, targetUser)) {
+      return { error: 'Apenas o MASTER da plataforma pode alterar o 2FA de outra conta ADMIN.' };
+    }
+
     if (enable) {
       await prisma.$executeRawUnsafe(
         `
@@ -664,9 +785,10 @@ export async function toggleUser2FA(userId: string, enable: boolean) {
         SET "totpRequired" = true,
             "totpSecret" = CASE WHEN "totpEnabled" = true THEN "totpSecret" ELSE NULL END,
             "updatedAt" = NOW()
-        WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+        WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
       `,
-        userId
+        userId,
+        targetUser.tenantId
       );
     } else {
       await prisma.$executeRawUnsafe(
@@ -677,10 +799,18 @@ export async function toggleUser2FA(userId: string, enable: boolean) {
             "totpSecret" = NULL,
             "totpVerifiedAt" = NULL,
             "updatedAt" = NOW()
-        WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+        WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
       `,
-        userId
+        userId,
+        targetUser.tenantId
       );
+    }
+
+    invalidateUserMetaCache(userId);
+    if (userId !== currentUser.id) {
+      await revokeAllUserSessions(userId, {
+        reason: enable ? 'admin_2fa_enabled' : 'admin_2fa_disabled',
+      });
     }
 
     await recordAuditLog({
@@ -723,6 +853,10 @@ export async function resetUser2FA(userId: string) {
       return { error: 'Não autorizado a alterar este usuário.' };
     }
 
+    if (!canModifyAdminAccount(currentUser, targetUser)) {
+      return { error: 'Apenas o MASTER da plataforma pode redefinir o 2FA de outra conta ADMIN.' };
+    }
+
     await prisma.$executeRawUnsafe(
       `
       UPDATE public."User"
@@ -731,10 +865,16 @@ export async function resetUser2FA(userId: string) {
           "totpSecret" = NULL,
           "totpVerifiedAt" = NULL,
           "updatedAt" = NOW()
-      WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+      WHERE id = $1 AND "tenantId" = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
     `,
-      userId
+      userId,
+      targetUser.tenantId
     );
+
+    invalidateUserMetaCache(userId);
+    if (userId !== currentUser.id) {
+      await revokeAllUserSessions(userId, { reason: 'admin_2fa_reset' });
+    }
 
     await recordAuditLog({
       modulo: 'USUARIOS',
@@ -766,9 +906,12 @@ export async function bulkToggleUsers2FA(enable: boolean) {
             "updatedAt" = NOW()
         WHERE "tenantId" = $1
           AND role != 'MASTER'
+          AND (role != 'ADMIN' OR $2 = 'MASTER' OR id = $3)
           AND email != 'admin@fiorix.com.br';
       `,
-        currentUser.tenantId
+        currentUser.tenantId,
+        currentUser.role,
+        currentUser.id
       );
     } else {
       affectedCount = await prisma.$executeRawUnsafe(
@@ -781,9 +924,12 @@ export async function bulkToggleUsers2FA(enable: boolean) {
             "updatedAt" = NOW()
         WHERE "tenantId" = $1
           AND role != 'MASTER'
+          AND (role != 'ADMIN' OR $2 = 'MASTER' OR id = $3)
           AND email != 'admin@fiorix.com.br';
       `,
-        currentUser.tenantId
+        currentUser.tenantId,
+        currentUser.role,
+        currentUser.id
       );
     }
 

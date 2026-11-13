@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
+import { isRouteAllowedForUser } from "@/lib/nav-permissions/service";
 import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const user = await requireTenant();
+    if (!(await isRouteAllowedForUser("/bi/tarefas", user))) {
+      return NextResponse.json(
+        { success: false, error: "Acesso negado ao módulo de Tarefas." },
+        { status: 403 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const dataInicial = searchParams.get("dataInicial") || searchParams.get("DataInicial") || null;
     const dataFinal = searchParams.get("dataFinal") || searchParams.get("DataFinal") || null;
@@ -44,8 +51,13 @@ export async function GET(request: Request) {
       console.warn("Erro ao buscar tarefas do Postgres:", dbErr);
     }
 
-    // 2. Fallback para MSSQL (procedure dbo.pr_Fiorix_BI_TAREFAS) se o Postgres estiver vazio
-    if (!rawTarefas || rawTarefas.length === 0) {
+    // 2. Fallback para MSSQL restrito exclusivamente a ambientes com flag explícita e tenant proprietário validado
+    const allowDirectMssql =
+      process.env.ALLOW_DIRECT_MSSQL_FALLBACK === "true" &&
+      Boolean(process.env.MSSQL_OWNER_TENANT_ID) &&
+      process.env.MSSQL_OWNER_TENANT_ID === user.tenantId;
+
+    if ((!rawTarefas || rawTarefas.length === 0) && allowDirectMssql) {
       const server = process.env.MSSQL_SERVER;
       const dbUser = process.env.MSSQL_USER;
       const password = process.env.MSSQL_PASSWORD;

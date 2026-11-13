@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { encryptConfig, decryptConfig, maskSensitiveValue } from '@/lib/integration-crypto';
+import {
+  assertSafeOutboundUrl,
+  UnsafeOutboundUrlError,
+} from '@/lib/security/ssrf-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +78,9 @@ export async function GET() {
       auditLogs,
     });
   } catch (err: any) {
+    if (err instanceof UnsafeOutboundUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err.message?.includes('Acesso negado')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -98,6 +105,10 @@ export async function POST(req: NextRequest) {
         { error: 'integrationId e displayName são obrigatórios.' },
         { status: 400 }
       );
+    }
+
+    if (config && typeof config === 'object' && typeof config.apiUrl === 'string' && config.apiUrl.trim()) {
+      await assertSafeOutboundUrl(config.apiUrl.trim());
     }
 
     // Criptografar credenciais
@@ -239,20 +250,21 @@ export async function POST(req: NextRequest) {
           const testApiKey = (testConfig.apiKey as string) || '';
 
           if (testApiUrl && testApiKey) {
-            // Normalizar base URL (remover /v1 do final se presente)
+            // Normalizar base URL (remover /v1 do final se presente) e validar anti-SSRF
             const baseUrl = testApiUrl.replace(/\/v1\/?$/, '');
-            const checkUrl = `${baseUrl}/v1/organization/check`;
+            const safeCheckUrl = await assertSafeOutboundUrl(`${baseUrl}/v1/organization/check`);
 
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 10000);
 
-            const checkResponse = await fetch(checkUrl, {
+            const checkResponse = await fetch(safeCheckUrl.toString(), {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${testApiKey}`,
                 'Accept': 'application/json',
               },
               signal: controller.signal,
+              redirect: 'error',
             });
 
             clearTimeout(timeout);
@@ -338,6 +350,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ integration: record, testResult: null });
   } catch (err: any) {
+    if (err instanceof UnsafeOutboundUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err.message?.includes('Acesso negado')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -494,6 +509,9 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ error: 'Ação inválida.' }, { status: 400 });
   } catch (err: any) {
+    if (err instanceof UnsafeOutboundUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err.message?.includes('Acesso negado')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }

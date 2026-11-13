@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { sanitizeDocumentHtml } from '@/lib/security/html-sanitizer';
 import {
   Building2,
   FileText,
@@ -2742,7 +2743,7 @@ export function VisualizadorDedicado({
                 <div
                   className="font-serif text-[14px] sm:text-[16px] leading-relaxed text-slate-900 space-y-4 prose-p:text-justify prose-p:indent-6 sm:prose-p:indent-8 prose-headings:font-sans prose-headings:text-slate-900"
                   dangerouslySetInnerHTML={{
-                    __html: documentoAtivo.html || `<p>${documentoAtivo.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`,
+                    __html: sanitizeDocumentHtml(documentoAtivo.html, documentoAtivo.text),
                   }}
                 />
               </div>

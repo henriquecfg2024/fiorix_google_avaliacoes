@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireRole } from "@/lib/auth-helpers";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "RH")) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    await requireRole("ADMIN", "RH", "MASTER");
 
     const body = await req.json();
     const { dataInicio, isOverride } = body;
@@ -49,7 +46,14 @@ export async function POST(req: NextRequest) {
       mensagem: `Antecedência em conformidade (${diffDays} dias).` 
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.message || "");
+    if (msg.includes("Não autenticado") || msg.includes("Sessão expirada") || msg.includes("Conta desativada")) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    if (msg.includes("Acesso negado")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
     console.error("Erro na validação de férias:", error);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
   }

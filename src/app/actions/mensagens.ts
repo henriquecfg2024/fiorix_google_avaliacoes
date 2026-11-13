@@ -341,6 +341,55 @@ export async function sendMessage(params: {
       return { success: false, error: 'Somente administradores podem enviar mensagens neste grupo.' };
     }
 
+    // Aplica política institucional de mensageria do tenant (MessagingPolicy)
+    const policy = await prisma.messagingPolicy.findUnique({
+      where: { tenantId: user.tenantId },
+    });
+
+    if (policy) {
+      if (membership.conversa.tipo === 'DIRECT' && policy.directEnabled === false) {
+        return { success: false, error: 'O envio em conversas diretas está desativado para sua organização.' };
+      }
+      if (membership.conversa.tipo === 'GROUP' && policy.groupsEnabled === false) {
+        return { success: false, error: 'O envio em grupos está desativado para sua organização.' };
+      }
+    }
+
+    if (attachmentData) {
+      if (policy && policy.attachmentsEnabled === false) {
+        return { success: false, error: 'O envio de anexos está desativado para sua organização.' };
+      }
+
+      const maxBytes = policy?.maxAttachmentBytes || 26214400; // 25 MB padrão
+      if (
+        !Number.isFinite(attachmentData.tamanhoBytes) ||
+        attachmentData.tamanhoBytes <= 0 ||
+        attachmentData.tamanhoBytes > maxBytes
+      ) {
+        return { success: false, error: 'Tamanho de anexo inválido ou acima do limite permitido pela organização.' };
+      }
+
+      const allowedMimes = Array.isArray((policy as any)?.allowedMimes)
+        ? ((policy as any).allowedMimes as string[])
+        : [];
+      if (
+        allowedMimes.length > 0 &&
+        !allowedMimes.some((m) => m.toLowerCase() === String(attachmentData.mimeType || '').toLowerCase())
+      ) {
+        return { success: false, error: 'Tipo de arquivo não permitido pela política de segurança da organização.' };
+      }
+
+      const expectedPrefix = `tenants/${user.tenantId}/conversations/${conversationId}/`;
+      const normalizedStoragePath = String(attachmentData.storagePath || '').trim();
+      if (
+        !normalizedStoragePath.startsWith(expectedPrefix) ||
+        normalizedStoragePath.includes('..') ||
+        normalizedStoragePath.includes('\\')
+      ) {
+        return { success: false, error: 'Caminho de armazenamento do anexo inválido para esta conversa.' };
+      }
+    }
+
     let validReplyToId: string | null = null;
     if (replyToId) {
       const targetMsg = await prisma.mensagem.findFirst({
@@ -484,6 +533,13 @@ export async function createDirectConversation(targetUserId: string): Promise<{
 
     if (targetUserId === user.id) {
       return { success: false, error: 'Não é possível iniciar uma conversa consigo mesmo.' };
+    }
+
+    const policy = await prisma.messagingPolicy.findUnique({
+      where: { tenantId: user.tenantId },
+    });
+    if (policy && policy.directEnabled === false) {
+      return { success: false, error: 'Conversas diretas estão desativadas para sua organização.' };
     }
 
     // REGRA CRÍTICA MULTI-TENANT: valida se o usuário alvo pertence à mesma organização

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { auth } from "@/auth";
+import { requireRole } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateHash } from "@/lib/security/hash";
@@ -52,18 +52,10 @@ function normNomeBasico(s: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (
-      !session?.user ||
-      (session.user.role !== "ADMIN" &&
-        session.user.role !== "RH" &&
-        session.user.role !== "MASTER")
-    ) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-    }
+    const user = await requireRole("ADMIN", "RH", "MASTER");
 
-    const tenantId = session.user.tenantId;
-    const uploaderId = session.user.id;
+    const tenantId = user.tenantId;
+    const uploaderId = user.id;
 
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
@@ -519,7 +511,14 @@ export async function POST(req: NextRequest) {
       rejeitados,
       resultados,
     });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.message || "");
+    if (msg.includes("Não autenticado") || msg.includes("Sessão expirada") || msg.includes("Conta desativada")) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    if (msg.includes("Acesso negado")) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    }
     console.error("Erro no upload de holerites:", error);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
   }

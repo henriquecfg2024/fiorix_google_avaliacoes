@@ -703,30 +703,19 @@ export async function getEffectiveUserNavigation(user: {
   return filteredGroups;
 }
 
-/**
- * Avalia se o usuário tem permissão para acessar a rota dada.
- * Precedência: Guarda Estrutural > Colaborador > Departamento > Perfil > Legado.
- */
-export async function isRouteAllowedForUser(
-  pathname: string,
-  user: { id: string; role: string; tenantId: string; departamento?: string | null }
-): Promise<boolean> {
-  if (!isNavPermissionsFeatureEnabled()) return true;
-  if (user.role === 'MASTER') return true;
-
-  if (pathname === '/' || pathname === '/minha-conta') return true;
-
-  const matchingItem = ALL_NAV_CATALOG_ITEMS.find((item) => {
-    if (item.href === pathname) return true;
-    if (item.href.includes('?') && item.href.split('?')[0] === pathname) return true;
-    if (pathname.startsWith('/cartorio-virtual/certidoes/') && item.id === 'cv_certidoes') return true;
-    return false;
+const PREFIX_SORTED_CATALOG_ITEMS: NavCatalogItem[] = ALL_NAV_CATALOG_ITEMS
+  .filter((item) => !item.href.includes('#'))
+  .slice()
+  .sort((a, b) => {
+    const baseA = a.href.split('?')[0].replace(/\/+$/, '') || '/';
+    const baseB = b.href.split('?')[0].replace(/\/+$/, '') || '/';
+    return baseB.length - baseA.length;
   });
 
-  if (!matchingItem) {
-    return true;
-  }
-
+async function isCatalogItemAllowedForUser(
+  matchingItem: NavCatalogItem,
+  user: { id: string; role: string; tenantId: string; departamento?: string | null }
+): Promise<boolean> {
   // 1. Guarda estrutural
   const structural = checkStructuralRestriction(matchingItem, user.role);
   if (structural.isBlocked) return false;
@@ -753,6 +742,127 @@ export async function isRouteAllowedForUser(
 
   // 5. Fallback legado
   return isItemVisibleInLegacy(matchingItem, user.role);
+}
+
+async function isAnyCatalogItemIdAllowed(
+  itemIds: string[],
+  user: { id: string; role: string; tenantId: string; departamento?: string | null }
+): Promise<boolean> {
+  for (const id of itemIds) {
+    const item = ITEM_BY_ID.get(id);
+    if (item && (await isCatalogItemAllowedForUser(item, user))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Avalia se o usuário tem permissão para acessar a rota dada.
+ * Precedência: Guarda Estrutural > Colaborador > Departamento > Perfil > Legado.
+ * Aplica match pelo maior prefixo canônico e default-deny para rotas não catalogadas.
+ */
+export async function isRouteAllowedForUser(
+  pathname: string,
+  user: { id: string; role: string; tenantId: string; departamento?: string | null }
+): Promise<boolean> {
+  if (!isNavPermissionsFeatureEnabled()) return true;
+  if (user.role === 'MASTER') return true;
+
+  const rawPath = String(pathname || '').trim();
+  const cleanPath = rawPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+
+  // Rotas utilitárias explícitas para qualquer sessão autenticada válida
+  if (
+    cleanPath === '/' ||
+    cleanPath === '/minha-conta' ||
+    cleanPath === '/meu-perfil' ||
+    cleanPath === '/sem-acesso'
+  ) {
+    return true;
+  }
+
+  // Espaço exclusivo MASTER (incluindo subrotas fora do catálogo do cliente)
+  if (
+    cleanPath === '/master' ||
+    cleanPath.startsWith('/master/') ||
+    cleanPath === '/configuracoes/grupos-permissoes' ||
+    cleanPath.startsWith('/configuracoes/grupos-permissoes/')
+  ) {
+    return false;
+  }
+
+  // Aliases e hubs que delegam permissão a itens canônicos específicos antes do match por prefixo
+  if (cleanPath === '/instrucoes-trabalho' || cleanPath.startsWith('/instrucoes-trabalho/')) {
+    return isAnyCatalogItemIdAllowed(['minha_it', 'gestao_its'], user);
+  }
+  if (cleanPath === '/visualizador-documental' || cleanPath.startsWith('/visualizador-documental/')) {
+    return isAnyCatalogItemIdAllowed(['visualizador_documental'], user);
+  }
+  if (cleanPath === '/bi/importar' || cleanPath.startsWith('/bi/importar/')) {
+    return isAnyCatalogItemIdAllowed(['importacao_contingencia'], user);
+  }
+  if (cleanPath === '/jornada' || cleanPath.startsWith('/jornada/')) {
+    return isAnyCatalogItemIdAllowed(['rastreio'], user);
+  }
+  if (
+    cleanPath === '/sistema/pessoas' ||
+    cleanPath === '/administracao/rh' ||
+    cleanPath.startsWith('/administracao/rh/')
+  ) {
+    return isAnyCatalogItemIdAllowed(['gestao_comunicados', 'rh_ferias', 'rh_holerites'], user);
+  }
+  if (cleanPath === '/sistema/pessoas/usuarios' || cleanPath.startsWith('/sistema/pessoas/usuarios/')) {
+    return isAnyCatalogItemIdAllowed(['configuracoes'], user);
+  }
+  if (
+    (cleanPath === '/configuracoes/departamentos' ||
+      cleanPath.startsWith('/configuracoes/departamentos/')) &&
+    user.role === 'RH'
+  ) {
+    return isAnyCatalogItemIdAllowed(
+      ['configuracoes', 'gestao_comunicados', 'rh_ferias', 'rh_holerites'],
+      user
+    );
+  }
+  if (cleanPath === '/pessoas') {
+    return isAnyCatalogItemIdAllowed(['comunicados', 'minha_it', 'ferias', 'holerites'], user);
+  }
+  if (
+    cleanPath === '/relatorios/imprimir-colaboradores' ||
+    cleanPath.startsWith('/relatorios/imprimir-colaboradores/')
+  ) {
+    return isAnyCatalogItemIdAllowed(
+      ['configuracoes', 'gestao_comunicados', 'rh_ferias', 'rh_holerites'],
+      user
+    );
+  }
+  if (cleanPath === '/relatorios/imprimir-mensal' || cleanPath.startsWith('/relatorios/imprimir-mensal/')) {
+    return isAnyCatalogItemIdAllowed(['relatorios'], user);
+  }
+  if (cleanPath === '/preview-visao-consolidada' || cleanPath.startsWith('/preview-visao-consolidada/')) {
+    return isAnyCatalogItemIdAllowed(['inicio'], user);
+  }
+  if (
+    cleanPath === '/gestao/rh/instrucoes-trabalho-monitoramento' ||
+    cleanPath.startsWith('/gestao/rh/instrucoes-trabalho-monitoramento/')
+  ) {
+    return isAnyCatalogItemIdAllowed(['gestao_its'], user);
+  }
+
+  // Match pelo maior prefixo canônico no catálogo
+  const matchingItem = PREFIX_SORTED_CATALOG_ITEMS.find((item) => {
+    const baseHref = item.href.split('?')[0].replace(/\/+$/, '') || '/';
+    if (baseHref === '/') return cleanPath === '/';
+    return cleanPath === baseHref || cleanPath.startsWith(`${baseHref}/`);
+  });
+
+  // Default-deny em rotas não catalogadas
+  if (!matchingItem) {
+    return false;
+  }
+
+  return isCatalogItemAllowedForUser(matchingItem, user);
 }
 
 /**

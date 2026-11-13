@@ -3,13 +3,20 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./lib/prisma";
 import { authConfig } from "./auth.config";
-import { verifyTotpToken, userRequires2FA } from "./lib/totp";
+import {
+  verifyTotpTokenAsync,
+  userRequires2FA,
+  encryptTotpSecret,
+  isEncryptedTotpSecret,
+} from "./lib/totp";
 import {
   checkLoginLockout,
   recordFailedLogin,
   clearLoginAttempts,
   DUMMY_BCRYPT_HASH,
 } from "./lib/security/login-lockout";
+
+export const JWT_SESSION_MAX_AGE_SECONDS = 12 * 60 * 60; // 12 horas (expediente diário)
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -72,24 +79,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!user.totpSecret) {
             throw new Error('REQUIRES_2FA');
           }
-          
+
           if (!totpCode) {
             // Senha correta, mas precisa de 2FA — lança erro especial
             throw new Error('REQUIRES_2FA');
           }
 
-          // Valida o código TOTP (com registro de falha em lockout para prevenir força bruta de 6 dígitos)
-          const isValid = verifyTotpToken(totpCode, user.totpSecret);
+          // Valida o código TOTP com proteção anti-replay e registro de falha em lockout
+          const isValid = await verifyTotpTokenAsync(totpCode, user.totpSecret, `login:${user.id}`);
           if (!isValid) {
             await recordFailedLogin(normalizedEmail);
             throw new Error('INVALID_2FA_CODE');
           }
 
-          // Se ainda não estava ativado, ativa no primeiro código válido!
-          if (!user.totpEnabled) {
+          // Se ainda não estava ativado (ou se o segredo legado ainda estava em texto plano), atualiza com AES-256-GCM em repouso
+          const needsSecretMigration = !isEncryptedTotpSecret(user.totpSecret);
+          if (!user.totpEnabled || needsSecretMigration) {
             await prisma.user.update({
               where: { id: user.id },
-              data: { totpEnabled: true, totpRequired: true, totpVerifiedAt: new Date() },
+              data: {
+                ...(user.totpEnabled
+                  ? {}
+                  : { totpEnabled: true, totpRequired: true, totpVerifiedAt: new Date() }),
+                ...(needsSecretMigration ? { totpSecret: encryptTotpSecret(user.totpSecret) } : {}),
+              },
             });
           }
         }
@@ -106,5 +119,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: JWT_SESSION_MAX_AGE_SECONDS,
+  },
 });

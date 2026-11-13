@@ -7,6 +7,79 @@ export const BLOCKED_EXTENSIONS = new Set([
   '.svg', '.html', '.htm', '.xhtml', '.phtml', '.php', '.asp', '.aspx', '.jsp',
 ]);
 
+// Allowlist explícita de extensões e MIMEs aceitos no chat corporativo (inclusive Signed Upload URL)
+export const ALLOWED_ATTACHMENT_EXTENSIONS: Record<string, string[]> = {
+  '.pdf': ['application/pdf', 'application/x-pdf'],
+  '.png': ['image/png'],
+  '.jpg': ['image/jpeg', 'image/jpg'],
+  '.jpeg': ['image/jpeg', 'image/jpg'],
+  '.webp': ['image/webp'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+  '.txt': ['text/plain'],
+  '.csv': ['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel'],
+};
+
+/**
+ * Valida metadados (extensão, MIME e tamanho) antes de emitir Signed Upload URL para o Supabase Storage.
+ */
+export function validateAttachmentMetadata(
+  fileName: string,
+  declaredMimeType?: string | null,
+  fileSizeBytes?: number | null,
+  maxSizeBytes: number = 26214400
+): { valid: boolean; error?: string; safeMimeType?: string; safeExtension?: string } {
+  const trimmedName = String(fileName || '').trim();
+  if (!trimmedName) {
+    return { valid: false, error: 'Nome do arquivo é obrigatório.' };
+  }
+
+  if (fileSizeBytes === undefined || fileSizeBytes === null || !Number.isFinite(Number(fileSizeBytes))) {
+    return { valid: false, error: 'Tamanho do arquivo (fileSize) é obrigatório para autorização de upload.' };
+  }
+  const size = Number(fileSizeBytes);
+  if (size <= 0) {
+    return { valid: false, error: 'O arquivo enviado está vazio.' };
+  }
+  if (size > maxSizeBytes) {
+    const maxMb = (maxSizeBytes / (1024 * 1024)).toFixed(0);
+    return { valid: false, error: `O arquivo excede o limite máximo permitido de ${maxMb}MB.` };
+  }
+
+  const lowerName = trimmedName.toLowerCase();
+  const lastDotIndex = lowerName.lastIndexOf('.');
+  if (lastDotIndex <= 0 || lastDotIndex === lowerName.length - 1) {
+    return { valid: false, error: 'O arquivo deve conter uma extensão válida.' };
+  }
+
+  const ext = lowerName.substring(lastDotIndex);
+  if (BLOCKED_EXTENSIONS.has(ext)) {
+    return { valid: false, error: `Arquivos do tipo ${ext} são bloqueados por políticas de segurança corporativa.` };
+  }
+
+  const allowedMimes = ALLOWED_ATTACHMENT_EXTENSIONS[ext];
+  if (!allowedMimes) {
+    return {
+      valid: false,
+      error: `Extensão ${ext} não suportada. Formatos permitidos: PDF, PNG, JPG, WEBP, DOCX, XLSX, TXT, CSV.`,
+    };
+  }
+
+  const cleanMime = String(declaredMimeType || '').trim().toLowerCase();
+  if (!cleanMime || !allowedMimes.includes(cleanMime)) {
+    return {
+      valid: false,
+      error: `Tipo MIME inválido ou incompatível com a extensão ${ext}.`,
+    };
+  }
+
+  return {
+    valid: true,
+    safeMimeType: allowedMimes[0],
+    safeExtension: ext,
+  };
+}
+
 // Magic bytes signatures para validação profunda de tipo real de arquivo
 const FILE_SIGNATURES: { mime: string; check: (buf: Buffer) => boolean }[] = [
   // PDF: %PDF- (0x25 0x50 0x44 0x46 0x2D)

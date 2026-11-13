@@ -4,6 +4,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import UTIF from 'utif';
 import UPNG from 'upng-js';
+import { sanitizeDocumentHtml, plainTextToSafeHtml } from '@/lib/security/html-sanitizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -700,18 +701,16 @@ export async function GET(req: Request) {
           const textResult = await mammoth.extractRawText({ path: resolved.fullPath });
           bodyText = textResult.value || '';
           const htmlResult = await mammoth.convertToHtml({ path: resolved.fullPath });
-          bodyHtml = htmlResult.value || '';
+          bodyHtml = sanitizeDocumentHtml(htmlResult.value || '', bodyText);
         } catch (e) {
           console.error('Erro ao ler doc com mammoth:', e);
         }
       }
 
       if (!bodyHtml && bodyText) {
-        bodyHtml = bodyText
-          .split(/\n\s*\n/)
-          .filter(Boolean)
-          .map((p: string) => `<p class="mb-4 leading-relaxed">${p.trim().replace(/\n/g, '<br/>')}</p>`)
-          .join('\n');
+        bodyHtml = plainTextToSafeHtml(bodyText);
+      } else if (bodyHtml) {
+        bodyHtml = sanitizeDocumentHtml(bodyHtml, bodyText);
       }
 
       const streamUrl = `/api/documental/ken?stream=1&path=${encodeURIComponent(resolved.relativePath)}&sessao=${encodeURIComponent(sessao)}`;

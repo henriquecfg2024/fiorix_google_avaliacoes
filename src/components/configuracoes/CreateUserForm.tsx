@@ -285,7 +285,7 @@ export function CreateUserForm({ departamentosDb }: CreateUserFormProps) {
         </div>
         <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
           <span className="font-bold text-indigo-400 block mb-0.5">Administrador:</span>
-          <span>Acesso administrativo geral (Henrique Cesar Ferreira Gama).</span>
+          <span>Acesso administrativo geral (concessão exclusiva pelo MASTER).</span>
         </div>
       </div>
     </form>

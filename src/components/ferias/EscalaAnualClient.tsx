@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { escapeCsvCell } from "@/lib/security/csv-escape";
 import {
   Users,
   CalendarCheck,
@@ -489,10 +490,7 @@ export function EscalaAnualClient({
       "Status",
     ];
 
-    const escapeCsv = (val: string | number | null | undefined) => {
-      const str = val == null ? "" : String(val);
-      return `"${str.replace(/"/g, '""')}"`;
-    };
+    const escapeCsv = (val: string | number | null | undefined) => escapeCsvCell(val);
 
     const rows = filteredColaboradores.map((c) => {
       const dg = c.dadosGestor;

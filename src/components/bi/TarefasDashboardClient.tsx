@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { escapeCsvCell } from "@/lib/security/csv-escape";
 import {
   AlertTriangle,
   ArrowDown,
@@ -720,15 +721,15 @@ export function TarefasDashboardClient() {
         [
           r.protocolo,
           r.seqTitulo,
-          formatDisplayDate(r.dtPrevisao),
-          r.statusPrevisao,
-          r.nivelRisco,
-          `"${r.tarefa || ""}"`,
-          `"${r.responsavel || ""}"`,
-          r.situacaoTarefa,
-          formatDisplayDate(r.dataAbertura),
-          `"${r.tipo || ""}"`,
-          `"${r.natureza || ""}"`,
+          escapeCsvCell(formatDisplayDate(r.dtPrevisao)),
+          escapeCsvCell(r.statusPrevisao),
+          escapeCsvCell(r.nivelRisco),
+          escapeCsvCell(r.tarefa || ""),
+          escapeCsvCell(r.responsavel || ""),
+          escapeCsvCell(r.situacaoTarefa),
+          escapeCsvCell(formatDisplayDate(r.dataAbertura)),
+          escapeCsvCell(r.tipo || ""),
+          escapeCsvCell(r.natureza || ""),
         ].join(";")
       ),
     ];

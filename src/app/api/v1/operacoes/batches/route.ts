@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { sanitizeDatabaseError } from '@/lib/health/operations-service';
+import { escapeCsvCell } from '@/lib/security/csv-escape';
 import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -105,19 +106,19 @@ export async function GET(req: Request) {
       const rows = exportBatches
         .map((b) =>
           [
-            `"${b.batchId}"`,
-            `"${b.source.toUpperCase()}"`,
-            `"${b.syncMode.toUpperCase()}"`,
-            `"${b.status.toUpperCase()}"`,
+            escapeCsvCell(b.batchId),
+            escapeCsvCell(b.source.toUpperCase()),
+            escapeCsvCell(b.syncMode.toUpperCase()),
+            escapeCsvCell(b.status.toUpperCase()),
             b.recordsReceived,
             b.recordsInserted,
             b.recordsUpdated,
             b.chunkCount,
             b.durationMs ?? '',
-            `"${b.generatedAt.toISOString()}"`,
-            `"${b.receivedAt.toISOString()}"`,
-            b.processedAt ? `"${b.processedAt.toISOString()}"` : '""',
-            `"${(b.errorMessage || '').replace(/"/g, '""')}"`,
+            escapeCsvCell(b.generatedAt.toISOString()),
+            escapeCsvCell(b.receivedAt.toISOString()),
+            b.processedAt ? escapeCsvCell(b.processedAt.toISOString()) : '""',
+            escapeCsvCell(b.errorMessage || ''),
           ].join(';')
         )
         .join('\r\n');

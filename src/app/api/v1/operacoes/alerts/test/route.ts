@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { sanitizeDatabaseError } from '@/lib/health/operations-service';
 import { dispatchTestAlert } from '@/lib/alerts/alert-dispatcher';
-import { getAlertConfig } from '@/lib/alerts/alert-storage';
+import { getAlertConfig, restoreMaskedAlertSecrets } from '@/lib/alerts/alert-storage';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -38,18 +38,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Parâmetros de teste inválidos', details: parsed.error.issues }, { status: 400 });
     }
 
-    const data = parsed.data;
-
-    // Se senha SMTP for '••••••••', recuperar do banco
-    if (data.emailConfig?.pass === '••••••••' || !data.emailConfig?.pass) {
-      const existing = await getAlertConfig(tenantId);
-      if (existing?.emailConfig?.pass) {
-        data.emailConfig = {
-          ...data.emailConfig,
-          pass: existing.emailConfig.pass,
-        };
-      }
-    }
+    const existing = await getAlertConfig(tenantId);
+    const data = restoreMaskedAlertSecrets(parsed.data, existing);
 
     const result = await dispatchTestAlert({
       tenantId,

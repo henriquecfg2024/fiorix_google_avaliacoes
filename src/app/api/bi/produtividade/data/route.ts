@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { Prisma } from "@prisma/client";
+import { produtividadeTenantCache } from "@/lib/bi-produtividade-cache";
 
 export const dynamic = "force-dynamic";
-
-const PRODUTIVIDADE_CACHE_TTL_MS = 60_000; // 60s de cache por tenant para evitar transferências repetidas
-const produtividadeTenantCache = new Map<string, { rows: Record<string, unknown>[]; exp: number }>();
 
 export async function GET(request: Request) {
   try {
@@ -17,8 +15,8 @@ export async function GET(request: Request) {
 
     if (!forceRefresh && !isTestEnv) {
       const cached = produtividadeTenantCache.get(user.tenantId);
-      if (cached && cached.exp > Date.now()) {
-        return NextResponse.json({ success: true, data: cached.rows, cached: true });
+      if (cached) {
+        return NextResponse.json({ success: true, data: cached, cached: true });
       }
     }
 
@@ -43,10 +41,7 @@ export async function GET(request: Request) {
     );
 
     if (!isTestEnv) {
-      produtividadeTenantCache.set(user.tenantId, {
-        rows,
-        exp: Date.now() + PRODUTIVIDADE_CACHE_TTL_MS,
-      });
+      produtividadeTenantCache.set(user.tenantId, rows);
     }
 
     return NextResponse.json({ success: true, data: rows });

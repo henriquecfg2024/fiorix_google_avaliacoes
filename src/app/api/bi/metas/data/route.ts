@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
+import { isRouteAllowedForUser } from "@/lib/nav-permissions/service";
 import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const user = await requireTenant();
+    if (!(await isRouteAllowedForUser("/bi/metas", user))) {
+      return NextResponse.json(
+        { success: false, error: "Acesso negado ao módulo de Metas." },
+        { status: 403 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const useSimulation = searchParams.get("simulate") === "true";
 
@@ -78,8 +85,13 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fallback para SQL Server se estiver vazio ou com erro
-    if (!rawMetas || rawMetas.length === 0) {
+    // Fallback para SQL Server restrito exclusivamente a ambientes com flag explícita e tenant proprietário validado
+    const allowDirectMssql =
+      process.env.ALLOW_DIRECT_MSSQL_FALLBACK === "true" &&
+      Boolean(process.env.MSSQL_OWNER_TENANT_ID) &&
+      process.env.MSSQL_OWNER_TENANT_ID === user.tenantId;
+
+    if ((!rawMetas || rawMetas.length === 0) && allowDirectMssql) {
       const server = process.env.MSSQL_SERVER;
       const dbUser = process.env.MSSQL_USER;
       const password = process.env.MSSQL_PASSWORD;

@@ -41,23 +41,43 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      const updated = await prisma.pushSubscription.update({
-        where: { id: existing.id },
-        data: {
-          usuarioId: user.id,
-          tenantId: user.tenantId,
-          p256dh,
-          auth: authKey,
-          deviceName: deviceName || existing.deviceName,
-          userAgent: userAgent || req.headers.get('user-agent') || existing.userAgent,
-          ipAddress,
-          isActive: true,
-          revokedAt: null,
-          lastUsedAt: new Date(),
-        },
-      });
+      const sameOwner =
+        existing.usuarioId === user.id && existing.tenantId === user.tenantId;
 
-      return NextResponse.json({ success: true, subscriptionId: updated.id });
+      if (sameOwner) {
+        const updated = await prisma.pushSubscription.update({
+          where: { id: existing.id },
+          data: {
+            p256dh,
+            auth: authKey,
+            deviceName: deviceName || existing.deviceName,
+            userAgent: userAgent || req.headers.get('user-agent') || existing.userAgent,
+            ipAddress,
+            isActive: true,
+            revokedAt: null,
+            lastUsedAt: new Date(),
+          },
+        });
+
+        return NextResponse.json({ success: true, subscriptionId: updated.id });
+      }
+
+      // Endpoint previamente associado a outro usuário ou tenant:
+      // bloqueia tomada silenciosa se ainda estiver ativo; se já revogado (ex.: após logout em estação compartilhada),
+      // remove o registro revogado anterior e prossegue com criação limpa e auditada para o novo titular.
+      if (existing.isActive) {
+        return NextResponse.json(
+          {
+            error:
+              'Esta inscrição de navegador ainda está vinculada a outra sessão ativa. Renove a inscrição de notificações.',
+          },
+          { status: 409 }
+        );
+      }
+
+      await prisma.pushSubscription.delete({
+        where: { id: existing.id },
+      });
     }
 
     // 2. Verifica cota de dispositivos ativos do usuário

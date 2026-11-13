@@ -69,15 +69,15 @@ describe('Holerites — Validação Estrita 1-para-1 de CPF (11 dígitos) e Reve
   });
 
   it('bloqueia holerites fictícios mesmo quando os 2 últimos dígitos coincidem com colaboradores reais', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: {
-        id: 'user_rh_1',
-        name: 'Nadia Najjar',
-        email: 'rh@7ri.com.br',
-        role: 'RH',
-        tenantId,
-      },
-    } as any);
+    const rhUser = {
+      id: 'user_rh_1',
+      name: 'Nadia Najjar',
+      email: 'rh@7ri.com.br',
+      role: 'RH',
+      tenantId,
+    };
+    vi.mocked(auth).mockResolvedValue({ user: rhUser } as any);
+    vi.mocked(requireRole).mockResolvedValue(rhUser as any);
 
     // Nenhum User nem GESTOR possui exatamente esses 4 CPFs fictícios
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
@@ -116,15 +116,15 @@ describe('Holerites — Validação Estrita 1-para-1 de CPF (11 dígitos) e Reve
   });
 
   it('aceita holerite somente quando os 11 dígitos coincidem exatamente com colaborador ativo da Serventia', async () => {
-    vi.mocked(auth).mockResolvedValue({
-      user: {
-        id: 'user_rh_1',
-        name: 'Nadia Najjar',
-        email: 'rh@7ri.com.br',
-        role: 'RH',
-        tenantId,
-      },
-    } as any);
+    const rhUser = {
+      id: 'user_rh_1',
+      name: 'Nadia Najjar',
+      email: 'rh@7ri.com.br',
+      role: 'RH',
+      tenantId,
+    };
+    vi.mocked(auth).mockResolvedValue({ user: rhUser } as any);
+    vi.mocked(requireRole).mockResolvedValue(rhUser as any);
 
     // CPF matematicamente válido de 11 dígitos pertencente exatamente ao colaborador ativo
     const cpfColaborador = '52998224725';

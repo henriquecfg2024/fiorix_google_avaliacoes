@@ -1,6 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { decryptConfig } from '@/lib/integration-crypto';
+import { BoundedTtlMap } from '@/lib/security/bounded-ttl-map';
 import { isWeekend, generateDayRecords } from './historical-generator';
+
+export function isDemoSyntheticTenant(tenantId: string): boolean {
+  if (process.env.ESPERA_ALLOW_DEMO_SYNTHETIC === 'true') return true;
+  const clean = String(tenantId || '').trim().toLowerCase();
+  return clean === 'demo' || clean.startsWith('demo-') || clean.startsWith('demo_');
+}
 
 export interface SenhaRecord {
   id: string;
@@ -89,6 +96,7 @@ export interface EsperaDataResponse {
   performanceAgentes: PerformanceAgente[];
   suspensoes: Suspensao[];
   agendamentos: Agendamento[];
+  dataSource?: 'REAL_CONNECTOR' | 'DEMO_SYNTHETIC';
   error: string | null;
 }
 
@@ -430,17 +438,12 @@ function getDateRange(periodo: string) {
   return { startIso, endIso };
 }
 
-// Caches globais compartilhados por instância quente
-interface EsperaCacheEntry {
-  data: EsperaDataResponse;
-  timestamp: number;
-}
-const globalEsperaCache = new Map<string, EsperaCacheEntry>();
-const inFlightRequests = new Map<string, Promise<EsperaDataResponse>>();
-const globalSiteIdCache = new Map<string, { siteId: string; label: string; timestamp: number }>();
-
+// Caches globais compartilhados por instância quente (limitados por BoundedTtlMap — LOW-01)
 const CACHE_TTL_MS = 25_000; // 25s de cache rápido
 const SITE_CACHE_TTL_MS = 24 * 3_600_000; // 24h para mapeamento do site
+const globalEsperaCache = new BoundedTtlMap<string, EsperaDataResponse>(64, CACHE_TTL_MS);
+const inFlightRequests = new Map<string, Promise<EsperaDataResponse>>();
+const globalSiteIdCache = new BoundedTtlMap<string, { siteId: string; label: string }>(64, SITE_CACHE_TTL_MS);
 
 export async function getEsperaData(
   tenantId: string,
@@ -451,8 +454,8 @@ export async function getEsperaData(
 
   if (!forceRefresh) {
     const cached = globalEsperaCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data;
+    if (cached) {
+      return cached;
     }
 
     const inFlight = inFlightRequests.get(cacheKey);
@@ -544,7 +547,7 @@ export async function getEsperaData(
       let siteLabel = '';
 
       const cachedSite = globalSiteIdCache.get(tenantId);
-      if (cachedSite && Date.now() - cachedSite.timestamp < SITE_CACHE_TTL_MS) {
+      if (cachedSite) {
         resolvedSiteId = cachedSite.siteId;
         siteLabel = cachedSite.label;
       } else {
@@ -574,7 +577,7 @@ export async function getEsperaData(
                 resolvedSiteId = sitesData[0]._id;
                 siteLabel = sitesData[0].label;
               }
-              globalSiteIdCache.set(tenantId, { siteId: resolvedSiteId, label: siteLabel, timestamp: Date.now() });
+              globalSiteIdCache.set(tenantId, { siteId: resolvedSiteId, label: siteLabel });
             }
           }
         } catch {
@@ -683,15 +686,18 @@ export async function getEsperaData(
       }
 
       let normalized = allCombinedTickets.map((t, i) => normalizeTicket(t, i));
+      const allowSyntheticDemo = isDemoSyntheticTenant(tenantId);
+      let usedSyntheticDemo = false;
 
-      // Tratamento e enriquecimento com histórico determinístico para os últimos 5 anos:
-      // 1. Finais de semana (Sábado e Domingo) NUNCA possuem expediente (0 senhas registradas)
-      // 2. Dias úteis (Segunda a Sexta) sem dados suficientes no NextQS são populados com registros realistas
+      // Integridade de dados (LOW-03):
+      // Em tenants reais de produção, NUNCA misturar ou injetar senhas sintéticas em dias com 0 ou poucos tickets.
+      // Dados sintéticos são restritos exclusivamente a tenants de demonstração (DEMO_SYNTHETIC).
       if (/^\d{4}-\d{2}-\d{2}$/.test(periodo)) {
         if (isWeekend(periodo) || periodo > todayStr) {
           normalized = [];
-        } else if (normalized.length === 0) {
+        } else if (normalized.length === 0 && allowSyntheticDemo) {
           normalized = generateDayRecords(periodo, config.slaMinutes);
+          usedSyntheticDemo = true;
         }
       } else if (periodo === 'hoje') {
         if (isWeekend(todayStr)) {
@@ -716,24 +722,18 @@ export async function getEsperaData(
         const combinedRecords: SenhaRecord[] = [];
         for (let day = 1; day <= daysInMonth; day++) {
           const dayIso = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          // Final de semana (Sábado ou Domingo): Cartório fechado (0 senhas)
-          if (isWeekend(dayIso)) {
-            continue;
-          }
-
-          // Datas futuras (após a data de hoje): Cartório ainda não atendeu (0 senhas)
-          if (dayIso > todayStr) {
+          if (isWeekend(dayIso) || dayIso > todayStr) {
             continue;
           }
 
           const existing = ticketsByDay.get(dayIso) || [];
-          // Se o dia já tiver dados reais do NextQS com volume representativo (>= 15 senhas), preserva os dados reais!
-          // Caso contrário (dias sem registro no NextQS ou com poucas senhas de teste), suplementa com os dados determinísticos realistas do 7º RI
-          if (existing.length >= 15) {
+          if (!allowSyntheticDemo) {
+            combinedRecords.push(...existing);
+          } else if (existing.length >= 15) {
             combinedRecords.push(...existing);
           } else {
-            const generated = generateDayRecords(dayIso, config.slaMinutes);
-            combinedRecords.push(...generated);
+            combinedRecords.push(...generateDayRecords(dayIso, config.slaMinutes));
+            usedSyntheticDemo = true;
           }
         }
 
@@ -956,10 +956,11 @@ export async function getEsperaData(
         performanceAgentes,
         suspensoes,
         agendamentos,
+        dataSource: usedSyntheticDemo ? 'DEMO_SYNTHETIC' : 'REAL_CONNECTOR',
         error: fetchError,
       };
 
-      globalEsperaCache.set(cacheKey, { data: responsePayload, timestamp: Date.now() });
+      globalEsperaCache.set(cacheKey, responsePayload);
       return responsePayload;
     } finally {
       inFlightRequests.delete(cacheKey);

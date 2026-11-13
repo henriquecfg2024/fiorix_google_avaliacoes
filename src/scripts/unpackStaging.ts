@@ -3,7 +3,12 @@
  */
 import { prisma } from '../lib/prisma';
 
-const TENANT_ID = 'cms3xd0wm00002pw9j2k0ahan';
+const TENANT_ID = (process.env.FIORIX_UNPACK_TENANT_ID || '').trim();
+if (!TENANT_ID || !/^[a-zA-Z0-9_-]{8,64}$/.test(TENANT_ID)) {
+  throw new Error(
+    '[unpackStaging] Defina FIORIX_UNPACK_TENANT_ID explicitamente com o identificador válido da serventia antes de executar este script.'
+  );
+}
 
 async function main() {
   console.log('═══════════════════════════════════════════════════════════');
@@ -203,11 +208,14 @@ async function main() {
     }
   });
 
-  await prisma.$executeRawUnsafe(`
-    DELETE FROM public.fiorix_bi_data WHERE import_id = 'connector-bi-sync-retroativo' AND tenant_id = '${TENANT_ID}';
-  `);
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM public.fiorix_bi_data WHERE import_id = $1 AND tenant_id = $2;`,
+    'connector-bi-sync-retroativo',
+    TENANT_ID
+  );
 
-  const biResult = await prisma.$executeRawUnsafe(`
+  const biResult = await prisma.$executeRawUnsafe(
+    `
     INSERT INTO public.fiorix_bi_data (
       id, import_id, tenant_id, "Protocolo", "DtProtocolo", "Natureza", "TipoPrenotacao",
       "DiasAtraso", "SituacaoPrazo", "IsDevolucao", "IsRegistrado", "IdAndamento"
@@ -227,8 +235,10 @@ async function main() {
       ROW_NUMBER() OVER ()
     FROM public."ConnectorSyncStaging" s,
     LATERAL jsonb_array_elements(s.records) AS item
-    WHERE s.source = 'bi';
-  `);
+    WHERE s.source = 'bi' AND s."tenantId" = $1;
+  `,
+    TENANT_ID
+  );
   console.log(`  ✅ BI OK em ${Date.now() - biStart}ms — Linhas inseridas: ${biResult}`);
 
   // 5. CONTAGEM FINAL NAS TABELAS

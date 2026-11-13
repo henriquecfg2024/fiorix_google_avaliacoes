@@ -4,13 +4,31 @@ import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { generateTotpSecret, generateTotpUri, generateQRCodeDataUrl, verifyTotpToken, userRequires2FA } from '@/lib/totp';
+import {
+  generateTotpSecret,
+  generateTotpUri,
+  generateQRCodeDataUrl,
+  verifyTotpTokenAsync,
+  userRequires2FA,
+  encryptTotpSecret,
+  decryptTotpSecret,
+  isEncryptedTotpSecret,
+} from '@/lib/totp';
 import { getFirstAllowedRouteForUser } from '@/lib/nav-permissions/service';
 import { getHomeRouteForRole } from '@/lib/permissions';
+import { revokeAllUserSessions } from '@/lib/auth-helpers';
+import {
+  checkLoginLockout,
+  recordFailedLogin,
+  clearLoginAttempts,
+  DUMMY_BCRYPT_HASH,
+} from '@/lib/security/login-lockout';
+
+export { checkLoginLockout, recordFailedLogin, clearLoginAttempts };
 
 export async function authenticate(
   prevState: string | undefined,
-  formData: FormData,
+  formData: FormData
 ) {
   try {
     const email = String(formData.get('email') || '').trim();
@@ -44,15 +62,6 @@ export async function authenticate(
     throw error;
   }
 }
-
-import {
-  checkLoginLockout,
-  recordFailedLogin,
-  clearLoginAttempts,
-  DUMMY_BCRYPT_HASH,
-} from '@/lib/security/login-lockout';
-
-export { checkLoginLockout, recordFailedLogin, clearLoginAttempts };
 
 /**
  * Verifica se o email/senha são válidos e se precisa de 2FA
@@ -129,8 +138,11 @@ export async function checkCredentials(email: string, password: string): Promise
       // Ignora em ambientes sem coluna status
     }
 
-    // Sucesso na verificação de senha -> limpa histórico de falhas
-    await clearLoginAttempts(normalizedEmail);
+    // Nota: quando o usuário exige 2FA, NÃO limpamos tentativas falhas de TOTP apenas acertando a senha!
+    const mustUse2FA = userRequires2FA(user);
+    if (!mustUse2FA) {
+      await clearLoginAttempts(normalizedEmail);
+    }
 
     const userRole = user.role || 'USER';
     let redirectTo = getHomeRouteForRole(userRole);
@@ -147,20 +159,20 @@ export async function checkCredentials(email: string, password: string): Promise
       }
     }
 
-    const mustUse2FA = userRequires2FA(user);
     if (mustUse2FA) {
       if (user.totpEnabled && user.totpSecret) {
         return { valid: true, requires2FA: true, isSetup2FA: false, role: userRole, redirectTo };
       }
 
-      // Primeiro acesso com 2FA exigido: gera segredo e QR code para ativação imediata
-      const secret = user.totpSecret || generateTotpSecret();
+      // Primeiro acesso com 2FA exigido: gera segredo e QR code para ativação imediata (persistindo criptografado em repouso)
+      const existingPlainSecret = user.totpSecret ? decryptTotpSecret(user.totpSecret) : '';
+      const secret = existingPlainSecret || generateTotpSecret();
       const otpauthUrl = generateTotpUri(user.email, secret);
       const qrCodeDataUrl = await generateQRCodeDataUrl(otpauthUrl);
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { totpSecret: secret, totpEnabled: false },
+        data: { totpSecret: encryptTotpSecret(secret), totpEnabled: false },
       });
 
       return {
@@ -182,6 +194,18 @@ export async function checkCredentials(email: string, password: string): Promise
 }
 
 export async function handleSignOut() {
+  const session = await auth();
+  if (session?.user?.id) {
+    // Desativa inscrições push ativas do usuário ao encerrar explicitamente via action
+    try {
+      await prisma.pushSubscription.updateMany({
+        where: { usuarioId: session.user.id, isActive: true },
+        data: { isActive: false, revokedAt: new Date() },
+      });
+    } catch {
+      // Best-effort
+    }
+  }
   await signOut({ redirectTo: '/login' });
 }
 
@@ -189,6 +213,14 @@ export async function updatePassword(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id || !session?.user?.tenantId) {
     return { error: 'Não autorizado' };
+  }
+
+  const lockKey = `pwd:${session.user.id}`;
+  const lockout = await checkLoginLockout(lockKey);
+  if (lockout.isLocked) {
+    return {
+      error: `Muitas tentativas incorretas. Aguarde ${lockout.remainingMinutes} minuto(s).`,
+    };
   }
 
   const currentPassword = formData.get('currentPassword') as string;
@@ -204,7 +236,7 @@ export async function updatePassword(formData: FormData) {
 
   // Busca por id E tenantId para garantir isolamento multi-tenant
   const user = await prisma.user.findFirst({
-    where: { id: session.user.id, tenantId: session.user.tenantId }
+    where: { id: session.user.id, tenantId: session.user.tenantId },
   });
 
   if (!user) {
@@ -213,14 +245,41 @@ export async function updatePassword(formData: FormData) {
 
   const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!isMatch) {
+    await recordFailedLogin(lockKey);
     return { error: 'Senha atual incorreta.' };
   }
+
+  await clearLoginAttempts(lockKey);
 
   const newHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash: newHash }
+    data: { passwordHash: newHash },
   });
+
+  const currentAuthAt = (session.user as any).authAt as number | undefined;
+  if (!userRequires2FA(user)) {
+    const revokedAt = new Date();
+    await revokeAllUserSessions(user.id, {
+      revokedBefore: revokedAt,
+      reason: 'password_changed',
+    });
+    try {
+      await signIn('credentials', {
+        email: user.email,
+        password: newPassword,
+        redirect: false,
+      });
+    } catch {
+      // Caso signIn falhe em contexto de teste, mantém sucesso
+    }
+  } else if (typeof currentAuthAt === 'number') {
+    // Invalida todas as sessões anteriores à sessão atual sem derrubar a aba autenticada com 2FA
+    await revokeAllUserSessions(user.id, {
+      revokedBefore: new Date(currentAuthAt),
+      reason: 'password_changed_2fa',
+    });
+  }
 
   return { success: true };
 }
@@ -250,21 +309,30 @@ export async function setup2FA(): Promise<{
   const otpauthUrl = generateTotpUri(user.email, secret);
   const qrCodeDataUrl = await generateQRCodeDataUrl(otpauthUrl);
 
-  // Salva o segredo temporariamente (não ativado ainda)
+  // Salva o segredo temporariamente criptografado com AES-256-GCM (não ativado ainda)
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { totpSecret: secret, totpEnabled: false },
+    data: { totpSecret: encryptTotpSecret(secret), totpEnabled: false },
   });
 
   return { secret, qrCodeDataUrl };
 }
 
 /**
- * Confirma ativação do 2FA validando o primeiro código
+ * Confirma ativação do 2FA validando o primeiro código (com proteção contra força bruta e replay)
  */
 export async function confirm2FA(code: string): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: 'Não autorizado' };
+
+  const lockKey = `2fa-confirm:${session.user.id}`;
+  const lockout = await checkLoginLockout(lockKey);
+  if (lockout.isLocked) {
+    return {
+      success: false,
+      error: `Muitas tentativas inválidas de código 2FA. Aguarde ${lockout.remainingMinutes} minuto(s).`,
+    };
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -274,23 +342,44 @@ export async function confirm2FA(code: string): Promise<{ success: boolean; erro
   if (!user?.totpSecret) return { success: false, error: 'Configure o 2FA primeiro' };
   if (user.totpEnabled) return { success: false, error: '2FA já está ativado' };
 
-  const isValid = verifyTotpToken(code, user.totpSecret);
-  if (!isValid) return { success: false, error: 'Código inválido. Tente novamente.' };
+  const isValid = await verifyTotpTokenAsync(code, user.totpSecret, `confirm2fa:${session.user.id}`);
+  if (!isValid) {
+    await recordFailedLogin(lockKey);
+    return { success: false, error: 'Código inválido. Tente novamente.' };
+  }
+
+  await clearLoginAttempts(lockKey);
 
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { totpRequired: true, totpEnabled: true, totpVerifiedAt: new Date() },
+    data: {
+      totpRequired: true,
+      totpEnabled: true,
+      totpVerifiedAt: new Date(),
+      ...(isEncryptedTotpSecret(user.totpSecret)
+        ? {}
+        : { totpSecret: encryptTotpSecret(user.totpSecret) }),
+    },
   });
 
   return { success: true };
 }
 
 /**
- * Desativa o 2FA
+ * Desativa o 2FA (com proteção contra força bruta de senha)
  */
 export async function disable2FA(password: string): Promise<{ success: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: 'Não autorizado' };
+
+  const lockKey = `2fa-disable:${session.user.id}`;
+  const lockout = await checkLoginLockout(lockKey);
+  if (lockout.isLocked) {
+    return {
+      success: false,
+      error: `Muitas tentativas incorretas. Aguarde ${lockout.remainingMinutes} minuto(s).`,
+    };
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -305,7 +394,12 @@ export async function disable2FA(password: string): Promise<{ success: boolean; 
   }
 
   const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) return { success: false, error: 'Senha incorreta' };
+  if (!match) {
+    await recordFailedLogin(lockKey);
+    return { success: false, error: 'Senha incorreta' };
+  }
+
+  await clearLoginAttempts(lockKey);
 
   await prisma.user.update({
     where: { id: session.user.id },
@@ -336,8 +430,6 @@ export async function get2FAStatus(): Promise<{ enabled: boolean; required: bool
   };
 }
 
-// Nota: React.cache() não pode ser usado em arquivos 'use server' (Server Actions).
-// A memoização por request é feita automaticamente pelo Next.js via auth().
 export async function getCurrentUser() {
   const session = await auth();
   if (!session?.user) return null;
@@ -370,7 +462,6 @@ export async function getCurrentUser() {
         tenantId: effectiveTenantId,
       };
     } catch {
-      // Fallback para findUnique sem coluna status
       try {
         const dbUser = await prisma.user.findUnique({
           where: { id: session.user.id },

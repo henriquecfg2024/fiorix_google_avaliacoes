@@ -164,6 +164,32 @@ export async function unsubscribeFromPushNotifications(): Promise<{
   }
 }
 
+export async function cleanupPushAndServiceWorkerOnLogout(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return;
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      reg.active?.postMessage({ type: 'FIORIX_LOGOUT_CLEANUP' });
+      const subscription = await reg.pushManager?.getSubscription().catch(() => null);
+      if (subscription) {
+        await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+          keepalive: true,
+        }).catch(() => {});
+        await subscription.unsubscribe().catch(() => {});
+      }
+      await reg.unregister().catch(() => {});
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+}
+
 function detectDeviceName(): string {
   if (typeof window === 'undefined') return 'Dispositivo';
   const ua = navigator.userAgent;

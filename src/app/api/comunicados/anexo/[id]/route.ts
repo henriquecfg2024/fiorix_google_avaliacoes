@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth-helpers';
+import { requireTenant } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'fiorix-comunicados-anexos';
+const ROLES_GESTAO_COMUNICADOS = new Set(['MASTER', 'ADMIN', 'RH', 'GESTOR', 'SUBSTITUTO']);
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = await requireTenant();
     const anexoId = params.id;
 
     if (!anexoId) {
@@ -22,7 +23,7 @@ export async function GET(
     const anexo = await prisma.fiorixComunicadoAnexo.findFirst({
       where: {
         id: anexoId,
-        ...(user.role === 'MASTER' ? {} : { tenantId: user.tenantId }),
+        tenantId: user.tenantId,
       },
       include: {
         comunicado: {
@@ -43,11 +44,59 @@ export async function GET(
       );
     }
 
+    const roleUpper = String(user.role || '').toUpperCase();
+    if (!ROLES_GESTAO_COMUNICADOS.has(roleUpper)) {
+      const statusUpper = String(anexo.comunicado.status || 'PUBLICADO').toUpperCase();
+      if (statusUpper !== 'PUBLICADO') {
+        return NextResponse.json(
+          { error: 'Este comunicado não está disponível para leitura.' },
+          { status: 403 }
+        );
+      }
+
+      const rawDest = Array.isArray(anexo.comunicado.destinatarios)
+        ? anexo.comunicado.destinatarios
+        : [];
+      const alvosUpper = new Set(rawDest.map((d) => String(d || '').trim().toUpperCase()).filter(Boolean));
+      const isTodos = alvosUpper.size === 0 || alvosUpper.has('TODOS');
+
+      if (!isTodos) {
+        let elegivel =
+          alvosUpper.has(String(user.id).toUpperCase()) ||
+          alvosUpper.has(roleUpper);
+
+        if (!elegivel) {
+          const [dbUser, cienciaExistente] = await Promise.all([
+            prisma.user.findFirst({
+              where: { id: user.id, tenantId: user.tenantId },
+              select: { departamento: true, cargo: true },
+            }),
+            prisma.fiorixComunicadoCiencia.findFirst({
+              where: { comunicadoId: anexo.comunicado.id, usuarioId: user.id },
+              select: { id: true },
+            }),
+          ]);
+
+          if (cienciaExistente) {
+            elegivel = true;
+          } else if (dbUser?.departamento && alvosUpper.has(dbUser.departamento.trim().toUpperCase())) {
+            elegivel = true;
+          } else if (dbUser?.cargo && alvosUpper.has(dbUser.cargo.trim().toUpperCase())) {
+            elegivel = true;
+          }
+        }
+
+        if (!elegivel) {
+          return NextResponse.json(
+            { error: 'Acesso negado: Você não é destinatário deste comunicado.' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const accept = req.headers.get('accept') || '';
 
-    // Gera URL assinada temporária (15 minutos / 900s) diretamente pelo Supabase Storage CDN.
-    // Isso evita bufferizar arquivos pesados (ex.: PDFs de 8MB+) na memória da função serverless da Vercel,
-    // que causava estouro do limite de payload (4.5MB) e travamento com cursor girando indefinidamente.
     let signedUrl: string | null = null;
     let signError: any = null;
 
@@ -57,26 +106,16 @@ export async function GET(
         .createSignedUrl(anexo.storagePath, 900);
       signedUrl = res.data?.signedUrl ?? null;
       signError = res.error;
-    } catch {
-      const res = await supabase.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(anexo.storagePath, 900);
-      signedUrl = res.data?.signedUrl ?? null;
-      signError = res.error;
+    } catch (err) {
+      signError = err;
     }
 
-    // Se a geração da URL assinada falhar, tenta fallback seguro via stream/buffer
+    // Se a geração da URL assinada falhar, tenta fallback seguro via stream/buffer usando exclusivamente supabaseAdmin
     if (signError || !signedUrl) {
       console.warn('[Download Comunicado PDF] Falha na URL assinada, tentando download direto:', signError);
       try {
-        let blob: Blob | null = null;
-        try {
-          const res = await supabaseAdmin.storage.from(BUCKET_NAME).download(anexo.storagePath);
-          blob = res.data;
-        } catch {
-          const res = await supabase.storage.from(BUCKET_NAME).download(anexo.storagePath);
-          blob = res.data;
-        }
+        const res = await supabaseAdmin.storage.from(BUCKET_NAME).download(anexo.storagePath);
+        const blob = res.data;
 
         if (blob) {
           const arrayBuffer = await blob.arrayBuffer();

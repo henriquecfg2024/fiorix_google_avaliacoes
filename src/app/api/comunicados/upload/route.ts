@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -67,24 +67,12 @@ export async function POST(req: NextRequest) {
     const safeBaseName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 50);
     const storagePath = `${user.tenantId}/${Date.now()}_${randomSuffix}_${safeBaseName}`;
 
-    let uploadError: any = null;
-    try {
-      const { error: adminErr } = await supabaseAdmin.storage
-        .from(BUCKET_NAME)
-        .upload(storagePath, buffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-      uploadError = adminErr;
-    } catch {
-      const { error: anonErr } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(storagePath, buffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-      uploadError = anonErr;
-    }
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .upload(storagePath, buffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
 
     if (uploadError) {
       console.error('[Upload Comunicado PDF] Erro Supabase:', uploadError);

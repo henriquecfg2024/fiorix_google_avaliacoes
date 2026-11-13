@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
 import { recordAuditLog } from '@/lib/audit';
+import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
 export const dynamic = 'force-dynamic';
 
 const MODELOS_PROVIDER_KEY = 'RELATORIOS_PERSONALIZADOS_MODELOS';
 
-/** Todas as colunas liberadas para todos os colaboradores */
+/** Todas as colunas operacionais liberadas aos colaboradores autorizados no módulo */
 const COLUNAS_RESTRITAS_GESTOR = new Set<string>([]);
+const COLUNAS_PII_SENSIVEIS_VISITANTE = new Set<string>(['cpf_cnpj', 'telefone']);
 
 function isPerfilGestor(role?: string | null): boolean {
   const r = String(role || '').toUpperCase();
@@ -336,6 +338,13 @@ async function carregarRegistrosReaisWebri(params: {
       ? p.dataPedido.toISOString().slice(0, 10)
       : '';
 
+    const isVisitante = String(params.userRole || '').toUpperCase() === 'VISITANTE';
+    const cpfCnpjBruto =
+      (reqJson.documentoFormatado && String(reqJson.documentoFormatado).trim()) ||
+      (reqJson.documentoMascarado && String(reqJson.documentoMascarado).trim()) ||
+      '—';
+    const telefoneBruto = reqJson.telefone ? String(reqJson.telefone).trim() : '—';
+
     todosConvertidos.push({
       id: p.id,
       numeroPedidoRaw: chaveUnicaPedido,
@@ -348,11 +357,8 @@ async function carregarRegistrosReaisWebri(params: {
         magnetico: protocoloLimpo || '—',
         pedido: formatarNumeroPedido(chaveUnicaPedido),
         nome_cliente: reqJson.nome ? String(reqJson.nome).trim() : '—',
-        cpf_cnpj:
-          (reqJson.documentoFormatado && String(reqJson.documentoFormatado).trim()) ||
-          (reqJson.documentoMascarado && String(reqJson.documentoMascarado).trim()) ||
-          '—',
-        telefone: reqJson.telefone ? String(reqJson.telefone).trim() : '—',
+        cpf_cnpj: isVisitante && cpfCnpjBruto !== '—' ? '***.***.***-**' : cpfCnpjBruto,
+        telefone: isVisitante && telefoneBruto !== '—' ? '(**) *****-****' : telefoneBruto,
         atendente: atendenteRaw || '—',
         canal_atendimento: canalLegivel,
         valor_deposito: depositoCentavos !== null ? formatarMoedaBr(depositoCentavos) : '—',
@@ -406,6 +412,15 @@ async function carregarRegistrosReaisWebri(params: {
 export async function GET(req: Request) {
   try {
     const user = await requireAuth();
+    if (!(await isRouteAllowedForUser('/cartorio-virtual/relatorios', user))) {
+      return NextResponse.json(
+        {
+          sucesso: false,
+          erro: 'Acesso negado ao módulo de Relatórios Personalizados.',
+        },
+        { status: 403 }
+      );
+    }
     const url = new URL(req.url);
 
     const dataInicial = url.searchParams.get('dataInicial') || undefined;
@@ -492,12 +507,19 @@ export async function GET(req: Request) {
       historicoGeracoes,
     });
   } catch (err: any) {
+    const msg = String(err?.message || '');
+    const status =
+      msg.includes('Não autenticado') || msg.includes('Sessão expirada') || msg.includes('Conta desativada')
+        ? 401
+        : msg.includes('Acesso negado')
+        ? 403
+        : 500;
     return NextResponse.json(
       {
         sucesso: false,
-        erro: err?.message || 'Falha ao consultar dados para o relatório personalizado.',
+        erro: msg || 'Falha ao consultar dados para o relatório personalizado.',
       },
-      { status: 500 }
+      { status }
     );
   }
 }
@@ -505,15 +527,24 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
+    if (!(await isRouteAllowedForUser('/cartorio-virtual/relatorios', user))) {
+      return NextResponse.json(
+        { sucesso: false, erro: 'Acesso negado ao módulo de Relatórios Personalizados.' },
+        { status: 403 }
+      );
+    }
     const body = await req.json();
     const action = String(body?.action || '');
     const possuiPermissaoGestor = isPerfilGestor(user.role);
+    const isVisitante = String(user.role || '').toUpperCase() === 'VISITANTE';
 
     if (action === 'SALVAR_MODELO') {
       const nomeModelo = String(body?.nome || 'Meu modelo padrão').trim().slice(0, 80);
       const colunasBrutas: string[] = Array.isArray(body?.colunas) ? body.colunas : [];
       const colunasPermitidas = colunasBrutas.filter(
-        (col) => possuiPermissaoGestor || !COLUNAS_RESTRITAS_GESTOR.has(col)
+        (col) =>
+          (possuiPermissaoGestor || !COLUNAS_RESTRITAS_GESTOR.has(col)) &&
+          (!isVisitante || !COLUNAS_PII_SENSIVEIS_VISITANTE.has(col))
       );
 
       if (colunasPermitidas.length === 0) {
@@ -547,6 +578,20 @@ export async function POST(req: Request) {
           (body?.modeloId && String(m?.id) === String(body.modeloId)) ||
           String(m?.nome || '').toLowerCase() === nomeModelo.toLowerCase()
       );
+
+      if (
+        modeloExistente &&
+        !possuiPermissaoGestor &&
+        String(modeloExistente.autorId || '') !== String(user.id)
+      ) {
+        return NextResponse.json(
+          {
+            sucesso: false,
+            erro: 'Apenas o autor original ou um gestor pode sobrescrever este modelo de relatório.',
+          },
+          { status: 403 }
+        );
+      }
 
       const novoModelo = {
         id: modeloExistente?.id || `mod-${Date.now()}`,
@@ -631,6 +676,19 @@ export async function POST(req: Request) {
       }
 
       const modeloRemovido = listaAtual.find((m) => String(m?.id) === modeloId);
+      if (
+        modeloRemovido &&
+        !possuiPermissaoGestor &&
+        String(modeloRemovido.autorId || '') !== String(user.id)
+      ) {
+        return NextResponse.json(
+          {
+            sucesso: false,
+            erro: 'Apenas o autor original ou um gestor pode excluir este modelo de relatório.',
+          },
+          { status: 403 }
+        );
+      }
       const novaLista = listaAtual.filter((m) => String(m?.id) !== modeloId);
 
       await prisma.integrationConfig.upsert({

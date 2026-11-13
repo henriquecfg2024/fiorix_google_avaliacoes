@@ -29,28 +29,50 @@ export async function GET(
       );
     }
 
-    // Sem sessão: confirma apenas validade — sem expor dados pessoais (LGPD)
+    // Sem sessão ativa verificada no mesmo tenant (próprio titular ou gestão/RH): confirma apenas validade — sem expor dados pessoais (LGPD)
     const session = await auth();
-    const isAuthenticated = !!session?.user?.tenantId;
-    const isSameTenant = isAuthenticated && session!.user!.tenantId === ciencia.comunicado.tenantId;
+    const roleUpper = String(session?.user?.role || "").toUpperCase();
+    const isSameTenant =
+      Boolean(session?.user?.tenantId) &&
+      session!.user!.tenantId === ciencia.comunicado.tenantId;
+    const canViewDetails =
+      isSameTenant &&
+      (session!.user!.id === ciencia.usuarioId ||
+        ["MASTER", "ADMIN", "RH", "GESTOR", "SUBSTITUTO"].includes(roleUpper));
 
-    if (!isSameTenant) {
-      return NextResponse.json({
-        valido: true,
-        message: "Comprovante de ciência válido e registrado.",
-      });
+    if (!canViewDetails) {
+      return NextResponse.json(
+        {
+          valido: true,
+          message: "Comprovante de ciência válido e registrado.",
+        },
+        {
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Referrer-Policy": "no-referrer",
+          },
+        }
+      );
     }
 
-    // Sessão autenticada + mesmo tenant: retorna dados completos
-    return NextResponse.json({
-      valido: true,
-      dados: {
-        colaborador: ciencia.usuario.name,
-        comunicado: ciencia.comunicado.titulo,
-        versao: ciencia.comunicado.versao,
-        dataCiencia: ciencia.dataCiencia,
+    // Sessão autenticada + mesmo tenant (titular ou gestão): retorna dados completos
+    return NextResponse.json(
+      {
+        valido: true,
+        dados: {
+          colaborador: ciencia.usuario.name,
+          comunicado: ciencia.comunicado.titulo,
+          versao: ciencia.comunicado.versao,
+          dataCiencia: ciencia.dataCiencia,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Referrer-Policy": "no-referrer",
+        },
+      }
+    );
   } catch (error) {
     console.error("Erro ao verificar hash:", error);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });

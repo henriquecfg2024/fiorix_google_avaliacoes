@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireRole } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { generateHash } from "@/lib/security/hash";
 import { logAuditEvent } from "@/lib/audit/log";
@@ -7,15 +7,11 @@ import { getRequestIp } from "@/lib/security/requestIp";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    // Apenas ADMIN, RH, MASTER ou GESTOR podem publicar
-    const allowedRoles = ["ADMIN", "RH", "MASTER", "GESTOR"];
-    if (!session?.user || !allowedRoles.includes(session.user.role)) {
-      return NextResponse.json({ error: "Não autorizado: Apenas gestores e RH podem criar comunicados." }, { status: 401 });
-    }
+    // Apenas ADMIN, RH, MASTER, GESTOR ou SUBSTITUTO ativos podem publicar
+    const user = await requireRole("ADMIN", "RH", "MASTER", "GESTOR", "SUBSTITUTO");
 
-    const tenantId = session.user.tenantId;
-    const autorId = session.user.id;
+    const tenantId = user.tenantId;
+    const autorId = user.id;
     const { titulo, prioridade, conteudo, destinatarios, exigeCiencia, notificar, dataExpiracao } = await req.json();
 
     if (!titulo || !conteudo || !destinatarios) {
@@ -52,7 +48,14 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, comunicado });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.message || "");
+    if (msg.includes("Não autenticado") || msg.includes("Sessão expirada") || msg.includes("Conta desativada")) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+    if (msg.includes("Acesso negado")) {
+      return NextResponse.json({ error: "Não autorizado: Apenas gestores e RH podem criar comunicados." }, { status: 403 });
+    }
     console.error("Erro ao publicar comunicado:", error);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
   }

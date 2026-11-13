@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
+import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase';
 import { publicarNovaVersaoIT } from '@/app/actions/minha-it';
 
@@ -8,6 +9,14 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Organização não identificada na sessão.' },
+        { status: 403 }
+      );
+    }
+
     const formData = await req.formData();
 
     const file = formData.get('file') as File | null;
@@ -22,6 +31,65 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Parâmetros incompletos para upload do PDF.' },
         { status: 400 }
+      );
+    }
+
+    // Verifica autorização sobre a IT ANTES de enviar qualquer arquivo ao Storage
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT responsavel_tecnico_id, guardiao_id, autor_id, substituto_id, substituto_ate
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId,
+      tenantId
+    );
+    if (itRows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Instrução de trabalho não encontrada ou não autorizada.' },
+        { status: 404 }
+      );
+    }
+
+    const itRow = itRows[0];
+    const uid = String(currentUser.id);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const subAteIso = itRow.substituto_ate
+      ? new Date(itRow.substituto_ate).toISOString().slice(0, 10)
+      : null;
+    const isSubstitutoAtivo =
+      String(itRow.substituto_id || '') === uid && (!subAteIso || subAteIso >= todayIso);
+
+    let autorizado =
+      ['MASTER', 'ADMIN', 'SUBSTITUTO'].includes(String(currentUser.role || '').toUpperCase()) ||
+      String(itRow.responsavel_tecnico_id || '') === uid ||
+      String(itRow.guardiao_id || '') === uid ||
+      String(itRow.autor_id || '') === uid ||
+      isSubstitutoAtivo;
+
+    if (!autorizado) {
+      try {
+        const partRows = await prisma.$queryRawUnsafe<any[]>(
+          `SELECT 1 FROM public.fiorix_its_participants
+           WHERE it_id = $1::uuid
+             AND tenant_id = $2
+             AND usuario_id = $3
+             AND status = 'ativo'
+             AND papel IN ('RESPONSAVEL_PRINCIPAL', 'CORRESPONSAVEL')
+           LIMIT 1`,
+          itId,
+          tenantId,
+          uid
+        );
+        autorizado = partRows.length > 0;
+      } catch {
+        autorizado = false;
+      }
+    }
+
+    if (!autorizado) {
+      return NextResponse.json(
+        { success: false, error: 'Sem permissão para publicar nova versão nesta Instrução de Trabalho.' },
+        { status: 403 }
       );
     }
 

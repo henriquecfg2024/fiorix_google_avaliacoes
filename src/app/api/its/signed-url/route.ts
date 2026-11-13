@@ -1,46 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
-import { supabaseAdmin, supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
+import {
+  canUserUploadItDocument,
+  validateStrictPdfMetadata,
+} from '@/lib/security/it-upload-guard';
 
 export const dynamic = 'force-dynamic';
+
+const MAX_DIRECT_PDF_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export async function POST(req: NextRequest) {
   try {
     const currentUser = await requireAuth();
+    if (!currentUser.tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'Organização (tenant) não identificada na sessão.' },
+        { status: 403 }
+      );
+    }
+
+    const allowed = await canUserUploadItDocument(currentUser);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Acesso negado: sem permissão para enviar documentos de Instrução de Trabalho.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
-    const fileName = (body.fileName as string) || 'documento.pdf';
+    const rawFileName = (body.fileName as string) || '';
+    const rawContentType = (body.contentType as string) || 'application/pdf';
+    const rawFileSize = body.fileSize !== undefined ? Number(body.fileSize) : undefined;
+
+    if (rawFileSize !== undefined && (!Number.isFinite(rawFileSize) || rawFileSize <= 0 || rawFileSize > MAX_DIRECT_PDF_BYTES)) {
+      return NextResponse.json(
+        { success: false, error: 'Tamanho de arquivo PDF inválido ou acima do limite máximo de 50 MB.' },
+        { status: 400 }
+      );
+    }
+
+    const pdfCheck = validateStrictPdfMetadata(rawFileName, rawContentType);
+    if (!pdfCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: pdfCheck.error || 'Apenas documentos PDF são permitidos.' },
+        { status: 400 }
+      );
+    }
+
     const timestamp = Date.now();
+    const storagePath = `uploads/${currentUser.tenantId}/${timestamp}_${pdfCheck.safeFileName}`;
 
-    const safeFileName = fileName
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    const tenantFolder = currentUser.tenantId || 'global';
-    const storagePath = `uploads/${tenantFolder}_${timestamp}_${safeFileName}`;
-
-    // 1. Tenta gerar no bucket 'it-documentos' com supabaseAdmin
+    // 1. Tenta gerar no bucket 'it-documentos' com supabaseAdmin (service_role)
     let bucketName = 'it-documentos';
     let res = await supabaseAdmin.storage
       .from(bucketName)
-      .createSignedUploadUrl(storagePath, { upsert: true });
+      .createSignedUploadUrl(storagePath, { upsert: false });
 
-    // 2. Fallback para 'fiorix-its' se falhar
+    // 2. Fallback para 'fiorix-its' exclusivamente com supabaseAdmin
     if (res.error || !res.data?.signedUrl) {
       console.warn('Falha em it-documentos com admin, tentando fiorix-its:', res.error);
       bucketName = 'fiorix-its';
       res = await supabaseAdmin.storage
         .from(bucketName)
-        .createSignedUploadUrl(storagePath, { upsert: true });
-    }
-
-    // 3. Fallback com client anon se ainda falhar
-    if (res.error || !res.data?.signedUrl) {
-      console.warn('Falha com admin, tentando client anon:', res.error);
-      bucketName = 'it-documentos';
-      res = await supabase.storage
-        .from(bucketName)
-        .createSignedUploadUrl(storagePath, { upsert: true });
+        .createSignedUploadUrl(storagePath, { upsert: false });
     }
 
     if (res.error || !res.data?.signedUrl) {
@@ -68,6 +91,12 @@ export async function POST(req: NextRequest) {
       bucketName,
     });
   } catch (err: any) {
+    if (err?.message?.includes('Não autorizado') || err?.message?.includes('Acesso negado') || err?.message?.includes('Sessão')) {
+      return NextResponse.json(
+        { success: false, error: 'Não autorizado.' },
+        { status: 403 }
+      );
+    }
     console.error('Erro no endpoint /api/its/signed-url:', err);
     return NextResponse.json(
       {

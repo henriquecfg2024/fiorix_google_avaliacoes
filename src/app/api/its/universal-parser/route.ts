@@ -4,7 +4,7 @@ import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import PostalMime from 'postal-mime';
 import { requireRole, requireAuth } from '@/lib/auth-helpers';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -92,24 +92,43 @@ export async function POST(req: NextRequest) {
     if (file && fileBuffer) {
       try {
         const currentUser = await requireAuth();
-        const timestamp = Date.now();
-        const safeFileName = nomeArquivo.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `${currentUser.tenantId}/${timestamp}_${safeFileName}`;
+        if (currentUser.tenantId) {
+          const extLower = nomeArquivo.split('.').pop()?.toLowerCase() || '';
+          const SAFE_UPLOAD_EXT_MIMES: Record<string, string> = {
+            pdf: 'application/pdf',
+            docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            doc: 'application/msword',
+            xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            xls: 'application/vnd.ms-excel',
+            csv: 'text/csv',
+            txt: 'text/plain',
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            webp: 'image/webp',
+          };
+          const safeContentType = SAFE_UPLOAD_EXT_MIMES[extLower];
+          if (safeContentType) {
+            const timestamp = Date.now();
+            const safeFileName = nomeArquivo.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storagePath = `${currentUser.tenantId}/${timestamp}_${safeFileName}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('it-documentos')
-          .upload(storagePath, fileBuffer, {
-            contentType: file.type || 'application/octet-stream',
-            upsert: true,
-          });
+            const { error: uploadError } = await supabaseAdmin.storage
+              .from('it-documentos')
+              .upload(storagePath, fileBuffer, {
+                contentType: safeContentType,
+                upsert: true,
+              });
 
-        if (uploadError) {
-          console.warn('Aviso: Falha no upload para Supabase Storage:', uploadError.message);
-        } else {
-          const { data: urlData } = supabase.storage
-            .from('it-documentos')
-            .getPublicUrl(storagePath);
-          arquivoOriginalUrl = urlData?.publicUrl || null;
+            if (uploadError) {
+              console.warn('Aviso: Falha no upload para Supabase Storage:', uploadError.message);
+            } else {
+              const { data: urlData } = supabaseAdmin.storage
+                .from('it-documentos')
+                .getPublicUrl(storagePath);
+              arquivoOriginalUrl = urlData?.publicUrl || null;
+            }
+          }
         }
       } catch (storageErr: any) {
         console.warn('Aviso: Erro no upload do arquivo original:', storageErr.message);

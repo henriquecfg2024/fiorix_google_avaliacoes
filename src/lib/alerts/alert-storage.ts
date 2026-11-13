@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
+import {
+  decryptFieldSecret,
+  encryptFieldSecret,
+} from '@/lib/security/field-crypto';
 
 export interface SmtpEmailConfig {
   host?: string;
@@ -70,6 +74,133 @@ export interface ConnectorTelemetryData {
   queueFailed?: number | null;
   details?: Record<string, any> | null;
   recordedAt?: string | null;
+}
+
+export const ALERT_SECRET_MASK = '••••••••';
+
+export function maskWebhookSecretUrl(rawUrl?: string | null): string {
+  const trimmed = String(rawUrl || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.includes(ALERT_SECRET_MASK)) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    return `${parsed.origin}/${ALERT_SECRET_MASK}`;
+  } catch {
+    return ALERT_SECRET_MASK;
+  }
+}
+
+export function maskAlertConfigSecrets<T extends Partial<AlertChannelConfig> | null | undefined>(
+  config: T
+): T {
+  if (!config) return config;
+
+  const masked: any = {
+    ...config,
+    webhookUrl: config.webhookUrl ? maskWebhookSecretUrl(config.webhookUrl) : '',
+  };
+
+  if (config.emailConfig && typeof config.emailConfig === 'object') {
+    masked.emailConfig = {
+      ...config.emailConfig,
+      ...(config.emailConfig.pass ? { pass: ALERT_SECRET_MASK } : {}),
+      ...(config.emailConfig.resendApiKey ? { resendApiKey: ALERT_SECRET_MASK } : {}),
+    };
+  }
+
+  if (config.whatsappConfig && typeof config.whatsappConfig === 'object') {
+    const rawPhones = Array.isArray(config.whatsappConfig.phones)
+      ? config.whatsappConfig.phones
+      : undefined;
+    masked.whatsappConfig = {
+      ...config.whatsappConfig,
+      ...(config.whatsappConfig.apikey ? { apikey: ALERT_SECRET_MASK } : {}),
+      ...(config.whatsappConfig.token ? { token: ALERT_SECRET_MASK } : {}),
+      ...(rawPhones
+        ? {
+            phones: rawPhones.map((p) => ({
+              ...p,
+              apikey: p?.apikey ? ALERT_SECRET_MASK : '',
+            })),
+          }
+        : {}),
+    };
+  }
+
+  return masked as T;
+}
+
+export function restoreMaskedAlertSecrets<T extends Record<string, any>>(
+  incoming: T,
+  existing: AlertChannelConfig | null | undefined
+): T {
+  if (!existing) return incoming;
+
+  const restored: any = { ...incoming };
+
+  // 1. Restaura webhookUrl se o cliente reenviou o valor mascarado sem alterá-lo
+  if (typeof restored.webhookUrl === 'string' && restored.webhookUrl.includes(ALERT_SECRET_MASK)) {
+    restored.webhookUrl = existing.webhookUrl || '';
+  }
+
+  // 2. Restaura credenciais de E-mail (SMTP pass / Resend API Key)
+  if (restored.emailConfig && typeof restored.emailConfig === 'object') {
+    const nextEmail = { ...restored.emailConfig };
+    if (
+      (nextEmail.pass === ALERT_SECRET_MASK || nextEmail.pass === '' || nextEmail.pass === undefined) &&
+      existing.emailConfig?.pass
+    ) {
+      if (nextEmail.pass === ALERT_SECRET_MASK || !nextEmail.pass) {
+        nextEmail.pass = existing.emailConfig.pass;
+      }
+    }
+    if (nextEmail.resendApiKey === ALERT_SECRET_MASK && existing.emailConfig?.resendApiKey) {
+      nextEmail.resendApiKey = existing.emailConfig.resendApiKey;
+    }
+    restored.emailConfig = nextEmail;
+  }
+
+  // 3. Restaura credenciais de WhatsApp (API Key principal, token e chaves por número adicional)
+  if (restored.whatsappConfig && typeof restored.whatsappConfig === 'object') {
+    const existingPhoneKeys = new Map<string, string>();
+    if (existing.whatsappPhone && existing.whatsappConfig?.apikey) {
+      existingPhoneKeys.set(existing.whatsappPhone.trim(), existing.whatsappConfig.apikey);
+    }
+    if (Array.isArray(existing.whatsappConfig?.phones)) {
+      for (const p of existing.whatsappConfig.phones) {
+        if (p?.phone && p?.apikey) {
+          existingPhoneKeys.set(String(p.phone).trim(), String(p.apikey));
+        }
+      }
+    }
+
+    const nextWa = { ...restored.whatsappConfig };
+    if (nextWa.apikey === ALERT_SECRET_MASK) {
+      const targetPrimaryPhone = String(restored.whatsappPhone ?? existing.whatsappPhone ?? '').trim();
+      nextWa.apikey =
+        (targetPrimaryPhone && existingPhoneKeys.get(targetPrimaryPhone)) ||
+        existing.whatsappConfig?.apikey ||
+        '';
+    }
+    if (nextWa.token === ALERT_SECRET_MASK && existing.whatsappConfig?.token) {
+      nextWa.token = existing.whatsappConfig.token;
+    }
+    if (Array.isArray(nextWa.phones)) {
+      nextWa.phones = nextWa.phones.map((p: any) => {
+        if (p && p.apikey === ALERT_SECRET_MASK) {
+          const phoneKey = String(p.phone || '').trim();
+          return {
+            ...p,
+            apikey: existingPhoneKeys.get(phoneKey) || '',
+          };
+        }
+        return p;
+      });
+    }
+    restored.whatsappConfig = nextWa;
+  }
+
+  return restored as T;
 }
 
 // As tabelas já existem no PostgreSQL em produção. Evita rodar 13 comandos DDL pesados em cada invocação serverless.
@@ -185,10 +316,87 @@ export async function ensureAlertTablesExist(force = false): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_conn_telemetry_tenant_conn 
         ON public.fiorix_connector_telemetry (tenant_id, connector_id, created_at DESC);
     `);
+
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_operations_alert_channels ENABLE ROW LEVEL SECURITY;`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_operations_alert_logs ENABLE ROW LEVEL SECURITY;`
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE public.fiorix_connector_telemetry ENABLE ROW LEVEL SECURITY;`
+    );
     tablesInitialized = true;
   } catch (err) {
     console.error('Falha ao inicializar tabelas de telemetria e alertas:', err);
   }
+}
+
+function encryptAlertSecret(raw?: string | null): string {
+  if (!raw) return '';
+  return encryptFieldSecret(raw, 'alert-channels');
+}
+
+function decryptAlertSecret(stored?: string | null): string {
+  if (!stored) return '';
+  try {
+    return decryptFieldSecret(stored, 'alert-channels');
+  } catch (err) {
+    console.warn('[Alert Storage] Falha ao descriptografar credencial de alerta:', err);
+    return '';
+  }
+}
+
+export function encryptEmailConfigAtRest(emailConfig?: SmtpEmailConfig): SmtpEmailConfig {
+  if (!emailConfig || typeof emailConfig !== 'object') return {};
+  return {
+    ...emailConfig,
+    ...(emailConfig.pass ? { pass: encryptAlertSecret(emailConfig.pass) } : {}),
+    ...(emailConfig.resendApiKey ? { resendApiKey: encryptAlertSecret(emailConfig.resendApiKey) } : {}),
+  };
+}
+
+export function decryptEmailConfigAtRest(emailConfig?: SmtpEmailConfig): SmtpEmailConfig {
+  if (!emailConfig || typeof emailConfig !== 'object') return {};
+  return {
+    ...emailConfig,
+    ...(emailConfig.pass ? { pass: decryptAlertSecret(emailConfig.pass) } : {}),
+    ...(emailConfig.resendApiKey ? { resendApiKey: decryptAlertSecret(emailConfig.resendApiKey) } : {}),
+  };
+}
+
+export function encryptWhatsAppConfigAtRest(whatsappConfig?: WhatsAppConfig): WhatsAppConfig {
+  if (!whatsappConfig || typeof whatsappConfig !== 'object') return {};
+  return {
+    ...whatsappConfig,
+    ...(whatsappConfig.apikey ? { apikey: encryptAlertSecret(whatsappConfig.apikey) } : {}),
+    ...(whatsappConfig.token ? { token: encryptAlertSecret(whatsappConfig.token) } : {}),
+    ...(Array.isArray(whatsappConfig.phones)
+      ? {
+          phones: whatsappConfig.phones.map((p) => ({
+            ...p,
+            apikey: p?.apikey ? encryptAlertSecret(p.apikey) : '',
+          })),
+        }
+      : {}),
+  };
+}
+
+export function decryptWhatsAppConfigAtRest(whatsappConfig?: WhatsAppConfig): WhatsAppConfig {
+  if (!whatsappConfig || typeof whatsappConfig !== 'object') return {};
+  return {
+    ...whatsappConfig,
+    ...(whatsappConfig.apikey ? { apikey: decryptAlertSecret(whatsappConfig.apikey) } : {}),
+    ...(whatsappConfig.token ? { token: decryptAlertSecret(whatsappConfig.token) } : {}),
+    ...(Array.isArray(whatsappConfig.phones)
+      ? {
+          phones: whatsappConfig.phones.map((p) => ({
+            ...p,
+            apikey: p?.apikey ? decryptAlertSecret(p.apikey) : '',
+          })),
+        }
+      : {}),
+  };
 }
 
 export async function getAlertConfig(tenantId: string): Promise<AlertChannelConfig | null> {
@@ -227,11 +435,22 @@ export async function getAlertConfig(tenantId: string): Promise<AlertChannelConf
     if (rows.length === 0) return null;
 
     const r = rows[0];
+    const parsedEmailConfig = r.emailConfig
+      ? typeof r.emailConfig === 'string'
+        ? JSON.parse(r.emailConfig)
+        : r.emailConfig
+      : {};
+    const parsedWhatsAppConfig = r.whatsappConfig
+      ? typeof r.whatsappConfig === 'string'
+        ? JSON.parse(r.whatsappConfig)
+        : r.whatsappConfig
+      : {};
+
     return {
       id: r.id,
       tenantId: r.tenantId,
       name: r.name,
-      webhookUrl: r.webhookUrl || '',
+      webhookUrl: decryptAlertSecret(r.webhookUrl),
       channelType: r.channelType,
       enabled: Boolean(r.enabled),
       notifyConnectorOffline: Boolean(r.notifyConnectorOffline),
@@ -242,11 +461,11 @@ export async function getAlertConfig(tenantId: string): Promise<AlertChannelConf
       emailEnabled: Boolean(r.emailEnabled),
       emailRecipients: r.emailRecipients || '',
       emailProvider: r.emailProvider || 'smtp',
-      emailConfig: r.emailConfig ? (typeof r.emailConfig === 'string' ? JSON.parse(r.emailConfig) : r.emailConfig) : {},
+      emailConfig: decryptEmailConfigAtRest(parsedEmailConfig),
       whatsappEnabled: Boolean(r.whatsappEnabled),
       whatsappProvider: r.whatsappProvider || 'callmebot',
       whatsappPhone: r.whatsappPhone || '',
-      whatsappConfig: r.whatsappConfig ? (typeof r.whatsappConfig === 'string' ? JSON.parse(r.whatsappConfig) : r.whatsappConfig) : {},
+      whatsappConfig: decryptWhatsAppConfigAtRest(parsedWhatsAppConfig),
     };
   } catch (err) {
     console.warn('Erro ao carregar configurações de alertas:', err);
@@ -261,6 +480,9 @@ export async function saveAlertConfig(
   await ensureAlertTablesExist();
 
   const id = randomUUID();
+  const encryptedWebhookUrl = encryptAlertSecret(data.webhookUrl || '');
+  const encryptedEmailConfig = encryptEmailConfigAtRest(data.emailConfig);
+  const encryptedWhatsAppConfig = encryptWhatsAppConfigAtRest(data.whatsappConfig);
 
   await prisma.$executeRawUnsafe(
     `
@@ -294,7 +516,7 @@ export async function saveAlertConfig(
     id,
     tenantId,
     data.name || 'Notificações Principais',
-    data.webhookUrl || '',
+    encryptedWebhookUrl,
     data.channelType || 'generic',
     data.enabled ?? true,
     data.notifyConnectorOffline ?? true,
@@ -304,11 +526,11 @@ export async function saveAlertConfig(
     data.emailEnabled ?? false,
     data.emailRecipients ?? '',
     data.emailProvider ?? 'smtp',
-    JSON.stringify(data.emailConfig || {}),
+    JSON.stringify(encryptedEmailConfig),
     data.whatsappEnabled ?? false,
     data.whatsappProvider ?? 'callmebot',
     data.whatsappPhone ?? '',
-    JSON.stringify(data.whatsappConfig || {})
+    JSON.stringify(encryptedWhatsAppConfig)
   );
 
   return {

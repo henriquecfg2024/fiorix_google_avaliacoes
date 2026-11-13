@@ -7,6 +7,10 @@ import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
 import { supabaseAdmin } from '@/lib/supabase';
+import {
+  canUserUploadItDocument,
+  validateStrictPdfMetadata,
+} from '@/lib/security/it-upload-guard';
 
 export interface ITItem {
   id: string;
@@ -137,6 +141,176 @@ export interface AceiteStatus {
   hash?: string;
   dataAssinatura?: string;
   declaracao?: string;
+}
+
+async function canUserEditIt(
+  currentUser: { id: string; role: string; tenantId: string },
+  itId: string
+): Promise<boolean> {
+  const tenantId = currentUser.tenantId;
+  if (!tenantId || !itId) return false;
+
+  const itRows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT
+       guardiao_id as "guardiaoId",
+       responsavel_tecnico_id as "responsavelTecnicoId",
+       autor_id as "autorId",
+       substituto_id as "substitutoId",
+       substituto_ate as "substitutoAte"
+     FROM public.fiorix_its
+     WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+     LIMIT 1`,
+    itId,
+    tenantId
+  );
+  if (itRows.length === 0) return false;
+
+  const role = String(currentUser.role || '').toUpperCase();
+  if (['MASTER', 'ADMIN', 'SUBSTITUTO'].includes(role)) {
+    return true;
+  }
+
+  const it = itRows[0];
+  const uid = String(currentUser.id);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const subAteIso = it.substitutoAte
+    ? new Date(it.substitutoAte).toISOString().slice(0, 10)
+    : null;
+  const isSubstitutoAtivo =
+    String(it.substitutoId || '') === uid && (!subAteIso || subAteIso >= todayIso);
+
+  if (
+    String(it.guardiaoId || '') === uid ||
+    String(it.responsavelTecnicoId || '') === uid ||
+    String(it.autorId || '') === uid ||
+    isSubstitutoAtivo
+  ) {
+    return true;
+  }
+
+  try {
+    const partRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT 1 FROM public.fiorix_its_participants
+       WHERE it_id = $1::uuid
+         AND tenant_id = $2
+         AND usuario_id = $3
+         AND status = 'ativo'
+         AND papel IN ('RESPONSAVEL_PRINCIPAL', 'CORRESPONSAVEL')
+       LIMIT 1`,
+      itId,
+      tenantId,
+      uid
+    );
+    return partRows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function canUserDelegateItGuardian(
+  currentUser: { id: string; role: string; tenantId: string },
+  itId: string
+): Promise<boolean> {
+  const tenantId = currentUser.tenantId;
+  if (!tenantId || !itId) return false;
+
+  const itRows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT
+       guardiao_id as "guardiaoId",
+       responsavel_tecnico_id as "responsavelTecnicoId"
+     FROM public.fiorix_its
+     WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+     LIMIT 1`,
+    itId,
+    tenantId
+  );
+  if (itRows.length === 0) return false;
+
+  const role = String(currentUser.role || '').toUpperCase();
+  if (['MASTER', 'ADMIN', 'SUBSTITUTO'].includes(role)) {
+    return true;
+  }
+
+  const it = itRows[0];
+  const uid = String(currentUser.id);
+  if (
+    String(it.guardiaoId || '') === uid ||
+    String(it.responsavelTecnicoId || '') === uid
+  ) {
+    return true;
+  }
+
+  try {
+    const partRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT 1 FROM public.fiorix_its_participants
+       WHERE it_id = $1::uuid
+         AND tenant_id = $2
+         AND usuario_id = $3
+         AND status = 'ativo'
+         AND papel = 'RESPONSAVEL_PRINCIPAL'
+       LIMIT 1`,
+      itId,
+      tenantId,
+      uid
+    );
+    return partRows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function canUserReadIt(
+  currentUser: { id: string; role: string; tenantId: string },
+  itId: string
+): Promise<boolean> {
+  const tenantId = currentUser.tenantId;
+  if (!tenantId || !itId) return false;
+
+  const role = String(currentUser.role || '').toUpperCase();
+  if (['MASTER', 'ADMIN', 'SUBSTITUTO', 'RH', 'VISITANTE'].includes(role)) {
+    const exists = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT 1 FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL LIMIT 1`,
+      itId,
+      tenantId
+    );
+    return exists.length > 0;
+  }
+
+  if (await canUserEditIt(currentUser, itId)) {
+    return true;
+  }
+
+  const uid = String(currentUser.id);
+  try {
+    const accessRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT 1
+       FROM public.fiorix_its i
+       WHERE i.id = $1::uuid
+         AND i.tenant_id = $2
+         AND i.deleted_at IS NULL
+         AND (
+           EXISTS (
+             SELECT 1 FROM public.fiorix_its_participants p
+             WHERE p.it_id = i.id AND p.tenant_id = $2 AND p.usuario_id = $3 AND p.status = 'ativo'
+           )
+           OR EXISTS (
+             SELECT 1 FROM public.fiorix_its_ciencias c
+             WHERE c.it_id = i.id AND c.tenant_id = $2 AND c.usuario_id = $3
+           )
+           OR EXISTS (
+             SELECT 1 FROM public.fiorix_trilhas_estudo t
+             WHERE t.it_id = i.id AND t.tenant_id = $2 AND t.usuario_id = $3
+           )
+         )
+       LIMIT 1`,
+      itId,
+      tenantId,
+      uid
+    );
+    return accessRows.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function getItsPageData() {
@@ -964,6 +1138,10 @@ export async function registrarCienciaIt(itId: string, versao: string) {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
+  if (!(await canUserReadIt(currentUser, itId))) {
+    throw new Error('Acesso não autorizado para registrar ciência nesta Instrução de Trabalho.');
+  }
+
   await prisma.$queryRawUnsafe(
     `INSERT INTO public.fiorix_its_ciencias (
        tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
@@ -988,17 +1166,37 @@ export async function registrarCienciaIt(itId: string, versao: string) {
 export async function getITUploadSignedUrl(fileName: string, contentType?: string) {
   try {
     const currentUser = await requireAuth();
+    if (!currentUser.tenantId || !(await canUserUploadItDocument(currentUser))) {
+      return {
+        success: false,
+        error: 'Acesso negado: sem permissão para enviar documentos de Instrução de Trabalho.',
+        signedUrl: '',
+        publicUrl: '',
+        storagePath: '',
+        token: '',
+        path: '',
+      };
+    }
+
+    const pdfCheck = validateStrictPdfMetadata(fileName, contentType || 'application/pdf');
+    if (!pdfCheck.valid) {
+      return {
+        success: false,
+        error: pdfCheck.error || 'Apenas documentos PDF (.pdf) são permitidos.',
+        signedUrl: '',
+        publicUrl: '',
+        storagePath: '',
+        token: '',
+        path: '',
+      };
+    }
+
     const timestamp = Date.now();
-    const safeFileName = (fileName || 'documento')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9._-]/g, '_');
-    const tenantFolder = currentUser.tenantId || 'global';
-    const storagePath = `uploads/${tenantFolder}_${timestamp}_${safeFileName}`;
+    const storagePath = `uploads/${currentUser.tenantId}/${timestamp}_${pdfCheck.safeFileName}`;
 
     const { data, error } = await supabaseAdmin.storage
       .from('it-documentos')
-      .createSignedUploadUrl(storagePath, { upsert: true });
+      .createSignedUploadUrl(storagePath, { upsert: false });
 
     if (error || !data?.signedUrl) {
       console.error('Erro ao gerar Signed URL no Supabase:', error);
@@ -1054,6 +1252,10 @@ export interface SalvarNovaVersaoParams {
 export async function salvarNovaVersaoComDiff(params: SalvarNovaVersaoParams) {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
+
+  if (!(await canUserEditIt(currentUser, params.itId))) {
+    throw new Error('Sem permissão para publicar nova versão nesta Instrução de Trabalho.');
+  }
 
   // 1. Busca a IT atual para gerar o snapshot de diff
   const current = (await prisma.$queryRawUnsafe<any[]>(
@@ -1187,6 +1389,21 @@ export async function delegarGuardiaoTemporario(itId: string, substitutoId: stri
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
+  if (!(await canUserDelegateItGuardian(currentUser, itId))) {
+    throw new Error('Apenas o responsável titular ou a gestão podem delegar guardião temporário.');
+  }
+
+  const targetSub = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id FROM public."User"
+     WHERE id = $1 AND "tenantId" = $2 AND COALESCE(status, 'ativo') = 'ativo'
+     LIMIT 1`,
+    substitutoId,
+    tenantId
+  );
+  if (targetSub.length === 0) {
+    throw new Error('Colaborador substituto inválido ou pertencente a outra organização.');
+  }
+
   await prisma.$queryRawUnsafe(
     `UPDATE public.fiorix_its
      SET substituto_id = $1, substituto_ate = $2::date, updated_at = NOW()
@@ -1204,6 +1421,10 @@ export async function delegarGuardiaoTemporario(itId: string, substitutoId: stri
 export async function adicionarFaqExcecao(itId: string, pergunta: string, resposta: string) {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
+
+  if (!(await canUserEditIt(currentUser, itId))) {
+    throw new Error('Sem permissão para alterar as exceções/FAQ desta Instrução de Trabalho.');
+  }
 
   const currentFaqRaw = (await prisma.$queryRawUnsafe<any[]>(
     `SELECT faq_excecoes FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2`,
@@ -2992,6 +3213,10 @@ export async function getParticipantesIt(
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
 
+    if (!(await canUserReadIt(currentUser, itId))) {
+      return { success: false, error: 'Acesso não autorizado a esta Instrução de Trabalho.' };
+    }
+
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT
          p.id::text,
@@ -3407,6 +3632,10 @@ export async function bloquearEdicaoIt(itId: string): Promise<{ success: boolean
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
 
+    if (!(await canUserEditIt(currentUser, itId))) {
+      return { success: false, error: 'Sem permissão para bloquear ou editar esta Instrução de Trabalho.' };
+    }
+
     // Verificar se já está bloqueada por outra pessoa
     const itRows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT editando_por_id, editando_desde,
@@ -3504,6 +3733,10 @@ export async function buscarColaboradoresParaVincular(
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
 
+    if (!(await canUserEditIt(currentUser, itId))) {
+      return { success: false, error: 'Sem permissão para vincular participantes nesta Instrução de Trabalho.' };
+    }
+
     // Pegar departamento da IT
     const itRows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT departamento FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
@@ -3595,6 +3828,10 @@ export async function getEquipeLeitorIt(itId: string): Promise<{
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
+
+    if (!(await canUserReadIt(currentUser, itId))) {
+      return { success: false, error: 'Acesso não autorizado à equipe desta Instrução de Trabalho.' };
+    }
 
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT
@@ -3887,6 +4124,10 @@ export async function getPropostasIt(
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
+
+    if (!(await canUserReadIt(currentUser, itId))) {
+      return { success: false, error: 'Acesso não autorizado às propostas desta Instrução de Trabalho.' };
+    }
 
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT p.id::text, p.it_id::text as "itId",

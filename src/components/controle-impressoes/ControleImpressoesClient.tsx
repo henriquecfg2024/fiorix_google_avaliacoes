@@ -8,6 +8,7 @@ import {
   ChevronsLeft, ChevronsRight, ChevronDown, Loader2, Info, FileSpreadsheet, User, Users, Award
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { escapeCsvCell } from '@/lib/security/csv-escape';
 import { MOCK_CONTROLE_IMPRESSOES } from '@/lib/controle-impressoes/mock-data';
 import { StatusImpressaoItem, ImpressaoItemRow, ControleImpressoesData } from '@/types/controle-impressoes';
 
@@ -436,11 +437,7 @@ export function ControleImpressoesClient() {
         return;
       }
 
-      const sanitize = (val: any) => {
-        if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-      };
+      const sanitize = (val: any) => escapeCsvCell(val);
 
       const headers = [
         'PROTOCOLO',

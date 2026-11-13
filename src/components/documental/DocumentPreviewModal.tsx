@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { sanitizeDocumentHtml } from '@/lib/security/html-sanitizer';
 import {
   X,
   Printer,
@@ -2420,9 +2421,7 @@ export function DocumentPreviewModal({
                   <div
                     className="prose max-w-none text-justify whitespace-pre-wrap font-serif"
                     dangerouslySetInnerHTML={{
-                      __html:
-                        docAtivo.html ||
-                        `<p>${docAtivo.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`,
+                      __html: sanitizeDocumentHtml(docAtivo.html, docAtivo.text),
                     }}
                   />
                 </div>

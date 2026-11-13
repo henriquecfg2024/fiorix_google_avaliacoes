@@ -17,6 +17,9 @@ export async function uploadItPdfDirectly(
   if (!file) {
     throw new Error('Nenhum arquivo PDF selecionado.');
   }
+  if (!file.name.trim().toLowerCase().endsWith('.pdf')) {
+    throw new Error('Formato inválido: apenas arquivos PDF (.pdf) são permitidos.');
+  }
 
   // 1. Obter a Signed URL pré-autenticada no servidor
   let signData: any;
@@ -26,7 +29,11 @@ export async function uploadItPdfDirectly(
     const signRes = await fetch('/api/its/signed-url', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileName: file.name, contentType: file.type || 'application/pdf' }),
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: 'application/pdf',
+      }),
     });
 
     const rawSignText = await signRes.text();
@@ -76,7 +83,7 @@ export async function uploadItPdfDirectly(
       method: 'PUT',
       body: file,
       headers: {
-        'Content-Type': file.type || 'application/pdf',
+        'Content-Type': 'application/pdf',
       },
     });
 

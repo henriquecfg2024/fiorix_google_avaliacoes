@@ -180,8 +180,8 @@ export function UserListTable({
       return;
     }
 
-    if (newRole === 'ADMIN' && !user.name?.toLowerCase().includes('henrique cesar')) {
-      alert('Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.');
+    if ((newRole === 'ADMIN' || user.role === 'ADMIN') && currentUserRole !== 'MASTER') {
+      toast.error('Apenas o MASTER da plataforma pode conceder ou revogar o perfil ADMIN.');
       return;
     }
 

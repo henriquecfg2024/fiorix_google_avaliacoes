@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   experimental: {
     serverComponentsExternalPackages: ['mssql', 'tedious', 'iconv-lite'],
     outputFileTracingIncludes: {
@@ -24,6 +25,17 @@ const nextConfig = {
     const cspScriptSrc = isDev
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval';"
       : "script-src 'self' 'unsafe-inline';";
+
+    let supabaseOrigin = '';
+    try {
+      if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        supabaseOrigin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin;
+      }
+    } catch {
+      supabaseOrigin = '';
+    }
+    const supabaseHttpSources = ['https://*.supabase.co', supabaseOrigin].filter(Boolean).join(' ');
+
     // Servidor de arquivos do FIORIX Connector (rede interna) — inclui HTTP/HTTPS local quando disponível
     const documentalFileOrigins = (
       process.env.DOCUMENTAL_FILE_SERVER_CSP_ORIGINS ||
@@ -59,7 +71,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.googleusercontent.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: data: https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co ${documentalFileOrigins}; worker-src 'self' blob:; child-src 'self' blob: data:; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'self'; object-src 'self' blob: data:; base-uri 'self';`,
+            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.googleusercontent.com ${supabaseHttpSources}; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: data: https://*.googleapis.com https://api.openai.com ${supabaseHttpSources} wss://*.supabase.co ${documentalFileOrigins}; worker-src 'self' blob:; child-src 'self' blob: data:; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'self'; form-action 'self'; object-src 'self' blob: data:; base-uri 'self';`,
           },
         ],
       },

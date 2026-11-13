@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { escapeCsvCell } from "@/lib/security/csv-escape";
 import {
   UploadCloud,
   FileText,
@@ -1045,7 +1046,7 @@ export function HoleriteUploader({ userRole = "RH" }: HoleriteUploaderProps) {
         s.cienciaComprovanteHash || "",
         s.hash,
       ]
-        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .map((v) => escapeCsvCell(v ?? ""))
         .join(";")
     );
     const csv = "\uFEFF" + [headers.join(";"), ...rows].join("\r\n");

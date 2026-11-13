@@ -67,6 +67,37 @@ export function clearClientSessionCaches() {
         // Ignora bloqueios de storage do navegador
       }
     }
+
+    // Revoga inscrição Web Push, limpa notificações abertas e desregistra o Service Worker no logout (LOW-05)
+    try {
+      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then(async (registrations) => {
+            for (const reg of registrations) {
+              try {
+                reg.active?.postMessage({ type: "FIORIX_LOGOUT_CLEANUP" });
+                const sub = await reg.pushManager?.getSubscription().catch(() => null);
+                if (sub) {
+                  await fetch("/api/push/subscribe", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ endpoint: sub.endpoint }),
+                    keepalive: true,
+                  }).catch(() => {});
+                  await sub.unsubscribe().catch(() => {});
+                }
+                await reg.unregister().catch(() => {});
+              } catch {
+                // Ignora falhas individuais de desregistro
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // Ignora indisponibilidade de Service Worker / PushManager
+    }
   }
 }
 

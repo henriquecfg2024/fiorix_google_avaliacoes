@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { escapeCsvCell } from "@/lib/security/csv-escape";
 import {
   ShieldCheck,
   X,
@@ -176,7 +177,7 @@ export function DossieCorregedoriaHoleritesModal({
         r.arquivoNome,
         r.hash,
       ]
-        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`)
+        .map((v) => escapeCsvCell(v ?? ""))
         .join(";")
     );
 

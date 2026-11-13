@@ -5,6 +5,7 @@ import {
 } from './alert-storage';
 import { sendAlertEmail } from './email-dispatcher';
 import { sendAlertWhatsApp } from './whatsapp-dispatcher';
+import { assertSafeOutboundUrl } from '@/lib/security/ssrf-guard';
 
 export type AlertEventType = 'connector_offline' | 'sync_failed' | 'module_delayed' | 'test';
 
@@ -144,14 +145,16 @@ export async function dispatchAlert(params: DispatchAlertParams): Promise<boolea
               );
             }
 
+            const safeWebhookUrl = await assertSafeOutboundUrl(config.webhookUrl);
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 7000);
 
-            const res = await fetch(config.webhookUrl, {
+            const res = await fetch(safeWebhookUrl.toString(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
               signal: controller.signal,
+              redirect: 'error',
             });
             clearTimeout(timeout);
 
@@ -378,14 +381,16 @@ export async function dispatchTestAlert(
       );
     }
 
+    const safeWebhookUrl = await assertSafeOutboundUrl(webhookUrl);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
 
-    const res = await fetch(webhookUrl, {
+    const res = await fetch(safeWebhookUrl.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: controller.signal,
+      redirect: 'error',
     });
     clearTimeout(timeout);
 

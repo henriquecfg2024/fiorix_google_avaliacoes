@@ -1,4 +1,5 @@
 import type { AlertChannelConfig } from './alert-storage';
+import { assertSafeOutboundUrl } from '@/lib/security/ssrf-guard';
 
 export interface WhatsAppDispatchResult {
   success: boolean;
@@ -162,8 +163,9 @@ export async function sendAlertWhatsApp(params: {
     }
 
     try {
+      const safeEndpoint = await assertSafeOutboundUrl(`${instanceUrl}/message/sendText`);
       const cleanNumber = phone.replace('+', '');
-      const res = await fetch(`${instanceUrl}/message/sendText`, {
+      const res = await fetch(safeEndpoint.toString(), {
         method: 'POST',
         headers: {
           apikey: token,
@@ -173,6 +175,7 @@ export async function sendAlertWhatsApp(params: {
           number: cleanNumber,
           text: textMsg,
         }),
+        redirect: 'error',
       });
 
       if (!res.ok) {
@@ -203,8 +206,9 @@ export async function sendAlertWhatsApp(params: {
     }
 
     try {
+      const safeEndpoint = await assertSafeOutboundUrl(`${instanceUrl}/send-text`);
       const cleanNumber = phone.replace('+', '');
-      const res = await fetch(`${instanceUrl}/send-text`, {
+      const res = await fetch(safeEndpoint.toString(), {
         method: 'POST',
         headers: {
           'Client-Token': token,
@@ -214,6 +218,7 @@ export async function sendAlertWhatsApp(params: {
           phone: cleanNumber,
           message: textMsg,
         }),
+        redirect: 'error',
       });
 
       if (!res.ok) {

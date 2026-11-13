@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { requireRole } from "@/lib/auth-helpers";
+import { invalidateProdutividadeTenantCache } from "@/lib/bi-produtividade-cache";
 
 export async function POST(request: Request) {
   try {
     const currentUser = await requireRole("ADMIN", "MASTER");
+    const tenantId = currentUser.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: "Organização (tenant) não identificada na sessão." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const { startDate = "2026-08-01", endDate = "2026-08-11" } = body;
 
-    const server = process.env.MSSQL_SERVER;
-    const user = process.env.MSSQL_USER;
-    const password = process.env.MSSQL_PASSWORD;
+    const mssqlOwnerTenantId = (process.env.MSSQL_OWNER_TENANT_ID || "").trim();
+    const canUseMssqlDirect =
+      process.env.MSSQL_DIRECT_FALLBACK_ENABLED === "true" &&
+      Boolean(mssqlOwnerTenantId) &&
+      mssqlOwnerTenantId === tenantId;
+
+    const server = canUseMssqlDirect ? process.env.MSSQL_SERVER : undefined;
+    const user = canUseMssqlDirect ? process.env.MSSQL_USER : undefined;
+    const password = canUseMssqlDirect ? process.env.MSSQL_PASSWORD : undefined;
     const database = process.env.MSSQL_DATABASE || "WEBRI";
 
     let rowsToUpsert: any[] = [];
@@ -46,16 +61,17 @@ export async function POST(request: Request) {
         .query(`EXEC pr_Fiorix_BI_Produtividade @DataInicial, @DataFinal, '0'`);
 
       rowsToUpsert = result.recordset.map((row: any) => ({
-        DATA: row.DATA || row.data || row.Data,
-        HORA_NUM: parseInt(row.HORA_NUM || row.hora_num || 0, 10),
-        DIA_SEMANA: row.DIA_SEMANA || row.dia_semana || "Monday",
-        HORA: row.HORA || row.hora || "00:00",
-        PEDIDO: parseInt(row.PEDIDO || row.pedido || 0, 10),
-        NOME: row.NOME || row.nome || "Outro",
-        TIPO: row.TIPO || row.tipo || "TÍTULO",
-        TIPO_PEDIDO: row.TIPO_PEDIDO || row.tipo_pedido || "PRENOTADO",
-        TIPO_DETALHADO: row.TIPO_DETALHADO || row.tipo_detalhado || "",
-        QUANTIDADE: parseInt(row.QUANTIDADE || row.quantidade || 1, 10),
+        tenant_id: tenantId,
+        data: row.DATA || row.data || row.Data,
+        hora_num: parseInt(row.HORA_NUM || row.hora_num || 0, 10),
+        dia_semana: row.DIA_SEMANA || row.dia_semana || "Monday",
+        hora: row.HORA || row.hora || "00:00",
+        pedido: parseInt(row.PEDIDO || row.pedido || 0, 10),
+        nome: row.NOME || row.nome || "Outro",
+        tipo: row.TIPO || row.tipo || "TÍTULO",
+        tipo_pedido: row.TIPO_PEDIDO || row.tipo_pedido || "PRENOTADO",
+        tipo_detalhado: row.TIPO_DETALHADO || row.tipo_detalhado || "",
+        quantidade: parseInt(row.QUANTIDADE || row.quantidade || 1, 10),
       }));
 
       await sql.close();
@@ -108,16 +124,17 @@ export async function POST(request: Request) {
           pedidoAcumulado += 1;
 
           rowsToUpsert.push({
-            DATA: dataStr,
-            HORA_NUM: horaNum,
-            DIA_SEMANA: diaSemanaStr,
-            HORA: horaStr,
-            PEDIDO: pedidoAcumulado,
-            NOME: nome,
-            TIPO: tipo,
-            TIPO_PEDIDO: tipoPedido,
-            TIPO_DETALHADO: `${tipo} - ${tipoPedido} detalhe`,
-            QUANTIDADE: 1
+            tenant_id: tenantId,
+            data: dataStr,
+            hora_num: horaNum,
+            dia_semana: diaSemanaStr,
+            hora: horaStr,
+            pedido: pedidoAcumulado,
+            nome: nome,
+            tipo: tipo,
+            tipo_pedido: tipoPedido,
+            tipo_detalhado: `${tipo} - ${tipoPedido} detalhe`,
+            quantidade: 1
           });
         }
       }
@@ -130,10 +147,10 @@ export async function POST(request: Request) {
     for (let i = 0; i < rowsToUpsert.length; i += chunkSize) {
       const chunk = rowsToUpsert.slice(i, i + chunkSize);
       
-      // Upsert Supabase
-      const { error } = await supabase
+      // Upsert via supabaseAdmin (service_role) respeitando isolamento multi-tenant
+      const { error } = await supabaseAdmin
         .from("fiorix_produtividade_dados")
-        .upsert(chunk, { onConflict: "PEDIDO,DATA" });
+        .upsert(chunk, { onConflict: "tenant_id,pedido,data" });
 
       if (error) {
         console.error("Erro no upsert do Supabase:", error);
@@ -142,6 +159,8 @@ export async function POST(request: Request) {
       
       insertedCount += chunk.length;
     }
+
+    invalidateProdutividadeTenantCache(tenantId);
 
     return NextResponse.json({
       success: true,

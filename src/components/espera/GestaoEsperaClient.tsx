@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { escapeCsvCell } from '@/lib/security/csv-escape';
 import {
   Clock3,
   CheckCircle2,
@@ -1464,20 +1465,20 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     ];
 
     const rows = filteredRecords.map((r) => [
-      `"${r.senha}"`,
-      `"${r.cliente || '—'}"`,
-      `"${r.servico}"`,
-      `"${r.fila}"`,
-      `"${r.emissao}"`,
-      `"${r.chamada}"`,
-      `"${r.inicioAtendimento || '—'}"`,
-      `"${r.fimAtendimento || '—'}"`,
+      escapeCsvCell(r.senha),
+      escapeCsvCell(r.cliente || '—'),
+      escapeCsvCell(r.servico),
+      escapeCsvCell(r.fila),
+      escapeCsvCell(r.emissao),
+      escapeCsvCell(r.chamada),
+      escapeCsvCell(r.inicioAtendimento || '—'),
+      escapeCsvCell(r.fimAtendimento || '—'),
       r.tempoEsperaMin !== null ? r.tempoEsperaMin : '',
       r.tempoAtendimentoMin !== null ? r.tempoAtendimentoMin : '',
-      `"${r.guiche}"`,
-      `"${r.atendente && r.atendente !== '—' ? r.atendente.toUpperCase() : '—'}"`,
-      `"${r.avaliacao || '—'}"`,
-      `"${r.situacao}"`,
+      escapeCsvCell(r.guiche),
+      escapeCsvCell(r.atendente && r.atendente !== '—' ? r.atendente.toUpperCase() : '—'),
+      escapeCsvCell(r.avaliacao || '—'),
+      escapeCsvCell(r.situacao),
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');

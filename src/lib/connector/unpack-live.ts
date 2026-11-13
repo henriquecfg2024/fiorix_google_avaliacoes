@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
+import { invalidateBiDashboardCache } from '@/lib/bi-dashboard';
+import { invalidateProdutividadeTenantCache } from '@/lib/bi-produtividade-cache';
 import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
 import { sincronizarPedidosOficiaisWebriBatch } from '@/lib/cartorio-virtual/connector-sync';
 
@@ -65,7 +67,7 @@ export async function unpackLiveRecords({
 
   try {
     if (source === 'produtividade') {
-      return await runUpsertWithCounts(
+      const prodRes = await runUpsertWithCounts(
         `
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'pedido')::int, (item->>'data')::date)
@@ -108,6 +110,8 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
+      invalidateProdutividadeTenantCache(tenantId);
+      return prodRes;
     } else if (source === 'tarefas') {
       return await runUpsertWithCounts(
         `
@@ -350,6 +354,8 @@ export async function unpackLiveRecords({
       } catch (aggErr) {
         console.warn('BI_AGG_REFRESH_WARNING:', aggErr);
       }
+
+      invalidateBiDashboardCache(tenantId);
 
       return {
         inserted: netInserted,

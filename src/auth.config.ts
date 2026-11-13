@@ -8,7 +8,8 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') ||
+      const isOnDashboard =
+        nextUrl.pathname.startsWith('/dashboard') ||
         nextUrl.pathname.startsWith('/cartorio-virtual') ||
         nextUrl.pathname.startsWith('/gestao-documental') ||
         nextUrl.pathname.startsWith('/visualizador-documental') ||
@@ -23,11 +24,16 @@ export const authConfig = {
         nextUrl.pathname.startsWith('/sistema') ||
         nextUrl.pathname.startsWith('/minha-it') ||
         nextUrl.pathname.startsWith('/minha-conta') ||
+        nextUrl.pathname.startsWith('/meu-perfil') ||
+        nextUrl.pathname.startsWith('/sem-acesso') ||
         nextUrl.pathname.startsWith('/gestao') ||
         nextUrl.pathname.startsWith('/master') ||
         nextUrl.pathname.startsWith('/trajetoria-titulo') ||
         nextUrl.pathname.startsWith('/controle-impressoes') ||
-        nextUrl.pathname.startsWith('/instrucoes-trabalho');
+        nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
+        nextUrl.pathname.startsWith('/mensagens') ||
+        nextUrl.pathname.startsWith('/espera') ||
+        nextUrl.pathname.startsWith('/jornada');
 
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
@@ -61,42 +67,53 @@ export const authConfig = {
           return true;
         }
 
-        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'].includes(role)) {
+        if (
+          (nextUrl.pathname.startsWith('/gestao-documental') ||
+            nextUrl.pathname.startsWith('/visualizador-documental')) &&
+          !['ADMIN', 'MASTER', 'SUBSTITUTO', 'VISITANTE'].includes(role)
+        ) {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
 
-        // Regras para perfil COLABORADOR: acesso a /pessoas, /minha-conta, /minha-it e /instrucoes-trabalho
+        // Regras para perfil COLABORADOR
         if (role === 'COLABORADOR') {
           if (
             nextUrl.pathname.startsWith('/cartorio-virtual') ||
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname === '/meu-perfil' ||
+            nextUrl.pathname === '/sem-acesso' ||
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/controle-impressoes') ||
-            nextUrl.pathname.startsWith('/instrucoes-trabalho')
+            nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
+            nextUrl.pathname.startsWith('/mensagens') ||
+            nextUrl.pathname.startsWith('/espera')
           ) {
             return true;
           }
           return Response.redirect(new URL('/minha-it', nextUrl));
         }
 
-        // Regras para perfil RH: foco exclusivo em Pessoas (comunicados, férias, holerites)
+        // Regras para perfil RH: foco em Pessoas (comunicados, férias, holerites) + mensagens
         if (role === 'RH') {
           if (
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname === '/meu-perfil' ||
+            nextUrl.pathname === '/sem-acesso' ||
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
-            nextUrl.pathname.startsWith('/configuracoes/departamentos')
+            nextUrl.pathname.startsWith('/configuracoes/departamentos') ||
+            nextUrl.pathname.startsWith('/mensagens')
           ) {
             return true;
           }
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
         }
 
-        // Regras para perfil SUBSTITUTO e VISITANTE (visitante controlado via Gerenciar Permissões com mesmo teto estrutural)
+        // Regras para perfil SUBSTITUTO e VISITANTE
         if (role === 'SUBSTITUTO' || role === 'VISITANTE') {
           if (
             nextUrl.pathname.startsWith('/cartorio-virtual') ||
@@ -105,9 +122,13 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname === '/meu-perfil' ||
+            nextUrl.pathname === '/sem-acesso' ||
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/mensagens') ||
+            nextUrl.pathname.startsWith('/espera') ||
+            nextUrl.pathname.startsWith('/jornada') ||
             nextUrl.pathname.startsWith('/controle-impressoes') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
             nextUrl.pathname.startsWith('/administracao') ||
@@ -123,7 +144,7 @@ export const authConfig = {
           return Response.redirect(new URL(role === 'VISITANTE' ? '/dashboard' : '/administracao/its', nextUrl));
         }
 
-        // Regras para perfil USER: acesso operacional ao dashboard, bi, avaliacoes, relatorios, pessoas
+        // Regras para perfil USER
         if (role === 'USER') {
           if (nextUrl.pathname.startsWith('/sistema') || nextUrl.pathname.startsWith('/configuracoes')) {
             return Response.redirect(new URL('/minha-it', nextUrl));
@@ -162,6 +183,7 @@ export const authConfig = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.id = user.id;
+        token.authAt = Date.now();
       }
       return token;
     },
@@ -170,9 +192,10 @@ export const authConfig = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as string;
         session.user.id = token.id as string;
+        (session.user as any).authAt = typeof token.authAt === 'number' ? token.authAt : undefined;
       }
       return session;
     },
   },
-  providers: [], // Add providers with an empty array for now
+  providers: [],
 } satisfies NextAuthConfig;

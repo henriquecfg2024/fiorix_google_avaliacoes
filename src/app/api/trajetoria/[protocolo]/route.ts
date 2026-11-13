@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { requireTenant } from '@/lib/auth-helpers';
+import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 import {
   deriveTrajetoria,
   consolidarTarefas,
@@ -27,9 +28,12 @@ export async function GET(
   { params }: { params: { protocolo: string } }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Acesso não autorizado' }, { status: 401 });
+    const user = await requireTenant();
+    if (!(await isRouteAllowedForUser('/trajetoria-titulo', user))) {
+      return NextResponse.json(
+        { error: 'Acesso negado ao módulo de Trajetória do Título.' },
+        { status: 403 }
+      );
     }
 
     const protocoloNum = parseInt(params.protocolo, 10);
@@ -38,70 +42,39 @@ export async function GET(
       return NextResponse.json({ error: 'Número de protocolo inválido' }, { status: 400 });
     }
 
-    const userTenantId = session.user.tenantId;
-    const isMaster = session.user.role === 'MASTER';
+    const userTenantId = user.tenantId;
 
     const [metasRows, biRows, tarefasRows] = await Promise.all([
-      !isMaster && userTenantId
-        ? prisma.$queryRawUnsafe<RawMetas[]>(
-            `SELECT protocolo, natureza, tipo, status,
-                    data_apresentado, d1_protocolo, d1_escaneamento,
-                    d2_contraditorio, d3_extrato, d4_qualificacao,
-                    d5_calculo, d8_impressao, d9_preparacao, d9_conferencia,
-                    d10_entrega, d_balcao_registrado, d_balcao_devolvido, qtd_retrabalho
-             FROM public.fiorix_metas_dados
-             WHERE protocolo = $1 AND tenant_id = $2
-             LIMIT 1`,
-            protocoloNum,
-            userTenantId
-          )
-        : prisma.$queryRawUnsafe<RawMetas[]>(
-            `SELECT protocolo, natureza, tipo, status,
-                    data_apresentado, d1_protocolo, d1_escaneamento,
-                    d2_contraditorio, d3_extrato, d4_qualificacao,
-                    d5_calculo, d8_impressao, d9_preparacao, d9_conferencia,
-                    d10_entrega, d_balcao_registrado, d_balcao_devolvido, qtd_retrabalho
-             FROM public.fiorix_metas_dados
-             WHERE protocolo = $1
-             LIMIT 1`,
-            protocoloNum
-          ),
-      !isMaster && userTenantId
-        ? prisma.$queryRawUnsafe<RawBi[]>(
-            `SELECT "IsRegistrado", "IsDevolucao", "SituacaoPrazo"
-             FROM public.fiorix_bi_data
-             WHERE "Protocolo" = $1 AND tenant_id = $2
-             LIMIT 1`,
-            String(protocoloNum),
-            userTenantId
-          )
-        : prisma.$queryRawUnsafe<RawBi[]>(
-            `SELECT "IsRegistrado", "IsDevolucao", "SituacaoPrazo"
-             FROM public.fiorix_bi_data
-             WHERE "Protocolo" = $1
-             LIMIT 1`,
-            String(protocoloNum)
-          ),
-      !isMaster && userTenantId
-        ? prisma.$queryRawUnsafe<RawTarefa[]>(
-            `SELECT id, tarefa, data_finalizacao, data_abertura, data_cadastro_tarefa,
-                    data_servico, data_entrada, situacao_tarefa, responsavel,
-                    natureza, tipo, status_previsao, dt_devolucao, dt_retirada
-             FROM public.fiorix_tarefas_dados
-             WHERE protocolo = $1 AND tenant_id = $2
-             ORDER BY data_servico ASC, data_cadastro_tarefa ASC, id ASC`,
-            protocoloNum,
-            userTenantId
-          )
-        : prisma.$queryRawUnsafe<RawTarefa[]>(
-            `SELECT id, tarefa, data_finalizacao, data_abertura, data_cadastro_tarefa,
-                    data_servico, data_entrada, situacao_tarefa, responsavel,
-                    natureza, tipo, status_previsao, dt_devolucao, dt_retirada
-             FROM public.fiorix_tarefas_dados
-             WHERE protocolo = $1
-             ORDER BY data_servico ASC, data_cadastro_tarefa ASC, id ASC`,
-            protocoloNum
-          ),
+      prisma.$queryRawUnsafe<RawMetas[]>(
+        `SELECT protocolo, natureza, tipo, status,
+                data_apresentado, d1_protocolo, d1_escaneamento,
+                d2_contraditorio, d3_extrato, d4_qualificacao,
+                d5_calculo, d8_impressao, d9_preparacao, d9_conferencia,
+                d10_entrega, d_balcao_registrado, d_balcao_devolvido, qtd_retrabalho
+         FROM public.fiorix_metas_dados
+         WHERE protocolo = $1 AND tenant_id = $2
+         LIMIT 1`,
+        protocoloNum,
+        userTenantId
+      ),
+      prisma.$queryRawUnsafe<RawBi[]>(
+        `SELECT "IsRegistrado", "IsDevolucao", "SituacaoPrazo"
+         FROM public.fiorix_bi_data
+         WHERE "Protocolo" = $1 AND tenant_id = $2
+         LIMIT 1`,
+        String(protocoloNum),
+        userTenantId
+      ),
+      prisma.$queryRawUnsafe<RawTarefa[]>(
+        `SELECT id, tarefa, data_finalizacao, data_abertura, data_cadastro_tarefa,
+                data_servico, data_entrada, situacao_tarefa, responsavel,
+                natureza, tipo, status_previsao, dt_devolucao, dt_retirada
+         FROM public.fiorix_tarefas_dados
+         WHERE protocolo = $1 AND tenant_id = $2
+         ORDER BY data_servico ASC, data_cadastro_tarefa ASC, id ASC`,
+        protocoloNum,
+        userTenantId
+      ),
     ]);
 
     const metas = metasRows[0] ?? null;
@@ -210,7 +183,14 @@ export async function GET(
     };
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error) {
+  } catch (error: any) {
+    const msg = String(error?.message || '');
+    if (msg.includes('Não autenticado') || msg.includes('Sessão expirada') || msg.includes('Conta desativada')) {
+      return NextResponse.json({ error: 'Acesso não autorizado' }, { status: 401 });
+    }
+    if (msg.includes('Acesso negado') || msg.includes('Tenant não associado')) {
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
     console.error('API_TRAJETORIA_ERROR:', error);
     return NextResponse.json(
       { error: 'Erro ao consultar trajetória do título.' },

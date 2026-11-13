@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireTenant } from '@/lib/auth-helpers';
+import { isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 import { prisma } from '@/lib/prisma';
 import { ControleImpressoesData, ImpressaoItemRow } from '@/types/controle-impressoes';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    const user = await requireTenant();
+    if (!(await isRouteAllowedForUser('/controle-impressoes', user))) {
+      return NextResponse.json({ error: 'Acesso negado ao módulo de Controle de Impressões.' }, { status: 403 });
     }
 
-    const tenantId = session.user.tenantId;
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 400 });
-    }
+    const tenantId = user.tenantId;
 
     const { searchParams } = new URL(request.url);
     const dataInicioParam = searchParams.get('dataInicio');
@@ -568,7 +566,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (err: any) {
+    const msg = String(err?.message || '');
+    if (msg.includes('Não autenticado') || msg.includes('Sessão expirada') || msg.includes('Conta desativada')) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+    if (msg.includes('Acesso negado') || msg.includes('Tenant não associado')) {
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
     console.error('CONTROLE_IMPRESSOES_API_ERROR:', err);
-    return NextResponse.json({ error: 'Falha ao buscar dados de impressões', details: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Falha ao buscar dados de impressões' }, { status: 500 });
   }
 }

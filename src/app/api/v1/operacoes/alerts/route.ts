@@ -5,8 +5,13 @@ import {
   getAlertConfig,
   saveAlertConfig,
   getRecentAlertLogs,
-  AlertChannelConfig,
+  maskAlertConfigSecrets,
+  restoreMaskedAlertSecrets,
 } from '@/lib/alerts/alert-storage';
+import {
+  assertSafeOutboundUrl,
+  UnsafeOutboundUrlError,
+} from '@/lib/security/ssrf-guard';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -44,17 +49,8 @@ export async function GET() {
       getRecentAlertLogs(tenantId, 15),
     ]);
 
-    // Mascarar senha SMTP na resposta do GET
-    let sanitizedConfig = config;
-    if (sanitizedConfig?.emailConfig?.pass) {
-      sanitizedConfig = {
-        ...sanitizedConfig,
-        emailConfig: {
-          ...sanitizedConfig.emailConfig,
-          pass: '••••••••',
-        },
-      };
-    }
+    // Mascara todas as credenciais sensíveis (SMTP pass, Resend API Key, CallMeBot/Evolution API Keys e Webhook token)
+    const sanitizedConfig = maskAlertConfigSecrets(config);
 
     return NextResponse.json(
       {
@@ -113,19 +109,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.issues }, { status: 400 });
     }
 
-    const payload = parsed.data;
+    const existing = await getAlertConfig(tenantId);
+    const payload = restoreMaskedAlertSecrets(parsed.data, existing);
 
-    // Se a senha de SMTP enviada for o placeholder '••••••••', preservar a senha já salva
-    if (payload.emailConfig?.pass === '••••••••' || !payload.emailConfig?.pass) {
-      const existing = await getAlertConfig(tenantId);
-      if (existing?.emailConfig?.pass) {
-        payload.emailConfig.pass = existing.emailConfig.pass;
-      }
+    if (payload.webhookUrl) {
+      await assertSafeOutboundUrl(payload.webhookUrl);
+    }
+    if (
+      payload.whatsappConfig &&
+      typeof payload.whatsappConfig === 'object' &&
+      payload.whatsappConfig.instanceUrl
+    ) {
+      await assertSafeOutboundUrl(String(payload.whatsappConfig.instanceUrl));
     }
 
     const saved = await saveAlertConfig(tenantId, payload);
-    return NextResponse.json({ success: true, config: saved });
+    return NextResponse.json({ success: true, config: maskAlertConfigSecrets(saved) });
   } catch (error: any) {
+    if (error instanceof UnsafeOutboundUrlError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error.message?.includes('Acesso negado') || error.message?.includes('Não autorizado') || error.message?.includes('Sessão')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }

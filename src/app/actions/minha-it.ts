@@ -552,13 +552,25 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
   try {
     const currentUser = await requireAuth();
     const userId = currentUser.id;
-    const tenantId = currentUser.tenantId || 'global';
+    const tenantId = currentUser.tenantId;
+    if (!tenantId) {
+      return { success: false, error: 'Organização não identificada na sessão.' };
+    }
 
-    // 1. Busca a IT atual para verificação de permissão e histórico (com isolamento multi-tenant)
+    if (
+      params.pdfPath &&
+      !params.pdfPath.startsWith(`uploads/${tenantId}_`) &&
+      !params.pdfPath.startsWith(`${tenantId}/`) &&
+      currentUser.role !== 'MASTER'
+    ) {
+      return { success: false, error: 'Caminho do arquivo PDF inválido para esta organização.' };
+    }
+
+    // 1. Busca a IT atual para verificação de permissão e histórico (com isolamento multi-tenant estrito)
     const currentRows: any[] = await prisma.$queryRawUnsafe(`
-      SELECT id, codigo, titulo, versao, responsavel_tecnico_id, guardiao_id, autor_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
+      SELECT id, codigo, titulo, versao, responsavel_tecnico_id, guardiao_id, autor_id, substituto_id, substituto_ate, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
       FROM public.fiorix_its
-      WHERE id = $1::uuid AND (tenant_id = $2 OR $2 = 'global') AND deleted_at IS NULL
+      WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
       LIMIT 1
     `, params.itId, tenantId);
 
@@ -567,14 +579,23 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
     }
 
     const current = currentRows[0];
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const subAteIso = current.substituto_ate
+      ? new Date(current.substituto_ate).toISOString().slice(0, 10)
+      : null;
+    const isSubstitutoAtivo =
+      String(current.substituto_id || '') === String(userId) &&
+      (!subAteIso || subAteIso >= todayIso);
 
     // Verifica se o usuário é o responsável técnico (campo direto na tabela),
-    // guardião, autor, ou RESPONSAVEL_PRINCIPAL / CORRESPONSAVEL em fiorix_its_participants, ou ADMIN/MASTER
+    // guardião, substituto ativo, autor, ou RESPONSAVEL_PRINCIPAL / CORRESPONSAVEL em fiorix_its_participants, ou ADMIN/SUBSTITUTO/MASTER
     let autorizado = String(current.responsavel_tecnico_id || '') === String(userId)
       || String(current.guardiao_id || '') === String(userId)
       || String(current.autor_id || '') === String(userId)
+      || isSubstitutoAtivo
       || currentUser.role === 'MASTER'
-      || currentUser.role === 'ADMIN';
+      || currentUser.role === 'ADMIN'
+      || currentUser.role === 'SUBSTITUTO';
 
     if (!autorizado) {
       // Verifica na tabela fiorix_its_participants
@@ -583,7 +604,7 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
           SELECT 1 FROM public.fiorix_its_participants
           WHERE it_id = $1::uuid
             AND usuario_id = $2
-            AND (tenant_id = $3 OR $3 = 'global')
+            AND tenant_id = $3
             AND papel IN ('RESPONSAVEL_PRINCIPAL', 'CORRESPONSAVEL')
             AND status = 'ativo'
           LIMIT 1
@@ -655,7 +676,7 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
         pdf_original_url = $4,
         titulo = $5,
         updated_at = NOW()
-      WHERE id = $6::uuid AND (tenant_id = $7 OR $7 = 'global') AND deleted_at IS NULL
+      WHERE id = $6::uuid AND tenant_id = $7 AND deleted_at IS NULL
     `,
       params.novaVersao,
       params.hashSha256,
@@ -751,13 +772,23 @@ export async function submeterItColaborador(params: {
 }): Promise<{ success: boolean; itId?: string; error?: string }> {
   try {
     const currentUser = await requireAuth();
-    const tenantId = currentUser.tenantId || 'global';
+    const tenantId = currentUser.tenantId;
+    if (!tenantId) {
+      return { success: false, error: 'Organização não identificada na sessão.' };
+    }
 
     if (!params.titulo?.trim()) {
       return { success: false, error: 'O título da Instrução de Trabalho é obrigatório.' };
     }
     if (!params.pdfPath?.trim()) {
       return { success: false, error: 'O arquivo PDF é obrigatório.' };
+    }
+    if (
+      !params.pdfPath.startsWith(`uploads/${tenantId}_`) &&
+      !params.pdfPath.startsWith(`${tenantId}/`) &&
+      currentUser.role !== 'MASTER'
+    ) {
+      return { success: false, error: 'Caminho do arquivo PDF inválido para esta organização.' };
     }
 
     // Determina o departamento informado ou padrão do usuário
@@ -776,7 +807,7 @@ export async function submeterItColaborador(params: {
     const existentes: any[] = await prisma.$queryRawUnsafe(
       `SELECT id FROM public.fiorix_its
        WHERE autor_id = $1
-         AND (tenant_id = $2 OR $2 = 'global')
+         AND tenant_id = $2
          AND departamento ILIKE $3
          AND status IN ('enviada_para_analise', 'rascunho', 'correcao_solicitada')
          AND deleted_at IS NULL

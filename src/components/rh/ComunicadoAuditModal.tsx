@@ -3,6 +3,7 @@
 import React from "react";
 import { Shield, X, Download, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { escapeCsvCell } from "@/lib/security/csv-escape";
 
 export interface AuditEntry {
   id: string;
@@ -43,9 +44,15 @@ export function ComunicadoAuditModal({
   const handleExportCsv = () => {
     const headers = "Nome,Setor,Email,Visualizou,Data e Hora da Ciencia,IP Registrado\n";
     const rows = auditorias
-      .map(
-        (a) =>
-          `"${(a.colaboradorNome || "").replace(/"/g, '""')}","${(a.setor || "Geral").replace(/"/g, '""')}","${(a.email || "").replace(/"/g, '""')}","${a.visualizou ? "Sim" : "Não"}","${a.dataCiencia || "Pendente"}","${a.ipMascarado || "—"}"`
+      .map((a) =>
+        [
+          escapeCsvCell(a.colaboradorNome || ""),
+          escapeCsvCell(a.setor || "Geral"),
+          escapeCsvCell(a.email || ""),
+          escapeCsvCell(a.visualizou ? "Sim" : "Não"),
+          escapeCsvCell(a.dataCiencia || "Pendente"),
+          escapeCsvCell(a.ipMascarado || "—"),
+        ].join(",")
       )
       .join("\n");
     const blob = new Blob(["\uFEFF" + headers + rows], { type: "text/csv;charset=utf-8;" });

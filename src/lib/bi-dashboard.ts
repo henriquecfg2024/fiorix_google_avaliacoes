@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { BoundedTtlMap } from '@/lib/security/bounded-ttl-map';
 
 export interface BiDashboardFilters {
   startDate?: string;
@@ -60,10 +61,19 @@ function formatDateKey(value: string | Date) {
   return String(value);
 }
 
-type DashboardCacheEntry = { expiresAt: number; value: any };
-const dashboardCache = new Map<string, DashboardCacheEntry>();
-const dashboardInFlight = new Map<string, Promise<any>>();
 const DASHBOARD_CACHE_TTL_MS = 30_000;
+const DASHBOARD_CACHE_MAX_ENTRIES = 64;
+const dashboardCache = new BoundedTtlMap<string, any>(DASHBOARD_CACHE_MAX_ENTRIES, DASHBOARD_CACHE_TTL_MS);
+const dashboardInFlight = new Map<string, Promise<any>>();
+
+export function invalidateBiDashboardCache(tenantId?: string): void {
+  if (!tenantId) {
+    dashboardCache.clear();
+    return;
+  }
+  const needle = `"tenantId":${JSON.stringify(tenantId)}`;
+  dashboardCache.deleteWhere((key) => key.includes(needle));
+}
 
 function dashboardCacheKey(tenantId: string, filters?: BiDashboardFilters) {
   return JSON.stringify({
@@ -75,24 +85,17 @@ function dashboardCacheKey(tenantId: string, filters?: BiDashboardFilters) {
 
 export async function queryBiDashboardData(tenantId: string, filters?: BiDashboardFilters) {
   const key = dashboardCacheKey(tenantId, filters);
-  const now = Date.now();
   const cached = dashboardCache.get(key);
-  if (cached && cached.expiresAt > now) {
-    return cached.value;
+  if (cached !== undefined) {
+    return cached;
   }
-  if (cached) dashboardCache.delete(key);
 
   const running = dashboardInFlight.get(key);
   if (running) return running;
 
   const request = (async () => {
     const value = await queryBiDashboardDataUncached(tenantId, filters);
-    dashboardCache.set(key, { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
-    while (dashboardCache.size > 8) {
-      const oldestKey = dashboardCache.keys().next().value;
-      if (!oldestKey) break;
-      dashboardCache.delete(oldestKey);
-    }
+    dashboardCache.set(key, value);
     return value;
   })();
 

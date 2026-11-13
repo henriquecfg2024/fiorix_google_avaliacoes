@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
+import { BoundedTtlMap } from '@/lib/security/bounded-ttl-map';
 import {
   generateValidacaoPdfBinary,
   generateLoteValidacaoPdfBinary,
@@ -78,15 +79,37 @@ const ValidacaoRequestSchema = z.object({
 });
 
 // Cache em memória escopado por tenantId: `${tenantId}:${idComprovante}`
-const cacheComprovantes = new Map<string, ParametrosComprovanteValidacao>();
+const cacheComprovantes = new BoundedTtlMap<string, ParametrosComprovanteValidacao>(500, 10 * 60_000);
+let ephemeralDevHmacSeed: string | null = null;
 
 function obterChaveHmacServidor(): string {
-  return (
+  const baseSecret =
     process.env.DOCUMENTAL_HMAC_SECRET ||
+    process.env.AUTH_SECRET ||
     process.env.NEXTAUTH_SECRET ||
     process.env.CONNECTOR_SYNC_SECRET ||
-    'fiorix-7ri-sp-validacao-autenticidade-hmac-v2'
-  );
+    '';
+
+  if (!baseSecret.trim()) {
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1') {
+      throw new Error(
+        'Configuração criptográfica ausente: defina DOCUMENTAL_HMAC_SECRET ou AUTH_SECRET em produção.',
+      );
+    }
+    if (!ephemeralDevHmacSeed) {
+      ephemeralDevHmacSeed = crypto.randomBytes(32).toString('hex');
+    }
+    return crypto
+      .createHmac('sha256', ephemeralDevHmacSeed)
+      .update('fiorix:documental:autenticidade:v2')
+      .digest('hex');
+  }
+
+  // Derivação com separação de domínio criptográfico (HKDF-like HMAC-SHA256)
+  return crypto
+    .createHmac('sha256', baseSecret)
+    .update('fiorix:documental:autenticidade:v2')
+    .digest('hex');
 }
 
 function gerarHashSha256(conteudo: string | Buffer): string {
