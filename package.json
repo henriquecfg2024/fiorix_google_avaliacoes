@@ -7,7 +7,13 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run"
+    "lint:security": "eslint --max-warnings=0 src/auth.config.ts src/lib/access/route-access-inventory.ts src/lib/__tests__/security-multitenant.test.ts __tests__/route-access-inventory.test.ts __tests__/fase4-runtime-authorization.test.ts __tests__/fase4-performance-budgets.test.ts __tests__/rls-user-tenant-lockdown-migration.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:security": "vitest run __tests__/fase1-security.test.ts __tests__/fase2-security.test.ts src/lib/__tests__/security-multitenant.test.ts __tests__/security-hardening.test.ts __tests__/mensagens-security.test.ts __tests__/documental-security-validators.test.ts __tests__/rls-user-tenant-lockdown-migration.test.ts __tests__/connector-tenant-contract.test.ts __tests__/holerites-governanca-clt.test.ts __tests__/nav-permissions-v2.test.ts src/lib/connector/__tests__/connector-ha-saas.test.ts __tests__/route-access-inventory.test.ts __tests__/fase4-runtime-authorization.test.ts __tests__/fase4-performance-budgets.test.ts",
+    "ci:hygiene": "node scripts/ci-secret-and-hygiene-check.mjs",
+    "verify:rls-ephemeral": "node scripts/verify-postgres-rls-live.mjs",
+    "perf:baseline": "node scripts/measure-perf-baseline.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

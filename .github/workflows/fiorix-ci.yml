@@ -1,0 +1,140 @@
+name: FIORIX CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  merge_group:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fiorix-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fiorix-quality-and-security:
+    name: fiorix-quality-and-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://postgres:ci_ephemeral@localhost:5432/fiorix_ci
+      DIRECT_URL: postgresql://postgres:ci_ephemeral@localhost:5432/fiorix_ci
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-synthetic-nextauth-secret-not-for-production-32bytes
+      FIORIX_INTEGRATION_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+
+      - name: Secret, duplicate-file and workflow hygiene check
+        run: npm run ci:hygiene
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Security & Fase 4 ESLint (--max-warnings=0)
+        run: npm run lint:security
+
+      - name: Run 7 core security suites + Fase 4 authorization, inventory & perf suites
+        run: npm run test:security
+
+      - name: Dependency vulnerability triage (informational)
+        run: npm audit --omit=dev --audit-level=high || echo "::warning::npm audit reportou vulnerabilidades de producao; avaliar triagem documentada antes de bloqueio."
+
+  fiorix-postgres-rls-isolation:
+    name: fiorix-postgres-rls-isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_ephemeral_pg_password
+          POSTGRES_DB: fiorix_ephemeral
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: '24'
+
+      - name: Ensure PostgreSQL CLI (psql) is available
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Verify schema public lockdown & RLS isolation on ephemeral PostgreSQL
+        env:
+          FIORIX_EPHEMERAL_PG_URL: postgresql://postgres:ci_ephemeral_pg_password@localhost:5432/fiorix_ephemeral
+        run: npm run verify:rls-ephemeral
+
+  fiorix-production-build-and-perf:
+    name: fiorix-production-build-and-perf
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: '--max-old-space-size=6144'
+      DATABASE_URL: postgresql://postgres:ci_build@localhost:5432/fiorix_build
+      DIRECT_URL: postgresql://postgres:ci_build@localhost:5432/fiorix_build
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-synthetic-nextauth-secret-not-for-production-32bytes
+      NEXT_PUBLIC_SUPABASE_URL: https://synthetic-ci-placeholder.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: synthetic-ci-service-role-placeholder
+      FIORIX_INTEGRATION_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      NEXT_TELEMETRY_DISABLED: '1'
+      TMPDIR: ${{ runner.temp }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies (reproducible)
+        run: npm ci
+
+      - name: Production build (Prisma generate + Next.js build)
+        run: npm run build
+
+      - name: Measure performance baseline & enforce connector bundle budget
+        run: npm run perf:baseline
+
+      - name: Upload performance baseline report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fiorix-perf-baseline
+          path: ${{ runner.temp }}/fiorix-perf-baseline.json
+          retention-days: 14
+

@@ -19,7 +19,7 @@ const mockSincronizarPedidosWebri = vi.fn();
 const mockDocumentAccess = vi.fn();
 
 vi.mock('@/auth', () => ({
-  auth: (...args: any[]) => mockAuth(...args),
+  auth: (...args: unknown[]) => mockAuth(...args),
 }));
 
 vi.mock('next/cache', () => ({
@@ -35,7 +35,7 @@ vi.mock('@/lib/bi-aggregates', () => ({
 }));
 
 vi.mock('@/lib/cartorio-virtual/connector-sync', () => ({
-  sincronizarPedidosOficiaisWebriBatch: (...args: any[]) => mockSincronizarPedidosWebri(...args),
+  sincronizarPedidosOficiaisWebriBatch: (...args: unknown[]) => mockSincronizarPedidosWebri(...args),
 }));
 
 vi.mock('@/lib/documental/access', () => {
@@ -46,7 +46,7 @@ vi.mock('@/lib/documental/access', () => {
   }
   return {
     DocumentAccessError,
-    requireDocumentAccess: (...args: any[]) => mockDocumentAccess(...args),
+    requireDocumentAccess: (...args: unknown[]) => mockDocumentAccess(...args),
   };
 });
 
@@ -62,30 +62,30 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    $queryRawUnsafe: (...args: any[]) => mockQueryRawUnsafe(...args),
-    $executeRawUnsafe: (...args: any[]) => mockExecuteRawUnsafe(...args),
+    $queryRawUnsafe: (...args: unknown[]) => mockQueryRawUnsafe(...args),
+    $executeRawUnsafe: (...args: unknown[]) => mockExecuteRawUnsafe(...args),
     user: {
-      findUnique: (...args: any[]) => mockUserFindUnique(...args),
-      findFirst: (...args: any[]) => mockUserFindFirst(...args),
+      findUnique: (...args: unknown[]) => mockUserFindUnique(...args),
+      findFirst: (...args: unknown[]) => mockUserFindFirst(...args),
     },
     tenant: {
-      findUnique: (...args: any[]) => mockTenantFindUnique(...args),
+      findUnique: (...args: unknown[]) => mockTenantFindUnique(...args),
     },
     conversaMembro: {
-      findFirst: (...args: any[]) => mockConversaMembroFindFirst(...args),
+      findFirst: (...args: unknown[]) => mockConversaMembroFindFirst(...args),
     },
     mensagem: {
-      findMany: (...args: any[]) => mockMensagemFindMany(...args),
+      findMany: (...args: unknown[]) => mockMensagemFindMany(...args),
     },
     fiorixComunicadoAnexo: {
-      findFirst: (...args: any[]) => mockComunicadoAnexoFindFirst(...args),
+      findFirst: (...args: unknown[]) => mockComunicadoAnexoFindFirst(...args),
     },
     fiorixComunicadoCiencia: {
-      findFirst: (...args: any[]) => mockComunicadoCienciaFindFirst(...args),
+      findFirst: (...args: unknown[]) => mockComunicadoCienciaFindFirst(...args),
     },
     integrationConfig: {
-      findFirst: (...args: any[]) => mockIntegrationConfigFindFirst(...args),
-      update: (...args: any[]) => mockIntegrationConfigUpdate(...args),
+      findFirst: (...args: unknown[]) => mockIntegrationConfigFindFirst(...args),
+      update: (...args: unknown[]) => mockIntegrationConfigUpdate(...args),
     },
   },
 }));
@@ -149,7 +149,7 @@ describe('Fase 3 (Pacotes 3.1 & 3.2) — Suíte Consolidada de Segurança Multi-
   describe('1. Sessão Viva & Revogação Imediata em requireAuth()', () => {
     it('bloqueia imediatamente usuários inativos, excluídos ou com sessão revogada em modo produção', async () => {
       delete process.env.VITEST;
-      (process.env as any).NODE_ENV = 'production';
+      (process.env as { NODE_ENV?: string }).NODE_ENV = 'production';
 
       // A) Usuário desativado no banco (mesmo com JWT ainda dentro da validade)
       mockAuth.mockResolvedValueOnce({
@@ -488,7 +488,7 @@ describe('Fase 3 (Pacotes 3.1 & 3.2) — Suíte Consolidada de Segurança Multi-
           return new Response(JSON.stringify([{ _id: 'site-1', label: '7º RI SP' }]), { status: 200 });
         }
         return new Response(JSON.stringify({ data: [] }), { status: 200 });
-      }) as any;
+      }) as unknown as typeof globalThis.fetch;
 
       const realRes = await getEsperaData('tenant-cartorio-real', '2026-11-10', true);
       expect(realRes.configured).toBe(true);

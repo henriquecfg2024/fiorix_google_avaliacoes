@@ -1,4 +1,5 @@
 {
   "framework": "nextjs",
-  "regions": ["gru1"]
+  "regions": ["gru1"],
+  "ignoreCommand": "bash -c 'if [ \"$VERCEL_ENV\" != \"production\" ] && git merge-base --is-ancestor \"$VERCEL_GIT_COMMIT_SHA\" origin/main 2>/dev/null; then exit 0; fi; if ! git rev-parse --verify HEAD^ >/dev/null 2>&1; then exit 1; fi; git diff --quiet HEAD^ HEAD -- src public prisma next.config.mjs package.json package-lock.json tsconfig.json tailwind.config.ts postcss.config.mjs vercel.json'"
 }

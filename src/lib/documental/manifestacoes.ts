@@ -569,15 +569,22 @@ export async function listarManifestacoes(
   return { itens, total: contagem[0]?.total ?? 0 };
 }
 
-export async function removerFichaEmConferencia(tenantId: string, id: string): Promise<boolean> {
+export async function removerFichaEmConferencia(
+  tenantId: string,
+  id: string,
+  usuario?: UsuarioManifestacao,
+): Promise<boolean> {
   const n = await prisma.$executeRaw`
     DELETE FROM "DocumentManifestacao" WHERE "tenantId" = ${tenantId} AND "id" = ${id} AND "status" = 'conferencia'`;
   if (n === 1) {
+    const ator = usuario?.name || usuario?.email || null;
     await recordAuditLog({
       modulo: 'GESTAO_DOCUMENTAL',
       acao: 'EXCLUSAO',
       registroId: id,
-      registroDescricao: 'Rascunho removido da fila Em Conferência',
+      registroDescricao: ator
+        ? `Rascunho removido da fila Em Conferência por ${ator}`
+        : 'Rascunho removido da fila Em Conferência',
     });
   }
   return n === 1;

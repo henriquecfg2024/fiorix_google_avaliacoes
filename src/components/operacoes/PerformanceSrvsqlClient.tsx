@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  Activity,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -11,21 +10,15 @@ import {
   Download,
   FileText,
   HardDrive,
-  Info,
-  Layers,
   Lock,
   Plus,
-  RefreshCw,
   Server,
-  ShieldAlert,
   ShieldCheck,
   Terminal,
-  XCircle,
 } from 'lucide-react';
 import { formatMetricOrMissing, buildSiplanIncidentReport } from '@/lib/srvsql-performance/engine';
-import { MINIMUM_PERMISSIONS_SQL_SCRIPT, DIAGNOSTIC_SQL_QUERIES } from '@/lib/srvsql-performance/sql-queries';
+import { MINIMUM_PERMISSIONS_SQL_SCRIPT } from '@/lib/srvsql-performance/sql-queries';
 import type {
-  ScenarioPresetId,
   SrvsqlPerformanceDashboardSnapshot,
   TimeWindowPreset,
   UserSlownessIncidentRecord,
@@ -39,14 +32,30 @@ interface PerformanceSrvsqlClientProps {
 
 type ActiveTabId = 'visao_geral' | 'sql_bloqueios' | 'servicos' | 'incidentes' | 'coleta_acesso';
 
+type RealDiagnosticFocusId =
+  | 'LIVE_GERAL'
+  | 'LIVE_BLOQUEIOS'
+  | 'LIVE_DISCO_LOG'
+  | 'LIVE_MEMORIA_SERVICOS'
+  | 'LIVE_INCIDENTES'
+  | 'LIVE_PERMISSOES';
+
+const REAL_FOCUS_TO_TAB: Record<RealDiagnosticFocusId, ActiveTabId> = {
+  LIVE_GERAL: 'visao_geral',
+  LIVE_BLOQUEIOS: 'sql_bloqueios',
+  LIVE_DISCO_LOG: 'sql_bloqueios',
+  LIVE_MEMORIA_SERVICOS: 'servicos',
+  LIVE_INCIDENTES: 'incidentes',
+  LIVE_PERMISSOES: 'coleta_acesso',
+};
+
 export function PerformanceSrvsqlClient({
   initialSnapshot,
-  userName,
   userRole,
 }: PerformanceSrvsqlClientProps) {
   const [snapshot, setSnapshot] = useState<SrvsqlPerformanceDashboardSnapshot>(initialSnapshot);
   const [activeTab, setActiveTab] = useState<ActiveTabId>('visao_geral');
-  const [scenario, setScenario] = useState<ScenarioPresetId>(initialSnapshot.activeScenario);
+  const [diagnosticFocus, setDiagnosticFocus] = useState<RealDiagnosticFocusId>('LIVE_GERAL');
   const [windowPreset, setWindowPreset] = useState<TimeWindowPreset>(initialSnapshot.activeWindow);
   const [loadingScenario, setLoadingScenario] = useState(false);
 
@@ -61,16 +70,12 @@ export function PerformanceSrvsqlClient({
 
   const canManageConfig = userRole === 'MASTER' || userRole === 'ADMIN';
 
-  async function handleScenarioOrWindowChange(
-    nextScenario: ScenarioPresetId,
-    nextWindow: TimeWindowPreset,
-  ) {
-    setScenario(nextScenario);
+  async function refreshRealSnapshot(nextWindow: TimeWindowPreset) {
     setWindowPreset(nextWindow);
     setLoadingScenario(true);
     try {
       const res = await fetch(
-        `/api/v1/operacoes/srvsql-performance?scenario=${encodeURIComponent(nextScenario)}&window=${encodeURIComponent(nextWindow)}`,
+        `/api/v1/operacoes/srvsql-performance?scenario=LIVE_OR_REAL&window=${encodeURIComponent(nextWindow)}`,
         { cache: 'no-store' },
       );
       if (res.ok) {
@@ -82,6 +87,12 @@ export function PerformanceSrvsqlClient({
     } finally {
       setLoadingScenario(false);
     }
+  }
+
+  async function handleDiagnosticFocusChange(nextFocus: RealDiagnosticFocusId) {
+    setDiagnosticFocus(nextFocus);
+    setActiveTab(REAL_FOCUS_TO_TAB[nextFocus]);
+    await refreshRealSnapshot(windowPreset);
   }
 
   async function handleRecordSlownessSubmit(e: React.FormEvent) {
@@ -98,7 +109,7 @@ export function PerformanceSrvsqlClient({
           affectedOperation: slownessOperation.trim(),
           perceivedDurationSeconds: Number(slownessDurationSec) || 30,
           observation: slownessObservation.trim() || 'Relato manual registrado pelo painel do FIORIX.',
-          activeScenario: scenario,
+          activeScenario: 'LIVE_OR_REAL',
         }),
       });
       const data = await res.json();
@@ -108,7 +119,7 @@ export function PerformanceSrvsqlClient({
           ...prev,
           userIncidents: [created, ...prev.userIncidents],
         }));
-        setSlownessFeedback('Lentidão registrada e vinculada às amostras anteriores/posteriores com sucesso.');
+        setSlownessFeedback('Lentidão registrada e vinculada às amostras reais anteriores/posteriores com sucesso.');
         setSlownessObservation('');
         setTimeout(() => {
           setIsSlownessModalOpen(false);
@@ -137,7 +148,7 @@ export function PerformanceSrvsqlClient({
         }),
       });
       if (res.ok) {
-        await handleScenarioOrWindowChange(scenario, windowPreset);
+        await refreshRealSnapshot(windowPreset);
       }
     } catch {
       // ignora erro transitório
@@ -227,12 +238,9 @@ export function PerformanceSrvsqlClient({
       return 'SONDAGEM REAL SRVSQL (10.0.0.25) · falta permissão VIEW SERVER STATE';
     }
     if (snapshot.dataSourceMode === 'COLLECTOR_UNAVAILABLE') {
-      return 'COLETOR INDISPONÍVEL · sem amostras recentes do SRVSQL';
+      return 'AGUARDANDO TELEMETRIA REAL · nenhuma simulação ativa';
     }
-    if (snapshot.dataSourceMode === 'LIVE_COLLECTOR') {
-      return 'MONITORAMENTO OPERACIONAL · coleta ativa em segundo plano';
-    }
-    return 'AMBIENTE DEMONSTRATIVO · sem conexão ao SRVSQL';
+    return 'MONITORAMENTO OFICIAL 100% DADOS REAIS · coleta ativa em segundo plano';
   }, [snapshot.dataSourceMode]);
 
   const statusPill = useMemo(() => {
@@ -244,25 +252,19 @@ export function PerformanceSrvsqlClient({
     }
     if (snapshot.overallHealth === 'SEM_DADOS') {
       return {
-        text: 'Sem dados · Permissão pendente',
+        text: 'Aguardando dados reais do SRVSQL',
         className: 'border-amber-500/40 bg-amber-950/50 text-amber-200',
       };
     }
     if (snapshot.overallHealth === 'CRITICO') {
       return {
-        text:
-          snapshot.dataSourceMode === 'SIMULATED_SCENARIO'
-            ? 'Crítico · cenário simulado'
-            : 'Crítico · intervenção recomendada',
+        text: 'Crítico · intervenção recomendada',
         className: 'border-rose-500/40 bg-rose-950/50 text-rose-200',
       };
     }
     if (snapshot.overallHealth === 'ATENCAO') {
       return {
-        text:
-          snapshot.dataSourceMode === 'SIMULATED_SCENARIO'
-            ? 'Atenção · cenário simulado'
-            : 'Atenção · lentidão detectada',
+        text: 'Atenção · lentidão detectada',
         className: 'border-amber-500/35 bg-[#2a2112] text-[#e6b86a]',
       };
     }
@@ -270,7 +272,7 @@ export function PerformanceSrvsqlClient({
       text: 'Normal · coleta saudável',
       className: 'border-emerald-500/35 bg-emerald-950/40 text-emerald-200',
     };
-  }, [snapshot.overallHealth, snapshot.dataSourceMode]);
+  }, [snapshot.overallHealth]);
 
   const primaryDiagnostic = snapshot.diagnostics[0] || null;
 
@@ -321,35 +323,34 @@ export function PerformanceSrvsqlClient({
                 htmlFor="srvsql-scenario-select"
                 className="block text-xs font-medium text-slate-400 mb-1.5"
               >
-                Cenário
+                Cenário (100% Dados Reais · SRVSQL)
               </label>
               <select
                 id="srvsql-scenario-select"
-                value={scenario}
+                value={diagnosticFocus}
                 disabled={loadingScenario}
                 onChange={(e) =>
-                  handleScenarioOrWindowChange(e.target.value as ScenarioPresetId, windowPreset)
+                  handleDiagnosticFocusChange(e.target.value as RealDiagnosticFocusId)
                 }
-                className="h-10 min-w-[240px] rounded-lg border border-slate-700/80 bg-[#0d1624] px-3.5 text-sm font-medium text-slate-100 focus:border-cyan-500 focus:outline-none"
+                className="h-10 min-w-[280px] rounded-lg border border-slate-700/80 bg-[#0d1624] px-3.5 text-sm font-medium text-slate-100 focus:border-cyan-500 focus:outline-none"
               >
-                <option value="LIVE_OR_REAL">
+                <option value="LIVE_GERAL">
                   Monitoramento Oficial SRVSQL (10.0.0.25 · SQL 2012 SP4)
                 </option>
-                <option value="LENTIDAO_BLOQUEIO">Lentidão por bloqueio (Simulação)</option>
-                <option value="PRESSAO_LOG_WRITELOG">
-                  Pressão de escrita no log · WRITELOG (Simulação)
+                <option value="LIVE_BLOQUEIOS">
+                  Cadeias de bloqueio e sessões SQL (Dados Reais)
                 </option>
-                <option value="CONCORRENCIA_BACKUP_DISCO">
-                  Concorrência de backup e disco · PAGEIOLATCH (Simulação)
+                <option value="LIVE_DISCO_LOG">
+                  Latência de disco, arquivos e WRITELOG (Dados Reais)
                 </option>
-                <option value="PRESSAO_MEMORIA_GRANT">
-                  Pressão de memória comprovada · RESOURCE_SEMAPHORE (Simulação)
+                <option value="LIVE_MEMORIA_SERVICOS">
+                  Memória, volumes e serviços Windows (Dados Reais)
                 </option>
-                <option value="FALTA_PERMISSAO_VIEW_SERVER_STATE">
-                  Diagnóstico sem VIEW SERVER STATE (Simulação)
+                <option value="LIVE_INCIDENTES">
+                  Incidentes, alertas e dossiê SIPLAN (Dados Reais)
                 </option>
-                <option value="COLETOR_INDISPONIVEL">
-                  Coletor indisponível / Sem dados (Simulação)
+                <option value="LIVE_PERMISSOES">
+                  Permissões VIEW SERVER STATE e cobertura (Dados Reais)
                 </option>
               </select>
             </div>
@@ -368,7 +369,7 @@ export function PerformanceSrvsqlClient({
                 value={windowPreset}
                 disabled={loadingScenario}
                 onChange={(e) =>
-                  handleScenarioOrWindowChange(scenario, e.target.value as TimeWindowPreset)
+                  refreshRealSnapshot(e.target.value as TimeWindowPreset)
                 }
                 className="h-10 min-w-[190px] rounded-lg border border-slate-700/80 bg-[#0d1624] px-3.5 text-sm font-medium text-slate-100 focus:border-cyan-500 focus:outline-none"
               >
@@ -479,7 +480,9 @@ export function PerformanceSrvsqlClient({
           className={`rounded-lg border px-4 py-3 text-sm font-medium ${
             snapshot.overallHealth === 'COLETOR_INDISPONIVEL' || snapshot.overallHealth === 'CRITICO'
               ? 'border-rose-500/40 bg-rose-950/30 text-rose-100'
-              : 'border-amber-600/40 bg-[#231c10] text-amber-100'
+              : snapshot.overallHealth === 'NORMAL'
+                ? 'border-emerald-500/35 bg-emerald-950/25 text-emerald-100'
+                : 'border-amber-600/40 bg-[#231c10] text-amber-100'
           }`}
         >
           {snapshot.bannerMessage}
@@ -596,9 +599,7 @@ export function PerformanceSrvsqlClient({
                 </div>
 
                 <p className="mt-3 text-xs text-slate-400">
-                  {snapshot.dataSourceMode === 'SIMULATED_SCENARIO'
-                    ? 'Amostras ilustrativas · janela de 30 minutos'
-                    : 'Amostras coletadas em segundo plano · atualização do painel não reconsulta o SRVSQL'}
+                  Amostras reais coletadas em segundo plano · atualização do painel não reconsulta o SRVSQL
                 </p>
               </div>
 
@@ -1327,11 +1328,18 @@ export function PerformanceSrvsqlClient({
 
                 <div className="rounded-lg border border-slate-800 bg-[#09101b] p-4 space-y-1">
                   <span className="text-slate-400">Permissão Mínima p/ DMVs (SQL 2012 SP4)</span>
-                  <div className="text-sm font-bold text-amber-300">
+                  <div
+                    className={`text-sm font-bold ${
+                      snapshot.sqlMetadata.hasViewServerState ? 'text-emerald-400' : 'text-amber-300'
+                    }`}
+                  >
                     VIEW SERVER STATE: {snapshot.sqlMetadata.hasViewServerState ? 'Concedida' : 'Pendente (0)'}
                   </div>
                   <div className="text-slate-400">
-                    Login atual: <code className="text-cyan-300">{snapshot.sqlMetadata.loginUsed}</code> · Não exige sysadmin.
+                    Login atual: <code className="text-cyan-300">{snapshot.sqlMetadata.loginUsed}</code> ·{' '}
+                    {snapshot.sqlMetadata.hasViewAnyDefinition
+                      ? 'VIEW ANY DEFINITION: Concedida · Somente Leitura.'
+                      : 'Não exige sysadmin.'}
                   </div>
                 </div>
 
@@ -1344,26 +1352,56 @@ export function PerformanceSrvsqlClient({
                 </div>
               </div>
 
-              {/* Script SQL de permissão mínima pronto para copiar */}
-              <div className="rounded-lg border border-slate-800 bg-[#09101b] p-4 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Terminal className="h-3.5 w-3.5 text-cyan-400" />
-                    Script de Permissão Mínima para Habilitar Coleta Completa de DMVs no SRVSQL
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyText(MINIMUM_PERMISSIONS_SQL_SCRIPT, 'Script GRANT VIEW SERVER STATE copiado!')}
-                    className="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-slate-700 cursor-pointer"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    <span>{copiedSqlNotice || 'Copiar T-SQL'}</span>
-                  </button>
+              {/* Script SQL de permissão mínima (expandido apenas se pendente) */}
+              {snapshot.sqlMetadata.hasViewServerState ? (
+                <details className="rounded-lg border border-emerald-500/20 bg-emerald-950/15 p-3.5 text-xs">
+                  <summary className="cursor-pointer font-semibold text-emerald-300 flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      Permissões mínimas já concedidas ao login [{snapshot.sqlMetadata.loginUsed}] (clique para consultar o script T-SQL de referência)
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-2 border-t border-emerald-500/20 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                        <Terminal className="h-3.5 w-3.5 text-cyan-400" />
+                        Script T-SQL de referência
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(MINIMUM_PERMISSIONS_SQL_SCRIPT, 'Script GRANT VIEW SERVER STATE copiado!')}
+                        className="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-slate-700 cursor-pointer"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>{copiedSqlNotice || 'Copiar T-SQL'}</span>
+                      </button>
+                    </div>
+                    <pre className="overflow-x-auto text-[11px] font-mono text-slate-300 leading-relaxed">
+                      {MINIMUM_PERMISSIONS_SQL_SCRIPT}
+                    </pre>
+                  </div>
+                </details>
+              ) : (
+                <div className="rounded-lg border border-slate-800 bg-[#09101b] p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Terminal className="h-3.5 w-3.5 text-cyan-400" />
+                      Script de Permissão Mínima para Habilitar Coleta Completa de DMVs no SRVSQL
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(MINIMUM_PERMISSIONS_SQL_SCRIPT, 'Script GRANT VIEW SERVER STATE copiado!')}
+                      className="inline-flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-semibold text-cyan-300 hover:bg-slate-700 cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>{copiedSqlNotice || 'Copiar T-SQL'}</span>
+                    </button>
+                  </div>
+                  <pre className="overflow-x-auto text-[11px] font-mono text-slate-300 leading-relaxed">
+                    {MINIMUM_PERMISSIONS_SQL_SCRIPT}
+                  </pre>
                 </div>
-                <pre className="overflow-x-auto text-[11px] font-mono text-slate-300 leading-relaxed">
-                  {MINIMUM_PERMISSIONS_SQL_SCRIPT}
-                </pre>
-              </div>
+              )}
             </div>
 
             {/* Indicadores de Cobertura: Fontes Disponíveis vs Fontes Sem Permissão */}
@@ -1404,12 +1442,10 @@ export function PerformanceSrvsqlClient({
           </div>
         )}
 
-        {/* RODAPÉ FIEL AO PRINT */}
+        {/* RODAPÉ */}
         <div className="pt-2 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <span>
-            {snapshot.dataSourceMode === 'SIMULATED_SCENARIO'
-              ? 'Snapshot demonstrativo · 11/11/2026, 14:30 · America/Sao_Paulo · nenhuma conexão externa disparada pela UI'
-              : `Snapshot de monitoramento · ${snapshot.observedAt || snapshot.generatedAt} · ${snapshot.timezone} · Coletor separado da UI`}
+            Snapshot real de monitoramento · {snapshot.observedAt || snapshot.generatedAt} · {snapshot.timezone} · Coletor separado da UI
           </span>
           <span>
             Retenção: {snapshot.collectorBudget.retentionDays} dias (máx.{' '}

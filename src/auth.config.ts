@@ -33,7 +33,8 @@ export const authConfig = {
         nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
         nextUrl.pathname.startsWith('/mensagens') ||
         nextUrl.pathname.startsWith('/espera') ||
-        nextUrl.pathname.startsWith('/jornada');
+        nextUrl.pathname.startsWith('/jornada') ||
+        nextUrl.pathname.startsWith('/preview-');
 
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
@@ -192,7 +193,8 @@ export const authConfig = {
         session.user.role = token.role as string;
         session.user.tenantId = token.tenantId as string;
         session.user.id = token.id as string;
-        (session.user as any).authAt = typeof token.authAt === 'number' ? token.authAt : undefined;
+        (session.user as { authAt?: number }).authAt =
+          typeof token.authAt === 'number' ? token.authAt : undefined;
       }
       return session;
     },

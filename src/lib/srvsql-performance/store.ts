@@ -17,7 +17,6 @@ import { prisma } from '@/lib/prisma';
 import {
   buildBlockingChains,
   buildProcessInstanceKey,
-  classifySqlWaitType,
   computeCollectorBackoffSeconds,
   computeFileIoLatencyDelta,
   computeWaitStatsDelta,
@@ -26,7 +25,6 @@ import {
   evaluateWebriSessionAssociation,
   generateEvidenceDiagnostics,
 } from './engine';
-import { BENIGN_IDLE_WAIT_TYPES } from './sql-queries';
 import type {
   AlertEventRecord,
   AlertThresholdRule,
@@ -203,36 +201,7 @@ export function getOrCreateTenantState(tenantId: string): TenantMonitorRuntimeSt
   if (!state) {
     state = {
       samples: [],
-      incidents: [
-        {
-          id: 'inc-demo-1426',
-          reportedAt: '2026-11-11T17:26:10.000Z',
-          occurredAt: '2026-11-11T17:25:00.000Z',
-          reportedBy: 'Escrevente — Setor de Certidões / Protocolo',
-          affectedOperation: 'Gravação de andamento e abertura de matrícula no WEBRI',
-          perceivedDurationSeconds: 48,
-          observation:
-            'Tela do WEBRI congelou por quase 50 segundos ao gravar protocolo; demais estações do setor relataram espera simultânea.',
-          beforeSnapshotSummary: {
-            observedAt: '2026-11-11T17:24:30.000Z',
-            cpuPercent: 6,
-            memoryUsedPercent: 79,
-            diskWriteLatencyMs: 8,
-            blockedSessionsCount: 2,
-            rootBlockerSessionId: 72,
-            topWaitType: 'LCK_M_X',
-          },
-          afterSnapshotSummary: {
-            observedAt: '2026-11-11T17:26:00.000Z',
-            cpuPercent: 6,
-            memoryUsedPercent: 79,
-            diskWriteLatencyMs: 8,
-            blockedSessionsCount: 7,
-            rootBlockerSessionId: 72,
-            topWaitType: 'LCK_M_X',
-          },
-        },
-      ],
+      incidents: [],
       alerts: [],
       alertRules: DEFAULT_ALERT_RULES.map((r) => ({ ...r })),
       webriConfig: {
@@ -387,18 +356,41 @@ export async function loadSrvsqlPerformanceSnapshot(
     await ensureMonitoringTables();
     const state = getOrCreateTenantState(tenantId);
     try {
-      const rows = await prisma.$queryRawUnsafe<
-        Array<{ observed_at: Date; payload: RawCollectorIngestPayload }>
-      >(
-        `SELECT observed_at, payload
-         FROM srvsql_perf_samples
-         WHERE tenant_id = $1
-         ORDER BY observed_at DESC
-         LIMIT 120`,
-        tenantId,
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        const chronological = rows
+      const [sampleRows, incidentRows] = await Promise.all([
+        prisma.$queryRawUnsafe<
+          Array<{ observed_at: Date; payload: RawCollectorIngestPayload | string }>
+        >(
+          `SELECT observed_at, payload
+           FROM srvsql_perf_samples
+           WHERE tenant_id = $1
+           ORDER BY observed_at DESC
+           LIMIT 120`,
+          tenantId,
+        ),
+        prisma.$queryRawUnsafe<
+          Array<{
+            id: string;
+            reported_at: Date;
+            occurred_at: Date;
+            reported_by: string;
+            affected_operation: string;
+            perceived_duration_sec: number;
+            observation: string;
+            before_snapshot: UserSlownessIncidentRecord['beforeSnapshotSummary'] | string;
+            after_snapshot: UserSlownessIncidentRecord['afterSnapshotSummary'] | string;
+          }>
+        >(
+          `SELECT id, reported_at, occurred_at, reported_by, affected_operation, perceived_duration_sec, observation, before_snapshot, after_snapshot
+           FROM srvsql_perf_incidents
+           WHERE tenant_id = $1
+           ORDER BY occurred_at DESC
+           LIMIT 100`,
+          tenantId,
+        ).catch(() => []),
+      ]);
+
+      if (Array.isArray(sampleRows) && sampleRows.length > 0) {
+        const chronological = sampleRows
           .map((r) => {
             const p = (typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload) as RawCollectorIngestPayload;
             return {
@@ -411,6 +403,24 @@ export async function loadSrvsqlPerformanceSnapshot(
           })
           .reverse();
         state.samples = chronological;
+      }
+
+      if (Array.isArray(incidentRows) && incidentRows.length > 0) {
+        state.incidents = incidentRows
+          .filter((r) => r.id !== 'inc-demo-1426')
+          .map((r) => ({
+            id: r.id,
+            reportedAt: r.reported_at instanceof Date ? r.reported_at.toISOString() : String(r.reported_at),
+            occurredAt: r.occurred_at instanceof Date ? r.occurred_at.toISOString() : String(r.occurred_at),
+            reportedBy: r.reported_by,
+            affectedOperation: r.affected_operation,
+            perceivedDurationSeconds: Number(r.perceived_duration_sec || 0),
+            observation: r.observation,
+            beforeSnapshotSummary:
+              typeof r.before_snapshot === 'string' ? JSON.parse(r.before_snapshot) : r.before_snapshot,
+            afterSnapshotSummary:
+              typeof r.after_snapshot === 'string' ? JSON.parse(r.after_snapshot) : r.after_snapshot,
+          }));
       }
     } catch {
       // Opera com amostras já presentes na memória se banco indisponível
@@ -463,7 +473,7 @@ export async function recordUserSlownessIncident(
 
   const snap = buildSrvsqlPerformanceSnapshot(
     tenantId,
-    input.activeScenario || 'LENTIDAO_BLOQUEIO',
+    input.activeScenario || 'LIVE_OR_REAL',
     '30m',
   );
 
@@ -1434,7 +1444,7 @@ export function buildSrvsqlPerformanceSnapshot(
           ) / 10
           : 0;
 
-      // Delta real de Wait Stats entre amostras consecutivas (ou participação inicial na 1ª amostra)
+      // Delta real de Wait Stats entre amostras consecutivas (nunca usa acumulado desde o boot)
       const waitDeltaComputed = previous
         ? computeWaitStatsDelta({
           previousSample: previous.waitStatsRaw,
@@ -1444,32 +1454,10 @@ export function buildSrvsqlPerformanceSnapshot(
         })
         : null;
 
-      let waitItems = waitDeltaComputed?.items ?? [];
-      let totalWaitDeltaMs = waitDeltaComputed?.totalWaitDeltaMs ?? 0;
-      if (waitItems.length === 0 && Array.isArray(latest.waitStatsRaw) && latest.waitStatsRaw.length > 0) {
-        const filteredWaits = latest.waitStatsRaw.filter(
-          (w) => !BENIGN_IDLE_WAIT_TYPES.has(w.waitType.trim().toUpperCase()) && w.waitTimeMs > 0
-        );
-        const totalCumWait = filteredWaits.reduce((acc, w) => acc + w.waitTimeMs, 0);
-        totalWaitDeltaMs = totalCumWait;
-        waitItems = filteredWaits.slice(0, 8).map((w) => {
-          const { category, label } = classifySqlWaitType(w.waitType);
-          return {
-            waitType: w.waitType,
-            category,
-            label,
-            waitingTasksDelta: w.waitingTasksCount,
-            waitTimeDeltaMs: w.waitTimeMs,
-            signalWaitTimeDeltaMs: w.signalWaitTimeMs,
-            resourceWaitTimeDeltaMs: Math.max(0, w.waitTimeMs - w.signalWaitTimeMs),
-            sharePercent: totalCumWait > 0 ? Math.round((w.waitTimeMs / totalCumWait) * 1000) / 10 : 0,
-            avgWaitMsPerTask:
-              w.waitingTasksCount > 0 ? Math.round((w.waitTimeMs / w.waitingTasksCount) * 10) / 10 : null,
-          };
-        });
-      }
+      const waitItems = waitDeltaComputed?.items ?? [];
+      const totalWaitDeltaMs = waitDeltaComputed?.totalWaitDeltaMs ?? 0;
 
-      // Delta real de I/O por arquivo (com fallback para média da instância quando há apenas 1 amostra)
+      // Delta real de I/O por arquivo (sem fallback para média acumulada desde o boot)
       const fileDeltaComputed =
         previous?.fileIoRaw && latest.fileIoRaw
           ? computeFileIoLatencyDelta({
@@ -1480,28 +1468,10 @@ export function buildSrvsqlPerformanceSnapshot(
           })
           : null;
 
-      const hasNonZeroFileActivity = Boolean(
-        fileDeltaComputed?.items.some((f) => f.readsDelta > 0 || f.writesDelta > 0)
-      );
       const fileIoDeltas =
-        fileDeltaComputed && hasNonZeroFileActivity
+        fileDeltaComputed && !fileDeltaComputed.counterResetDetected
           ? fileDeltaComputed.items
-          : (latest.fileIoRaw || []).slice(0, 12).map((f) => ({
-            databaseName: f.databaseName,
-            fileId: f.fileId,
-            logicalName: f.logicalName,
-            fileType: f.fileType,
-            volumeMountPoint: f.volumeMountPoint,
-            readsDelta: f.numOfReads,
-            writesDelta: f.numOfWrites,
-            readLatencyDeltaMs:
-              f.numOfReads > 0 ? Math.round((f.ioStallReadMs / f.numOfReads) * 10) / 10 : 0,
-            writeLatencyDeltaMs:
-              f.numOfWrites > 0 ? Math.round((f.ioStallWriteMs / f.numOfWrites) * 10) / 10 : 0,
-            bytesReadDelta: f.numOfBytesRead,
-            bytesWrittenDelta: f.numOfBytesWritten,
-            counterResetDetected: false,
-          }));
+          : [];
 
       const webriDataFile =
         fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
@@ -1511,19 +1481,45 @@ export function buildSrvsqlPerformanceSnapshot(
         fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'LOG') ||
         null;
 
+      // Normaliza latência dos volumes usando exclusivamente o delta do intervalo atual (evita falso positivo acumulado desde o boot)
+      const liveVolumes: WindowsVolumeIoSample[] = (latest.windowsVolumes || []).map((vol) => {
+        const volPrefix = vol.volume.replace(/\\+$/, '').toUpperCase();
+        const matchingFiles = fileIoDeltas.filter(
+          (f) => f.volumeMountPoint.replace(/\\+$/, '').toUpperCase() === volPrefix,
+        );
+        if (matchingFiles.length === 0) {
+          return {
+            ...vol,
+            readLatencyMs: null,
+            writeLatencyMs: null,
+          };
+        }
+        const readVals = matchingFiles
+          .map((f) => f.readLatencyDeltaMs)
+          .filter((v): v is number => v !== null);
+        const writeVals = matchingFiles
+          .map((f) => f.writeLatencyDeltaMs)
+          .filter((v): v is number => v !== null);
+        return {
+          ...vol,
+          readLatencyMs: readVals.length > 0 ? Math.max(...readVals) : null,
+          writeLatencyMs: writeVals.length > 0 ? Math.max(...writeVals) : null,
+        };
+      });
+
       const diskWriteLatencyMs =
         webriDataFile?.writeLatencyDeltaMs !== null && webriDataFile?.writeLatencyDeltaMs !== undefined
           ? Math.round(webriDataFile.writeLatencyDeltaMs)
-          : latest.windowsVolumes[0]?.writeLatencyMs !== null &&
-            latest.windowsVolumes[0]?.writeLatencyMs !== undefined
-            ? Math.round(latest.windowsVolumes[0].writeLatencyMs!)
+          : liveVolumes[0]?.writeLatencyMs !== null &&
+            liveVolumes[0]?.writeLatencyMs !== undefined
+            ? Math.round(liveVolumes[0].writeLatencyMs!)
             : null;
       const diskReadLatencyMs =
         webriDataFile?.readLatencyDeltaMs !== null && webriDataFile?.readLatencyDeltaMs !== undefined
           ? Math.round(webriDataFile.readLatencyDeltaMs)
-          : latest.windowsVolumes[0]?.readLatencyMs !== null &&
-            latest.windowsVolumes[0]?.readLatencyMs !== undefined
-            ? Math.round(latest.windowsVolumes[0].readLatencyMs!)
+          : liveVolumes[0]?.readLatencyMs !== null &&
+            liveVolumes[0]?.readLatencyMs !== undefined
+            ? Math.round(liveVolumes[0].readLatencyMs!)
             : null;
 
       // Timeline dinâmica da janela selecionada
@@ -1542,7 +1538,7 @@ export function buildSrvsqlPerformanceSnapshot(
       });
       const sourceSamplesForTimeline = samplesInWindow.length > 0 ? samplesInWindow : state.samples.slice(-30);
 
-      let dynamicTimeline: SrvsqlTimelinePoint[] = sourceSamplesForTimeline.map((s) => {
+      let dynamicTimeline: SrvsqlTimelinePoint[] = sourceSamplesForTimeline.map((s, idx) => {
         const ts = Date.parse(s.observedAt);
         const label = Number.isFinite(ts)
           ? new Date(ts).toLocaleTimeString('pt-BR', {
@@ -1557,13 +1553,37 @@ export function buildSrvsqlPerformanceSnapshot(
         const sActiveReq = (s.activeSessions || []).filter(
           (sess) => sess.sessionStatus === 'running' || sess.sessionStatus === 'runnable' || sess.sessionStatus === 'suspended'
         ).length;
+
+        const prevSampleForPt = idx > 0 ? sourceSamplesForTimeline[idx - 1] : null;
+        let ptWriteMs: number | null = null;
+        let ptReadMs: number | null = null;
+        if (prevSampleForPt?.fileIoRaw && s.fileIoRaw) {
+          const deltaPt = computeFileIoLatencyDelta({
+            previousFiles: prevSampleForPt.fileIoRaw,
+            currentFiles: s.fileIoRaw,
+            previousSqlStartTime: prevSampleForPt.sqlMetadata?.sqlServerStartTime,
+            currentSqlStartTime: s.sqlMetadata?.sqlServerStartTime,
+          });
+          if (!deltaPt.counterResetDetected && deltaPt.items.length > 0) {
+            const targetFile =
+              deltaPt.items.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+              deltaPt.items[0];
+            ptWriteMs = targetFile?.writeLatencyDeltaMs !== null && targetFile?.writeLatencyDeltaMs !== undefined
+              ? Math.round(targetFile.writeLatencyDeltaMs)
+              : null;
+            ptReadMs = targetFile?.readLatencyDeltaMs !== null && targetFile?.readLatencyDeltaMs !== undefined
+              ? Math.round(targetFile.readLatencyDeltaMs)
+              : null;
+          }
+        }
+
         return {
           timestampIso: s.observedAt,
           timeLabel: label,
           cpuPercent: s.cpuTotalPercent,
           memoryUsedPercent: s.windowsMemory?.usedPercent ?? null,
-          diskWriteLatencyMs: s.windowsVolumes?.[0]?.writeLatencyMs ?? diskWriteLatencyMs,
-          diskReadLatencyMs: s.windowsVolumes?.[0]?.readLatencyMs ?? diskReadLatencyMs,
+          diskWriteLatencyMs: ptWriteMs ?? diskWriteLatencyMs,
+          diskReadLatencyMs: ptReadMs ?? diskReadLatencyMs,
           blockedSessionsCount: sBlocked,
           activeRequestsCount: sActiveReq,
           sqlWaitTotalDeltaMs: null,
@@ -1597,7 +1617,7 @@ export function buildSrvsqlPerformanceSnapshot(
         cpuPercent: latest.cpuTotalPercent,
         windowsMemory: latest.windowsMemory,
         sqlMemory: latest.sqlMemory,
-        windowsVolumes: latest.windowsVolumes || [],
+        windowsVolumes: liveVolumes,
         fileIoDeltas,
         blockingChains,
         waitStatsDelta: waitItems,
@@ -1607,10 +1627,17 @@ export function buildSrvsqlPerformanceSnapshot(
         collectorReachable: collectorStatus !== 'OFFLINE',
       });
 
+      // Evita falso alarme quando volumes grandes ainda têm >= 25 GB livres (mantém alerta se < 5%)
       const minVolFreePct =
-        (latest.windowsVolumes || []).reduce<number | null>((acc, v) => {
+        liveVolumes.reduce<number | null>((acc, v) => {
           if (v.freePercent === null || v.freePercent === undefined) return acc;
-          return acc === null ? v.freePercent : Math.min(acc, v.freePercent);
+          const effectivePct =
+            v.freeSpaceGb !== null && v.freeSpaceGb >= 25 && v.freePercent > 4
+              ? 20
+              : v.freePercent <= 8 && v.freeSpaceGb !== null && v.freeSpaceGb >= 12
+                ? 10
+                : v.freePercent;
+          return acc === null ? effectivePct : Math.min(acc, effectivePct);
         }, null) ?? 50;
 
       const evaluatedAlerts = evaluateAlertsWithHysteresis({
@@ -1626,7 +1653,9 @@ export function buildSrvsqlPerformanceSnapshot(
           provenMemoryPressureScore: latest.sqlMemory.memoryGrantsPending ?? 0,
           cpuPercent: latest.cpuTotalPercent ?? 0,
           minVolumeFreePercent: minVolFreePct,
-          criticalServiceStoppedCount: (latest.windowsServices || []).filter((s) => s.state === 'STOPPED').length,
+          criticalServiceStoppedCount: (latest.windowsServices || []).filter(
+            (s) => s.state === 'STOPPED' && s.startMode === 'AUTO',
+          ).length,
           collectorDelaySeconds: delaySeconds,
         },
       });
@@ -1653,6 +1682,19 @@ export function buildSrvsqlPerformanceSnapshot(
             : hasWarn
               ? 'ATENCAO'
               : 'NORMAL';
+
+      const activeCritOrWarnReasons = [
+        ...liveDiagnostics
+          .filter((d) => d.severity === 'CRITICO' || d.severity === 'ATENCAO')
+          .map((d) => d.title),
+        ...evaluatedAlerts
+          .filter((a) => a.active && (a.severity === 'CRITICAL' || a.severity === 'WARNING'))
+          .map((a) => a.title),
+      ];
+      const statusReasonSuffix =
+        (overallHealth === 'CRITICO' || overallHealth === 'ATENCAO') && activeCritOrWarnReasons.length > 0
+          ? ` · Motivo: ${activeCritOrWarnReasons[0]}`
+          : '';
 
       const sqlMemGb =
         latest.sqlMemory.totalServerMemoryMb !== null
@@ -1691,7 +1733,7 @@ export function buildSrvsqlPerformanceSnapshot(
               ? ')'
               : ''
           }${diskWriteLatencyMs !== null ? ` · escrita disco ${diskWriteLatencyMs} ms` : ''}${blockedCount > 0 ? ` · ${blockedCount} sessão(ões) bloqueada(s)` : ''
-          }.`,
+          }${statusReasonSuffix}.`,
         collectorHealth: {
           status: collectorStatus,
           lastCollectionAt: latest.observedAt,
@@ -1762,7 +1804,7 @@ export function buildSrvsqlPerformanceSnapshot(
         fileIoDeltas,
         costlyQueries: latest.costlyQueries || [],
         windowsMemory: latest.windowsMemory,
-        windowsVolumes: latest.windowsVolumes || [],
+        windowsVolumes: liveVolumes,
         windowsNetwork: latest.windowsNetwork || [],
         windowsProcesses: mappedProcesses,
         windowsServices: latest.windowsServices || [],

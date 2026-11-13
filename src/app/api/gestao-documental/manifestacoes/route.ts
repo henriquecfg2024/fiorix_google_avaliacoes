@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requireManifestacaoAccess, DocumentAccessError } from '@/lib/documental/access';
+import { requireDocumentAccess, requireManifestacaoAccess, DocumentAccessError } from '@/lib/documental/access';
 import { listarManifestacoesQuery, manifestacaoInput } from '@/lib/documental/contracts';
 import { isSameOriginRequest } from '@/lib/documental/origin';
 import {
@@ -110,11 +110,16 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     if (!isSameOriginRequest(req)) return reply({ error: 'Origem inválida.' }, 403);
-    const user = await requireManifestacaoAccess();
+    const user = await requireDocumentAccess('/gestao-documental/conferencia');
     const id = new URL(req.url).searchParams.get('id');
     if (!id || !z.string().uuid().safeParse(id).success) return reply({ error: 'Ficha inválida.' }, 400);
     // Somente fichas em conferência podem ser removidas; finalizadas são imutáveis
-    const removida = await removerFichaEmConferencia(user.tenantId, id);
+    const removida = await removerFichaEmConferencia(user.tenantId, id, {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
     return removida ? reply({ ok: true }) : reply({ error: 'Ficha não encontrada na fila (pode já ter sido finalizada).' }, 404);
   } catch (error) { return errorResponse(error); }
 }

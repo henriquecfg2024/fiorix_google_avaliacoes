@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
-  buildBlockingChains,
   buildProcessInstanceKey,
   buildSiplanIncidentReport,
   computeCollectorBackoffSeconds,
@@ -10,7 +9,6 @@ import {
   DEFAULT_ALERT_RULES,
   evaluateAlertsWithHysteresis,
   evaluateMemoryPressureEvidence,
-  evaluateWebriSessionAssociation,
   formatMetricOrMissing,
 } from '@/lib/srvsql-performance/engine';
 import {
@@ -18,6 +16,7 @@ import {
   ingestCollectorSample,
   pruneSamplesByRetention,
   recordCollectorFailure,
+  type RawCollectorIngestPayload,
 } from '@/lib/srvsql-performance/store';
 
 const mockRequireRole = vi.fn();
@@ -240,7 +239,7 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
   it('7. Retenção e limite de armazenamento: remove amostras expiradas e limita quantidade máxima', () => {
     const baseSamples = Array.from({ length: 10 }, (_, idx) => ({
       observedAt: new Date(Date.parse('2026-11-11T17:00:00.000Z') + idx * 60000).toISOString(),
-    })) as any[];
+    })) as unknown as RawCollectorIngestPayload[];
 
     const pruned = pruneSamplesByRetention(baseSamples, {
       retentionDays: 14,
@@ -334,5 +333,173 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     expect(liveSnap.kpis.diskWriteLatencyMs).toBe(54);
     expect(liveSnap.kpis.blockedSessionsCount).toBe(0);
     expect(liveSnap.costlyQueries.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('11. Amostra ao vivo saudável sem bloqueios e delta de disco 0 ms resulta em NORMAL (sem falso positivo Crítico nem incidente demo)', async () => {
+    const tId = 'tenant-srvsql-healthy-real';
+    const baseSample = {
+      observedAt: new Date(Date.now() - 40000).toISOString(),
+      collectionDurationMs: 42,
+      simpleConnectivityPingMs: 2,
+      cpuTotalPercent: 14,
+      sqlCpuPercent: 4,
+      cpuCount: 10,
+      totalUserSessionsCount: 605,
+      sqlMetadata: {
+        serverName: 'SRVSQL',
+        machineName: 'SRVSQL',
+        instanceName: 'MSSQLSERVER',
+        edition: 'Standard Edition (64-bit)',
+        productVersion: '11.0.7507.2',
+        productLevel: 'SP4',
+        majorVersion: 11,
+        sqlServerStartTime: '2026-11-11T16:11:46.083',
+        loginUsed: 'fiorix_connector',
+        hasViewServerState: true,
+        hasViewServerPerformanceState: false,
+        hasViewAnyDefinition: true,
+        queryStoreSupported: false,
+        queryStoreEnabled: null,
+        requiredPermissionLabel: 'VIEW SERVER STATE ativo',
+      },
+      windowsMemory: {
+        totalPhysicalMb: 73999.6,
+        availablePhysicalMb: 14540.8,
+        usedPhysicalMb: 59458.8,
+        usedPercent: 80,
+        committedMb: 60100,
+        commitLimitMb: 85000,
+        commitPercent: 70.7,
+        pagesPerSec: null,
+        pageInputsPerSec: null,
+        pageFaultsPerSec: null,
+        windowsMemoryPressure: 'NORMAL' as const,
+      },
+      // Simula volume grande com latência acumulada desde o boot alta que antes causava falso positivo CRÍTICO
+      windowsVolumes: [
+        {
+          volume: 'D:',
+          label: 'Volume SQL D:\\',
+          role: 'SQL_DATA' as const,
+          readLatencyMs: 65,
+          writeLatencyMs: 54,
+          readsPerSec: null,
+          writesPerSec: null,
+          throughputMbPerSec: null,
+          queueLength: null,
+          freeSpaceGb: 45,
+          totalSpaceGb: 600,
+          freePercent: 7.5,
+        },
+      ],
+      windowsNetwork: [],
+      windowsProcesses: [],
+      windowsServices: [
+        {
+          serviceName: 'SQLSERVERAGENT',
+          displayName: 'SQL Server Agent (MSSQLSERVER)',
+          state: 'STOPPED' as const,
+          startMode: 'MANUAL' as const,
+          pid: null,
+          processName: 'SQLAGENT.EXE',
+          processStartTimeIso: null,
+          belongsToWebri: false,
+          webriConfidence: 'ALTA' as const,
+          category: 'SQL_SERVER' as const,
+          notes: 'Manual',
+        },
+      ],
+      concurrentEvents: [],
+      activeSessions: [],
+      waitStatsRaw: [
+        {
+          waitType: 'PAGEIOLATCH_SH',
+          waitingTasksCount: 900000,
+          waitTimeMs: 45000000,
+          maxWaitTimeMs: 220,
+          signalWaitTimeMs: 5000,
+        },
+      ],
+      fileIoRaw: [
+        {
+          databaseId: 5,
+          databaseName: 'WEBRI',
+          fileId: 1,
+          logicalName: 'WebRI_Data',
+          fileType: 'ROWS' as const,
+          volumeMountPoint: 'D:\\',
+          sampleMs: 100000,
+          numOfReads: 50000,
+          numOfBytesRead: 409600000,
+          ioStallReadMs: 3250000,
+          numOfWrites: 20000,
+          numOfBytesWritten: 163840000,
+          ioStallWriteMs: 1080000,
+        },
+      ],
+      sqlMemory: {
+        totalServerMemoryMb: 40038,
+        targetServerMemoryMb: 39936,
+        maxServerMemoryConfigMb: 39936,
+        minServerMemoryConfigMb: 0,
+        sqlProcessWorkingSetMb: 40038,
+        sqlProcessPrivateMb: 40038,
+        pageLifeExpectancySec: 1933,
+        bufferCacheHitRatioPercent: 99.8,
+        memoryGrantsPending: 0,
+        memoryGrantsActive: 0,
+        grantedWorkspaceMemoryMb: 0,
+        maxWorkspaceMemoryMb: null,
+        processPhysicalMemoryLow: false,
+        processVirtualMemoryLow: false,
+      },
+      databaseSpaces: [],
+      costlyQueries: [],
+    };
+
+    ingestCollectorSample(tId, baseSample);
+    ingestCollectorSample(tId, {
+      ...baseSample,
+      observedAt: new Date(Date.now() - 10000).toISOString(),
+      cpuTotalPercent: 15,
+      waitStatsRaw: [
+        {
+          waitType: 'PAGEIOLATCH_SH',
+          waitingTasksCount: 900005,
+          waitTimeMs: 45000010, // delta apenas 10ms no intervalo
+          maxWaitTimeMs: 220,
+          signalWaitTimeMs: 5000,
+        },
+      ],
+      fileIoRaw: [
+        {
+          ...baseSample.fileIoRaw[0]!,
+          sampleMs: 130000,
+          numOfReads: 50010,
+          ioStallReadMs: 3250005, // delta leitura ~0.5ms
+          numOfWrites: 20010,
+          ioStallWriteMs: 1080004, // delta escrita ~0.4ms
+        },
+      ],
+    });
+
+    const snap = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snap.dataSourceMode).toBe('LIVE_COLLECTOR');
+    expect(snap.overallHealth).toBe('NORMAL');
+    expect(snap.kpis.diskWriteLatencyMs).toBe(0);
+    expect(snap.kpis.blockedSessionsCount).toBe(0);
+    expect(snap.userIncidents).toHaveLength(0);
+
+    // Rota GET força sempre telemetria real mesmo se query param tentar cenário simulado
+    mockRequireRole.mockResolvedValueOnce({ id: 'u1', tenantId: tId, role: 'MASTER' });
+    const { GET } = await import('@/app/api/v1/operacoes/srvsql-performance/route');
+    const req = new NextRequest(
+      'http://localhost:3000/api/v1/operacoes/srvsql-performance?scenario=LENTIDAO_BLOQUEIO&window=30m',
+    );
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.activeScenario).toBe('LIVE_OR_REAL');
+    expect(body.dataSourceMode).toBe('LIVE_COLLECTOR');
   });
 });

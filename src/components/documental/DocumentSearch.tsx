@@ -32,6 +32,7 @@ import {
   Star,
   Folder,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import {
   RAIZES_DOCUMENTAL,
@@ -386,6 +387,7 @@ export function DocumentSearch({
   const [filaErro, setFilaErro] = useState('');
   const [fichaRegistroId, setFichaRegistroId] = useState<string | null>(null);
   const [conferindoIds, setConferindoIds] = useState<Record<string, boolean>>({});
+  const [excluindoIds, setExcluindoIds] = useState<Record<string, boolean>>({});
   const [filtroStatusConferencia, setFiltroStatusConferencia] = useState<'TODOS' | 'AGUARDANDO_CONFERENCIA' | 'CONFERIDO'>('TODOS');
   const [buscaFiscalizacao, setBuscaFiscalizacao] = useState('');
   const [paginaConferencia, setPaginaConferencia] = useState(1);
@@ -638,13 +640,31 @@ export function DocumentSearch({
   }
 
   async function removerFichaDaFila(ficha: FichaEmConferencia) {
-    if (!window.confirm(`Remover o processo ${ficha.numero_processo} da fila de conferência?\nA fila é compartilhada: ele sairá da lista em todas as máquinas.`)) return;
+    const labelProcesso = ficha.numero_processo?.trim() || 'Processo sem número';
+    const labelRequerente = ficha.requerente?.trim() || 'Interessado a definir';
+    if (
+      !window.confirm(
+        `Excluir definitivamente "${labelProcesso}" (${labelRequerente}) da fila EM CONFERÊNCIA?\n\nA fila é compartilhada entre todas as máquinas e esta ação remove apenas este procedimento em revisão (não afeta o Arquivo finalizado).`,
+      )
+    ) {
+      return;
+    }
+
+    setExcluindoIds(prev => ({ ...prev, [ficha.registroId]: true }));
     try {
       await removerFichaConferencia(ficha.registroId);
+      setFichasPendentes(prev => prev.filter(item => item.registroId !== ficha.registroId));
+      if (fichaRegistroId === ficha.registroId) {
+        setFichaAberta(null);
+        setFichaRegistroId(null);
+      }
+      setFilaErro('');
+      await recarregarFila();
     } catch (err) {
-      setFilaErro(err instanceof Error ? err.message : 'Não foi possível remover a ficha da fila.');
+      setFilaErro(err instanceof Error ? err.message : 'Não foi possível excluir a ficha da fila.');
+    } finally {
+      setExcluindoIds(prev => ({ ...prev, [ficha.registroId]: false }));
     }
-    await recarregarFila();
   }
 
   function reabrirFichaDaFila(ficha: FichaEmConferencia) {
@@ -2804,6 +2824,7 @@ export function DocumentSearch({
                     {fichasPaginadas.map(ficha => {
                       const isConferido = ficha.statusConferencia === 'CONFERIDO';
                       const processandoCard = Boolean(conferindoIds[ficha.registroId]);
+                      const excluindoCard = Boolean(excluindoIds[ficha.registroId]);
                       return (
                         <tr
                           key={ficha.registroId}
@@ -2920,12 +2941,24 @@ export function DocumentSearch({
 
                               <button
                                 type="button"
+                                disabled={excluindoCard}
                                 onClick={() => reabrirFichaDaFila(ficha)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/20 cursor-pointer"
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer"
                                 title="Abrir formulário para conferência ou Etapa 2"
                               >
                                 <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                                 <span>Abrir</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={processandoCard || excluindoCard}
+                                onClick={() => void removerFichaDaFila(ficha)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-50 cursor-pointer"
+                                title="Excluir este procedimento da fila Em Conferência"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                <span>{excluindoCard ? 'Excluindo…' : 'Excluir'}</span>
                               </button>
                             </div>
                           </td>
@@ -2941,6 +2974,7 @@ export function DocumentSearch({
                 {fichasPaginadas.map(ficha => {
                   const isConferido = ficha.statusConferencia === 'CONFERIDO';
                   const processandoCard = Boolean(conferindoIds[ficha.registroId]);
+                  const excluindoCard = Boolean(excluindoIds[ficha.registroId]);
                   return (
                     <div
                       key={ficha.registroId}
@@ -3003,11 +3037,22 @@ export function DocumentSearch({
                         </button>
                         <button
                           type="button"
+                          disabled={excluindoCard}
                           onClick={() => reabrirFichaDaFila(ficha)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200"
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 disabled:opacity-50"
                         >
                           <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                           <span>Abrir</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={processandoCard || excluindoCard}
+                          onClick={() => void removerFichaDaFila(ficha)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-200 disabled:opacity-50"
+                          title="Excluir este procedimento da fila Em Conferência"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>{excluindoCard ? 'Excluindo…' : 'Excluir'}</span>
                         </button>
                       </div>
                     </div>

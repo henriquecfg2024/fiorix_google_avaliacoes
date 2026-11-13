@@ -760,7 +760,7 @@ export function generateEvidenceDiagnostics(params: {
   const activeBackupOrAv = concurrentEvents.filter((e) => e.status === 'EM_ANDAMENTO');
 
   if (
-    (writelogWait && writelogWait.sharePercent >= 25) ||
+    (writelogWait && writelogWait.sharePercent >= 25 && writelogWait.waitTimeDeltaMs >= 1000) ||
     (worstWriteVolume && (worstWriteVolume.writeLatencyMs ?? 0) >= 20)
   ) {
     diagnostics.push({
@@ -788,7 +788,7 @@ export function generateEvidenceDiagnostics(params: {
   }
 
   if (
-    (pageIoWait && pageIoWait.sharePercent >= 25) ||
+    (pageIoWait && pageIoWait.sharePercent >= 25 && pageIoWait.waitTimeDeltaMs >= 1000) ||
     (worstReadFile && (worstReadFile.readLatencyDeltaMs ?? 0) >= 20)
   ) {
     const concurrentLabels = activeBackupOrAv.map((e) => e.title).join(', ');

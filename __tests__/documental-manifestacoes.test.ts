@@ -42,6 +42,7 @@ import {
   finalizarManifestacao,
   listarManifestacoes,
   obterManifestacao,
+  removerFichaEmConferencia,
   salvarFichaEmConferencia,
 } from '../src/lib/documental/manifestacoes';
 import {
@@ -640,5 +641,82 @@ describe('manifestações: cliente da fila Em Conferência vs Arquivo e utilitá
     });
     expect(geo).toBe('Imóvel situado à R JOAO BODIN, nº 47 (Lote 0003 da Quadra 331, Setor 138), São Paulo - SP');
     expect(geo).not.toMatch(/vara/i);
+  });
+
+  it('exclui rascunho apenas na fila EM CONFERÊNCIA mantendo finalizadas intactas e validando DELETE na API', async () => {
+    vi.stubEnv('DOCUMENTAL_ENABLED', 'true');
+    const uuid = '550e8400-e29b-41d4-a716-446655440099';
+
+    // Remove quando está em conferência no tenant
+    prismaMocks.$executeRaw.mockResolvedValueOnce(1);
+    const removida = await removerFichaEmConferencia('t-1', uuid, {
+      id: 'u-master',
+      name: 'Henrique Master',
+      role: 'MASTER',
+    });
+    expect(removida).toBe(true);
+    expect(prismaMocks.$executeRaw).toHaveBeenCalledTimes(1);
+    const sqlStrings = (prismaMocks.$executeRaw.mock.calls[0]?.[0] as TemplateStringsArray | undefined)?.join(' ') || '';
+    expect(sqlStrings).toContain('DELETE FROM "DocumentManifestacao"');
+    expect(sqlStrings).toContain('"status" = \'conferencia\'');
+
+    // Retorna false quando não existe ou já foi finalizada (0 linhas afetadas)
+    prismaMocks.$executeRaw.mockResolvedValueOnce(0);
+    const naoRemovida = await removerFichaEmConferencia('t-1', uuid, {
+      id: 'u-master',
+      name: 'Henrique Master',
+      role: 'MASTER',
+    });
+    expect(naoRemovida).toBe(false);
+
+    // DELETE API route: bloqueia origem cruzada, UUID inválido, e responde 200/404 conforme resultado
+    const { DELETE } = await import('../src/app/api/gestao-documental/manifestacoes/route');
+
+    const crossOriginReq = new Request(
+      `http://localhost:3000/api/gestao-documental/manifestacoes?id=${uuid}`,
+      {
+        method: 'DELETE',
+        headers: { origin: 'https://evil.example', host: 'localhost:3000' },
+      },
+    );
+    expect((await DELETE(crossOriginReq)).status).toBe(403);
+
+    authMocks.requireAuth.mockResolvedValue({
+      id: 'u-master',
+      tenantId: 't-1',
+      name: 'Henrique Master',
+      role: 'MASTER',
+    });
+    authMocks.isNavPermissionsFeatureEnabled.mockReturnValue(true);
+    authMocks.isRouteAllowedForUser.mockResolvedValue(true);
+
+    const badIdReq = new Request(
+      'http://localhost:3000/api/gestao-documental/manifestacoes?id=nao-e-uuid',
+      {
+        method: 'DELETE',
+        headers: { origin: 'http://localhost:3000', host: 'localhost:3000' },
+      },
+    );
+    expect((await DELETE(badIdReq)).status).toBe(400);
+
+    prismaMocks.$executeRaw.mockResolvedValueOnce(1);
+    const okReq = new Request(
+      `http://localhost:3000/api/gestao-documental/manifestacoes?id=${uuid}`,
+      {
+        method: 'DELETE',
+        headers: { origin: 'http://localhost:3000', host: 'localhost:3000' },
+      },
+    );
+    expect((await DELETE(okReq)).status).toBe(200);
+
+    prismaMocks.$executeRaw.mockResolvedValueOnce(0);
+    const notFoundReq = new Request(
+      `http://localhost:3000/api/gestao-documental/manifestacoes?id=${uuid}`,
+      {
+        method: 'DELETE',
+        headers: { origin: 'http://localhost:3000', host: 'localhost:3000' },
+      },
+    );
+    expect((await DELETE(notFoundReq)).status).toBe(404);
   });
 });

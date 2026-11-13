@@ -9,19 +9,9 @@ import {
   updateAlertRulesConfig,
   updateWebriAssociationConfig,
 } from '@/lib/srvsql-performance/store';
-import type { ScenarioPresetId, TimeWindowPreset } from '@/lib/srvsql-performance/types';
+import type { TimeWindowPreset } from '@/lib/srvsql-performance/types';
 
 export const dynamic = 'force-dynamic';
-
-const VALID_SCENARIOS = new Set<ScenarioPresetId>([
-  'LIVE_OR_REAL',
-  'LENTIDAO_BLOQUEIO',
-  'PRESSAO_LOG_WRITELOG',
-  'CONCORRENCIA_BACKUP_DISCO',
-  'PRESSAO_MEMORIA_GRANT',
-  'FALTA_PERMISSAO_VIEW_SERVER_STATE',
-  'COLETOR_INDISPONIVEL',
-]);
 
 const VALID_WINDOWS = new Set<TimeWindowPreset>(['15m', '30m', '1h', '6h', '24h']);
 
@@ -30,13 +20,11 @@ export async function GET(req: NextRequest) {
     const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE');
     const tenantId = user.tenantId || 'default-tenant';
 
-    const rawScenario = (req.nextUrl.searchParams.get('scenario') || 'LIVE_OR_REAL') as ScenarioPresetId;
-    const scenario: ScenarioPresetId = VALID_SCENARIOS.has(rawScenario) ? rawScenario : 'LIVE_OR_REAL';
-
     const rawWindow = (req.nextUrl.searchParams.get('window') || '30m') as TimeWindowPreset;
     const windowPreset: TimeWindowPreset = VALID_WINDOWS.has(rawWindow) ? rawWindow : '30m';
 
-    const snapshot = await loadSrvsqlPerformanceSnapshot(tenantId, scenario, windowPreset);
+    // Painel operacional utiliza exclusivamente telemetria real coletada do SRVSQL (LIVE_OR_REAL)
+    const snapshot = await loadSrvsqlPerformanceSnapshot(tenantId, 'LIVE_OR_REAL', windowPreset);
 
     if (req.nextUrl.searchParams.get('export') === 'siplan') {
       const dossier = buildSiplanIncidentReport(snapshot);
@@ -52,8 +40,8 @@ export async function GET(req: NextRequest) {
         'Cache-Control': 'private, no-store, no-cache, must-revalidate',
       },
     });
-  } catch (error: any) {
-    const msg = String(error?.message || '');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error ?? '');
     if (msg.includes('Acesso negado') || msg.includes('Não autorizado') || msg.includes('Sessão')) {
       return NextResponse.json({ error: 'Acesso não autorizado ao módulo Performance do SRVSQL.' }, { status: 403 });
     }
@@ -113,7 +101,7 @@ export async function POST(req: NextRequest) {
         affectedOperation,
         perceivedDurationSeconds,
         observation: observation || 'Sem observações adicionais.',
-        activeScenario: VALID_SCENARIOS.has(body?.activeScenario) ? body.activeScenario : 'LENTIDAO_BLOQUEIO',
+        activeScenario: 'LIVE_OR_REAL',
       });
 
       return NextResponse.json({ ok: true, incident });
@@ -164,8 +152,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Ação inválida.' }, { status: 400 });
-  } catch (error: any) {
-    const msg = String(error?.message || '');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error ?? '');
     if (msg.includes('Acesso negado') || msg.includes('Não autorizado') || msg.includes('Sessão')) {
       return NextResponse.json({ error: 'Acesso não autorizado.' }, { status: 403 });
     }
