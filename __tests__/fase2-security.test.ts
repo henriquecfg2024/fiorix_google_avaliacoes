@@ -188,10 +188,14 @@ describe('Fase 2 Security Suite — RLS/Grants, At-Rest Crypto, Signed Uploads, 
       expect(sql).toContain('ENABLE ROW LEVEL SECURITY');
       expect(sql).not.toMatch(/ALTER\s+TABLE[^\n;]*FORCE\s+ROW\s+LEVEL\s+SECURITY/i);
       expect(sql).toContain("NULLIF(current_setting('app.current_tenant_id', true), '')");
+      expect(sql).toContain("(SELECT NULLIF(current_setting('app.current_tenant_id', true), ''))");
+      expect(sql).toContain('(SELECT auth.uid())');
       expect(sql).toContain('DROP POLICY IF EXISTS rls_saas_audit_insert');
       expect(sql).toContain('fiorix_holerites');
       expect(sql).toContain('fiorix_colaboradores');
       expect(sql).toContain('SET search_path = pg_catalog, public');
+      expect(sql).toContain('fn_check_nav_user_rule_tenant');
+      expect(sql).toContain('doc_manifestacao_imutavel');
     });
   });
 
