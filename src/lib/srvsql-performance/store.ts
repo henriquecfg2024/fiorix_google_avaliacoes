@@ -54,6 +54,8 @@ import type {
 
 export interface RawCollectorIngestPayload {
   observedAt: string;
+  collectorVersion?: string;
+  connectorHost?: string;
   collectionDurationMs?: number;
   sqlMetadata: SqlInstanceMetadata;
   zabbixProbe?: ZabbixIntegrationProbe;
@@ -93,14 +95,14 @@ interface TenantMonitorRuntimeState {
 }
 
 const DEFAULT_WEBRI_CONFIG: WebriAssociationConfig = {
-  databases: ['WEBRI', 'SIPLAN_IMAGENS', 'INDICADOR_REAL'],
-  logins: ['webri_app', 'siplan_user', 'fiorix_connector', 'sa_webri'],
+  databases: ['WEBRI', 'SPCM_EPP', 'GESTOR', 'WEBGERAL', 'WEBROTINAS', 'SiplanGeral', 'dbDocDigital'],
+  logins: ['webri_app', 'siplan_user', 'sa_webri'],
   applicationNames: ['WEBRI', 'SIPLAN', 'CartorioWebri', 'IIS-WEBRIPool', 'Microsoft JDBC Driver'],
-  hosts: ['SRVSQL', 'SRVAPP-WEBRI', 'ESTACAO-REGISTRO', 'ESTACAO-CERTIDAO', 'ESTACAO-CAIXA'],
+  hosts: ['SRVSQL', 'SRVFILES', 'SRVAPP-WEBRI', 'ESTACAO-REGISTRO', 'ESTACAO-CERTIDAO', 'ESTACAO-CAIXA'],
   windowsServices: ['MSSQLSERVER', 'W3SVC', 'SiplanWebriService', 'SiplanIndexadorService'],
   confirmedJavaProcessNames: ['SiplanAssinadorJava'],
   mysqlUsedByWebri: false,
-  updatedAt: '2026-11-11T14:00:00.000Z',
+  updatedAt: '2026-11-13T19:00:00.000Z',
   updatedBy: 'Configuração Inicial Auditada',
 };
 
@@ -798,7 +800,28 @@ function buildBaselineServices(webriConfig: WebriAssociationConfig): WindowsServ
   ];
 }
 
-function buildCoverageSources(hasViewServerState: boolean | null, collectorOnline: boolean): CoverageSourceItem[] {
+function buildCoverageSources(
+  hasViewServerState: boolean | null,
+  collectorOnline: boolean,
+  options?: {
+    pingMs?: number | null;
+    connectorHost?: string | null;
+    zabbixProbe?: ZabbixIntegrationProbe | null;
+  },
+): CoverageSourceItem[] {
+  const pingLabel =
+    typeof options?.pingMs === 'number' ? `SELECT 1 em ${options.pingMs} ms` : 'conexão SQL validada';
+  const hostLabel = options?.connectorHost ? ` a partir de ${options.connectorHost}` : '';
+  const zabbixStatusRaw = options?.zabbixProbe?.status;
+  const zabbixCoverageStatus: CoverageSourceItem['status'] =
+    zabbixStatusRaw === 'CONNECTED'
+      ? 'DISPONIVEL'
+      : !collectorOnline
+        ? 'INDISPONIVEL'
+        : hasViewServerState === true && zabbixStatusRaw === 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK'
+          ? 'OPCIONAL_DESATIVADO'
+          : 'SEM_PERMISSAO';
+
   return [
     {
       id: 'cov-sql-connectivity',
@@ -807,7 +830,9 @@ function buildCoverageSources(hasViewServerState: boolean | null, collectorOnlin
       status: collectorOnline ? 'DISPONIVEL' : 'INDISPONIVEL',
       requiredPermission: 'CONNECT SQL (login fiorix_connector)',
       impactWhenMissing: 'Impede identificar versão, edição e disponibilidade básica da instância SRVSQL.',
-      remediationStep: 'Operacional (conexão em 19 ms e SELECT 1 em 11 ms a partir de HCFG-001).',
+      remediationStep: collectorOnline
+        ? `Operacional (${pingLabel}${hostLabel}).`
+        : 'Aguardando retorno de conectividade do FIORIXConnector com o SRVSQL (TCP 1433).',
     },
     {
       id: 'cov-sql-dmvs',
@@ -840,12 +865,16 @@ function buildCoverageSources(hasViewServerState: boolean | null, collectorOnlin
       id: 'cov-zabbix-agent2',
       name: 'Integração Zabbix Agent 2 (srvsql:10050) / API Zabbix',
       layer: 'ZABBIX_AGENT',
-      status: 'SEM_PERMISSAO',
-      requiredPermission: 'Autorizar IP do coletor em Server= no zabbix_agent2.conf ou configurar ZABBIX_API_TOKEN',
+      status: zabbixCoverageStatus,
+      requiredPermission: 'Opcional: autorizar IP do coletor em Server= no zabbix_agent2.conf ou configurar ZABBIX_API_TOKEN',
       impactWhenMissing:
-        'Sem autorização no zabbix_agent2.conf ou token da API Zabbix, as métricas de SO Windows dependem do coletor leve do FIORIX no host.',
+        'Sem autorização passiva no zabbix_agent2.conf ou token da API Zabbix, as métricas principais já operam pelas DMVs SQL Server 2012 e contadores do FIORIXConnector.',
       remediationStep:
-        'Incluir o IP do servidor do FIORIXConnector na diretiva Server= de zabbix_agent2.conf no SRVSQL ou informar ZABBIX_API_URL + ZABBIX_API_TOKEN.',
+        zabbixCoverageStatus === 'DISPONIVEL'
+          ? `Integração Zabbix operacional (${options?.zabbixProbe?.detail || 'conectado'}).`
+          : zabbixCoverageStatus === 'OPCIONAL_DESATIVADO'
+            ? 'Porta 10050 aberta em SRVSQL (passivo restrito por Server=). Opcionalmente incluir IP do FIORIXConnector em zabbix_agent2.conf ou configurar ZABBIX_API_URL + ZABBIX_API_TOKEN.'
+            : 'Incluir o IP do servidor do FIORIXConnector na diretiva Server= de zabbix_agent2.conf no SRVSQL ou informar ZABBIX_API_URL + ZABBIX_API_TOKEN.',
     },
     {
       id: 'cov-windows-perf',
@@ -1365,7 +1394,9 @@ export function buildSrvsqlPerformanceSnapshot(
             status: collectorStatus,
             lastCollectionAt: latest.observedAt,
             delaySeconds,
-            collectorVersion: 'v2.6.2-srvsql-live',
+            collectorVersion: latest.collectorVersion
+              ? `${latest.collectorVersion}-srvsql-live`
+              : 'v2.6.12-srvsql-live',
             separateFromUiRefresh: true,
             localQueuePendingCount: 0,
             storageUsedSamples: state.samples.length,
@@ -1425,7 +1456,11 @@ export function buildSrvsqlPerformanceSnapshot(
           alertRules: state.alertRules,
           userIncidents: state.incidents,
           webriConfig: state.webriConfig,
-          coverageSources: buildCoverageSources(false, collectorStatus !== 'OFFLINE'),
+          coverageSources: buildCoverageSources(false, collectorStatus !== 'OFFLINE', {
+            pingMs: latest.simpleConnectivityPingMs,
+            connectorHost: latest.connectorHost,
+            zabbixProbe: latest.zabbixProbe,
+          }),
           collectorBudget: state.collectorBudget,
           counterResetNotice: null,
         };
@@ -1473,12 +1508,22 @@ export function buildSrvsqlPerformanceSnapshot(
           ? fileDeltaComputed.items
           : [];
 
+      const reliableWriteItems = fileIoDeltas.filter(
+        (f) => f.writeLatencyDeltaMs !== null && (f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25),
+      );
+      const reliableReadItems = fileIoDeltas.filter(
+        (f) => f.readLatencyDeltaMs !== null && (f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25),
+      );
       const webriDataFile =
-        fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
-        fileIoDeltas[0] ||
+        reliableWriteItems.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+        reliableWriteItems[0] ||
         null;
       const webriLogFile =
-        fileIoDeltas.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'LOG') ||
+        reliableWriteItems.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'LOG') ||
+        null;
+      const webriDataReadFile =
+        reliableReadItems.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+        reliableReadItems[0] ||
         null;
 
       // Normaliza latência dos volumes usando exclusivamente o delta do intervalo atual (evita falso positivo acumulado desde o boot)
@@ -1495,9 +1540,11 @@ export function buildSrvsqlPerformanceSnapshot(
           };
         }
         const readVals = matchingFiles
+          .filter((f) => f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25)
           .map((f) => f.readLatencyDeltaMs)
           .filter((v): v is number => v !== null);
         const writeVals = matchingFiles
+          .filter((f) => f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25)
           .map((f) => f.writeLatencyDeltaMs)
           .filter((v): v is number => v !== null);
         return {
@@ -1515,8 +1562,8 @@ export function buildSrvsqlPerformanceSnapshot(
             ? Math.round(liveVolumes[0].writeLatencyMs!)
             : null;
       const diskReadLatencyMs =
-        webriDataFile?.readLatencyDeltaMs !== null && webriDataFile?.readLatencyDeltaMs !== undefined
-          ? Math.round(webriDataFile.readLatencyDeltaMs)
+        webriDataReadFile?.readLatencyDeltaMs !== null && webriDataReadFile?.readLatencyDeltaMs !== undefined
+          ? Math.round(webriDataReadFile.readLatencyDeltaMs)
           : liveVolumes[0]?.readLatencyMs !== null &&
             liveVolumes[0]?.readLatencyMs !== undefined
             ? Math.round(liveVolumes[0].readLatencyMs!)
@@ -1565,14 +1612,23 @@ export function buildSrvsqlPerformanceSnapshot(
             currentSqlStartTime: s.sqlMetadata?.sqlServerStartTime,
           });
           if (!deltaPt.counterResetDetected && deltaPt.items.length > 0) {
-            const targetFile =
-              deltaPt.items.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
-              deltaPt.items[0];
-            ptWriteMs = targetFile?.writeLatencyDeltaMs !== null && targetFile?.writeLatencyDeltaMs !== undefined
-              ? Math.round(targetFile.writeLatencyDeltaMs)
+            const reliableW = deltaPt.items.filter(
+              (f) => f.writeLatencyDeltaMs !== null && (f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25),
+            );
+            const reliableR = deltaPt.items.filter(
+              (f) => f.readLatencyDeltaMs !== null && (f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25),
+            );
+            const targetW =
+              reliableW.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+              reliableW[0];
+            const targetR =
+              reliableR.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+              reliableR[0];
+            ptWriteMs = targetW?.writeLatencyDeltaMs !== null && targetW?.writeLatencyDeltaMs !== undefined
+              ? Math.round(targetW.writeLatencyDeltaMs)
               : null;
-            ptReadMs = targetFile?.readLatencyDeltaMs !== null && targetFile?.readLatencyDeltaMs !== undefined
-              ? Math.round(targetFile.readLatencyDeltaMs)
+            ptReadMs = targetR?.readLatencyDeltaMs !== null && targetR?.readLatencyDeltaMs !== undefined
+              ? Math.round(targetR.readLatencyDeltaMs)
               : null;
           }
         }
@@ -1625,11 +1681,12 @@ export function buildSrvsqlPerformanceSnapshot(
         windowsProcesses: mappedProcesses,
         hasViewServerState: true,
         collectorReachable: collectorStatus !== 'OFFLINE',
+        alertRules: state.alertRules,
+        databaseSpaces: latest.databaseSpaces || [],
       });
 
-      // Evita falso alarme quando volumes grandes ainda têm >= 25 GB livres (mantém alerta se < 5%)
-      const minVolFreePct =
-        liveVolumes.reduce<number | null>((acc, v) => {
+      const effectiveVolFreePct = (volumes: WindowsVolumeIoSample[]): number =>
+        volumes.reduce<number | null>((acc, v) => {
           if (v.freePercent === null || v.freePercent === undefined) return acc;
           const effectivePct =
             v.freeSpaceGb !== null && v.freeSpaceGb >= 25 && v.freePercent > 4
@@ -1640,10 +1697,84 @@ export function buildSrvsqlPerformanceSnapshot(
           return acc === null ? effectivePct : Math.min(acc, effectivePct);
         }, null) ?? 50;
 
+      // Evita falso alarme quando volumes grandes ainda têm >= 25 GB livres (mantém alerta se < 5%)
+      const minVolFreePct = effectiveVolFreePct(liveVolumes);
+
+      const computeRuleSustainedSeconds = (
+        ruleId: string,
+        predicate: (s: RawCollectorIngestPayload, idx: number) => boolean,
+      ): number => {
+        if (state.samples.length < 2) return 0;
+        const lastIdx = state.samples.length - 1;
+        if (!predicate(state.samples[lastIdx]!, lastIdx)) return 0;
+        let streakStart = lastIdx;
+        for (let i = lastIdx - 1; i >= 0; i -= 1) {
+          if (!predicate(state.samples[i]!, i)) break;
+          streakStart = i;
+        }
+        if (streakStart >= lastIdx) return 0;
+        const tEnd = Date.parse(state.samples[lastIdx]!.observedAt);
+        const tStart = Date.parse(state.samples[streakStart]!.observedAt);
+        return Number.isFinite(tEnd) && Number.isFinite(tStart) ? Math.max(0, Math.round((tEnd - tStart) / 1000)) : 0;
+      };
+
+      const ruleThresh = (id: string, defWarn: number) =>
+        state.alertRules.find((r) => r.id === id)?.warningThreshold ?? defWarn;
+      const diskWriteWarn = ruleThresh('rule-disk-write-latency', 20);
+      const diskReadWarn = ruleThresh('rule-disk-read-latency', 25);
+      const memWarn = ruleThresh('rule-memory-grants-pending', 1);
+      const cpuWarn = ruleThresh('rule-cpu-sustained', 80);
+      const freeWarn = ruleThresh('rule-free-space-low', 15);
+
+      const sampleDiskLatency = (idx: number, mode: 'write' | 'read'): number | null => {
+        if (idx <= 0 || !state.samples[idx]?.fileIoRaw || !state.samples[idx - 1]?.fileIoRaw) return null;
+        const delta = computeFileIoLatencyDelta({
+          previousFiles: state.samples[idx - 1]!.fileIoRaw,
+          currentFiles: state.samples[idx]!.fileIoRaw,
+          previousSqlStartTime: state.samples[idx - 1]!.sqlMetadata?.sqlServerStartTime,
+          currentSqlStartTime: state.samples[idx]!.sqlMetadata?.sqlServerStartTime,
+        });
+        if (delta.counterResetDetected || delta.items.length === 0) return null;
+        const reliable = delta.items.filter((f) =>
+          mode === 'write'
+            ? f.writeLatencyDeltaMs !== null && (f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25)
+            : f.readLatencyDeltaMs !== null && (f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25),
+        );
+        const webriRow =
+          reliable.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+          reliable[0];
+        if (!webriRow) return null;
+        return mode === 'write' ? webriRow.writeLatencyDeltaMs : webriRow.readLatencyDeltaMs;
+      };
+
+      const sustainedDurationSecondsByRule: Partial<Record<string, number>> = {
+        'rule-disk-write-latency': computeRuleSustainedSeconds(
+          'rule-disk-write-latency',
+          (_s, idx) => (sampleDiskLatency(idx, 'write') ?? 0) >= diskWriteWarn,
+        ),
+        'rule-disk-read-latency': computeRuleSustainedSeconds(
+          'rule-disk-read-latency',
+          (_s, idx) => (sampleDiskLatency(idx, 'read') ?? 0) >= diskReadWarn,
+        ),
+        'rule-memory-grants-pending': computeRuleSustainedSeconds(
+          'rule-memory-grants-pending',
+          (s) => (s.sqlMemory?.memoryGrantsPending ?? 0) >= memWarn,
+        ),
+        'rule-cpu-sustained': computeRuleSustainedSeconds(
+          'rule-cpu-sustained',
+          (s) => (s.cpuTotalPercent ?? 0) >= cpuWarn,
+        ),
+        'rule-free-space-low': computeRuleSustainedSeconds(
+          'rule-free-space-low',
+          (s) => effectiveVolFreePct(s.windowsVolumes || []) <= freeWarn,
+        ),
+      };
+
       const evaluatedAlerts = evaluateAlertsWithHysteresis({
         rules: state.alertRules,
         existingAlerts: state.alerts,
         observedAtIso: latest.observedAt,
+        sustainedDurationSecondsByRule,
         metrics: {
           maxBlockedDurationSeconds: maxBlockedSec,
           blockedSessionsCount: blockedCount,
@@ -1663,16 +1794,12 @@ export function buildSrvsqlPerformanceSnapshot(
 
       const hasCrit =
         liveDiagnostics.some((d) => d.severity === 'CRITICO') ||
-        evaluatedAlerts.some((a) => a.active && a.severity === 'CRITICAL') ||
-        blockedCount >= 5 ||
-        maxBlockedSec >= 30;
+        evaluatedAlerts.some((a) => a.active && a.severity === 'CRITICAL');
       const hasWarn =
         collectorStatus === 'STALE' ||
         liveDiagnostics.some((d) => d.severity === 'ATENCAO') ||
-        evaluatedAlerts.some((a) => a.active) ||
-        blockedCount > 0 ||
-        (diskWriteLatencyMs !== null && diskWriteLatencyMs >= 25) ||
-        (latest.cpuTotalPercent !== null && latest.cpuTotalPercent >= 80);
+        evaluatedAlerts.some((a) => a.active && a.severity === 'WARNING') ||
+        blockedCount > 0;
 
       const overallHealth =
         collectorStatus === 'OFFLINE'
@@ -1683,14 +1810,15 @@ export function buildSrvsqlPerformanceSnapshot(
               ? 'ATENCAO'
               : 'NORMAL';
 
-      const activeCritOrWarnReasons = [
-        ...liveDiagnostics
-          .filter((d) => d.severity === 'CRITICO' || d.severity === 'ATENCAO')
-          .map((d) => d.title),
-        ...evaluatedAlerts
-          .filter((a) => a.active && (a.severity === 'CRITICAL' || a.severity === 'WARNING'))
-          .map((a) => a.title),
+      const criticalReasons = [
+        ...liveDiagnostics.filter((d) => d.severity === 'CRITICO').map((d) => d.title),
+        ...evaluatedAlerts.filter((a) => a.active && a.severity === 'CRITICAL').map((a) => a.title),
       ];
+      const warningReasons = [
+        ...liveDiagnostics.filter((d) => d.severity === 'ATENCAO').map((d) => d.title),
+        ...evaluatedAlerts.filter((a) => a.active && a.severity === 'WARNING').map((a) => a.title),
+      ];
+      const activeCritOrWarnReasons = [...criticalReasons, ...warningReasons];
       const statusReasonSuffix =
         (overallHealth === 'CRITICO' || overallHealth === 'ATENCAO') && activeCritOrWarnReasons.length > 0
           ? ` · Motivo: ${activeCritOrWarnReasons[0]}`
@@ -1738,7 +1866,9 @@ export function buildSrvsqlPerformanceSnapshot(
           status: collectorStatus,
           lastCollectionAt: latest.observedAt,
           delaySeconds,
-          collectorVersion: 'v2.6.2-srvsql-live',
+          collectorVersion: latest.collectorVersion
+            ? `${latest.collectorVersion}-srvsql-live`
+            : 'v2.6.12-srvsql-live',
           separateFromUiRefresh: true,
           localQueuePendingCount: 0,
           storageUsedSamples: state.samples.length,
@@ -1814,7 +1944,11 @@ export function buildSrvsqlPerformanceSnapshot(
         alertRules: state.alertRules,
         userIncidents: state.incidents,
         webriConfig: state.webriConfig,
-        coverageSources: buildCoverageSources(true, collectorStatus !== 'OFFLINE'),
+        coverageSources: buildCoverageSources(true, collectorStatus !== 'OFFLINE', {
+          pingMs: latest.simpleConnectivityPingMs,
+          connectorHost: latest.connectorHost,
+          zabbixProbe: latest.zabbixProbe,
+        }),
         collectorBudget: state.collectorBudget,
         counterResetNotice: waitDeltaComputed?.resetReason ?? null,
       };

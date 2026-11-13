@@ -28,6 +28,24 @@ export type OperationalState = 'ACTIVE' | 'STANDBY' | 'PAUSED';
 export type ConnectorRole = 'PRIMARY' | 'SECONDARY';
 export type FailoverMode = 'MANUAL' | 'AUTO';
 
+/**
+ * Compara versões SemVer de conectores (ex.: `v2.6.7` vs `v2.6.12`) numericamente.
+ */
+export function compareConnectorSemver(a: string, b: string): number {
+  const parse = (ver: string): [number, number, number] | null => {
+    const m = (ver || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)/i);
+    if (!m) return null;
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return a.localeCompare(b);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i]! - pb[i]!;
+  }
+  return 0;
+}
+
 export interface RemoteDocumentRootConfig {
   id: string;
   path: string;
@@ -1415,6 +1433,18 @@ export async function processHeartbeatHaAndBuildDirective(params: {
         nextUpdateStatus = String(selfUpdateInfo.status);
         nextUpdateMsg = selfUpdateInfo.message ? String(selfUpdateInfo.message).slice(0, 300) : nextUpdateMsg;
       }
+    } else if (
+      (nextUpdateStatus === 'APPLYING' || nextUpdateStatus === 'DOWNLOADING') &&
+      reportedVersion &&
+      (!nextTargetVersion ||
+        nextTargetVersion === reportedVersion ||
+        !thisNodeBefore.lastUpdateAt ||
+        Date.now() - new Date(thisNodeBefore.lastUpdateAt).getTime() > 3 * 60 * 1000)
+    ) {
+      // Reconcilia estados APPLYING/DOWNLOADING presos quando o serviço já reiniciou em IDLE na versão ativa
+      nextTargetVersion = null;
+      nextUpdateStatus = 'SUCCEEDED';
+      nextUpdateMsg = `Serviço ativo e confirmado na versão ${reportedVersion}.`;
     }
 
     if (nextTargetVersion && reportedVersion === nextTargetVersion) {
@@ -1667,8 +1697,25 @@ export async function processHeartbeatHaAndBuildDirective(params: {
   }
 
   const manifest = getLatestReleaseManifest();
-  const autoUpgradeEligible =
-    Boolean(manifest && reportedVersion && reportedVersion.startsWith('v2.') && reportedVersion < manifest.version);
+  const hasOutdatedOnlineStandby = Boolean(
+    manifest &&
+    refreshedNodes.some(
+      (n) =>
+        n.operationalState === 'STANDBY' &&
+        n.lastSeenAt &&
+        nowMs - n.lastSeenAt.getTime() <= 120_000 &&
+        n.version &&
+        compareConnectorSemver(n.version, manifest.version) < 0,
+    ),
+  );
+  const autoUpgradeEligible = Boolean(
+    manifest &&
+    !settings.rollingUpdateState?.active &&
+    reportedVersion &&
+    reportedVersion.startsWith('v2.') &&
+    compareConnectorSemver(reportedVersion, manifest.version) < 0 &&
+    (state === 'STANDBY' || !hasOutdatedOnlineStandby),
+  );
   const pendingUpdate =
     manifest &&
     reportedVersion !== manifest.version &&

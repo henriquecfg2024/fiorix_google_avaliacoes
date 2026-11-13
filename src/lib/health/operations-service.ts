@@ -24,6 +24,7 @@ import type {
   IncrementalModuleStatus,
   ConnectorSmbRootTelemetry,
   ConnectorDocumentalFailureItem,
+  ConnectorSqliteFailureItem,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   ConnectorClusterNodeSummary,
@@ -47,6 +48,7 @@ export type {
   IncrementalModuleStatus,
   ConnectorSmbRootTelemetry,
   ConnectorDocumentalFailureItem,
+  ConnectorSqliteFailureItem,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   ConnectorClusterNodeSummary,
@@ -223,6 +225,222 @@ export function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; 
   const isBusinessHours = isWorkDay && isWorkHour;
   const isMorningGracePeriod = isWorkDay && sp.hour === 7 && sp.minute < 30;
   return { isBusinessHours, isMorningGracePeriod };
+}
+
+export function sanitizeSyncBatchError(raw: string | null | undefined): string {
+  const clean = String(raw || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!clean) return 'Falha transitória aguardando retry na fila SQLite WAL.';
+  if (clean.includes('42P10') || /no unique or exclusion constraint matching/i.test(clean)) {
+    return 'Erro SQL 42P10 (fiorix_bi_data): restrição única (import_id, "IdAndamento") ausente no SaaS — corrigido via CTE + NOT EXISTS.';
+  }
+  return clean.slice(0, 260);
+}
+
+const SQLITE_MODULE_LABELS: Record<string, string> = {
+  bi: 'Módulo BI',
+  produtividade: 'Produtividade',
+  metas: 'Metas',
+  tarefas: 'Tarefas',
+  retornos: 'Retornos',
+  impressoes: 'Impressões',
+  safras: 'Safras & Prenotações',
+  colaboradores_rh: 'Colaboradores RH',
+  cartorio_virtual_certidoes: 'Certidões Online',
+};
+
+function buildSqliteFailureSummary(params: {
+  liveSqlite: any;
+  queueFailedCount: number;
+  queueQuarantinedCount: number;
+  recentBatchesRaw: Array<{
+    batchId: string;
+    source: string;
+    status: string;
+    recordsReceived: number | null;
+    errorMessage: string | null;
+    receivedAt: Date;
+  }>;
+  now: Date;
+}): {
+  recentFailures: ConnectorSqliteFailureItem[];
+  failedActiveCount: number;
+  failedResolved24hCount: number;
+  activeCountBySource: Map<string, number>;
+  resolvedCountBySource: Map<string, number>;
+  lastErrorBySource: Map<string, string>;
+} {
+  const { liveSqlite, queueFailedCount, queueQuarantinedCount, recentBatchesRaw, now } = params;
+
+  const completedBatchesById = new Map<string, { receivedAt: Date; recordsReceived: number | null }>();
+  for (const b of recentBatchesRaw) {
+    if (b.status === 'completed' && !completedBatchesById.has(b.batchId)) {
+      completedBatchesById.set(b.batchId, {
+        receivedAt: b.receivedAt,
+        recordsReceived: b.recordsReceived,
+      });
+    }
+  }
+
+  const mergedByBatchId = new Map<
+    string,
+    {
+      batchId: string;
+      source: string;
+      recordsCount: number | null;
+      attempts: number;
+      rawError: string;
+      firstFailedAt: string;
+      lastFailedAt: string;
+      liveStatus: string | null;
+      resolvedAt: string | null;
+    }
+  >();
+
+  // 1. Entradas ao vivo enviadas pelo SQLite WAL do conector (v2.6.12+)
+  const rawLiveFailures = Array.isArray(liveSqlite?.recentFailures) ? liveSqlite.recentFailures : [];
+  for (const item of rawLiveFailures) {
+    if (!item || typeof item.batchId !== 'string') continue;
+    const batchId = item.batchId.trim();
+    if (!batchId) continue;
+    const source = String(item.source || 'bi').toLowerCase();
+    const lastFailedIso =
+      typeof item.lastFailedAt === 'string' && !Number.isNaN(Date.parse(item.lastFailedAt))
+        ? new Date(item.lastFailedAt).toISOString()
+        : now.toISOString();
+    const firstFailedIso =
+      typeof item.firstFailedAt === 'string' && !Number.isNaN(Date.parse(item.firstFailedAt))
+        ? new Date(item.firstFailedAt).toISOString()
+        : lastFailedIso;
+    mergedByBatchId.set(batchId, {
+      batchId,
+      source,
+      recordsCount: completedBatchesById.get(batchId)?.recordsReceived ?? null,
+      attempts: Math.max(1, Number(item.attempts || 1)),
+      rawError: String(item.errorMessage || ''),
+      firstFailedAt: firstFailedIso,
+      lastFailedAt: lastFailedIso,
+      liveStatus: typeof item.status === 'string' ? item.status : null,
+      resolvedAt: typeof item.resolvedAt === 'string' ? item.resolvedAt : null,
+    });
+  }
+
+  // 2. Complementa / identifica via lotes recentes registrados no banco SaaS (também funciona pré-v2.6.12)
+  const attemptsByBatch = new Map<string, number>();
+  for (const b of recentBatchesRaw) {
+    if (b.status !== 'completed') {
+      attemptsByBatch.set(b.batchId, (attemptsByBatch.get(b.batchId) || 0) + 1);
+    }
+  }
+  for (const b of recentBatchesRaw) {
+    if (b.status === 'completed') continue;
+    const source = String(b.source || 'bi').toLowerCase();
+    const existing = mergedByBatchId.get(b.batchId);
+    const receivedIso = b.receivedAt instanceof Date ? b.receivedAt.toISOString() : new Date(b.receivedAt).toISOString();
+    const dbAttempts = attemptsByBatch.get(b.batchId) || 1;
+    if (!existing) {
+      mergedByBatchId.set(b.batchId, {
+        batchId: b.batchId,
+        source,
+        recordsCount: b.recordsReceived ?? completedBatchesById.get(b.batchId)?.recordsReceived ?? null,
+        attempts: dbAttempts,
+        rawError: b.errorMessage || '',
+        firstFailedAt: receivedIso,
+        lastFailedAt: receivedIso,
+        liveStatus: null,
+        resolvedAt: null,
+      });
+    } else {
+      if (existing.recordsCount === null && b.recordsReceived !== null) {
+        existing.recordsCount = b.recordsReceived;
+      }
+      if (!existing.rawError && b.errorMessage) {
+        existing.rawError = b.errorMessage;
+      }
+      if (dbAttempts > existing.attempts) {
+        existing.attempts = dbAttempts;
+      }
+    }
+  }
+
+  const queueCleared = queueFailedCount === 0 && queueQuarantinedCount === 0;
+  const items: ConnectorSqliteFailureItem[] = [];
+  const activeCountBySource = new Map<string, number>();
+  const resolvedCountBySource = new Map<string, number>();
+  const lastErrorBySource = new Map<string, string>();
+
+  for (const entry of mergedByBatchId.values()) {
+    const completedMatch = completedBatchesById.get(entry.batchId);
+    const isResolved =
+      entry.liveStatus === 'RESOLVED' ||
+      Boolean(completedMatch) ||
+      queueCleared;
+    const isQuarantined =
+      !isResolved &&
+      (entry.liveStatus === 'DEAD_LETTER' || (queueQuarantinedCount > 0 && entry.attempts >= 10));
+
+    const resolutionStatus: ConnectorSqliteFailureItem['resolutionStatus'] = isResolved
+      ? 'RESOLVED'
+      : isQuarantined
+      ? 'QUARANTINED'
+      : 'RETRYING';
+
+    const resolvedAt = isResolved
+      ? entry.resolvedAt ?? (completedMatch ? completedMatch.receivedAt.toISOString() : now.toISOString())
+      : null;
+
+    const resolutionNote =
+      resolutionStatus === 'RESOLVED'
+        ? 'Lote reprocessado e ingerido com sucesso · Fila SQLite WAL zerada (0 erros)'
+        : resolutionStatus === 'QUARANTINED'
+        ? 'Lote retido em quarentena no SQLite WAL local — requer inspeção'
+        : 'Retentativa automática com backoff no SQLite WAL · Dados preservados localmente';
+
+    const lastError = sanitizeSyncBatchError(entry.rawError);
+    items.push({
+      batchId: entry.batchId,
+      source: entry.source,
+      moduleLabel: SQLITE_MODULE_LABELS[entry.source] || entry.source.toUpperCase(),
+      recordsCount: entry.recordsCount,
+      attempts: entry.attempts,
+      lastError,
+      firstFailedAt: entry.firstFailedAt,
+      lastFailedAt: entry.lastFailedAt,
+      resolutionStatus,
+      resolvedAt,
+      resolutionNote,
+    });
+
+    if (resolutionStatus === 'RESOLVED') {
+      resolvedCountBySource.set(entry.source, (resolvedCountBySource.get(entry.source) || 0) + 1);
+    } else {
+      activeCountBySource.set(entry.source, (activeCountBySource.get(entry.source) || 0) + 1);
+      if (!lastErrorBySource.has(entry.source)) {
+        lastErrorBySource.set(entry.source, lastError);
+      }
+    }
+  }
+
+  items.sort((a, b) => {
+    const rank = (s: ConnectorSqliteFailureItem['resolutionStatus']) =>
+      s === 'QUARANTINED' ? 0 : s === 'RETRYING' ? 1 : 2;
+    return rank(a.resolutionStatus) - rank(b.resolutionStatus) || Date.parse(b.lastFailedAt) - Date.parse(a.lastFailedAt);
+  });
+
+  const failedActiveFromList = items.filter((i) => i.resolutionStatus !== 'RESOLVED').length;
+  const failedActiveCount = Math.max(failedActiveFromList, queueFailedCount + queueQuarantinedCount);
+  const failedResolved24hCount = items.filter((i) => i.resolutionStatus === 'RESOLVED').length;
+
+  return {
+    recentFailures: items.slice(0, 15),
+    failedActiveCount,
+    failedResolved24hCount,
+    activeCountBySource,
+    resolvedCountBySource,
+    lastErrorBySource,
+  };
 }
 
 /**
@@ -616,23 +834,28 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. Popula os lotes mais recentes diretamente de recentBatchesRaw (evita 6 queries redundantes ao banco)
   const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; durationMs?: number | null; status: string }>();
+  const lastCompletedBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; durationMs?: number | null; status: string }>();
   for (const b of recentBatchesRaw) {
     const key = b.source.toLowerCase();
+    const mappedBatch = {
+      receivedAt: b.receivedAt,
+      recordsReceived: b.recordsReceived,
+      recordsInserted: null,
+      recordsUpdated: null,
+      durationMs: b.durationMs ?? null,
+      status: b.status,
+    };
     if (!lastBatchesMap.has(key)) {
-      lastBatchesMap.set(key, {
-        receivedAt: b.receivedAt,
-        recordsReceived: b.recordsReceived,
-        recordsInserted: null,
-        recordsUpdated: null,
-        durationMs: b.durationMs ?? null,
-        status: b.status,
-      });
+      lastBatchesMap.set(key, mappedBatch);
+    }
+    if (b.status === 'completed' && !lastCompletedBatchesMap.has(key)) {
+      lastCompletedBatchesMap.set(key, mappedBatch);
     }
   }
 
-  // 2. Consulta apenas as fontes que eventualmente não tiveram lotes nas últimas 24h
+  // 2. Consulta apenas as fontes que eventualmente não tiveram lotes concluídos nas últimas 24h
   const missingSources = targetConnector
-    ? sourceConfigs.filter((cfg) => !lastBatchesMap.has(cfg.key))
+    ? sourceConfigs.filter((cfg) => !lastCompletedBatchesMap.has(cfg.key))
     : [];
 
   const queryDocumentalStats = async () => {
@@ -757,7 +980,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     queryDocumentalStats(),
     ...missingSources.map((cfg) =>
       prisma.connectorSyncBatch.findFirst({
-        where: { tenantId, source: cfg.key },
+        where: { tenantId, source: cfg.key, status: 'completed' },
         orderBy: { receivedAt: 'desc' },
         select: {
           source: true,
@@ -774,7 +997,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   for (const b of missingBatchesResults) {
     if (b) {
-      lastBatchesMap.set(b.source.toLowerCase(), b);
+      const k = b.source.toLowerCase();
+      lastCompletedBatchesMap.set(k, b);
+      if (!lastBatchesMap.has(k)) {
+        lastBatchesMap.set(k, b);
+      }
     }
   }
 
@@ -795,16 +1022,45 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const liveCursorsBySource = (rawDetails?.sqlite?.checkpoints?.bySource && typeof rawDetails.sqlite.checkpoints.bySource === 'object')
     ? (rawDetails.sqlite.checkpoints.bySource as Record<string, { cursorValue: string; updatedAt: string | null }>)
     : {};
+  const liveSqlite = (rawDetails?.sqlite && typeof rawDetails.sqlite === 'object') ? rawDetails.sqlite : null;
+
+  const rawQueuePending = Number(liveSqlite?.queue?.pending ?? latestTelemetry?.queuePending ?? 0);
+  const queueSendingCount = Number(liveSqlite?.queue?.sending ?? rawDetails?.queueSending ?? 0);
+  const queueFailedCount = Number(liveSqlite?.queue?.failed ?? latestTelemetry?.queueFailed ?? 0);
+  const queueQuarantinedCount = Number(liveSqlite?.queue?.quarantined ?? rawDetails?.queueQuarantined ?? 0);
+  const queueCompletedCount = Number(liveSqlite?.queue?.completed ?? 0);
+  // Desconta lotes que estão apenas em trânsito normal (sending) e ignora lote único transitório sem erro
+  const netPendingAfterSending = Math.max(0, rawQueuePending - queueSendingCount);
+  const queuePendingCount =
+    netPendingAfterSending <= 1 && queueFailedCount === 0 && queueQuarantinedCount === 0
+      ? 0
+      : netPendingAfterSending;
+
+  const mainSqliteFailureSummary = buildSqliteFailureSummary({
+    liveSqlite,
+    queueFailedCount,
+    queueQuarantinedCount,
+    recentBatchesRaw,
+    now,
+  });
 
   const incrementalModules: IncrementalModuleStatus[] = [];
 
   for (const cfg of sourceConfigs) {
     const lastBatch = lastBatchesMap.get(cfg.key);
+    const lastCompletedBatch = lastCompletedBatchesMap.get(cfg.key);
     const statusEntry = statusEntriesMap.get(cfg.key);
     const extSource = liveSourcesExtended[cfg.key] ?? null;
     const cursorEntry = liveCursorsBySource[cfg.key] ?? null;
+    const activeFailedCount = mainSqliteFailureSummary.activeCountBySource.get(cfg.key) ?? 0;
+    const resolvedFailed24hCount = mainSqliteFailureSummary.resolvedCountBySource.get(cfg.key) ?? 0;
+    const lastFailedError = mainSqliteFailureSummary.lastErrorBySource.get(cfg.key) ?? null;
 
-    const batchDate = lastBatch?.receivedAt ? new Date(lastBatch.receivedAt) : null;
+    const batchDate = lastCompletedBatch?.receivedAt
+      ? new Date(lastCompletedBatch.receivedAt)
+      : lastBatch?.receivedAt
+      ? new Date(lastBatch.receivedAt)
+      : null;
     const statusDate = statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null;
     const extDate = extSource?.lastSuccessAt ? new Date(extSource.lastSuccessAt) : null;
 
@@ -823,7 +1079,10 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         lastDurationMs: null,
         runsTotal: typeof extSource?.runsTotal === 'number' ? extSource.runsTotal : null,
         consecutiveFailures: typeof extSource?.consecutiveFailures === 'number' ? extSource.consecutiveFailures : null,
-        status: cfg.key === 'safras' && isConnectorOnline ? 'OK' : 'UNKNOWN',
+        activeFailedBatchesCount: activeFailedCount,
+        resolvedFailedBatches24hCount: resolvedFailed24hCount,
+        lastFailedError,
+        status: activeFailedCount >= 3 ? 'ERROR' : activeFailedCount > 0 ? 'WARNING' : (cfg.key === 'safras' && isConnectorOnline ? 'OK' : 'UNKNOWN'),
         lastSyncAt: null,
         nextExpectedAt: null,
         delaySeconds: null,
@@ -831,7 +1090,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         isIncremental: cfg.isIncremental,
         expectedIntervalSeconds: cfg.expectedIntervalSeconds,
         provenance: 'unavailable',
-        statusNote: cfg.key === 'safras' && isConnectorOnline
+        statusNote: activeFailedCount > 0
+          ? `${activeFailedCount} lote(s) em retry na fila SQLite WAL · ${lastFailedError || 'Aguardando reprocessamento'}`
+          : cfg.key === 'safras' && isConnectorOnline
           ? 'Monitoramento ativado — aguardando próximo ciclo de 60 min'
           : 'Aguardando primeira sincronização ou integração de telemetria',
       });
@@ -895,7 +1156,14 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       delaySeconds = Math.max(0, Math.floor((now.getTime() - nextExpectedDate.getTime()) / 1000));
     }
 
-    const records = lastBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
+    const records = lastCompletedBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
+
+    if (activeFailedCount > 0) {
+      status = activeFailedCount >= 3 || status === 'ERROR' ? 'ERROR' : 'WARNING';
+      statusNote = `${activeFailedCount} lote(s) em retry na fila SQLite WAL · ${lastFailedError || 'Aguardando reprocessamento automático'}`;
+    } else if (resolvedFailed24hCount > 0 && status === 'OK') {
+      statusNote = `${statusNote} · ${resolvedFailed24hCount} lote(s) reprocessado(s) com sucesso nas últimas 24h`;
+    }
 
     const formattedNextTime = nextExpectedDate.toLocaleTimeString('pt-BR', {
       hour: '2-digit',
@@ -918,9 +1186,12 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       procedureSql: cfg.procedureSql,
       syncMode: cfg.syncMode,
       cursorValue: cursorEntry?.cursorValue ?? null,
-      lastDurationMs: lastBatch?.durationMs ?? (typeof extSource?.lastDurationMs === 'number' ? extSource.lastDurationMs : null),
+      lastDurationMs: lastCompletedBatch?.durationMs ?? lastBatch?.durationMs ?? (typeof extSource?.lastDurationMs === 'number' ? extSource.lastDurationMs : null),
       runsTotal: typeof extSource?.runsTotal === 'number' ? extSource.runsTotal : null,
       consecutiveFailures: typeof extSource?.consecutiveFailures === 'number' ? extSource.consecutiveFailures : null,
+      activeFailedBatchesCount: activeFailedCount,
+      resolvedFailedBatches24hCount: resolvedFailed24hCount,
+      lastFailedError,
       status,
       lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', {
         hour: '2-digit',
@@ -1118,7 +1389,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   };
 
   const liveDoc = (rawDetails?.documental && typeof rawDetails.documental === 'object') ? rawDetails.documental : null;
-  const liveSqlite = (rawDetails?.sqlite && typeof rawDetails.sqlite === 'object') ? rawDetails.sqlite : null;
   const liveRuntime = (rawDetails?.runtime && typeof rawDetails.runtime === 'object') ? rawDetails.runtime : null;
   const liveDatabase = (rawDetails?.database && typeof rawDetails.database === 'object') ? rawDetails.database : null;
   const liveScheduler = (rawDetails?.scheduler && typeof rawDetails.scheduler === 'object') ? rawDetails.scheduler : null;
@@ -1193,18 +1463,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const liveCache = liveDoc?.searchEngine?.indexCache ?? null;
   const liveFileServer = liveDoc?.fileServer ?? null;
   const liveRustCli = liveDoc?.searchEngine?.rustCli ?? null;
-
-  const rawQueuePending = Number(liveSqlite?.queue?.pending ?? latestTelemetry?.queuePending ?? 0);
-  const queueSendingCount = Number(liveSqlite?.queue?.sending ?? rawDetails?.queueSending ?? 0);
-  const queueFailedCount = Number(liveSqlite?.queue?.failed ?? latestTelemetry?.queueFailed ?? 0);
-  const queueQuarantinedCount = Number(liveSqlite?.queue?.quarantined ?? rawDetails?.queueQuarantined ?? 0);
-  const queueCompletedCount = Number(liveSqlite?.queue?.completed ?? 0);
-  // Desconta lotes que estão apenas em trânsito normal (sending) e ignora lote único transitório sem erro
-  const netPendingAfterSending = Math.max(0, rawQueuePending - queueSendingCount);
-  const queuePendingCount =
-    netPendingAfterSending <= 1 && queueFailedCount === 0 && queueQuarantinedCount === 0
-      ? 0
-      : netPendingAfterSending;
 
   const mainDocFailureSummary = buildDocumentalFailureSummary(liveDoc, {
     includeDbRows: true,
@@ -1286,6 +1544,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       },
     },
     sqliteAndResilience: {
+      failedActiveCount: mainSqliteFailureSummary.failedActiveCount,
+      failedResolved24hCount: mainSqliteFailureSummary.failedResolved24hCount,
+      recentFailures: mainSqliteFailureSummary.recentFailures,
       queue: {
         pending: queuePendingCount,
         sending: queueSendingCount,
@@ -1645,6 +1906,13 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         extraSqlite?.checkpoints?.bySource && typeof extraSqlite.checkpoints.bySource === 'object'
           ? (extraSqlite.checkpoints.bySource as Record<string, { cursorValue: string; updatedAt: string | null }>)
           : {};
+      const extraSqliteFailureSummary = buildSqliteFailureSummary({
+        liveSqlite: extraSqlite,
+        queueFailedCount: extraFailed,
+        queueQuarantinedCount: extraQuarantined,
+        recentBatchesRaw,
+        now,
+      });
 
       const extraSubsystems: ConnectorSubsystemsSnapshot = {
         provenance: extraDoc || extraSqlite ? 'live' : 'calculated',
@@ -1772,6 +2040,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
           },
         },
         sqliteAndResilience: {
+          failedActiveCount: extraSqliteFailureSummary.failedActiveCount,
+          failedResolved24hCount: extraSqliteFailureSummary.failedResolved24hCount,
+          recentFailures: extraSqliteFailureSummary.recentFailures,
           queue: {
             pending: extraPending,
             sending: extraSending,

@@ -25,6 +25,7 @@ import type {
   SqlActiveSessionSample,
   SqlBlockingChainNode,
   SqlBlockingChainSummary,
+  SqlDatabaseSpaceSample,
   SqlFileIoDeltaItem,
   SqlFileIoRawSample,
   SqlMemoryHealthSample,
@@ -491,7 +492,7 @@ export function buildBlockingChains(
     });
   }
 
-  summaries.sort((a, b) => b.totalBlockedSessions - a.totalBlockedSessions || b.maxBlockedWaitTimeMs - a.maxBlockedWaitTimeMs);
+  summaries.sort((a, b) => b.maxBlockedWaitTimeMs - a.maxBlockedWaitTimeMs || b.totalBlockedSessions - a.totalBlockedSessions);
   return summaries;
 }
 
@@ -517,6 +518,22 @@ export function evaluateWebriSessionAssociation(
   const loginUpper = session.loginName.trim().toUpperCase();
   const progUpper = session.programName.trim().toUpperCase();
   const hostUpper = session.hostName.trim().toUpperCase();
+
+  if (progUpper.includes('MASHUP') || progUpper.includes('POWERBI') || progUpper.includes('POWER BI')) {
+    return {
+      isWebriAssociated: false,
+      confidence: 'NAO_ASSOCIADO',
+      reason: 'Microsoft Power BI Gateway (Mashup Engine) — carga analítica externa ao WEBRI.',
+    };
+  }
+
+  if (loginUpper === 'FIORIX_CONNECTOR') {
+    return {
+      isWebriAssociated: false,
+      confidence: 'NAO_ASSOCIADO',
+      reason: 'Coletor de telemetria FIORIX (somente leitura).',
+    };
+  }
 
   const dbMatch = config.databases.some((d) => d.trim().toUpperCase() === dbUpper);
   const appMatch = config.applicationNames.some((a) => progUpper.includes(a.trim().toUpperCase()));
@@ -653,6 +670,8 @@ export function generateEvidenceDiagnostics(params: {
   windowsProcesses: WindowsProcessSample[];
   hasViewServerState: boolean | null;
   collectorReachable: boolean;
+  alertRules?: AlertThresholdRule[];
+  databaseSpaces?: SqlDatabaseSpaceSample[];
 }): EvidenceDiagnosticItem[] {
   const {
     intervalLabel,
@@ -667,6 +686,8 @@ export function generateEvidenceDiagnostics(params: {
     windowsProcesses,
     hasViewServerState,
     collectorReachable,
+    alertRules,
+    databaseSpaces = [],
   } = params;
 
   const diagnostics: EvidenceDiagnosticItem[] = [];
@@ -717,17 +738,39 @@ export function generateEvidenceDiagnostics(params: {
     });
   }
 
+  const findRule = (id: string, fallbackWarn: number, fallbackCrit: number) => {
+    const r = alertRules?.find((item) => item.id === id);
+    return {
+      warn: r?.warningThreshold ?? fallbackWarn,
+      crit: r?.criticalThreshold ?? fallbackCrit,
+    };
+  };
+  const blockingThresh = findRule('rule-blocking-duration', 15, 45);
+  const writeThresh = findRule('rule-disk-write-latency', 20, 40);
+  const readThresh = findRule('rule-disk-read-latency', 25, 50);
+
   // 1. Diagnóstico de Cadeia de Bloqueio (LCK_M_*)
   if (blockingChains.length > 0) {
     const primary = blockingChains[0];
     const lockWait = waitStatsDelta.find((w) => w.category === 'BLOQUEIO');
     const durationSec = primary.rootBlockerTransactionDurationSeconds ?? Math.round(primary.maxBlockedWaitTimeMs / 1000);
+    const waitSec = Math.round(primary.maxBlockedWaitTimeMs / 1000);
+    const effectiveBlockSec = Math.max(durationSec, waitSec);
+    const isPowerBiBlocker = /MASHUP|POWERBI|POWER BI/i.test(primary.rootBlockerProgramName || '');
+    const blockSeverity: EvidenceDiagnosticItem['severity'] =
+      effectiveBlockSec >= blockingThresh.crit
+        ? 'CRITICO'
+        : effectiveBlockSec >= blockingThresh.warn || primary.totalBlockedSessions >= 2
+          ? 'ATENCAO'
+          : 'INFORMATIVO';
 
     diagnostics.push({
       id: `diag-blocking-session-${primary.rootBlockerSessionId}`,
-      severity: durationSec >= 30 || primary.totalBlockedSessions >= 3 ? 'CRITICO' : 'ATENCAO',
+      severity: blockSeverity,
       title: `Cadeia de bloqueio liderada pela sessão ${primary.rootBlockerSessionId} (${primary.totalBlockedSessions} sessões aguardando)`,
-      observedSummary: `Há ${cpuPercent !== null ? `CPU disponível (${cpuPercent}%)` : 'folga de CPU'} neste intervalo, mas ${primary.totalBlockedSessions} sessões do banco ${primary.rootBlockerDatabaseName} aguardam a sessão ${primary.rootBlockerSessionId} (${primary.rootBlockerStatus}, ${primary.rootBlockerOpenTransactionCount} transação aberta há ${durationSec}s). Bloqueio é a principal evidência técnica do episódio, mas a origem da transação na aplicação ainda precisa ser investigada.`,
+      observedSummary: isPowerBiBlocker
+        ? `O bloqueador raiz é o Microsoft Power BI Gateway (Mashup Engine, sessão ${primary.rootBlockerSessionId}) em ${primary.rootBlockerHostName}, mantendo ${primary.totalBlockedSessions} sessões do banco ${primary.rootBlockerDatabaseName} aguardando há ${effectiveBlockSec}s com CPU total em ${cpuPercent !== null ? `${cpuPercent}%` : 'nível estável'}.`
+        : `Há ${cpuPercent !== null ? `CPU disponível (${cpuPercent}%)` : 'folga de CPU'} neste intervalo, mas ${primary.totalBlockedSessions} sessões do banco ${primary.rootBlockerDatabaseName} aguardam a sessão ${primary.rootBlockerSessionId} (${primary.rootBlockerStatus}, ${primary.rootBlockerOpenTransactionCount} transação aberta há ${durationSec}s). Bloqueio é a principal evidência técnica do episódio, mas a origem da transação na aplicação ainda precisa ser investigada.`,
       supportingInterval: intervalLabel,
       supportingMetrics: [
         `Bloqueador raiz: sessão ${primary.rootBlockerSessionId} (${primary.rootBlockerProgramName} em ${primary.rootBlockerHostName})`,
@@ -742,7 +785,9 @@ export function generateEvidenceDiagnostics(params: {
         'A amostragem de DMVs comprova quem segura o lock no banco, mas determinar por que a aplicação manteve a transação aberta depende dos logs do WEBRI/SIPLAN.',
         'Não recomendamos criar índices automaticamente sem avaliar o plano de execução e o impacto nas gravações.',
       ],
-      recommendedNextVerification: `Examinar a transação da sessão ${primary.rootBlockerSessionId} (query_hash ${primary.nodes[0]?.queryHash || 'n/d'}) junto à SIPLAN e correlacionar o horário com a rotina executada na estação ${primary.rootBlockerHostName}. Não encerrar (KILL) a sessão automaticamente.`,
+      recommendedNextVerification: isPowerBiBlocker
+        ? `Avaliar agendamento das extrações do Power BI Gateway (Mashup Engine) na estação ${primary.rootBlockerHostName} para fora do horário de pico do cartório e garantir leituras analíticas com isolamento não-bloqueante. Não encerrar (KILL) a sessão automaticamente.`
+        : `Examinar a transação da sessão ${primary.rootBlockerSessionId} (query_hash ${primary.nodes[0]?.queryHash || 'n/d'}) junto à SIPLAN e correlacionar o horário com a rotina executada na estação ${primary.rootBlockerHostName}. Não encerrar (KILL) a sessão automaticamente.`,
       prohibitedAutomaticActionsNote:
         'PROIBIDO executar KILL automático na sessão bloqueadora para evitar corrupção lógica de fluxos registrais ou rollback prolongado em produção.',
     });
@@ -754,23 +799,27 @@ export function generateEvidenceDiagnostics(params: {
   const worstWriteVolume = [...windowsVolumes]
     .filter((v) => v.writeLatencyMs !== null)
     .sort((a, b) => (b.writeLatencyMs ?? 0) - (a.writeLatencyMs ?? 0))[0];
+  const worstWriteFile = [...fileIoDeltas]
+    .filter((f) => f.writeLatencyDeltaMs !== null && f.writesDelta >= 5)
+    .sort((a, b) => (b.writeLatencyDeltaMs ?? 0) - (a.writeLatencyDeltaMs ?? 0))[0];
   const worstReadFile = [...fileIoDeltas]
-    .filter((f) => f.readLatencyDeltaMs !== null)
+    .filter((f) => f.readLatencyDeltaMs !== null && f.readsDelta >= 5)
     .sort((a, b) => (b.readLatencyDeltaMs ?? 0) - (a.readLatencyDeltaMs ?? 0))[0];
   const activeBackupOrAv = concurrentEvents.filter((e) => e.status === 'EM_ANDAMENTO');
+  const observedWriteLatencyMs = worstWriteFile?.writeLatencyDeltaMs ?? worstWriteVolume?.writeLatencyMs ?? null;
 
   if (
     (writelogWait && writelogWait.sharePercent >= 25 && writelogWait.waitTimeDeltaMs >= 1000) ||
-    (worstWriteVolume && (worstWriteVolume.writeLatencyMs ?? 0) >= 20)
+    (observedWriteLatencyMs !== null && observedWriteLatencyMs >= writeThresh.warn)
   ) {
     diagnostics.push({
       id: 'diag-writelog-latency',
-      severity: (worstWriteVolume?.writeLatencyMs ?? 0) >= 35 ? 'CRITICO' : 'ATENCAO',
+      severity: (observedWriteLatencyMs ?? 0) >= writeThresh.crit ? 'CRITICO' : 'ATENCAO',
       title: 'Aumento de latência de gravação no log de transações (WRITELOG)',
-      observedSummary: `As gravações e confirmações de transação (COMMIT) enfrentam latência de escrita de ${worstWriteVolume?.writeLatencyMs ?? '—'} ms no volume ${worstWriteVolume?.volume || 'de log'} acompanhada de espera WRITELOG (${writelogWait?.sharePercent ?? 0}% das esperas).`,
+      observedSummary: `As gravações e confirmações de transação (COMMIT) enfrentam latência de escrita de ${observedWriteLatencyMs ?? '—'} ms no volume ${worstWriteVolume?.volume || worstWriteFile?.volumeMountPoint || 'de log'} acompanhada de espera WRITELOG (${writelogWait?.sharePercent ?? 0}% das esperas).`,
       supportingInterval: intervalLabel,
       supportingMetrics: [
-        `Volume ${worstWriteVolume?.volume || 'L:'} (${worstWriteVolume?.label || 'Log'}): escrita em ${worstWriteVolume?.writeLatencyMs ?? '—'} ms`,
+        `Volume ${worstWriteVolume?.volume || worstWriteFile?.volumeMountPoint || 'L:'} (${worstWriteVolume?.label || worstWriteFile?.logicalName || 'Log'}): escrita em ${observedWriteLatencyMs ?? '—'} ms`,
         writelogWait
           ? `WRITELOG: ${writelogWait.waitTimeDeltaMs} ms acumulados no intervalo (${writelogWait.sharePercent}%)`
           : 'Elevação de io_stall_write_ms nos arquivos .ldf',
@@ -789,12 +838,12 @@ export function generateEvidenceDiagnostics(params: {
 
   if (
     (pageIoWait && pageIoWait.sharePercent >= 25 && pageIoWait.waitTimeDeltaMs >= 1000) ||
-    (worstReadFile && (worstReadFile.readLatencyDeltaMs ?? 0) >= 20)
+    (worstReadFile && (worstReadFile.readLatencyDeltaMs ?? 0) >= readThresh.warn)
   ) {
     const concurrentLabels = activeBackupOrAv.map((e) => e.title).join(', ');
     diagnostics.push({
       id: 'diag-pageiolatch-storage',
-      severity: (worstReadFile?.readLatencyDeltaMs ?? 0) >= 35 ? 'CRITICO' : 'ATENCAO',
+      severity: (worstReadFile?.readLatencyDeltaMs ?? 0) >= readThresh.crit ? 'CRITICO' : 'ATENCAO',
       title:
         activeBackupOrAv.length > 0
           ? 'Correlação entre atividade de backup/serviços e latência de leitura em disco (PAGEIOLATCH)'
@@ -880,6 +929,68 @@ export function generateEvidenceDiagnostics(params: {
         'Priorizar a investigação das cadeias de bloqueio (LCK_*) e da latência de escrita/leitura nos arquivos da base WEBRI.',
       prohibitedAutomaticActionsNote:
         'Não limpar o cache do SQL Server (DBCC DROPCLEANBUFFERS / FREEPROCCACHE), pois isso degradaria severamente o desempenho por forçar leituras físicas em disco.',
+    });
+  }
+
+  // 4. Diagnóstico de saturação de Transaction Log em modo FULL aguardando LOG_BACKUP (ex.: ECKSISTEMAS)
+  const saturatedFullLogs = databaseSpaces.filter(
+    (d) =>
+      d.recoveryModel.toUpperCase() === 'FULL' &&
+      (d.logUsedPercent ?? 0) >= 85 &&
+      (d.logReuseWaitDesc || '').toUpperCase().includes('LOG_BACKUP'),
+  );
+  if (saturatedFullLogs.length > 0) {
+    const maxPct = Math.max(...saturatedFullLogs.map((d) => d.logUsedPercent ?? 0));
+    const namesLabel = saturatedFullLogs
+      .map((d) => `${d.databaseName} (${(d.logUsedPercent ?? 0).toFixed(1)}%${d.logUsedMb !== null && d.logTotalMb !== null ? ` · ${Math.round(d.logUsedMb)}/${Math.round(d.logTotalMb)} MB` : ''})`)
+      .join(', ');
+    diagnostics.push({
+      id: 'diag-log-backup-saturation',
+      severity: maxPct >= 97 ? 'CRITICO' : 'ATENCAO',
+      title: `Log de transações próximo da saturação aguardando LOG_BACKUP (${saturatedFullLogs.map((d) => d.databaseName).join(', ')})`,
+      observedSummary: `Base(s) em Recovery Model FULL com alto consumo do arquivo .ldf aguardando rotina de backup de log (log_reuse_wait_desc = LOG_BACKUP): ${namesLabel}. Sem BACKUP LOG periódico, o arquivo de log continua crescendo ou atinge o limite de espaço.`,
+      supportingInterval: intervalLabel,
+      supportingMetrics: saturatedFullLogs.map(
+        (d) => `${d.databaseName}: Log ${(d.logUsedPercent ?? 0).toFixed(1)}% em uso · log_reuse_wait=${d.logReuseWaitDesc || 'LOG_BACKUP'}`,
+      ),
+      causalClassification: 'HIPOTESE_SUSTENTADA',
+      confidenceLevel: 'ALTA',
+      limitations: [
+        'O FIORIX realiza apenas leitura das DMVs/contadores de log e nunca executa BACKUP LOG, DBCC SHRINKFILE nem altera o Recovery Model.',
+      ],
+      recommendedNextVerification:
+        'Verificar com o DBA/TI o agendamento do job de BACKUP LOG no SQL Server Agent ou rotina de backup externo para a(s) base(s) em Recovery FULL.',
+      prohibitedAutomaticActionsNote:
+        'PROIBIDO truncar log manualmente (BACKUP LOG ... WITH TRUNCATE_ONLY / RECOVERY SIMPLE temporário) para não quebrar a cadeia de restauração point-in-time.',
+    });
+  }
+
+  // 5. Diagnóstico preventivo de AUTO_SHRINK e PAGE_VERIFY != CHECKSUM (apenas INFORMATIVO)
+  const hygieneAlerts = databaseSpaces.filter(
+    (d) =>
+      !d.isTempdb &&
+      (d.isAutoShrinkOn === true ||
+        (Boolean(d.pageVerifyOption) && String(d.pageVerifyOption).toUpperCase() !== 'CHECKSUM')),
+  );
+  if (hygieneAlerts.length > 0) {
+    diagnostics.push({
+      id: 'diag-db-autoshrink-pageverify',
+      severity: 'INFORMATIVO',
+      title: `Recomendações preventivas de configuração em ${hygieneAlerts.length} banco(s) (AUTO_SHRINK / PAGE_VERIFY)`,
+      observedSummary: `Identificados bancos com AUTO_SHRINK habilitado ou PAGE_VERIFY diferente de CHECKSUM (${hygieneAlerts.map((d) => d.databaseName).join(', ')}). Embora não causem falha imediata, AUTO_SHRINK fragmenta arquivos/índices e gera picos de I/O durante o expediente, enquanto PAGE_VERIFY CHECKSUM melhora a detecção precoce de corrupção de páginas.`,
+      supportingInterval: intervalLabel,
+      supportingMetrics: hygieneAlerts.map(
+        (d) => `${d.databaseName}: AUTO_SHRINK=${d.isAutoShrinkOn ? 'ON' : 'OFF'} · PAGE_VERIFY=${d.pageVerifyOption || 'N/D'}`,
+      ),
+      causalClassification: 'CORRELACAO_PARCIAL',
+      confidenceLevel: 'ALTA',
+      limitations: [
+        'Qualquer alteração de propriedades de banco (ALTER DATABASE) deve ser validada pela SIPLAN e agendada exclusivamente fora do horário de atendimento do cartório.',
+      ],
+      recommendedNextVerification:
+        'Agendar janela de manutenção fora do expediente com a SIPLAN/DBA para definir AUTO_SHRINK OFF e PAGE_VERIFY CHECKSUM nas bases aplicáveis.',
+      prohibitedAutomaticActionsNote:
+        'O FIORIX nunca executa ALTER DATABASE nem DBCC SHRINKDATABASE automaticamente.',
     });
   }
 
@@ -983,6 +1094,7 @@ export function evaluateAlertsWithHysteresis(params: {
   rules: AlertThresholdRule[];
   existingAlerts: AlertEventRecord[];
   observedAtIso: string;
+  sustainedDurationSecondsByRule?: Partial<Record<string, number>>;
   metrics: {
     maxBlockedDurationSeconds: number | null;
     blockedSessionsCount: number | null;
@@ -996,7 +1108,7 @@ export function evaluateAlertsWithHysteresis(params: {
     collectorDelaySeconds: number | null;
   };
 }): AlertEventRecord[] {
-  const { rules, existingAlerts, observedAtIso, metrics } = params;
+  const { rules, existingAlerts, observedAtIso, sustainedDurationSecondsByRule, metrics } = params;
   const updated = existingAlerts.map((a) => ({ ...a }));
 
   const upsertOrResolve = (
@@ -1026,11 +1138,11 @@ export function evaluateAlertsWithHysteresis(params: {
       }
       const nextSeverity: 'WARNING' | 'CRITICAL' = exceedsCritical ? 'CRITICAL' : 'WARNING';
       if (existingIdx >= 0) {
-        // Agrupa evento repetido em vez de duplicar alertas
+        // Agrupa evento repetido em vez de duplicar alertas e permite rebaixamento CRITICAL -> WARNING
         const prev = updated[existingIdx];
         updated[existingIdx] = {
           ...prev,
-          severity: prev.severity === 'CRITICAL' ? 'CRITICAL' : nextSeverity,
+          severity: nextSeverity,
           title,
           detail,
           lastObservedAt: observedAtIso,
@@ -1060,6 +1172,17 @@ export function evaluateAlertsWithHysteresis(params: {
         resolvedAt: observedAtIso,
         lastObservedAt: observedAtIso,
       };
+    } else if (existingIdx >= 0) {
+      // Na zona de histerese (abaixo de warningThreshold, mas ainda sem cruzar recuperação), rebaixa CRITICAL para WARNING
+      const prev = updated[existingIdx];
+      updated[existingIdx] = {
+        ...prev,
+        severity: 'WARNING',
+        title,
+        detail,
+        lastObservedAt: observedAtIso,
+        supportingSnapshotTime: observedAtIso,
+      };
     }
   };
 
@@ -1069,7 +1192,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        val ?? 0,
+        sustainedDurationSecondsByRule?.[rule.id] ?? val ?? 0,
         false,
         `Bloqueio SQL sustentado (${metrics.blockedSessionsCount ?? 0} sessões aguardando a sessão ${metrics.rootBlockerSessionId ?? '—'})`,
         `Transação bloqueadora aberta há ${val ?? 0}s (limite de alerta: ${rule.warningThreshold}s, recuperação por histerese <= ${rule.recoveryHysteresisThreshold}s).`,
@@ -1079,7 +1202,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        60,
+        sustainedDurationSecondsByRule?.[rule.id] ?? 60,
         false,
         `Latência de escrita elevada em disco (${val ?? 0} ms)`,
         `A latência de escrita atingiu ${val ?? 0} ms (limite: ${rule.warningThreshold} ms; recuperação com histerese <= ${rule.recoveryHysteresisThreshold} ms).`,
@@ -1089,7 +1212,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        60,
+        sustainedDurationSecondsByRule?.[rule.id] ?? 60,
         false,
         `Latência de leitura elevada em disco (${val ?? 0} ms)`,
         `A latência de leitura atingiu ${val ?? 0} ms (limite: ${rule.warningThreshold} ms; recuperação com histerese <= ${rule.recoveryHysteresisThreshold} ms).`,
@@ -1099,7 +1222,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        60,
+        sustainedDurationSecondsByRule?.[rule.id] ?? 60,
         false,
         `Pressão de memória comprovada no SRVSQL (${val ?? 0} Memory Grants pendentes)`,
         `Concessões de memória aguardando fila (RESOURCE_SEMAPHORE) acompanhadas de redução de memória livre no Windows.`,
@@ -1109,7 +1232,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        60,
+        sustainedDurationSecondsByRule?.[rule.id] ?? 60,
         false,
         `CPU do SRVSQL sustentada em ${val ?? 0}%`,
         `Consumo total de CPU acima de ${rule.warningThreshold}% (histerese de recuperação <= ${rule.recoveryHysteresisThreshold}%).`,
@@ -1119,7 +1242,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        120,
+        sustainedDurationSecondsByRule?.[rule.id] ?? 120,
         true,
         `Espaço livre baixo em volume do SRVSQL (${val ?? 0}%)`,
         `Volume com apenas ${val ?? 0}% livres (alerta <= ${rule.warningThreshold}%, recuperação >= ${rule.recoveryHysteresisThreshold}%).`,
@@ -1129,7 +1252,7 @@ export function evaluateAlertsWithHysteresis(params: {
       upsertOrResolve(
         rule,
         val,
-        val ?? 0,
+        sustainedDurationSecondsByRule?.[rule.id] ?? val ?? 0,
         false,
         `Coletor sem atualizar há ${val ?? 0}s`,
         `A última coleta confirmada ocorreu há ${val ?? 0}s (limite: ${rule.warningThreshold}s).`,

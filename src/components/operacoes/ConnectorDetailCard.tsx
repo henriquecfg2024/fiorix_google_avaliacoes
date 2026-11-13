@@ -64,7 +64,16 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
     connector.pendingQueue &&
       (connector.pendingQueue > 1 || (connector.pendingQueue > 0 && hasFailedQueue))
   );
-  const gov = connector.subsystems?.sqliteAndResilience.governance;
+  const sqliteResilience = connector.subsystems?.sqliteAndResilience;
+  const resolvedWal24h = sqliteResilience?.failedResolved24hCount ?? 0;
+  const activeFailedModules = Array.from(
+    new Set(
+      (sqliteResilience?.recentFailures ?? [])
+        .filter((f) => f.resolutionStatus !== 'RESOLVED')
+        .map((f) => f.moduleLabel),
+    ),
+  );
+  const gov = sqliteResilience?.governance;
 
   return (
     <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm space-y-4 h-full flex flex-col justify-between">
@@ -150,6 +159,8 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
                 ? `${connector.quarantinedQueue} quarentena · ${connector.pendingQueue ?? 0} pend`
                 : hasBacklog || hasFailedQueue
                 ? `${connector.pendingQueue ?? 0} pend · ${connector.failedQueue ?? 0} erros`
+                : resolvedWal24h > 0
+                ? `0 pend · 0 erros (✓ ${resolvedWal24h} corrigidos)`
                 : '0 pendentes • Livre'}
             </span>
           </div>
@@ -179,8 +190,8 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
           </div>
         </div>
 
-        {/* Alerta de Backlog ou Quarentena */}
-        {(hasBacklog || hasQuarantine) && (
+        {/* Alerta de Backlog, Erros WAL ou Quarentena */}
+        {(hasBacklog || hasQuarantine || hasFailedQueue) && (
           <div className={`p-2.5 rounded-xl text-[11px] flex items-center gap-2 border ${
             hasQuarantine
               ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
@@ -189,7 +200,9 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
               {hasQuarantine
-                ? `Atenção: ${connector.quarantinedQueue} lote(s) retido(s) em quarentena no SQLite local.`
+                ? `Atenção: ${connector.quarantinedQueue} lote(s) retido(s) em quarentena no SQLite local${activeFailedModules.length > 0 ? ` (${activeFailedModules.join(', ')})` : ''}.`
+                : hasFailedQueue
+                ? `${connector.failedQueue} lote(s) em retry automático no SQLite WAL${activeFailedModules.length > 0 ? ` (${activeFailedModules.join(', ')})` : ''} — dados preservados localmente.`
                 : `Represamento temporário: ${connector.pendingQueue} lote(s) aguardando upload para o SaaS.`}
             </span>
           </div>

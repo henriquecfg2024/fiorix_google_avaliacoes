@@ -317,9 +317,25 @@ export async function unpackLiveRecords({
           `
           WITH deduped AS (
             SELECT DISTINCT ON (COALESCE(item->>'PROTOCOLO', ''), COALESCE((item->>'SEQ_TITULO')::int, 1))
-              item
+              item,
+              CASE
+                WHEN (item->>'PROTOCOLO') ~ '^[0-9]+$'
+                THEN ((item->>'PROTOCOLO')::bigint * 1000 + COALESCE((item->>'SEQ_TITULO')::bigint, 1))
+                ELSE NULL
+              END AS computed_id_andamento
             FROM jsonb_array_elements($3::jsonb) AS item
             WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
+          ),
+          unique_by_andamento AS (
+            SELECT DISTINCT ON (
+              CASE
+                WHEN d.computed_id_andamento IS NOT NULL THEN 'andamento:' || d.computed_id_andamento::text
+                ELSE 'proto:' || COALESCE(d.item->>'PROTOCOLO', '') || ':' || COALESCE(d.item->>'SEQ_TITULO', '1')
+              END
+            )
+              d.item,
+              d.computed_id_andamento
+            FROM deduped d
           )
           INSERT INTO public.fiorix_bi_data (
             id, import_id, tenant_id, "Protocolo", "DtProtocolo", "Natureza", "TipoPrenotacao",
@@ -329,17 +345,23 @@ export async function unpackLiveRecords({
             gen_random_uuid()::text,
             $1::text,
             $2::text,
-            COALESCE((item->>'PROTOCOLO')::text, ''),
-            CASE WHEN item->>'DATA_ENTRADA' IS NOT NULL AND item->>'DATA_ENTRADA' <> '' THEN (item->>'DATA_ENTRADA')::timestamp ELSE NULL END,
-            COALESCE(item->>'TIPO', ''),
-            COALESCE(item->>'TIPO', ''),
-            COALESCE((item->>'ATRASO_DIAS')::int, 0),
-            COALESCE(item->>'STATUS', 'Em dia'),
-            (item->>'SERVICO' = 'DEVOLVIDO'),
-            (item->>'SERVICO' = 'REGISTRADO'),
-            CASE WHEN (item->>'PROTOCOLO') ~ '^[0-9]+$' THEN ((item->>'PROTOCOLO')::bigint * 1000 + COALESCE((item->>'SEQ_TITULO')::bigint, 1)) ELSE NULL END
-          FROM deduped
-          ON CONFLICT (import_id, "IdAndamento") DO NOTHING;
+            COALESCE((u.item->>'PROTOCOLO')::text, ''),
+            CASE WHEN u.item->>'DATA_ENTRADA' IS NOT NULL AND u.item->>'DATA_ENTRADA' <> '' THEN (u.item->>'DATA_ENTRADA')::timestamp ELSE NULL END,
+            COALESCE(u.item->>'TIPO', ''),
+            COALESCE(u.item->>'TIPO', ''),
+            COALESCE((u.item->>'ATRASO_DIAS')::int, 0),
+            COALESCE(u.item->>'STATUS', 'Em dia'),
+            (u.item->>'SERVICO' = 'DEVOLVIDO'),
+            (u.item->>'SERVICO' = 'REGISTRADO'),
+            u.computed_id_andamento
+          FROM unique_by_andamento u
+          WHERE u.computed_id_andamento IS NULL
+             OR NOT EXISTS (
+               SELECT 1
+               FROM public.fiorix_bi_data existing
+               WHERE existing.import_id = $1::text
+                 AND existing."IdAndamento" = u.computed_id_andamento
+             );
         `,
           liveImportId,
           tenantId,

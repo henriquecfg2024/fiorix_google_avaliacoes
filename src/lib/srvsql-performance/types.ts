@@ -322,6 +322,8 @@ export interface SqlDatabaseSpaceSample {
   tempdbUserObjectsMb?: number | null;
   tempdbInternalObjectsMb?: number | null;
   tempdbVersionStoreMb?: number | null;
+  isAutoShrinkOn?: boolean | null;
+  pageVerifyOption?: string | null;
 }
 
 export interface SqlCostlyQueryHashItem {

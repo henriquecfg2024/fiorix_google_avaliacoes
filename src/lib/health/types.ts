@@ -23,6 +23,20 @@ export type IncrementalModuleKey =
   | 'impressoes'
   | 'safras';
 
+export interface ConnectorSqliteFailureItem {
+  batchId: string;
+  source: string;
+  moduleLabel: string;
+  recordsCount: number | null;
+  attempts: number;
+  lastError: string;
+  firstFailedAt: string;
+  lastFailedAt: string;
+  resolutionStatus: 'RETRYING' | 'QUARANTINED' | 'RESOLVED';
+  resolvedAt: string | null;
+  resolutionNote: string;
+}
+
 export interface IncrementalModuleStatus {
   module: string;
   key: IncrementalModuleKey;
@@ -32,6 +46,9 @@ export interface IncrementalModuleStatus {
   lastDurationMs?: number | null;
   runsTotal?: number | null;
   consecutiveFailures?: number | null;
+  activeFailedBatchesCount?: number;
+  resolvedFailedBatches24hCount?: number;
+  lastFailedError?: string | null;
   status: 'OK' | 'WARNING' | 'ERROR' | 'UNKNOWN';
   lastSyncAt: string | null;
   nextExpectedAt: string | null;
@@ -134,6 +151,9 @@ export interface ConnectorSubsystemsSnapshot {
     };
   };
   sqliteAndResilience: {
+    failedActiveCount?: number;
+    failedResolved24hCount?: number;
+    recentFailures?: ConnectorSqliteFailureItem[];
     queue: {
       pending: number;
       sending: number;

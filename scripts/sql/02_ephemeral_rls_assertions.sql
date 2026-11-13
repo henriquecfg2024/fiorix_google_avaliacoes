@@ -120,7 +120,11 @@ BEGIN
     FROM pg_proc
     WHERE oid = to_regprocedure(fn_name);
 
-    IF v_cfg IS NULL OR NOT ('search_path=pg_catalog, public' = ANY(v_cfg)) THEN
+    IF v_cfg IS NULL OR NOT EXISTS (
+      SELECT 1
+      FROM unnest(v_cfg) AS elem
+      WHERE regexp_replace(replace(elem, '"', ''), '\s+', ' ', 'g') = 'search_path=pg_catalog, public'
+    ) THEN
       RAISE EXCEPTION 'Falha search_path em %: proconfig=%', fn_name, coalesce(v_cfg::text, '<NULL>');
     END IF;
   END LOOP;

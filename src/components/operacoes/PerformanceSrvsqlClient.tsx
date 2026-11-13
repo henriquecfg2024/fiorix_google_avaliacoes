@@ -872,7 +872,7 @@ export function PerformanceSrvsqlClient({
                   <Database className="h-4 w-4 text-cyan-400" />
                   Memória SQL Server, Memory Grants, TempDB e Logs
                 </h3>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3">
                     <span className="text-slate-400">Total / Max Server Memory</span>
                     <div className="mt-1 text-sm font-bold text-slate-100">
@@ -887,34 +887,88 @@ export function PerformanceSrvsqlClient({
                       {formatMetricOrMissing(snapshot.sqlMemory.memoryGrantsActive)} ativos)
                     </div>
                   </div>
+                  <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3">
+                    <span className="text-slate-400">Buffer Cache Hit Ratio</span>
+                    <div className="mt-1 text-sm font-bold text-slate-100">
+                      {snapshot.sqlMemory.bufferCacheHitRatioPercent !== null &&
+                      snapshot.sqlMemory.bufferCacheHitRatioPercent !== undefined
+                        ? `${snapshot.sqlMemory.bufferCacheHitRatioPercent.toFixed(2)}%`
+                        : snapshot.dataSourceMode === 'LIVE_COLLECTOR'
+                          ? 'Aguardando coletor v2.6.12'
+                          : 'Sem dados'}
+                    </div>
+                  </div>
                 </div>
 
                 {snapshot.databaseSpaces.length > 0 && (
                   <div className="space-y-2 pt-1">
-                    {snapshot.databaseSpaces.map((db) => (
-                      <div
-                        key={db.databaseName}
-                        className="rounded-lg border border-slate-800 bg-[#09101b] p-3 text-xs flex flex-wrap items-center justify-between gap-2"
-                      >
-                        <div>
-                          <strong className="text-slate-100">{db.databaseName}</strong>{' '}
-                          <span className="text-slate-400">({db.recoveryModel})</span>
-                          {db.isTempdb && (
-                            <span className="ml-2 text-cyan-300">
-                              Version Store: {db.tempdbVersionStoreMb ?? 0} MB · Internal:{' '}
-                              {db.tempdbInternalObjectsMb ?? 0} MB
-                            </span>
-                          )}
+                    {snapshot.databaseSpaces.map((db) => {
+                      const pct = db.logUsedPercent;
+                      const pctColorClass =
+                        pct === null || pct === undefined
+                          ? 'text-slate-400'
+                          : pct >= 85
+                            ? 'text-rose-400'
+                            : pct >= 70
+                              ? 'text-amber-300'
+                              : 'text-emerald-400';
+
+                      return (
+                        <div
+                          key={db.databaseName}
+                          className="rounded-lg border border-slate-800 bg-[#09101b] p-3 text-xs flex flex-wrap items-center justify-between gap-2"
+                        >
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <strong className="text-slate-100">{db.databaseName}</strong>{' '}
+                            <span className="text-slate-400">({db.recoveryModel})</span>
+                            {db.isTempdb && (
+                              <span className="ml-1 text-cyan-300">
+                                Version Store: {db.tempdbVersionStoreMb ?? 0} MB · Internal:{' '}
+                                {db.tempdbInternalObjectsMb ?? 0} MB
+                                {db.tempdbUserObjectsMb !== null && db.tempdbUserObjectsMb !== undefined
+                                  ? ` · User: ${db.tempdbUserObjectsMb} MB`
+                                  : ''}
+                              </span>
+                            )}
+                            {!db.isTempdb && db.isAutoShrinkOn === true && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 text-[10px] font-mono text-amber-300">
+                                AUTO_SHRINK ON
+                              </span>
+                            )}
+                            {!db.isTempdb && db.pageVerifyOption && (
+                              <span
+                                className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${
+                                  db.pageVerifyOption.toUpperCase() === 'CHECKSUM'
+                                    ? 'bg-slate-800/70 border-slate-700 text-slate-300'
+                                    : 'bg-amber-950/40 border-amber-500/25 text-amber-200'
+                                }`}
+                              >
+                                PAGE_VERIFY: {db.pageVerifyOption}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-slate-300">
+                            Log em uso:{' '}
+                            {pct === null || pct === undefined ? (
+                              snapshot.dataSourceMode === 'LIVE_COLLECTOR' ? (
+                                <span className="text-slate-400">Aguardando coletor v2.6.12</span>
+                              ) : (
+                                <strong className="text-amber-300">Sem dados</strong>
+                              )
+                            ) : (
+                              <strong className={pctColorClass}>
+                                {pct.toFixed(1)}%
+                                {db.logUsedMb !== null && db.logTotalMb !== null
+                                  ? ` (${Math.round(db.logUsedMb).toLocaleString('pt-BR')} / ${Math.round(db.logTotalMb).toLocaleString('pt-BR')} MB)`
+                                  : ''}
+                              </strong>
+                            )}{' '}
+                            · log_reuse_wait:{' '}
+                            <code className="text-cyan-300">{db.logReuseWaitDesc || 'NOTHING'}</code>
+                          </div>
                         </div>
-                        <div className="text-slate-300">
-                          Log em uso:{' '}
-                          <strong className="text-amber-300">
-                            {formatMetricOrMissing(db.logUsedPercent, '%', 1)}
-                          </strong>{' '}
-                          · log_reuse_wait: <code className="text-cyan-300">{db.logReuseWaitDesc}</code>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1344,9 +1398,23 @@ export function PerformanceSrvsqlClient({
                 </div>
 
                 <div className="rounded-lg border border-slate-800 bg-[#09101b] p-4 space-y-1">
-                  <span className="text-slate-400">Agente Zabbix Detectado (srvsql:10050)</span>
-                  <div className="text-sm font-bold text-amber-300">
-                    Porta 10050 Aberta · Passivo Restrito
+                  <span className="text-slate-400">
+                    Agente Zabbix ({snapshot.zabbixProbe.host || 'srvsql'}:{snapshot.zabbixProbe.port || 10050})
+                  </span>
+                  <div
+                    className={`text-sm font-bold ${
+                      snapshot.zabbixProbe.status === 'CONNECTED'
+                        ? 'text-emerald-400'
+                        : snapshot.zabbixProbe.status === 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK'
+                          ? 'text-cyan-300'
+                          : 'text-slate-300'
+                    }`}
+                  >
+                    {snapshot.zabbixProbe.status === 'CONNECTED'
+                      ? 'Integrado · Ativo'
+                      : snapshot.zabbixProbe.status === 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK'
+                        ? 'Porta 10050 Aberta · Passivo Restrito (Opcional)'
+                        : 'Opcional · Não Configurado'}
                   </div>
                   <div className="text-slate-400">{snapshot.zabbixProbe.detail}</div>
                 </div>
@@ -1402,6 +1470,103 @@ export function PerformanceSrvsqlClient({
                   </pre>
                 </div>
               )}
+
+              {/* Guia opcional de integração Zabbix Agent 2 / API JSON-RPC */}
+              <details className="rounded-lg border border-slate-800 bg-[#09101b] p-3.5 text-xs">
+                <summary className="cursor-pointer font-semibold text-cyan-300 flex items-center justify-between gap-2">
+                  <span>
+                    Integração Zabbix opcional — clique para ver parâmetros do zabbix_agent2.conf ou API Zabbix
+                  </span>
+                  <span className="text-[11px] font-normal text-slate-400">Opcional (DMVs já ativas via FIORIXConnector)</span>
+                </summary>
+                <div className="mt-3 space-y-3 border-t border-slate-800 pt-3 text-slate-300">
+                  <p className="text-slate-400">
+                    As DMVs do SQL Server 2012 e os contadores expostos pelo conector já alimentam este painel sem depender do Zabbix. Caso deseje habilitar a sonda passiva ou a API JSON-RPC do Zabbix:
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="rounded border border-slate-800 bg-[#0c1422] p-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-slate-200">Opção A · zabbix_agent2.conf (no SRVSQL)</strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopyText(
+                              'Server=127.0.0.1,<IP_DO_SRVFILES>\n# Em seguida reiniciar o servico Windows "Zabbix Agent 2"',
+                              'Diretiva zabbix_agent2.conf copiada!',
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-cyan-300 hover:bg-slate-700 cursor-pointer"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copiar
+                        </button>
+                      </div>
+                      <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap">
+                        {'Server=127.0.0.1,<IP_DO_SRVFILES>\n# Reiniciar servico "Zabbix Agent 2" no SRVSQL'}
+                      </pre>
+                    </div>
+                    <div className="rounded border border-slate-800 bg-[#0c1422] p-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-slate-200">Opção B · API JSON-RPC (no FIORIXConnector)</strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopyText(
+                              'ZABBIX_API_URL=https://<servidor-zabbix>/api_jsonrpc.php\nZABBIX_API_TOKEN=<token-somente-leitura>',
+                              'Variáveis ZABBIX_API copiadas!',
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-cyan-300 hover:bg-slate-700 cursor-pointer"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copiar
+                        </button>
+                      </div>
+                      <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap">
+                        {'ZABBIX_API_URL=https://<servidor-zabbix>/api_jsonrpc.php\nZABBIX_API_TOKEN=<token-somente-leitura>'}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            {/* Vínculo Auditado do Ambiente WEBRI / SIPLAN (somente leitura) */}
+            <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold text-white">
+                  Vínculo Auditado do Ecossistema WEBRI / SIPLAN (Somente Leitura)
+                </h3>
+                <span className="text-xs text-slate-400">
+                  {snapshot.webriConfig.updatedBy}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3 space-y-1">
+                  <span className="text-slate-400">Bancos Monitorados ({snapshot.webriConfig.databases.length})</span>
+                  <div className="font-mono text-slate-200 break-words">
+                    {snapshot.webriConfig.databases.join(', ')}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3 space-y-1">
+                  <span className="text-slate-400">Logins WEBRI/SIPLAN</span>
+                  <div className="font-mono text-slate-200 break-words">
+                    {snapshot.webriConfig.logins.join(', ')}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3 space-y-1">
+                  <span className="text-slate-400">Hosts Conhecidos</span>
+                  <div className="font-mono text-slate-200 break-words">
+                    {snapshot.webriConfig.hosts.join(', ')}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3 space-y-1">
+                  <span className="text-slate-400">Serviços Windows Associados</span>
+                  <div className="font-mono text-slate-200 break-words">
+                    {snapshot.webriConfig.windowsServices.join(', ')}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Indicadores de Cobertura: Fontes Disponíveis vs Fontes Sem Permissão */}
@@ -1430,7 +1595,9 @@ export function PerformanceSrvsqlClient({
                           ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
                           : src.status === 'SEM_PERMISSAO'
                             ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
-                            : 'bg-slate-800 text-slate-300'
+                            : src.status === 'OPCIONAL_DESATIVADO'
+                              ? 'bg-cyan-950/40 text-cyan-300 border border-cyan-500/25'
+                              : 'bg-slate-800 text-slate-300'
                       }`}
                     >
                       {src.status.replace(/_/g, ' ')}

@@ -460,11 +460,15 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
                 className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
                   sqliteAndResilience.queue.quarantined > 0
                     ? 'bg-rose-500/10 text-rose-400 border-rose-500/25'
+                    : sqliteAndResilience.queue.failed > 0
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/25'
                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
                 }`}
               >
                 {sqliteAndResilience.queue.quarantined > 0
                   ? `${sqliteAndResilience.queue.quarantined} QUARENTENA`
+                  : sqliteAndResilience.queue.failed > 0
+                  ? `EM RETRY (${sqliteAndResilience.queue.failed})`
                   : 'WAL ÍNTEGRO'}
               </span>
             </div>
@@ -481,7 +485,7 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
               </div>
               <div className="p-2 rounded-lg bg-[#151A2C] border border-[#1E293B]">
                 <span className="text-[10px] text-[#64748B] block font-sans">Com Erro</span>
-                <span className={`text-sm font-bold ${sqliteAndResilience.queue.failed > 0 ? 'text-amber-400' : 'text-[#F1F5F9]'}`}>
+                <span className={`text-sm font-bold ${sqliteAndResilience.queue.failed > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {sqliteAndResilience.queue.failed}
                 </span>
               </div>
@@ -491,6 +495,105 @@ export function ConnectorSubsystemsSection({ subsystems, connectorOnline }: Prop
                   {sqliteAndResilience.queue.quarantined}
                 </span>
               </div>
+            </div>
+
+            {/* Diagnóstico sempre visível da Fila SQLite WAL (identificação + status de correção) */}
+            <div className="rounded-lg bg-[#111827] border border-[#1E293B] p-2.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-[#E2E8F0] flex items-center gap-1.5">
+                  {(sqliteAndResilience.failedActiveCount ?? sqliteAndResilience.queue.failed + sqliteAndResilience.queue.quarantined) > 0 ? (
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  )}
+                  Diagnóstico da Fila SQLite WAL (24h)
+                </span>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    {sqliteAndResilience.failedResolved24hCount ?? 0} corrigido(s)
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded border ${
+                      (sqliteAndResilience.failedActiveCount ?? sqliteAndResilience.queue.failed + sqliteAndResilience.queue.quarantined) > 0
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/25 font-bold'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                    }`}
+                  >
+                    {sqliteAndResilience.failedActiveCount ?? sqliteAndResilience.queue.failed + sqliteAndResilience.queue.quarantined} ativo(s)
+                  </span>
+                </div>
+              </div>
+
+              {(!sqliteAndResilience.recentFailures || sqliteAndResilience.recentFailures.length === 0) ? (
+                <p className="text-[11px] text-emerald-400/90 leading-relaxed">
+                  Nenhum lote com falha nas últimas 24h — 0 pend · 0 erros na fila SQLite WAL.
+                </p>
+              ) : (
+                <>
+                  {(sqliteAndResilience.failedActiveCount ?? 0) === 0 && (
+                    <div className="rounded-md bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1.5 text-[11px] text-emerald-300">
+                      Resolvido: todos os {sqliteAndResilience.failedResolved24hCount ?? sqliteAndResilience.recentFailures.length} lote(s) com falha nas últimas 24h foram reprocessados e a fila SQLite WAL está zerada (0 pend · 0 erros).
+                    </div>
+                  )}
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {sqliteAndResilience.recentFailures.map((fail) => {
+                      const isResolved = fail.resolutionStatus === 'RESOLVED';
+                      const isQuarantined = fail.resolutionStatus === 'QUARANTINED';
+                      const timeLabel = new Date(fail.lastFailedAt).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'America/Sao_Paulo',
+                      });
+                      return (
+                        <div
+                          key={fail.batchId}
+                          className={`rounded-md border px-2.5 py-2 text-[11px] space-y-1 ${
+                            isResolved
+                              ? 'bg-[#0F172A]/80 border-emerald-500/20'
+                              : isQuarantined
+                              ? 'bg-rose-950/20 border-rose-500/30'
+                              : 'bg-amber-950/15 border-amber-500/25'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="px-1.5 py-0.5 rounded bg-[#1E293B] text-cyan-300 font-mono text-[10px] shrink-0">
+                                {fail.batchId.slice(0, 8)}
+                              </span>
+                              <span className="text-[#F1F5F9] font-medium truncate">
+                                {fail.moduleLabel}
+                              </span>
+                              <span className="text-[10px] font-mono text-[#94A3B8] shrink-0">
+                                {fail.recordsCount !== null ? `${fail.recordsCount} regs` : ''} · {fail.attempts}x
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 font-mono text-[10px]">
+                              <span className="text-[#64748B]">{timeLabel}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded font-bold border ${
+                                  isResolved
+                                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    : isQuarantined
+                                    ? 'bg-rose-500/15 text-rose-400 border-rose-500/35'
+                                    : 'bg-amber-500/15 text-amber-300 border-amber-500/35'
+                                }`}
+                              >
+                                {isResolved ? 'CORRIGIDO' : isQuarantined ? 'QUARENTENA' : 'EM RETRY'}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[#CBD5E1] font-mono text-[10px] break-words">
+                            Motivo: {fail.lastError}
+                          </p>
+                          <p className={`text-[10px] ${isResolved ? 'text-emerald-400/90' : isQuarantined ? 'text-rose-300' : 'text-amber-300/90'}`}>
+                            {fail.resolutionNote}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Governança, Chunks e Checkpoints */}

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
+  buildBlockingChains,
   buildProcessInstanceKey,
   buildSiplanIncidentReport,
   computeCollectorBackoffSeconds,
@@ -9,6 +10,7 @@ import {
   DEFAULT_ALERT_RULES,
   evaluateAlertsWithHysteresis,
   evaluateMemoryPressureEvidence,
+  evaluateWebriSessionAssociation,
   formatMetricOrMissing,
 } from '@/lib/srvsql-performance/engine';
 import {
@@ -501,5 +503,221 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     const body = await res.json();
     expect(body.activeScenario).toBe('LIVE_OR_REAL');
     expect(body.dataSourceMode).toBe('LIVE_COLLECTOR');
+  });
+
+  it('12. Histerese rebaixa CRITICAL -> WARNING, ordena bloqueador por maior espera, identifica Mashup/ECKSISTEMAS 94.5% e filtra pico I/O < 5 ops', () => {
+    // 1. Histerese CRITICAL -> WARNING -> RESOLVED (evita trava permanente em CRITICAL aos 14.1s)
+    const stepCrit = evaluateAlertsWithHysteresis({
+      rules: DEFAULT_ALERT_RULES,
+      existingAlerts: [],
+      observedAtIso: '2026-11-13T19:15:00.000Z',
+      metrics: {
+        maxBlockedDurationSeconds: 55,
+        blockedSessionsCount: 4,
+        rootBlockerSessionId: 561,
+        maxDiskWriteLatencyMs: 2,
+        maxDiskReadLatencyMs: 1,
+        provenMemoryPressureScore: 0,
+        cpuPercent: 25,
+        minVolumeFreePercent: 30,
+        criticalServiceStoppedCount: 0,
+        collectorDelaySeconds: 5,
+      },
+    });
+    expect(stepCrit.find((a) => a.ruleId === 'rule-blocking-duration')?.severity).toBe('CRITICAL');
+
+    const stepDowngrade = evaluateAlertsWithHysteresis({
+      rules: DEFAULT_ALERT_RULES,
+      existingAlerts: stepCrit,
+      observedAtIso: '2026-11-13T19:20:44.000Z',
+      metrics: {
+        maxBlockedDurationSeconds: 14.1, // acima da recuperação (5s), abaixo de warning (15s)
+        blockedSessionsCount: 4,
+        rootBlockerSessionId: 66,
+        maxDiskWriteLatencyMs: 3,
+        maxDiskReadLatencyMs: 1,
+        provenMemoryPressureScore: 0,
+        cpuPercent: 25,
+        minVolumeFreePercent: 30,
+        criticalServiceStoppedCount: 0,
+        collectorDelaySeconds: 5,
+      },
+    });
+    const downgraded = stepDowngrade.find((a) => a.ruleId === 'rule-blocking-duration');
+    expect(downgraded?.active).toBe(true);
+    expect(downgraded?.severity).toBe('WARNING');
+
+    const stepResolved = evaluateAlertsWithHysteresis({
+      rules: DEFAULT_ALERT_RULES,
+      existingAlerts: stepDowngrade,
+      observedAtIso: '2026-11-13T19:25:00.000Z',
+      metrics: {
+        maxBlockedDurationSeconds: 0,
+        blockedSessionsCount: 0,
+        rootBlockerSessionId: null,
+        maxDiskWriteLatencyMs: 0,
+        maxDiskReadLatencyMs: 0,
+        provenMemoryPressureScore: 0,
+        cpuPercent: 20,
+        minVolumeFreePercent: 30,
+        criticalServiceStoppedCount: 0,
+        collectorDelaySeconds: 5,
+      },
+    });
+    expect(stepResolved.find((a) => a.ruleId === 'rule-blocking-duration')?.active).toBe(false);
+
+    // 2. Ordenação de cadeias prioriza maior espera (maxBlockedWaitTimeMs)
+    const chains = buildBlockingChains([
+      {
+        sessionId: 10, loginName: 'u1', hostName: 'EST-1', programName: 'WEBRI', databaseName: 'WEBRI',
+        sessionStatus: 'sleeping', requestStatus: null, command: null, waitType: null, waitTimeMs: null,
+        waitResource: null, blockingSessionId: null, cpuTimeMs: 10, elapsedTimeMs: 10, logicalReads: 10, writes: 1,
+        openTransactionCount: 1, transactionBeginTimeIso: null, lastRequestStartTimeIso: null, lastRequestEndTimeIso: null,
+        queryHash: null, queryPlanHash: null, operationSummary: 'Idle tx', isWebriAssociated: true, webriConfidence: 'ALTA', webriMatchReason: 'WEBRI',
+      },
+      {
+        sessionId: 11, loginName: 'u1', hostName: 'EST-2', programName: 'WEBRI', databaseName: 'WEBRI',
+        sessionStatus: 'suspended', requestStatus: 'suspended', command: 'SELECT', waitType: 'LCK_M_S', waitTimeMs: 15000,
+        waitResource: 'KEY', blockingSessionId: 10, cpuTimeMs: 5, elapsedTimeMs: 15000, logicalReads: 1, writes: 0,
+        openTransactionCount: 0, transactionBeginTimeIso: null, lastRequestStartTimeIso: null, lastRequestEndTimeIso: null,
+        queryHash: null, queryPlanHash: null, operationSummary: 'Blocked', isWebriAssociated: true, webriConfidence: 'ALTA', webriMatchReason: 'WEBRI',
+      },
+      {
+        sessionId: 12, loginName: 'u1', hostName: 'EST-3', programName: 'WEBRI', databaseName: 'WEBRI',
+        sessionStatus: 'suspended', requestStatus: 'suspended', command: 'SELECT', waitType: 'LCK_M_S', waitTimeMs: 12000,
+        waitResource: 'KEY', blockingSessionId: 10, cpuTimeMs: 5, elapsedTimeMs: 12000, logicalReads: 1, writes: 0,
+        openTransactionCount: 0, transactionBeginTimeIso: null, lastRequestStartTimeIso: null, lastRequestEndTimeIso: null,
+        queryHash: null, queryPlanHash: null, operationSummary: 'Blocked', isWebriAssociated: true, webriConfidence: 'ALTA', webriMatchReason: 'WEBRI',
+      },
+      {
+        sessionId: 561, loginName: 'pbi', hostName: 'SRVSQL', programName: 'Mashup Engine', databaseName: 'CdsA',
+        sessionStatus: 'running', requestStatus: 'running', command: 'SELECT', waitType: null, waitTimeMs: 0,
+        waitResource: null, blockingSessionId: null, cpuTimeMs: 1000, elapsedTimeMs: 227100, logicalReads: 5000, writes: 0,
+        openTransactionCount: 1, transactionBeginTimeIso: null, lastRequestStartTimeIso: null, lastRequestEndTimeIso: null,
+        queryHash: null, queryPlanHash: null, operationSummary: 'Power BI', isWebriAssociated: false, webriConfidence: 'NAO_ASSOCIADO', webriMatchReason: 'Mashup',
+      },
+      {
+        sessionId: 562, loginName: 'u2', hostName: 'SRVSQL', programName: 'WEBRI', databaseName: 'CdsA',
+        sessionStatus: 'suspended', requestStatus: 'suspended', command: 'SELECT', waitType: 'LCK_M_IX', waitTimeMs: 227100,
+        waitResource: 'TAB', blockingSessionId: 561, cpuTimeMs: 1, elapsedTimeMs: 227100, logicalReads: 1, writes: 0,
+        openTransactionCount: 0, transactionBeginTimeIso: null, lastRequestStartTimeIso: null, lastRequestEndTimeIso: null,
+        queryHash: null, queryPlanHash: null, operationSummary: 'Blocked', isWebriAssociated: false, webriConfidence: 'NAO_ASSOCIADO', webriMatchReason: 'CdsA',
+      },
+    ]);
+    expect(chains[0]?.rootBlockerSessionId).toBe(561);
+    expect(chains[0]?.maxBlockedWaitTimeMs).toBe(227100);
+
+    // 3. Classificação Mashup Engine e fiorix_connector como NÃO associados ao WEBRI
+    const defaultCfg = buildSrvsqlPerformanceSnapshot('tenant-live-check-12', 'LENTIDAO_BLOQUEIO', '30m').webriConfig;
+    const pbiAssoc = evaluateWebriSessionAssociation(
+      { databaseName: 'WEBRI', loginName: 'NT AUTHORITY\\SYSTEM', programName: 'Mashup Engine', hostName: 'SRVSQL' },
+      defaultCfg,
+    );
+    expect(pbiAssoc.isWebriAssociated).toBe(false);
+    expect(pbiAssoc.reason).toContain('Mashup Engine');
+
+    const collectorAssoc = evaluateWebriSessionAssociation(
+      { databaseName: 'WEBRI', loginName: 'fiorix_connector', programName: 'node-mssql', hostName: 'SRVFILES' },
+      defaultCfg,
+    );
+    expect(collectorAssoc.isWebriAssociated).toBe(false);
+    expect(collectorAssoc.reason).toContain('Coletor');
+
+    // 4. Snapshot LIVE_OR_REAL com ECKSISTEMAS 94.5%, AUTO_SHRINK, Zabbix PASSIVE_REJECTED e pico I/O < 5 escritas descartado
+    const tId = `tenant-live-12-${Date.now()}`;
+    const baseTime = Date.now() - 25_000;
+    const sample1: RawCollectorIngestPayload = {
+      observedAt: new Date(baseTime).toISOString(),
+      collectorVersion: 'v2.6.12',
+      connectorHost: 'SRVFILES',
+      simpleConnectivityPingMs: 4,
+      sqlMetadata: {
+        serverName: 'SRVSQL', machineName: 'SRVSQL', instanceName: 'MSSQLSERVER',
+        edition: 'Standard Edition (64-bit)', productVersion: '11.0.7507.2', productLevel: 'SP4', majorVersion: 11,
+        sqlServerStartTime: '2026-11-01T06:00:00.000Z', loginUsed: 'fiorix_connector',
+        hasViewServerState: true, hasViewServerPerformanceState: false, hasViewAnyDefinition: true,
+        queryStoreSupported: false, queryStoreEnabled: null, requiredPermissionLabel: 'VIEW SERVER STATE',
+      },
+      zabbixProbe: {
+        host: 'srvsql', port: 10050, tcpReachable: true, agentProcessDetected: true,
+        status: 'PASSIVE_REJECTED_BY_WHITELIST_OR_PSK',
+        detail: 'Porta TCP 10050 aberta em SRVSQL; passivo restrito por Server=.',
+        checkedAt: new Date(baseTime).toISOString(),
+      },
+      cpuTotalPercent: 30,
+      sqlCpuPercent: 18,
+      cpuCount: 10,
+      windowsMemory: {
+        totalPhysicalMb: 73999.6, availablePhysicalMb: 14500, usedPhysicalMb: 59499.6, usedPercent: 80,
+        committedMb: 60000, commitLimitMb: 85000, commitPercent: 70,
+        pagesPerSec: null, pageInputsPerSec: null, pageFaultsPerSec: null, windowsMemoryPressure: 'NORMAL',
+      },
+      windowsVolumes: [{
+        volume: 'D:\\', label: 'SQL Data', role: 'SQL_DATA', readLatencyMs: null, writeLatencyMs: null,
+        readsPerSec: null, writesPerSec: null, throughputMbPerSec: null, queueLength: null,
+        freeSpaceGb: 45, totalSpaceGb: 600, freePercent: 7.5,
+      }],
+      windowsNetwork: [],
+      windowsProcesses: [],
+      windowsServices: [],
+      concurrentEvents: [],
+      activeSessions: [],
+      waitStatsRaw: [{ waitType: 'CXPACKET', waitingTasksCount: 100, waitTimeMs: 1000, maxWaitTimeMs: 10, signalWaitTimeMs: 100 }],
+      fileIoRaw: [
+        {
+          databaseId: 5, databaseName: 'WEBRI', fileId: 1, logicalName: 'WebRI_Data', fileType: 'ROWS',
+          volumeMountPoint: 'D:\\', sampleMs: 100000, numOfReads: 50000, numOfBytesRead: 409600000,
+          ioStallReadMs: 3250000, numOfWrites: 20000, numOfBytesWritten: 163840000, ioStallWriteMs: 1080000,
+        },
+        {
+          databaseId: 9, databaseName: 'OUTRO', fileId: 2, logicalName: 'OUTRO_log', fileType: 'LOG',
+          volumeMountPoint: 'D:\\', sampleMs: 100000, numOfReads: 100, numOfBytesRead: 10000,
+          ioStallReadMs: 100, numOfWrites: 500, numOfBytesWritten: 100000, ioStallWriteMs: 500,
+        },
+      ],
+      sqlMemory: {
+        totalServerMemoryMb: 40000, targetServerMemoryMb: 40000, maxServerMemoryConfigMb: 40000, minServerMemoryConfigMb: 0,
+        sqlProcessWorkingSetMb: 40000, sqlProcessPrivateMb: 40000, pageLifeExpectancySec: 450,
+        bufferCacheHitRatioPercent: 99.94, memoryGrantsPending: 0, memoryGrantsActive: 0,
+        grantedWorkspaceMemoryMb: 0, maxWorkspaceMemoryMb: null, processPhysicalMemoryLow: false, processVirtualMemoryLow: false,
+      },
+      databaseSpaces: [
+        {
+          databaseName: 'ECKSISTEMAS', recoveryModel: 'FULL', dataTotalMb: 10000, dataUsedMb: null,
+          logTotalMb: 71800, logUsedMb: 67890, logUsedPercent: 94.5, logReuseWaitDesc: 'LOG_BACKUP',
+          isTempdb: false, isAutoShrinkOn: false, pageVerifyOption: 'CHECKSUM',
+        },
+        {
+          databaseName: 'WEBRI', recoveryModel: 'SIMPLE', dataTotalMb: 450000, dataUsedMb: null,
+          logTotalMb: 1024, logUsedMb: 186, logUsedPercent: 18.2, logReuseWaitDesc: 'NOTHING',
+          isTempdb: false, isAutoShrinkOn: true, pageVerifyOption: 'NONE',
+        },
+      ],
+      costlyQueries: [],
+    };
+
+    ingestCollectorSample(tId, sample1);
+    ingestCollectorSample(tId, {
+      ...sample1,
+      observedAt: new Date(Date.now() - 5_000).toISOString(),
+      waitStatsRaw: [{ waitType: 'CXPACKET', waitingTasksCount: 105, waitTimeMs: 1010, maxWaitTimeMs: 10, signalWaitTimeMs: 100 }],
+      fileIoRaw: [
+        { ...sample1.fileIoRaw![0]!, sampleMs: 120000, numOfReads: 50010, ioStallReadMs: 3250004, numOfWrites: 20010, ioStallWriteMs: 1080003 },
+        // Apenas 2 escritas com 80 ms de média -> ruído estatístico < 5 ops deve ser ignorado!
+        { ...sample1.fileIoRaw![1]!, sampleMs: 120000, numOfReads: 100, ioStallReadMs: 100, numOfWrites: 502, ioStallWriteMs: 660 },
+      ],
+    });
+
+    const snap = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snap.collectorHealth.collectorVersion).toBe('v2.6.12-srvsql-live');
+    expect(snap.kpis.diskWriteLatencyMs).toBe(0);
+    expect(snap.overallHealth).toBe('ATENCAO');
+    expect(snap.diagnostics.some((d) => d.id === 'diag-log-backup-saturation' && d.severity === 'ATENCAO')).toBe(true);
+    expect(snap.diagnostics.some((d) => d.id === 'diag-db-autoshrink-pageverify' && d.severity === 'INFORMATIVO')).toBe(true);
+    const zabbixCov = snap.coverageSources.find((c) => c.id === 'cov-zabbix-agent2');
+    const connCov = snap.coverageSources.find((c) => c.id === 'cov-sql-connectivity');
+    expect(zabbixCov?.status).toBe('OPCIONAL_DESATIVADO');
+    expect(connCov?.remediationStep).toContain('SRVFILES');
+    expect(connCov?.remediationStep).not.toContain('HCFG-001');
   });
 });

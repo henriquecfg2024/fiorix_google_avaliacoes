@@ -112,17 +112,36 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                         {delayText}
                       </td>
                       <td className="py-3 px-3">
-                        {item.recordsCount !== null ? (
-                          item.recordsCount === 0 ? (
-                            <span className="text-[#64748B]">0 (sem alterações)</span>
-                          ) : (
-                            <span className="text-[#F1F5F9] font-semibold">
-                              {item.recordsCount.toLocaleString('pt-BR')} reg{item.recordsCount > 1 ? 's' : ''}
+                        <div className="flex flex-col gap-0.5">
+                          {(item.activeFailedBatchesCount ?? 0) > 0 ? (
+                            <span
+                              className="inline-flex items-center gap-1 font-semibold text-amber-400"
+                              title={item.lastFailedError || undefined}
+                            >
+                              {item.activeFailedBatchesCount} erro{item.activeFailedBatchesCount! > 1 ? 's' : ''} WAL
                             </span>
-                          )
-                        ) : (
-                          <span className="text-[#F59E0B]">Pendente</span>
-                        )}
+                          ) : item.recordsCount !== null ? (
+                            item.recordsCount === 0 ? (
+                              <span className="text-[#64748B]">0 (sem alterações)</span>
+                            ) : (
+                              <span className="text-[#F1F5F9] font-semibold">
+                                {item.recordsCount.toLocaleString('pt-BR')} reg{item.recordsCount > 1 ? 's' : ''}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[#F59E0B]">Pendente</span>
+                          )}
+                          {(item.activeFailedBatchesCount ?? 0) > 0 && item.recordsCount !== null && (
+                            <span className="text-[10px] text-[#64748B]">
+                              último ok: {item.recordsCount.toLocaleString('pt-BR')} reg{item.recordsCount === 1 ? '' : 's'}
+                            </span>
+                          )}
+                          {(item.activeFailedBatchesCount ?? 0) === 0 && (item.resolvedFailedBatches24hCount ?? 0) > 0 && (
+                            <span className="text-[10px] text-emerald-400 font-sans">
+                              ✓ {item.resolvedFailedBatches24hCount} lote{item.resolvedFailedBatches24hCount! > 1 ? 's' : ''} corrigido{item.resolvedFailedBatches24hCount! > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 pl-3 text-right">
                         <button
