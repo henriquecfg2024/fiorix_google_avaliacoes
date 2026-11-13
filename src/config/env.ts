@@ -73,6 +73,8 @@ const envSchema = z.object({
   CHUNK_SIZE_RECORDS: z.coerce.number().int().positive().default(500),
   INCREMENTAL_OVERLAP_MINUTES: z.coerce.number().int().nonnegative().default(5),
   RECONCILIATION_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
+  ZABBIX_API_URL: z.string().optional().default(''),
+  ZABBIX_API_TOKEN: z.string().optional().default(''),
 });
 
 const parsedEnv = envSchema.safeParse({

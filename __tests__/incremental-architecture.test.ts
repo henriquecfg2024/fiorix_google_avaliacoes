@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commitCheckpointForBatch, getCheckpoint, initializeCheckpointSchema, markReconciliationSuccess, stageCheckpointCandidate } from '../src/db/checkpoint.js';
@@ -37,15 +37,22 @@ describe('hybrid incremental architecture', () => {
   });
 
   it('keeps both SaaS migrations additive and guarantees updatedAt on every raw upsert', () => {
-    const syncMode = readFileSync(new URL('../../fiorix/supabase/migrations/20260901000000_add_connector_sync_mode.sql', import.meta.url), 'utf8');
-    const records = readFileSync(new URL('../../fiorix/supabase/migrations/20260901010000_add_connector_sync_records.sql', import.meta.url), 'utf8');
+    const syncModeUrl = new URL('../../fiorix/supabase/migrations/20260901000000_add_connector_sync_mode.sql', import.meta.url);
+    const recordsUrl = new URL('../../fiorix/supabase/migrations/20260901010000_add_connector_sync_records.sql', import.meta.url);
+    const routeUrl = new URL('../../fiorix/src/app/api/v1/connector/sync/route.ts', import.meta.url);
+    if (!existsSync(syncModeUrl) || !existsSync(recordsUrl) || !existsSync(routeUrl)) {
+      // Standalone connector CI checkout does not contain the sibling fiorix SaaS repo.
+      return;
+    }
+    const syncMode = readFileSync(syncModeUrl, 'utf8');
+    const records = readFileSync(recordsUrl, 'utf8');
     for (const migration of [syncMode, records]) {
       expect(migration).not.toMatch(/\b(?:DROP\s+(?:TABLE|COLUMN|INDEX|CONSTRAINT)|DELETE\s+FROM|TRUNCATE\s+TABLE|RENAME\s+(?:TABLE|COLUMN))\b/i);
     }
     expect(syncMode).toMatch(/"syncMode" TEXT NOT NULL DEFAULT 'full'/g);
     expect(records).toContain('"updatedAt" TIMESTAMP(3) NOT NULL');
     expect(records).toContain('PRIMARY KEY ("tenantId", "connectorId", "source", "recordKey")');
-    const route = readFileSync(new URL('../../fiorix/src/app/api/v1/connector/sync/route.ts', import.meta.url), 'utf8');
+    const route = readFileSync(routeUrl, 'utf8');
     expect(route).toMatch(/"updatedAt"\s*\)\s*SELECT[\s\S]*NOW\(\), NOW\(\)/);
     expect(route).toMatch(/DO UPDATE SET[\s\S]*"updatedAt" = NOW\(\)/);
   });

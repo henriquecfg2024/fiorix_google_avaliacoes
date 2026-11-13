@@ -553,6 +553,7 @@ export class Scheduler {
           storageFile: connectorEnv === 'production' ? 'queue_production.db' : 'queue.db',
           journalMode: 'WAL',
           queue: health.queue,
+          recentFailures: health.queue.recentFailures ?? [],
           chunks: health.chunks,
           checkpoints: {
             persistedCount: health.checkpoints.persistedCount,

@@ -1,6 +1,8 @@
 import sql from 'mssql';
 import net from 'node:net';
+import os from 'node:os';
 import { env } from '../config/env.js';
+import { AGENT_VERSION } from '../config/version.js';
 import { logger } from '../utils/logger.js';
 import { runtimeDirective } from './runtime-directive.js';
 import { sendSrvsqlPerformanceSample } from './api.js';
@@ -26,9 +28,44 @@ async function probeZabbixAgent(
   passiveAccepted: boolean;
   detail: string;
 }> {
+  if (env.ZABBIX_API_URL && env.ZABBIX_API_TOKEN) {
+    try {
+      const apiRes = await fetch(env.ZABBIX_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json-rpc',
+          Authorization: `Bearer ${env.ZABBIX_API_TOKEN}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'host.get',
+          params: {
+            output: ['hostid', 'host', 'status'],
+            filter: { host: [host, 'SRVSQL', 'srvsql'] },
+          },
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(2000),
+      });
+      if (apiRes.ok) {
+        const json = (await apiRes.json()) as { result?: unknown[]; error?: { message?: string } };
+        if (Array.isArray(json?.result)) {
+          return {
+            reachable: true,
+            passiveAccepted: true,
+            detail: `Integrado via Zabbix JSON-RPC API oficial (${json.result.length} host(s) localizado(s)).`,
+          };
+        }
+      }
+    } catch {
+      // Fallback para sonda TCP passiva local
+    }
+  }
+
   return new Promise((resolve) => {
     const socket = new net.Socket();
     let settled = false;
+    let tcpConnected = false;
     const finish = (reachable: boolean, passiveAccepted: boolean, detail: string) => {
       if (settled) return;
       settled = true;
@@ -38,6 +75,7 @@ async function probeZabbixAgent(
 
     socket.setTimeout(timeoutMs);
     socket.on('connect', () => {
+      tcpConnected = true;
       const key = Buffer.from('agent.ping', 'utf8');
       const header = Buffer.alloc(13 + key.length);
       header.write('ZBXD\x01', 0, 'ascii');
@@ -54,13 +92,21 @@ async function probeZabbixAgent(
       finish(
         true,
         false,
-        'Porta TCP 10050 aberta em SRVSQL (zabbix_agent2.exe ativo), conexões passivas restritas pela diretiva Server= em zabbix_agent2.conf.'
+        'Porta TCP 10050 aberta em SRVSQL (zabbix_agent2.exe ativo); consulta passiva restrita à diretiva Server= em zabbix_agent2.conf.'
       );
     });
     socket.on('timeout', () => {
-      finish(false, false, 'Timeout ao testar porta 10050 do zabbix_agent2.');
+      finish(tcpConnected, false, 'Timeout ao testar porta 10050 do zabbix_agent2.');
     });
     socket.on('error', (err) => {
+      if (tcpConnected) {
+        finish(
+          true,
+          false,
+          'Porta TCP 10050 aberta em SRVSQL (zabbix_agent2.exe ativo); consulta passiva restrita à diretiva Server= (whitelist de IP) em zabbix_agent2.conf.'
+        );
+        return;
+      }
       finish(false, false, `Porta 10050 indisponível: ${err.message}`);
     });
 
@@ -129,6 +175,8 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
     if (!hasViewServerState) {
       const partialSample = {
         observedAt,
+        collectorVersion: AGENT_VERSION,
+        connectorHost: os.hostname(),
         collectionDurationMs: Date.now() - startMs,
         simpleConnectivityPingMs: selectOneMs,
         cpuTotalPercent: null,
@@ -229,7 +277,17 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
             (SELECT COUNT(*) FROM sys.dm_exec_query_memory_grants WHERE grant_time IS NULL) AS memory_grants_pending,
             (SELECT COUNT(*) FROM sys.dm_exec_query_memory_grants WHERE grant_time IS NOT NULL) AS memory_grants_active,
             (SELECT CAST(ISNULL(SUM(granted_memory_kb), 0) / 1024.0 AS FLOAT) FROM sys.dm_exec_query_memory_grants) AS granted_workspace_memory_mb,
-            (SELECT TOP 1 CAST(cntr_value AS INT) FROM sys.dm_os_performance_counters WHERE counter_name = 'Page life expectancy' AND object_name LIKE '%Buffer Manager%') AS page_life_expectancy_sec
+            (SELECT TOP 1 CAST(cntr_value AS INT) FROM sys.dm_os_performance_counters WHERE counter_name = 'Page life expectancy' AND object_name LIKE '%Buffer Manager%') AS page_life_expectancy_sec,
+            (
+              SELECT TOP 1
+                CASE WHEN b.cntr_value > 0 THEN CAST((a.cntr_value * 100.0) / b.cntr_value AS FLOAT) ELSE NULL END
+              FROM sys.dm_os_performance_counters AS a
+              CROSS JOIN sys.dm_os_performance_counters AS b
+              WHERE a.object_name LIKE '%Buffer Manager%'
+                AND a.counter_name = 'Buffer cache hit ratio'
+                AND b.object_name LIKE '%Buffer Manager%'
+                AND b.counter_name = 'Buffer cache hit ratio base'
+            ) AS buffer_cache_hit_ratio_pct
           FROM sys.dm_os_sys_info AS osi
           CROSS JOIN sys.dm_os_sys_memory AS osm
           CROSS JOIN sys.dm_os_process_memory AS pm;
@@ -258,6 +316,8 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           SET LOCK_TIMEOUT 2000;
           SELECT TOP (60)
             s.session_id,
+            s.host_process_id,
+            CAST(SERVERPROPERTY('MachineName') AS VARCHAR(128)) AS sql_machine_name,
             CAST(s.login_name AS VARCHAR(128)) AS login_name,
             CAST(ISNULL(s.host_name, '') AS VARCHAR(128)) AS host_name,
             CAST(ISNULL(s.program_name, '') AS VARCHAR(128)) AS program_name,
@@ -274,12 +334,23 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
             COALESCE(r.logical_reads, s.logical_reads) AS logical_reads,
             COALESCE(r.writes, s.writes) AS writes,
             COALESCE(r.open_transaction_count, s.open_transaction_count, 0) AS open_transaction_count,
+            CASE
+              WHEN tr.tran_begin_time IS NOT NULL AND tr.tran_begin_time >= DATEADD(YEAR, -10, GETDATE())
+              THEN DATEDIFF(SECOND, tr.tran_begin_time, GETDATE())
+              ELSE NULL
+            END AS open_tran_elapsed_sec,
             CONVERT(VARCHAR(33), s.last_request_start_time, 126) AS last_request_start_time_iso,
             CONVERT(VARCHAR(33), s.last_request_end_time, 126) AS last_request_end_time_iso,
             CONVERT(VARCHAR(18), r.query_hash, 1) AS query_hash,
             CONVERT(VARCHAR(18), r.query_plan_hash, 1) AS query_plan_hash
           FROM sys.dm_exec_sessions AS s
           LEFT JOIN sys.dm_exec_requests AS r ON s.session_id = r.session_id
+          OUTER APPLY (
+            SELECT MIN(at.transaction_begin_time) AS tran_begin_time
+            FROM sys.dm_tran_session_transactions AS st
+            INNER JOIN sys.dm_tran_active_transactions AS at ON st.transaction_id = at.transaction_id
+            WHERE st.session_id = s.session_id
+          ) AS tr
           WHERE s.is_user_process = 1
           ORDER BY
             CASE WHEN EXISTS (SELECT 1 FROM sys.dm_exec_requests rb WHERE rb.blocking_session_id = s.session_id) THEN 0 ELSE 1 END,
@@ -347,17 +418,77 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           SET NOCOUNT ON;
           SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
           SET LOCK_TIMEOUT 2000;
-          SELECT TOP (8)
+          WITH pc_db AS (
+            SELECT
+              RTRIM(instance_name) AS db_name,
+              MAX(CASE WHEN counter_name = 'Data File(s) Size (KB)' THEN CAST(cntr_value AS BIGINT) END) AS data_size_kb,
+              MAX(CASE WHEN counter_name = 'Log File(s) Size (KB)' THEN CAST(cntr_value AS BIGINT) END) AS log_size_kb,
+              MAX(CASE WHEN counter_name = 'Log File(s) Used Size (KB)' THEN CAST(cntr_value AS BIGINT) END) AS log_used_kb,
+              MAX(CASE WHEN counter_name = 'Percent Log Used' THEN CAST(cntr_value AS FLOAT) END) AS pct_log_used
+            FROM sys.dm_os_performance_counters
+            WHERE object_name LIKE '%:Databases%'
+              AND instance_name NOT IN ('_Total', '')
+            GROUP BY RTRIM(instance_name)
+          ),
+          version_store AS (
+            SELECT MAX(CAST(cntr_value / 1024.0 AS FLOAT)) AS version_store_mb
+            FROM sys.dm_os_performance_counters
+            WHERE counter_name = 'Version Store Size (KB)'
+              AND object_name LIKE '%:Transactions%'
+          ),
+          tempdb_space AS (
+            SELECT
+              CAST(ISNULL(SUM(CAST(user_object_reserved_page_count AS BIGINT)), 0) * 8.0 / 1024.0 AS FLOAT) AS user_objects_mb,
+              CAST(ISNULL(SUM(CAST(internal_object_reserved_page_count AS BIGINT)), 0) * 8.0 / 1024.0 AS FLOAT) AS internal_objects_mb,
+              CAST(ISNULL(SUM(CAST(version_store_reserved_page_count AS BIGINT)), 0) * 8.0 / 1024.0 AS FLOAT) AS vs_reserved_mb
+            FROM tempdb.sys.dm_db_file_space_usage
+          )
+          SELECT TOP (14)
             CAST(d.name AS VARCHAR(128)) AS database_name,
             CAST(d.recovery_model_desc AS VARCHAR(32)) AS recovery_model,
             CAST(d.log_reuse_wait_desc AS VARCHAR(64)) AS log_reuse_wait_desc,
-            CAST(SUM(CASE WHEN mf.type = 0 THEN mf.size * 8.0 / 1024.0 ELSE 0 END) AS FLOAT) AS data_total_mb,
-            CAST(SUM(CASE WHEN mf.type = 1 THEN mf.size * 8.0 / 1024.0 ELSE 0 END) AS FLOAT) AS log_total_mb
+            CAST(d.is_auto_shrink_on AS BIT) AS is_auto_shrink_on,
+            CAST(d.page_verify_option_desc AS VARCHAR(32)) AS page_verify_option_desc,
+            CAST(COALESCE(pc.data_size_kb / 1024.0, SUM(CASE WHEN mf.type = 0 THEN mf.size * 8.0 / 1024.0 ELSE 0 END)) AS FLOAT) AS data_total_mb,
+            CAST(COALESCE(pc.log_size_kb / 1024.0, SUM(CASE WHEN mf.type = 1 THEN mf.size * 8.0 / 1024.0 ELSE 0 END)) AS FLOAT) AS log_total_mb,
+            CAST(pc.log_used_kb / 1024.0 AS FLOAT) AS log_used_mb,
+            CAST(
+              COALESCE(
+                CASE
+                  WHEN pc.log_size_kb > 0 AND pc.log_used_kb IS NOT NULL
+                  THEN (pc.log_used_kb * 100.0) / pc.log_size_kb
+                  ELSE NULL
+                END,
+                pc.pct_log_used
+              ) AS FLOAT
+            ) AS log_used_percent,
+            CAST(CASE WHEN d.name = 'tempdb' THEN COALESCE(ts.vs_reserved_mb, vs.version_store_mb) ELSE NULL END AS FLOAT) AS tempdb_version_store_mb,
+            CAST(CASE WHEN d.name = 'tempdb' THEN ts.internal_objects_mb ELSE NULL END AS FLOAT) AS tempdb_internal_objects_mb,
+            CAST(CASE WHEN d.name = 'tempdb' THEN ts.user_objects_mb ELSE NULL END AS FLOAT) AS tempdb_user_objects_mb
           FROM sys.databases AS d
           INNER JOIN sys.master_files AS mf ON d.database_id = mf.database_id
-          WHERE d.database_id > 4 OR d.name = 'tempdb'
-          GROUP BY d.name, d.recovery_model_desc, d.log_reuse_wait_desc
-          ORDER BY SUM(mf.size) DESC;
+          LEFT JOIN pc_db AS pc ON pc.db_name = d.name
+          CROSS JOIN version_store AS vs
+          CROSS JOIN tempdb_space AS ts
+          WHERE (d.database_id > 4 OR d.name = 'tempdb')
+            AND d.state_desc = 'ONLINE'
+          GROUP BY
+            d.name,
+            d.recovery_model_desc,
+            d.log_reuse_wait_desc,
+            d.is_auto_shrink_on,
+            d.page_verify_option_desc,
+            pc.data_size_kb,
+            pc.log_size_kb,
+            pc.log_used_kb,
+            pc.pct_log_used,
+            vs.version_store_mb,
+            ts.vs_reserved_mb,
+            ts.internal_objects_mb,
+            ts.user_objects_mb
+          ORDER BY
+            CASE WHEN d.name = 'WEBRI' THEN 0 WHEN d.name = 'tempdb' THEN 1 ELSE 2 END,
+            SUM(mf.size) DESC;
         `).catch(() => ({ recordset: [] as any[] })),
         pool.request().query(`
           SET NOCOUNT ON;
@@ -522,10 +653,25 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           ? rawStatus
           : 'sleeping'
       ) as 'running' | 'runnable' | 'suspended' | 'sleeping' | 'background';
+
+      const progUpper = progName.toUpperCase();
+      const loginLower = loginName.toLowerCase();
+      const isPowerBiGateway = progUpper.includes('MASHUP') || progUpper.includes('POWERBI') || progUpper.includes('POWER BI');
+      const isFiorixCollector = loginLower === 'fiorix_connector';
       const isWebri =
-        dbName.toUpperCase().includes('WEBRI') ||
-        loginName.toLowerCase().includes('webri') ||
-        progName.toLowerCase().includes('webri');
+        !isPowerBiGateway &&
+        !isFiorixCollector &&
+        (dbName.toUpperCase().includes('WEBRI') ||
+          loginLower.includes('webri') ||
+          progUpper.includes('WEBRI') ||
+          progUpper.includes('SIPLAN'));
+
+      const openTranElapsedSec =
+        s.open_tran_elapsed_sec !== null && s.open_tran_elapsed_sec !== undefined && Number(s.open_tran_elapsed_sec) >= 0
+          ? Number(s.open_tran_elapsed_sec)
+          : null;
+      const transactionBeginTimeIso =
+        openTranElapsedSec !== null ? new Date(Date.now() - openTranElapsedSec * 1000).toISOString() : null;
 
       return {
         sessionId: Number(s.session_id),
@@ -545,7 +691,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
         logicalReads: Number(s.logical_reads ?? 0),
         writes: Number(s.writes ?? 0),
         openTransactionCount: Number(s.open_transaction_count ?? 0),
-        transactionBeginTimeIso: null,
+        transactionBeginTimeIso,
         lastRequestStartTimeIso: s.last_request_start_time_iso ? String(s.last_request_start_time_iso) : null,
         lastRequestEndTimeIso: s.last_request_end_time_iso ? String(s.last_request_end_time_iso) : null,
         queryHash: s.query_hash ? String(s.query_hash) : null,
@@ -555,7 +701,13 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           : `${s.command || sessionStatus} em ${dbName} (${progName || loginName})`,
         isWebriAssociated: isWebri,
         webriConfidence: isWebri ? ('ALTA' as const) : ('NAO_ASSOCIADO' as const),
-        webriMatchReason: isWebri ? `Sessão conectada em ${dbName}` : `Banco ${dbName}`,
+        webriMatchReason: isPowerBiGateway
+          ? 'Microsoft Power BI Gateway (Mashup Engine)'
+          : isFiorixCollector
+            ? 'Coletor FIORIX (somente leitura)'
+            : isWebri
+              ? `Sessão conectada em ${dbName}`
+              : `Banco ${dbName}`,
       };
     });
 
@@ -587,17 +739,50 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       };
     });
 
-    const databaseSpaces = (dbSpacesRes.recordset || []).map((d: any) => ({
-      databaseName: String(d.database_name || ''),
-      recoveryModel: String(d.recovery_model || 'FULL'),
-      dataTotalMb: Math.round(Number(d.data_total_mb || 0) * 10) / 10,
-      dataUsedMb: null,
-      logTotalMb: Math.round(Number(d.log_total_mb || 0) * 10) / 10,
-      logUsedMb: null,
-      logUsedPercent: null,
-      logReuseWaitDesc: d.log_reuse_wait_desc ? String(d.log_reuse_wait_desc) : null,
-      isTempdb: String(d.database_name || '').toLowerCase() === 'tempdb',
-    }));
+    const databaseSpaces = (dbSpacesRes.recordset || []).map((d: any) => {
+      const logTotal = Math.round(Number(d.log_total_mb || 0) * 10) / 10;
+      const logUsedRaw =
+        d.log_used_mb !== null && d.log_used_mb !== undefined ? Number(d.log_used_mb) : null;
+      const logUsedPctRaw =
+        d.log_used_percent !== null && d.log_used_percent !== undefined ? Number(d.log_used_percent) : null;
+      const logUsedMb = logUsedRaw !== null ? Math.round(logUsedRaw * 10) / 10 : null;
+      const logUsedPercent =
+        logUsedPctRaw !== null
+          ? Math.min(100, Math.max(0, Math.round(logUsedPctRaw * 10) / 10))
+          : logUsedMb !== null && logTotal > 0
+            ? Math.min(100, Math.max(0, Math.round((logUsedMb / logTotal) * 1000) / 10))
+            : null;
+      const isTempdb = String(d.database_name || '').toLowerCase() === 'tempdb';
+
+      return {
+        databaseName: String(d.database_name || ''),
+        recoveryModel: String(d.recovery_model || 'FULL'),
+        dataTotalMb: Math.round(Number(d.data_total_mb || 0) * 10) / 10,
+        dataUsedMb: null,
+        logTotalMb: logTotal,
+        logUsedMb,
+        logUsedPercent,
+        logReuseWaitDesc: d.log_reuse_wait_desc ? String(d.log_reuse_wait_desc) : null,
+        isTempdb,
+        tempdbUserObjectsMb:
+          isTempdb && d.tempdb_user_objects_mb !== null && d.tempdb_user_objects_mb !== undefined
+            ? Math.round(Number(d.tempdb_user_objects_mb) * 10) / 10
+            : null,
+        tempdbInternalObjectsMb:
+          isTempdb && d.tempdb_internal_objects_mb !== null && d.tempdb_internal_objects_mb !== undefined
+            ? Math.round(Number(d.tempdb_internal_objects_mb) * 10) / 10
+            : null,
+        tempdbVersionStoreMb:
+          isTempdb && d.tempdb_version_store_mb !== null && d.tempdb_version_store_mb !== undefined
+            ? Math.round(Number(d.tempdb_version_store_mb) * 10) / 10
+            : null,
+        isAutoShrinkOn:
+          d.is_auto_shrink_on !== null && d.is_auto_shrink_on !== undefined
+            ? Boolean(d.is_auto_shrink_on)
+            : null,
+        pageVerifyOption: d.page_verify_option_desc ? String(d.page_verify_option_desc) : null,
+      };
+    });
 
     const windowsServices = (svcRes.recordset || []).map((sv: any) => {
       const svcName = String(sv.servicename || 'SQL Server');
@@ -626,9 +811,184 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       ? String(sys.sqlserver_start_time_iso)
       : observedAt;
     const sqlPid = windowsServices.find((s: any) => s.processName === 'sqlservr.exe')?.pid || 2184;
+    const sqlMachineUpper = String(metaRow.machine_name || host || '').trim().toUpperCase();
+
+    const windowsProcesses: Array<{
+      pid: number;
+      processName: string;
+      startTimeIso: string;
+      cpuPercent: number | null;
+      privateWorkingSetMb: number | null;
+      workingSetMb: number | null;
+      associatedServiceName: string | null;
+      associatedServiceDisplayName: string | null;
+      category:
+        | 'SQL_SERVER'
+        | 'WEBRI_SIPLAN'
+        | 'MYSQL'
+        | 'JAVA_RUNTIME'
+        | 'IIS_WEB'
+        | 'POWERBI_GATEWAY'
+        | 'BACKUP_AGENT'
+        | 'ANTIVIRUS_SECURITY'
+        | 'MONITORING_ZABBIX'
+        | 'SISTEMA_OUTROS';
+      belongsToWebri: boolean;
+      webriConfidence: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO_ASSOCIADO';
+      associationReason: string;
+      diskIoBytesPerSec: number | null;
+      diskAttributionSource: 'ETW_PERFCOUNTER' | 'SQL_DM_IO_VIRTUAL_FILE_STATS' | 'NAO_SUSTENTADO_POR_FONTE';
+    }> = [
+      {
+        pid: sqlPid,
+        processName: 'sqlservr.exe',
+        startTimeIso: sqlStartIso,
+        cpuPercent: sqlCpuPercent,
+        privateWorkingSetMb: sqlPhysMb,
+        workingSetMb: Number(sys.sql_committed_mb) || sqlPhysMb,
+        associatedServiceName: 'MSSQLSERVER',
+        associatedServiceDisplayName: 'SQL Server (MSSQLSERVER)',
+        category: 'SQL_SERVER',
+        belongsToWebri: true,
+        webriConfidence: 'ALTA',
+        associationReason: `Instância principal ${metaRow.server_name || host} monitorada ao vivo via DMVs.`,
+        diskIoBytesPerSec: null,
+        diskAttributionSource: 'SQL_DM_IO_VIRTUAL_FILE_STATS',
+      },
+    ];
+
+    const sqlAgentSvc = windowsServices.find((s: any) => s.processName === 'SQLAGENT.EXE' && s.state === 'RUNNING' && s.pid);
+    if (sqlAgentSvc && sqlAgentSvc.pid) {
+      windowsProcesses.push({
+        pid: Number(sqlAgentSvc.pid),
+        processName: 'SQLAGENT.EXE',
+        startTimeIso: sqlAgentSvc.processStartTimeIso || sqlStartIso,
+        cpuPercent: null,
+        privateWorkingSetMb: null,
+        workingSetMb: null,
+        associatedServiceName: sqlAgentSvc.serviceName,
+        associatedServiceDisplayName: sqlAgentSvc.displayName,
+        category: 'SQL_SERVER',
+        belongsToWebri: true,
+        webriConfidence: 'ALTA',
+        associationReason: 'SQL Server Agent em execução no SRVSQL (CPU/RAM por processo requer Perfmon local).',
+        diskIoBytesPerSec: null,
+        diskAttributionSource: 'NAO_SUSTENTADO_POR_FONTE',
+      });
+    }
+
+    const seenLocalPids = new Set<number>(windowsProcesses.map((p) => p.pid));
+    for (const s of sessionsRes.recordset || []) {
+      const hpid = Number(s.host_process_id || 0);
+      const sessHostUpper = String(s.host_name || '').trim().toUpperCase();
+      const targetMachineUpper = String(s.sql_machine_name || sqlMachineUpper).trim().toUpperCase();
+      if (!(hpid > 0) || !sessHostUpper || sessHostUpper !== targetMachineUpper || seenLocalPids.has(hpid)) {
+        continue;
+      }
+      seenLocalPids.add(hpid);
+      const prog = String(s.program_name || 'LocalClient');
+      const progUpper = prog.toUpperCase();
+      const isPowerBi = progUpper.includes('MASHUP') || progUpper.includes('POWERBI') || progUpper.includes('POWER BI');
+      windowsProcesses.push({
+        pid: hpid,
+        processName: isPowerBi ? 'Microsoft.Mashup.Container.exe' : prog.slice(0, 64),
+        startTimeIso: s.last_request_start_time_iso ? String(s.last_request_start_time_iso) : sqlStartIso,
+        cpuPercent: null,
+        privateWorkingSetMb: null,
+        workingSetMb: null,
+        associatedServiceName: isPowerBi ? 'PBIEgwService' : null,
+        associatedServiceDisplayName: isPowerBi ? 'On-premises data gateway (Mashup Engine)' : null,
+        category: isPowerBi ? 'POWERBI_GATEWAY' : 'SISTEMA_OUTROS',
+        belongsToWebri: !isPowerBi && String(s.database_name || '').toUpperCase().includes('WEBRI'),
+        webriConfidence: isPowerBi ? 'ALTA' : 'MEDIA',
+        associationReason: isPowerBi
+          ? `Processo local no SRVSQL (${prog}) identificado via host_process_id na DMV de sessões; carga analítica Power BI.`
+          : `Processo local no SRVSQL (${prog}) conectado ao banco ${s.database_name || 'master'} (CPU/RAM por processo requer Perfmon local).`,
+        diskIoBytesPerSec: null,
+        diskAttributionSource: 'NAO_SUSTENTADO_POR_FONTE',
+      });
+    }
+
+    const concurrentEvents: Array<{
+      id: string;
+      category: 'BACKUP' | 'ANTIVIRUS' | 'SCHEDULED_TASK' | 'POWERBI_GATEWAY' | 'SQL_SERVER_EVENT';
+      title: string;
+      source: string;
+      startedAt: string;
+      endedAt: string | null;
+      status: 'EM_ANDAMENTO' | 'CONCLUIDO' | 'FALHA';
+      detail: string;
+    }> = [];
+    const seenConcurrentKeys = new Set<string>();
+    for (const s of sessionsRes.recordset || []) {
+      const cmdUpper = String(s.command || '').toUpperCase();
+      const progName = String(s.program_name || '');
+      const progUpper = progName.toUpperCase();
+      const statusUpper = String(s.session_status || '').toUpperCase();
+      const openTx = Number(s.open_transaction_count || 0);
+      const isRunningOrOpen = statusUpper !== 'SLEEPING' || openTx > 0 || Boolean(s.blocking_session_id);
+      if (!isRunningOrOpen) continue;
+
+      const startedIso = s.last_request_start_time_iso ? String(s.last_request_start_time_iso) : observedAt;
+      const dbName = String(s.database_name || 'master');
+
+      if (cmdUpper.includes('BACKUP')) {
+        const key = `backup:${s.session_id}`;
+        if (!seenConcurrentKeys.has(key)) {
+          seenConcurrentKeys.add(key);
+          concurrentEvents.push({
+            id: `evt-backup-${s.session_id}`,
+            category: 'BACKUP',
+            title: `Rotina de Backup em andamento (${dbName})`,
+            source: progName || 'SQL Server Backup',
+            startedAt: startedIso,
+            endedAt: null,
+            status: 'EM_ANDAMENTO',
+            detail: `Sessão ${s.session_id} executando comando ${s.command} em ${dbName}.`,
+          });
+        }
+      } else if (progUpper.includes('MASHUP') || progUpper.includes('POWERBI') || progUpper.includes('POWER BI')) {
+        const key = `pbi:${s.session_id}`;
+        if (!seenConcurrentKeys.has(key)) {
+          seenConcurrentKeys.add(key);
+          concurrentEvents.push({
+            id: `evt-pbi-${s.session_id}`,
+            category: 'POWERBI_GATEWAY',
+            title: 'Extração Power BI Gateway (Mashup Engine)',
+            source: progName || 'On-premises data gateway',
+            startedAt: startedIso,
+            endedAt: null,
+            status: 'EM_ANDAMENTO',
+            detail: `Sessão ${s.session_id} (${s.host_name || host}) consultando ${dbName} com status ${s.session_status}.`,
+          });
+        }
+      } else if (progUpper.includes('SQLAGENT')) {
+        const key = `agent:${s.session_id}`;
+        if (!seenConcurrentKeys.has(key)) {
+          seenConcurrentKeys.add(key);
+          concurrentEvents.push({
+            id: `evt-agent-${s.session_id}`,
+            category: 'SCHEDULED_TASK',
+            title: `Job do SQL Server Agent ativo (${dbName})`,
+            source: progName,
+            startedAt: startedIso,
+            endedAt: null,
+            status: 'EM_ANDAMENTO',
+            detail: `Sessão ${s.session_id} do SQL Server Agent executando comando ${s.command || s.session_status} em ${dbName}.`,
+          });
+        }
+      }
+    }
+
+    const bufferCacheHitRatioPercent =
+      sys.buffer_cache_hit_ratio_pct !== null && sys.buffer_cache_hit_ratio_pct !== undefined
+        ? Math.round(Number(sys.buffer_cache_hit_ratio_pct) * 100) / 100
+        : null;
 
     const samplePayload = {
       observedAt,
+      collectorVersion: AGENT_VERSION,
+      connectorHost: os.hostname(),
       collectionDurationMs: Date.now() - startMs,
       simpleConnectivityPingMs: selectOneMs,
       cpuTotalPercent,
@@ -695,26 +1055,9 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       },
       windowsVolumes,
       windowsNetwork: [],
-      windowsProcesses: [
-        {
-          pid: sqlPid,
-          processName: 'sqlservr.exe',
-          startTimeIso: sqlStartIso,
-          cpuPercent: sqlCpuPercent,
-          privateWorkingSetMb: sqlPhysMb,
-          workingSetMb: Number(sys.sql_committed_mb) || sqlPhysMb,
-          associatedServiceName: 'MSSQLSERVER',
-          associatedServiceDisplayName: 'SQL Server (MSSQLSERVER)',
-          category: 'SQL_SERVER',
-          belongsToWebri: true,
-          webriConfidence: 'ALTA',
-          associationReason: `Instância principal ${metaRow.server_name || host} monitorada ao vivo via DMVs.`,
-          diskIoBytesPerSec: null,
-          diskAttributionSource: 'SQL_DM_IO_VIRTUAL_FILE_STATS',
-        },
-      ],
+      windowsProcesses,
       windowsServices,
-      concurrentEvents: [],
+      concurrentEvents,
       activeSessions,
       waitStatsRaw,
       fileIoRaw,
@@ -729,7 +1072,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           sys.page_life_expectancy_sec !== null && sys.page_life_expectancy_sec !== undefined
             ? Number(sys.page_life_expectancy_sec)
             : null,
-        bufferCacheHitRatioPercent: null,
+        bufferCacheHitRatioPercent,
         memoryGrantsPending: Number(sys.memory_grants_pending ?? 0),
         memoryGrantsActive: Number(sys.memory_grants_active ?? 0),
         grantedWorkspaceMemoryMb: Number(sys.granted_workspace_memory_mb ?? 0),

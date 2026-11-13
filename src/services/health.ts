@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { getRecentQueueFailuresFromDb, type QueueFailureHistoryItem } from '../db/queue.js';
 import { logger } from '../utils/logger.js';
 
 export type SourceName =
@@ -58,6 +59,7 @@ export interface ConnectorHealth {
     failed: number;
     quarantined: number;
     completed: number;
+    recentFailures?: QueueFailureHistoryItem[];
   };
   chunks: {
     activePlans: number;
@@ -427,6 +429,7 @@ export class HealthManager {
         failed: failedQueue,
         quarantined: quarantinedQueue,
         completed: completedQueue,
+        recentFailures: db ? getRecentQueueFailuresFromDb(db, 15) : [],
       },
       chunks: {
         activePlans: activeChunkPlans,
