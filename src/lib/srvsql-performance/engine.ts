@@ -20,6 +20,8 @@ import type {
   AlertEventRecord,
   AlertThresholdRule,
   AssociationConfidence,
+  CostlyQuerySortDirection,
+  CostlyQuerySortKey,
   EvidenceDiagnosticItem,
   SiplanIncidentExportDossier,
   SqlActiveSessionSample,
@@ -429,6 +431,88 @@ export function computeCostlyQueriesDelta(params: {
 
   items.sort((a, b) => b.totalElapsedTimeDeltaMs - a.totalElapsedTimeDeltaMs);
   return items;
+}
+
+/**
+ * Ordena deterministicamente os hashes de consultas custosas por qualquer uma das 7 colunas da tabela,
+ * preservando a ordem original quando `sortKey === null` e mantendo valores nulos/vazios ao final.
+ */
+export function sortCostlyQueries(
+  items: readonly SqlCostlyQueryHashItem[],
+  sortKey: CostlyQuerySortKey | null,
+  direction: CostlyQuerySortDirection = 'desc',
+): SqlCostlyQueryHashItem[] {
+  const copy = [...items];
+  if (!sortKey || copy.length <= 1) {
+    return copy;
+  }
+
+  const mult = direction === 'asc' ? 1 : -1;
+  const normalizeWait = (value: string | null): string | null => {
+    const trimmed = (value ?? '').trim();
+    return !trimmed || trimmed === '—' ? null : trimmed;
+  };
+
+  copy.sort((a, b) => {
+    switch (sortKey) {
+      case 'queryHash': {
+        return mult * a.queryHash.localeCompare(b.queryHash, 'pt-BR', { numeric: true, sensitivity: 'base' });
+      }
+      case 'operationAndDb': {
+        const labelA = `${a.operationKind} (${a.databaseName})`;
+        const labelB = `${b.operationKind} (${b.databaseName})`;
+        const cmp = labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+        if (cmp !== 0) return mult * cmp;
+        if (b.avgElapsedTimeMs !== a.avgElapsedTimeMs) return b.avgElapsedTimeMs - a.avgElapsedTimeMs;
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+      case 'executionCountDelta': {
+        const cmp = a.executionCountDelta - b.executionCountDelta;
+        if (cmp !== 0) return mult * cmp;
+        if (b.avgElapsedTimeMs !== a.avgElapsedTimeMs) return b.avgElapsedTimeMs - a.avgElapsedTimeMs;
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+      case 'avgElapsedTimeMs': {
+        const cmp = a.avgElapsedTimeMs - b.avgElapsedTimeMs;
+        if (cmp !== 0) return mult * cmp;
+        if (b.totalLogicalReadsDelta !== a.totalLogicalReadsDelta) {
+          return b.totalLogicalReadsDelta - a.totalLogicalReadsDelta;
+        }
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+      case 'baseline': {
+        const aNull = a.baselineAvgElapsedTimeMs === null;
+        const bNull = b.baselineAvgElapsedTimeMs === null;
+        if (aNull !== bNull) return aNull ? 1 : -1;
+        if (aNull && bNull) return a.queryHash.localeCompare(b.queryHash);
+        const cmp = (a.baselineAvgElapsedTimeMs ?? 0) - (b.baselineAvgElapsedTimeMs ?? 0);
+        if (cmp !== 0) return mult * cmp;
+        const ratioCmp = (a.regressionRatio ?? 0) - (b.regressionRatio ?? 0);
+        if (ratioCmp !== 0) return mult * ratioCmp;
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+      case 'totalLogicalReadsDelta': {
+        const cmp = a.totalLogicalReadsDelta - b.totalLogicalReadsDelta;
+        if (cmp !== 0) return mult * cmp;
+        if (b.avgElapsedTimeMs !== a.avgElapsedTimeMs) return b.avgElapsedTimeMs - a.avgElapsedTimeMs;
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+      case 'lastWaitTypeHint': {
+        const aWait = normalizeWait(a.lastWaitTypeHint);
+        const bWait = normalizeWait(b.lastWaitTypeHint);
+        const aNull = aWait === null;
+        const bNull = bWait === null;
+        if (aNull !== bNull) return aNull ? 1 : -1;
+        if (aNull && bNull) return a.queryHash.localeCompare(b.queryHash);
+        const cmp = (aWait ?? '').localeCompare(bWait ?? '', 'pt-BR', { sensitivity: 'base' });
+        if (cmp !== 0) return mult * cmp;
+        if (b.avgElapsedTimeMs !== a.avgElapsedTimeMs) return b.avgElapsedTimeMs - a.avgElapsedTimeMs;
+        return a.queryHash.localeCompare(b.queryHash);
+      }
+    }
+  });
+
+  return copy;
 }
 
 /**

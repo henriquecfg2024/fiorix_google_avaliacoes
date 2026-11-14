@@ -13,6 +13,7 @@ import {
   evaluateMemoryPressureEvidence,
   evaluateWebriSessionAssociation,
   formatMetricOrMissing,
+  sortCostlyQueries,
 } from '@/lib/srvsql-performance/engine';
 import {
   buildSrvsqlPerformanceSnapshot,
@@ -933,5 +934,165 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     });
     const snapOn = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
     expect(snapOn.coverageSources.find((c) => c.id === 'cov-windows-perf')?.status).toBe('DISPONIVEL');
+  });
+
+  it('17. sortCostlyQueries ordena determinísticamente todas as 7 colunas (asc/desc) mantendo nulos/vazios no fim', () => {
+    const items = [
+      {
+        queryHash: '0x2B',
+        databaseName: 'WEBRI',
+        executionCountDelta: 12,
+        totalElapsedTimeDeltaMs: 768,
+        avgElapsedTimeMs: 64,
+        baselineAvgElapsedTimeMs: 66,
+        regressionRatio: 1.0,
+        totalCpuTimeDeltaMs: 120,
+        totalLogicalReadsDelta: 9408,
+        totalWritesDelta: 4,
+        lastWaitTypeHint: 'LCK_M_X',
+        operationKind: 'GRAVACAO_TRANSACIONAL' as const,
+      },
+      {
+        queryHash: '0x0A',
+        databaseName: 'SPCM_EPP',
+        executionCountDelta: 179,
+        totalElapsedTimeDeltaMs: 2506,
+        avgElapsedTimeMs: 14,
+        baselineAvgElapsedTimeMs: null,
+        regressionRatio: null,
+        totalCpuTimeDeltaMs: 900,
+        totalLogicalReadsDelta: 264488,
+        totalWritesDelta: 0,
+        lastWaitTypeHint: null,
+        operationKind: 'CONSULTA' as const,
+      },
+      {
+        queryHash: '0x1C',
+        databaseName: 'WEBRI',
+        executionCountDelta: 3,
+        totalElapsedTimeDeltaMs: 657,
+        avgElapsedTimeMs: 219,
+        baselineAvgElapsedTimeMs: 228,
+        regressionRatio: 1.0,
+        totalCpuTimeDeltaMs: 410,
+        totalLogicalReadsDelta: 9660,
+        totalWritesDelta: 0,
+        lastWaitTypeHint: 'ASYNC_NETWORK_IO',
+        operationKind: 'PROCEDIMENTO' as const,
+      },
+      {
+        queryHash: '0x3D',
+        databaseName: 'ECKSISTEMAS',
+        executionCountDelta: 27,
+        totalElapsedTimeDeltaMs: 405,
+        avgElapsedTimeMs: 15,
+        baselineAvgElapsedTimeMs: 13,
+        regressionRatio: 1.2,
+        totalCpuTimeDeltaMs: 80,
+        totalLogicalReadsDelta: 17675,
+        totalWritesDelta: 0,
+        lastWaitTypeHint: '—',
+        operationKind: 'CONSULTA' as const,
+      },
+    ];
+
+    // sortKey = null preserva ordem original sem mutar o array de entrada
+    const snapshotBefore = items.map((i) => i.queryHash);
+    const defaultOrder = sortCostlyQueries(items, null, 'desc');
+    expect(defaultOrder.map((i) => i.queryHash)).toEqual(['0x2B', '0x0A', '0x1C', '0x3D']);
+    expect(items.map((i) => i.queryHash)).toEqual(snapshotBefore);
+
+    // 1. queryHash
+    expect(sortCostlyQueries(items, 'queryHash', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x0A',
+      '0x1C',
+      '0x2B',
+      '0x3D',
+    ]);
+    expect(sortCostlyQueries(items, 'queryHash', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x3D',
+      '0x2B',
+      '0x1C',
+      '0x0A',
+    ]);
+
+    // 2. operationAndDb
+    expect(sortCostlyQueries(items, 'operationAndDb', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x3D', // CONSULTA (ECKSISTEMAS)
+      '0x0A', // CONSULTA (SPCM_EPP)
+      '0x2B', // GRAVACAO_TRANSACIONAL (WEBRI)
+      '0x1C', // PROCEDIMENTO (WEBRI)
+    ]);
+    expect(sortCostlyQueries(items, 'operationAndDb', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x1C',
+      '0x2B',
+      '0x0A',
+      '0x3D',
+    ]);
+
+    // 3. executionCountDelta
+    expect(sortCostlyQueries(items, 'executionCountDelta', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x0A',
+      '0x3D',
+      '0x2B',
+      '0x1C',
+    ]);
+    expect(sortCostlyQueries(items, 'executionCountDelta', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x1C',
+      '0x2B',
+      '0x3D',
+      '0x0A',
+    ]);
+
+    // 4. avgElapsedTimeMs
+    expect(sortCostlyQueries(items, 'avgElapsedTimeMs', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x1C',
+      '0x2B',
+      '0x3D',
+      '0x0A',
+    ]);
+    expect(sortCostlyQueries(items, 'avgElapsedTimeMs', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x0A',
+      '0x3D',
+      '0x2B',
+      '0x1C',
+    ]);
+
+    // 5. baseline (nulos sempre no fim em asc e desc)
+    expect(sortCostlyQueries(items, 'baseline', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x3D',
+      '0x2B',
+      '0x1C',
+      '0x0A',
+    ]);
+    expect(sortCostlyQueries(items, 'baseline', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x1C',
+      '0x2B',
+      '0x3D',
+      '0x0A',
+    ]);
+
+    // 6. totalLogicalReadsDelta
+    expect(sortCostlyQueries(items, 'totalLogicalReadsDelta', 'desc').map((i) => i.queryHash)).toEqual([
+      '0x0A',
+      '0x3D',
+      '0x1C',
+      '0x2B',
+    ]);
+    expect(sortCostlyQueries(items, 'totalLogicalReadsDelta', 'asc').map((i) => i.queryHash)).toEqual([
+      '0x2B',
+      '0x1C',
+      '0x3D',
+      '0x0A',
+    ]);
+
+    // 7. lastWaitTypeHint (null e '—' sempre no fim em asc e desc)
+    const waitAsc = sortCostlyQueries(items, 'lastWaitTypeHint', 'asc').map((i) => i.queryHash);
+    expect(waitAsc.slice(0, 2)).toEqual(['0x1C', '0x2B']);
+    expect(waitAsc.slice(2)).toEqual(['0x0A', '0x3D']);
+
+    const waitDesc = sortCostlyQueries(items, 'lastWaitTypeHint', 'desc').map((i) => i.queryHash);
+    expect(waitDesc.slice(0, 2)).toEqual(['0x2B', '0x1C']);
+    expect(waitDesc.slice(2)).toEqual(['0x0A', '0x3D']);
   });
 });

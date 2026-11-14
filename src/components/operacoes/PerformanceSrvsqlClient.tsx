@@ -3,6 +3,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CheckCircle2,
   Clock,
   Copy,
@@ -17,9 +20,15 @@ import {
   ShieldCheck,
   Terminal,
 } from 'lucide-react';
-import { formatMetricOrMissing, buildSiplanIncidentReport } from '@/lib/srvsql-performance/engine';
+import {
+  buildSiplanIncidentReport,
+  formatMetricOrMissing,
+  sortCostlyQueries,
+} from '@/lib/srvsql-performance/engine';
 import { MINIMUM_PERMISSIONS_SQL_SCRIPT } from '@/lib/srvsql-performance/sql-queries';
 import type {
+  CostlyQuerySortDirection,
+  CostlyQuerySortKey,
   SrvsqlPerformanceDashboardSnapshot,
   TimeWindowPreset,
   UserSlownessIncidentRecord,
@@ -50,6 +59,20 @@ const REAL_FOCUS_TO_TAB: Record<RealDiagnosticFocusId, ActiveTabId> = {
   LIVE_PERMISSOES: 'coleta_acesso',
 };
 
+const COSTLY_QUERY_COLUMNS: ReadonlyArray<{
+  key: CostlyQuerySortKey;
+  label: string;
+  thClassName: string;
+}> = [
+  { key: 'queryHash', label: 'Query Hash', thClassName: 'py-2 pr-3' },
+  { key: 'operationAndDb', label: 'Tipo / Banco', thClassName: 'py-2 px-3' },
+  { key: 'executionCountDelta', label: 'Execuções (Δ)', thClassName: 'py-2 px-3' },
+  { key: 'avgElapsedTimeMs', label: 'Duração Média Atual', thClassName: 'py-2 px-3' },
+  { key: 'baseline', label: 'Linha de Base', thClassName: 'py-2 px-3' },
+  { key: 'totalLogicalReadsDelta', label: 'Leituras Lógicas (Δ)', thClassName: 'py-2 px-3' },
+  { key: 'lastWaitTypeHint', label: 'Espera Associada', thClassName: 'py-2 pl-3' },
+];
+
 export function PerformanceSrvsqlClient({
   initialSnapshot,
   userRole,
@@ -61,6 +84,28 @@ export function PerformanceSrvsqlClient({
   const [loadingScenario, setLoadingScenario] = useState(false);
   const [nowTickMs, setNowTickMs] = useState<number>(() => Date.now());
   const windowPresetRef = useRef<TimeWindowPreset>(windowPreset);
+  const [costlyQuerySort, setCostlyQuerySort] = useState<{
+    key: CostlyQuerySortKey | null;
+    direction: CostlyQuerySortDirection;
+  }>({ key: null, direction: 'desc' });
+
+  const handleCostlyQuerySort = useCallback((nextKey: CostlyQuerySortKey) => {
+    setCostlyQuerySort((prev) => {
+      if (prev.key === nextKey) {
+        return { key: nextKey, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      const defaultDir: CostlyQuerySortDirection =
+        nextKey === 'queryHash' || nextKey === 'operationAndDb' || nextKey === 'lastWaitTypeHint'
+          ? 'asc'
+          : 'desc';
+      return { key: nextKey, direction: defaultDir };
+    });
+  }, []);
+
+  const sortedCostlyQueries = useMemo(
+    () => sortCostlyQueries(snapshot.costlyQueries, costlyQuerySort.key, costlyQuerySort.direction),
+    [snapshot.costlyQueries, costlyQuerySort.key, costlyQuerySort.direction],
+  );
 
   useEffect(() => {
     windowPresetRef.current = windowPreset;
@@ -1273,9 +1318,20 @@ export function PerformanceSrvsqlClient({
                 <h3 className="text-sm font-bold text-white">
                   Consultas Mais Custosas e Regressões no Intervalo (Agrupadas por query_hash)
                 </h3>
-                <span className="text-xs text-slate-400">
-                  Privacidade: textos SQL com parâmetros e CPF/CNPJ não são armazenados por padrão
-                </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  {costlyQuerySort.key !== null && (
+                    <button
+                      type="button"
+                      onClick={() => setCostlyQuerySort({ key: null, direction: 'desc' })}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Restaurar padrão
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-400">
+                    Privacidade: textos SQL com parâmetros e CPF/CNPJ não são armazenados por padrão
+                  </span>
+                </div>
               </div>
 
               {snapshot.costlyQueries.length === 0 ? (
@@ -1287,17 +1343,40 @@ export function PerformanceSrvsqlClient({
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 bg-[#0c1422] z-10">
                       <tr className="border-b border-slate-800 text-slate-400">
-                        <th className="py-2 pr-3">Query Hash</th>
-                        <th className="py-2 px-3">Tipo / Banco</th>
-                        <th className="py-2 px-3">Execuções (Δ)</th>
-                        <th className="py-2 px-3">Duração Média Atual</th>
-                        <th className="py-2 px-3">Linha de Base</th>
-                        <th className="py-2 px-3">Leituras Lógicas (Δ)</th>
-                        <th className="py-2 pl-3">Espera Associada</th>
+                        {COSTLY_QUERY_COLUMNS.map((col) => {
+                          const isActive = costlyQuerySort.key === col.key;
+                          const ariaSort = isActive
+                            ? costlyQuerySort.direction === 'asc'
+                              ? 'ascending'
+                              : 'descending'
+                            : 'none';
+                          return (
+                            <th key={col.key} aria-sort={ariaSort} className={col.thClassName}>
+                              <button
+                                type="button"
+                                onClick={() => handleCostlyQuerySort(col.key)}
+                                className={`group inline-flex items-center gap-1 font-semibold transition-colors hover:text-white select-none ${
+                                  isActive ? 'text-cyan-300' : ''
+                                }`}
+                              >
+                                <span>{col.label}</span>
+                                {isActive ? (
+                                  costlyQuerySort.direction === 'asc' ? (
+                                    <ArrowUp className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                  ) : (
+                                    <ArrowDown className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                  )
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 text-slate-500 group-hover:text-slate-300 shrink-0" />
+                                )}
+                              </button>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {snapshot.costlyQueries.map((q) => (
+                      {sortedCostlyQueries.map((q) => (
                         <tr key={q.queryHash}>
                           <td className="py-2.5 pr-3 font-mono font-semibold text-cyan-300">
                             {q.queryHash}

@@ -341,6 +341,17 @@ export interface SqlCostlyQueryHashItem {
   operationKind: 'CONSULTA' | 'GRAVACAO_TRANSACIONAL' | 'RELATORIO_LOTE' | 'PROCEDIMENTO';
 }
 
+export type CostlyQuerySortKey =
+  | 'queryHash'
+  | 'operationAndDb'
+  | 'executionCountDelta'
+  | 'avgElapsedTimeMs'
+  | 'baseline'
+  | 'totalLogicalReadsDelta'
+  | 'lastWaitTypeHint';
+
+export type CostlyQuerySortDirection = 'asc' | 'desc';
+
 export interface SrvsqlTimelinePoint {
   timestampIso: string;
   timeLabel: string;
