@@ -17,6 +17,7 @@ import { prisma } from '@/lib/prisma';
 import {
   buildBlockingChains,
   buildProcessInstanceKey,
+  computeAlertRulesLiveEvaluations,
   computeCollectorBackoffSeconds,
   computeCostlyQueriesDelta,
   computeFileIoLatencyDelta,
@@ -164,6 +165,8 @@ interface TenantMonitorRuntimeState {
   collectorBudget: CollectorRuntimeBudget;
   lastCollectorError: string | null;
   lastCollectorTimeoutAt: string | null;
+  dbTotalSamplesCount: number | null;
+  dbOldestSampleAt: string | null;
 }
 
 const DEFAULT_WEBRI_CONFIG: WebriAssociationConfig = {
@@ -263,6 +266,40 @@ async function ensureMonitoringTables(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_srvsql_perf_samples_tenant_observed
         ON srvsql_perf_samples (tenant_id, observed_at DESC);
     `);
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS srvsql_perf_config (
+        tenant_id TEXT PRIMARY KEY,
+        alert_rules JSONB,
+        webri_config JSONB,
+        collector_budget JSONB,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_by TEXT NOT NULL DEFAULT 'Sistema'
+      );
+    `);
+    await prisma.$executeRawUnsafe(`
+      DO $$
+      DECLARE
+        v_tbl TEXT;
+        v_pol TEXT;
+      BEGIN
+        FOREACH v_tbl IN ARRAY ARRAY['srvsql_perf_incidents', 'srvsql_perf_samples', 'srvsql_perf_config'] LOOP
+          EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', v_tbl);
+          EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated;', v_tbl);
+          v_pol := 'rls_' || v_tbl || '_deny_external';
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE schemaname = 'public' AND tablename = v_tbl AND policyname = v_pol
+          ) THEN
+            EXECUTE format(
+              'CREATE POLICY %I ON public.%I FOR ALL TO anon, authenticated USING (false) WITH CHECK (false);',
+              v_pol,
+              v_tbl
+            );
+          END IF;
+        END LOOP;
+      END;
+      $$;
+    `);
     ddlInitialized = true;
   } catch {
     // Em ambiente de teste sem banco ativo, opera em memória de forma resiliente
@@ -290,6 +327,8 @@ export function getOrCreateTenantState(tenantId: string): TenantMonitorRuntimeSt
       collectorBudget: { ...DEFAULT_COLLECTOR_BUDGET },
       lastCollectorError: null,
       lastCollectorTimeoutAt: null,
+      dbTotalSamplesCount: null,
+      dbOldestSampleAt: null,
     };
     runtimeStateByTenant.set(key, state);
   }
@@ -396,6 +435,9 @@ export async function persistAndIngestCollectorSample(
 
   try {
     const sampleId = `${tenantId}:${observedIso}`;
+    const state = getOrCreateTenantState(tenantId);
+    const retentionDays = Math.max(1, Math.round(state.collectorBudget.retentionDays || 14));
+    const maxStoredSnapshots = Math.max(100, Math.round(state.collectorBudget.maxStoredSnapshots || 2880));
     await prisma.$executeRawUnsafe(
       `INSERT INTO srvsql_perf_samples (id, tenant_id, observed_at, payload)
        VALUES ($1, $2, $3::timestamptz, $4::jsonb)
@@ -407,8 +449,19 @@ export async function persistAndIngestCollectorSample(
     );
     await prisma.$executeRawUnsafe(
       `DELETE FROM srvsql_perf_samples
-       WHERE tenant_id = $1 AND observed_at < NOW() - INTERVAL '48 hours'`,
+       WHERE tenant_id = $1
+         AND (
+           observed_at < NOW() - ($2::int * INTERVAL '1 day')
+           OR id IN (
+             SELECT id FROM srvsql_perf_samples
+             WHERE tenant_id = $1
+             ORDER BY observed_at DESC
+             OFFSET $3::int
+           )
+         )`,
       tenantId,
+      retentionDays,
+      maxStoredSnapshots,
     );
   } catch {
     // Mantém amostra em memória se escrita SQL falhar momentaneamente
@@ -417,8 +470,252 @@ export async function persistAndIngestCollectorSample(
   return memResult;
 }
 
+function sanitizeThresholdNumber(value: unknown, unit: string, fallback: number): number {
+  const num = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  const nonNegative = Math.max(0, num);
+  return unit === '%' ? Math.min(100, nonNegative) : Math.round(nonNegative * 10) / 10;
+}
+
+function applyValidatedRulePatch(
+  base: AlertThresholdRule,
+  patch: Partial<AlertThresholdRule>,
+  audit?: { updatedAt: string; updatedBy: string },
+): AlertThresholdRule {
+  const warningThreshold =
+    patch.warningThreshold !== undefined
+      ? sanitizeThresholdNumber(patch.warningThreshold, base.unit, base.warningThreshold)
+      : base.warningThreshold;
+  const criticalThreshold =
+    patch.criticalThreshold !== undefined
+      ? sanitizeThresholdNumber(patch.criticalThreshold, base.unit, base.criticalThreshold)
+      : base.criticalThreshold;
+  const recoveryHysteresisThreshold =
+    patch.recoveryHysteresisThreshold !== undefined
+      ? sanitizeThresholdNumber(
+          patch.recoveryHysteresisThreshold,
+          base.unit,
+          base.recoveryHysteresisThreshold,
+        )
+      : base.recoveryHysteresisThreshold;
+  const minDurationSeconds =
+    patch.minDurationSeconds !== undefined
+      ? Math.min(3600, Math.max(0, Math.round(sanitizeThresholdNumber(patch.minDurationSeconds, 's', base.minDurationSeconds))))
+      : base.minDurationSeconds;
+  const enabled = typeof patch.enabled === 'boolean' ? patch.enabled : base.enabled;
+  const noteRaw =
+    typeof patch.baselineAdjustableNote === 'string' ? patch.baselineAdjustableNote.trim() : '';
+  const baselineAdjustableNote =
+    noteRaw.length > 0 ? noteRaw.slice(0, 240) : base.baselineAdjustableNote;
+
+  const changed =
+    warningThreshold !== base.warningThreshold ||
+    criticalThreshold !== base.criticalThreshold ||
+    recoveryHysteresisThreshold !== base.recoveryHysteresisThreshold ||
+    minDurationSeconds !== base.minDurationSeconds ||
+    enabled !== base.enabled ||
+    baselineAdjustableNote !== base.baselineAdjustableNote;
+
+  return {
+    ...base,
+    warningThreshold,
+    criticalThreshold,
+    recoveryHysteresisThreshold,
+    minDurationSeconds,
+    enabled,
+    baselineAdjustableNote,
+    updatedAt: changed && audit ? audit.updatedAt : (patch.updatedAt ?? base.updatedAt ?? null),
+    updatedBy: changed && audit ? audit.updatedBy : (patch.updatedBy ?? base.updatedBy ?? null),
+  };
+}
+
+function mergeAlertRulesWithDefaults(savedRules: unknown): AlertThresholdRule[] {
+  if (!Array.isArray(savedRules)) {
+    return DEFAULT_ALERT_RULES.map((r) => ({ ...r }));
+  }
+  const byId = new Map<string, Partial<AlertThresholdRule>>();
+  for (const item of savedRules) {
+    if (item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string') {
+      byId.set((item as { id: string }).id, item as Partial<AlertThresholdRule>);
+    }
+  }
+  return DEFAULT_ALERT_RULES.map((def) => {
+    const patch = byId.get(def.id);
+    return patch ? applyValidatedRulePatch(def, patch) : { ...def };
+  });
+}
+
+function rawMinVolumeFreePercent(volumes: WindowsVolumeIoSample[]): number | null {
+  let minPct: number | null = null;
+  for (const v of volumes) {
+    if (v.freePercent === null || v.freePercent === undefined || !Number.isFinite(v.freePercent)) {
+      continue;
+    }
+    minPct = minPct === null ? v.freePercent : Math.min(minPct, v.freePercent);
+  }
+  return minPct;
+}
+
 /**
- * Hidrata as amostras reais persistidas no PostgreSQL antes de construir o snapshot do painel,
+ * Evita falso alarme em volumes grandes com >= 25 GB livres (mantém alerta se < 5%),
+ * mas retorna `null` quando não há volumes reportados (nunca fabrica `50%`).
+ */
+function effectiveVolumeFreePercent(volumes: WindowsVolumeIoSample[]): number | null {
+  return volumes.reduce<number | null>((acc, v) => {
+    if (v.freePercent === null || v.freePercent === undefined || !Number.isFinite(v.freePercent)) {
+      return acc;
+    }
+    const effectivePct =
+      v.freeSpaceGb !== null && v.freeSpaceGb >= 25 && v.freePercent > 4
+        ? 20
+        : v.freePercent <= 8 && v.freeSpaceGb !== null && v.freeSpaceGb >= 12
+          ? 10
+          : v.freePercent;
+    return acc === null ? effectivePct : Math.min(acc, effectivePct);
+  }, null);
+}
+
+function extractSampleDiskLatencyMs(
+  samples: NormalizedCollectorSample[],
+  idx: number,
+  mode: 'write' | 'read',
+): number | null {
+  if (idx <= 0 || !samples[idx]?.fileIoRaw || !samples[idx - 1]?.fileIoRaw) return null;
+  const delta = computeFileIoLatencyDelta({
+    previousFiles: samples[idx - 1]!.fileIoRaw,
+    currentFiles: samples[idx]!.fileIoRaw,
+    previousSqlStartTime: samples[idx - 1]!.sqlMetadata?.sqlServerStartTime,
+    currentSqlStartTime: samples[idx]!.sqlMetadata?.sqlServerStartTime,
+  });
+  if (delta.counterResetDetected || delta.items.length === 0) return null;
+  const reliable = delta.items.filter((f) =>
+    mode === 'write'
+      ? f.writeLatencyDeltaMs !== null && (f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25)
+      : f.readLatencyDeltaMs !== null && (f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25),
+  );
+  const webriRow =
+    reliable.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
+    reliable[0];
+  if (!webriRow) return null;
+  const val = mode === 'write' ? webriRow.writeLatencyDeltaMs : webriRow.readLatencyDeltaMs;
+  return val !== null && val !== undefined ? Math.round(val) : null;
+}
+
+function computeRuleSustainedDurationMap(
+  samples: NormalizedCollectorSample[],
+  endIdx: number,
+  rules: AlertThresholdRule[],
+): Partial<Record<string, number>> {
+  if (samples.length < 2 || endIdx < 1) return {};
+  const ruleThresh = (id: string, defWarn: number) =>
+    rules.find((r) => r.id === id)?.warningThreshold ?? defWarn;
+  const diskWriteWarn = ruleThresh('rule-disk-write-latency', 20);
+  const diskReadWarn = ruleThresh('rule-disk-read-latency', 25);
+  const memWarn = ruleThresh('rule-memory-grants-pending', 1);
+  const cpuWarn = ruleThresh('rule-cpu-sustained', 80);
+  const freeWarn = ruleThresh('rule-free-space-low', 15);
+
+  const measureStreakSeconds = (predicate: (s: NormalizedCollectorSample, idx: number) => boolean): number => {
+    const latest = samples[endIdx];
+    if (!latest || !predicate(latest, endIdx)) return 0;
+    let streakStart = endIdx;
+    for (let i = endIdx - 1; i >= 0; i -= 1) {
+      if (!predicate(samples[i]!, i)) break;
+      streakStart = i;
+    }
+    if (streakStart >= endIdx) return 0;
+    const tEnd = Date.parse(latest.observedAt);
+    const tStart = Date.parse(samples[streakStart]!.observedAt);
+    return Number.isFinite(tEnd) && Number.isFinite(tStart)
+      ? Math.max(0, Math.round((tEnd - tStart) / 1000))
+      : 0;
+  };
+
+  return {
+    'rule-disk-write-latency': measureStreakSeconds((_s, idx) => {
+      const lat = extractSampleDiskLatencyMs(samples, idx, 'write');
+      return lat !== null && lat >= diskWriteWarn;
+    }),
+    'rule-disk-read-latency': measureStreakSeconds((_s, idx) => {
+      const lat = extractSampleDiskLatencyMs(samples, idx, 'read');
+      return lat !== null && lat >= diskReadWarn;
+    }),
+    'rule-memory-grants-pending': measureStreakSeconds(
+      (s) => s.sqlMemory?.memoryGrantsPending !== null && s.sqlMemory.memoryGrantsPending >= memWarn,
+    ),
+    'rule-cpu-sustained': measureStreakSeconds(
+      (s) => s.cpuTotalPercent !== null && s.cpuTotalPercent >= cpuWarn,
+    ),
+    'rule-free-space-low': measureStreakSeconds((s) => {
+      const eff = effectiveVolumeFreePercent(s.windowsVolumes || []);
+      return eff !== null && eff <= freeWarn;
+    }),
+  };
+}
+
+function replayHistoricalAlertsUpToBeforeLatest(
+  samples: NormalizedCollectorSample[],
+  rules: AlertThresholdRule[],
+): AlertEventRecord[] {
+  if (samples.length < 2) return [];
+  const startIdx = Math.max(0, samples.length - 60);
+  const stopIdx = samples.length - 1; // exclui latest (avaliado no snapshot atual)
+  let alerts: AlertEventRecord[] = [];
+
+  for (let i = startIdx; i < stopIdx; i += 1) {
+    const sample = samples[i]!;
+    if (sample.sqlMetadata?.hasViewServerState === false) continue;
+
+    const chains = buildBlockingChains(sample.activeSessions || []);
+    const blocked = (sample.activeSessions || []).filter(
+      (s) => s.blockingSessionId !== null && s.blockingSessionId > 0,
+    );
+    const maxBlockedSec =
+      blocked.length > 0
+        ? Math.round(Math.max(...blocked.map((s) => Number(s.waitTimeMs || 0))) / 100) / 10
+        : 0;
+
+    const prevSample = i > 0 ? samples[i - 1]! : null;
+    const tCurr = Date.parse(sample.observedAt);
+    const tPrev = prevSample ? Date.parse(prevSample.observedAt) : NaN;
+    const gapSec =
+      Number.isFinite(tCurr) && Number.isFinite(tPrev) ? Math.max(0, Math.round((tCurr - tPrev) / 1000)) : 0;
+
+    alerts = evaluateAlertsWithHysteresis({
+      rules,
+      existingAlerts: alerts,
+      observedAtIso: sample.observedAt,
+      sustainedDurationSecondsByRule: computeRuleSustainedDurationMap(samples, i, rules),
+      metrics: {
+        maxBlockedDurationSeconds: maxBlockedSec,
+        blockedSessionsCount: blocked.length,
+        rootBlockerSessionId: chains[0]?.rootBlockerSessionId ?? null,
+        maxDiskWriteLatencyMs: extractSampleDiskLatencyMs(samples, i, 'write'),
+        maxDiskReadLatencyMs: extractSampleDiskLatencyMs(samples, i, 'read'),
+        provenMemoryPressureScore: sample.sqlMemory?.memoryGrantsPending ?? null,
+        cpuPercent: sample.cpuTotalPercent ?? null,
+        minVolumeFreePercent: effectiveVolumeFreePercent(sample.windowsVolumes || []),
+        criticalServiceStoppedCount: (sample.windowsServices || []).filter(
+          (svc) => svc.state === 'STOPPED' && svc.startMode === 'AUTO',
+        ).length,
+        collectorDelaySeconds: gapSec,
+      },
+    });
+  }
+
+  return alerts;
+}
+
+const SAMPLE_LIMIT_BY_WINDOW: Record<TimeWindowPreset, number> = {
+  '15m': 120,
+  '30m': 160,
+  '1h': 240,
+  '6h': 800,
+  '24h': 2880,
+};
+
+/**
+ * Hidrata as amostras reais, configurações e contagens persistidas no PostgreSQL antes de construir o snapshot,
  * garantindo que diferentes workers serverless na Vercel leiam sempre os dados mais recentes do SRVSQL.
  */
 export async function loadSrvsqlPerformanceSnapshot(
@@ -429,8 +726,9 @@ export async function loadSrvsqlPerformanceSnapshot(
   if (requestedScenario === 'LIVE_OR_REAL') {
     await ensureMonitoringTables();
     const state = getOrCreateTenantState(tenantId);
+    const sampleLimit = SAMPLE_LIMIT_BY_WINDOW[windowPreset] || 160;
     try {
-      const [sampleRows, incidentRows] = await Promise.all([
+      const [sampleRows, incidentRows, configRows, statsRows] = await Promise.all([
         prisma.$queryRawUnsafe<
           Array<{ observed_at: Date; payload: RawCollectorIngestPayload | string }>
         >(
@@ -438,8 +736,9 @@ export async function loadSrvsqlPerformanceSnapshot(
            FROM srvsql_perf_samples
            WHERE tenant_id = $1
            ORDER BY observed_at DESC
-           LIMIT 120`,
+           LIMIT $2`,
           tenantId,
+          sampleLimit,
         ),
         prisma.$queryRawUnsafe<
           Array<{
@@ -461,7 +760,74 @@ export async function loadSrvsqlPerformanceSnapshot(
            LIMIT 100`,
           tenantId,
         ).catch(() => []),
+        prisma.$queryRawUnsafe<
+          Array<{
+            alert_rules: AlertThresholdRule[] | string | null;
+            webri_config: WebriAssociationConfig | string | null;
+            collector_budget: Partial<CollectorRuntimeBudget> | string | null;
+            updated_at: Date | null;
+            updated_by: string | null;
+          }>
+        >(
+          `SELECT alert_rules, webri_config, collector_budget, updated_at, updated_by
+           FROM srvsql_perf_config
+           WHERE tenant_id = $1
+           LIMIT 1`,
+          tenantId,
+        ).catch(() => []),
+        prisma.$queryRawUnsafe<
+          Array<{ total_count: number; oldest_at: Date | null }>
+        >(
+          `SELECT COUNT(*)::int AS total_count, MIN(observed_at) AS oldest_at
+           FROM srvsql_perf_samples
+           WHERE tenant_id = $1`,
+          tenantId,
+        ).catch(() => []),
       ]);
+
+      if (Array.isArray(configRows) && configRows.length > 0) {
+        const cfg = configRows[0]!;
+        if (cfg.alert_rules) {
+          const parsedRules =
+            typeof cfg.alert_rules === 'string' ? JSON.parse(cfg.alert_rules) : cfg.alert_rules;
+          state.alertRules = mergeAlertRulesWithDefaults(parsedRules);
+        }
+        if (cfg.webri_config) {
+          const parsedWebri =
+            typeof cfg.webri_config === 'string' ? JSON.parse(cfg.webri_config) : cfg.webri_config;
+          if (parsedWebri && typeof parsedWebri === 'object') {
+            state.webriConfig = {
+              ...state.webriConfig,
+              ...parsedWebri,
+            };
+          }
+        }
+        if (cfg.collector_budget) {
+          const parsedBudget =
+            typeof cfg.collector_budget === 'string'
+              ? JSON.parse(cfg.collector_budget)
+              : cfg.collector_budget;
+          if (parsedBudget && typeof parsedBudget === 'object') {
+            state.collectorBudget = {
+              ...state.collectorBudget,
+              ...parsedBudget,
+            };
+          }
+        }
+      }
+
+      if (Array.isArray(statsRows) && statsRows.length > 0) {
+        const st = statsRows[0]!;
+        if (typeof st.total_count === 'number' && Number.isFinite(st.total_count)) {
+          state.dbTotalSamplesCount = st.total_count;
+        }
+        state.dbOldestSampleAt =
+          st.oldest_at instanceof Date
+            ? st.oldest_at.toISOString()
+            : st.oldest_at
+              ? String(st.oldest_at)
+              : null;
+      }
 
       if (Array.isArray(sampleRows) && sampleRows.length > 0) {
         const chronological = sampleRows
@@ -477,6 +843,7 @@ export async function loadSrvsqlPerformanceSnapshot(
           })
           .reverse();
         state.samples = chronological;
+        state.alerts = replayHistoricalAlertsUpToBeforeLatest(chronological, state.alertRules);
       }
 
       if (Array.isArray(incidentRows) && incidentRows.length > 0) {
@@ -627,23 +994,121 @@ export function updateWebriAssociationConfig(
 }
 
 /**
- * Atualiza limites e histerese das regras de alerta (Seção 7).
+ * Persiste no PostgreSQL a configuração de vínculo do WEBRI.
+ */
+export async function persistWebriAssociationConfig(
+  tenantId: string,
+  patch: Partial<Omit<WebriAssociationConfig, 'updatedAt'>>,
+  updatedBy: string,
+): Promise<WebriAssociationConfig> {
+  await ensureMonitoringTables();
+  const updated = updateWebriAssociationConfig(tenantId, patch, updatedBy);
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO srvsql_perf_config (tenant_id, webri_config, updated_at, updated_by)
+       VALUES ($1, $2::jsonb, NOW(), $3)
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         webri_config = EXCLUDED.webri_config,
+         updated_at = NOW(),
+         updated_by = EXCLUDED.updated_by`,
+      tenantId,
+      JSON.stringify(updated),
+      updatedBy,
+    );
+  } catch {
+    // Mantém em memória se banco não responder
+  }
+  return updated;
+}
+
+/**
+ * Atualiza limites e histerese das regras de alerta (Seção 7) com validação estrita.
  */
 export function updateAlertRulesConfig(
   tenantId: string,
   rulesPatch: Array<Pick<AlertThresholdRule, 'id'> & Partial<AlertThresholdRule>>,
+  updatedBy?: string,
 ): AlertThresholdRule[] {
   const state = getOrCreateTenantState(tenantId);
+  const nowIso = new Date().toISOString();
+  const audit = updatedBy ? { updatedAt: nowIso, updatedBy } : undefined;
   for (const patch of rulesPatch) {
+    if (!patch || typeof patch.id !== 'string') continue;
     const idx = state.alertRules.findIndex((r) => r.id === patch.id);
     if (idx >= 0) {
-      state.alertRules[idx] = {
-        ...state.alertRules[idx],
-        ...patch,
-      };
+      state.alertRules[idx] = applyValidatedRulePatch(state.alertRules[idx]!, patch, audit);
     }
   }
   return state.alertRules.map((r) => ({ ...r }));
+}
+
+/**
+ * Restaura os limiares padrão das regras de alerta.
+ */
+export function resetAlertRulesConfig(tenantId: string): AlertThresholdRule[] {
+  const state = getOrCreateTenantState(tenantId);
+  state.alertRules = DEFAULT_ALERT_RULES.map((r) => ({
+    ...r,
+    updatedAt: null,
+    updatedBy: null,
+  }));
+  state.alerts = [];
+  return state.alertRules.map((r) => ({ ...r }));
+}
+
+/**
+ * Persiste no PostgreSQL as regras configuráveis de alerta do SRVSQL.
+ */
+export async function persistAlertRulesConfig(
+  tenantId: string,
+  rulesPatch: Array<Pick<AlertThresholdRule, 'id'> & Partial<AlertThresholdRule>>,
+  updatedBy: string,
+): Promise<AlertThresholdRule[]> {
+  await ensureMonitoringTables();
+  const updated = updateAlertRulesConfig(tenantId, rulesPatch, updatedBy);
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO srvsql_perf_config (tenant_id, alert_rules, updated_at, updated_by)
+       VALUES ($1, $2::jsonb, NOW(), $3)
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         alert_rules = EXCLUDED.alert_rules,
+         updated_at = NOW(),
+         updated_by = EXCLUDED.updated_by`,
+      tenantId,
+      JSON.stringify(updated),
+      updatedBy,
+    );
+  } catch {
+    // Mantém em memória se banco não responder
+  }
+  return updated;
+}
+
+/**
+ * Restaura padrões e limpa customizações de regras no PostgreSQL.
+ */
+export async function persistResetAlertRulesConfig(
+  tenantId: string,
+  updatedBy: string,
+): Promise<AlertThresholdRule[]> {
+  await ensureMonitoringTables();
+  const reset = resetAlertRulesConfig(tenantId);
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO srvsql_perf_config (tenant_id, alert_rules, updated_at, updated_by)
+       VALUES ($1, $2::jsonb, NOW(), $3)
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         alert_rules = EXCLUDED.alert_rules,
+         updated_at = NOW(),
+         updated_by = EXCLUDED.updated_by`,
+      tenantId,
+      JSON.stringify(reset),
+      updatedBy,
+    );
+  } catch {
+    // Mantém em memória se banco não responder
+  }
+  return reset;
 }
 
 function buildBaselineProcesses(webriConfig: WebriAssociationConfig): WindowsProcessSample[] {
@@ -1254,6 +1719,31 @@ export function buildSrvsqlPerformanceSnapshot(
       diagnostics,
       alerts: state.alerts,
       alertRules: state.alertRules,
+      alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+        rules: state.alertRules,
+        alerts: state.alerts,
+        dataSourceMode: 'COLLECTOR_UNAVAILABLE',
+        windowPreset,
+        metrics: {
+          maxBlockedDurationSeconds: null,
+          blockedSessionsCount: null,
+          rootBlockerSessionId: null,
+          diskWriteLatencyMs: null,
+          diskReadLatencyMs: null,
+          memoryGrantsPending: null,
+          windowsAvailableMemoryGb: null,
+          pageLifeExpectancySec: null,
+          bufferCacheHitRatioPercent: null,
+          cpuPercent: null,
+          rawMinVolumeFreePercent: null,
+          effectiveMinVolumeFreePercent: null,
+          volumes: [],
+          collectorDelaySeconds: 420,
+          lastCollectionDurationMs: state.collectorBudget.lastCollectionDurationMs,
+          storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
+          storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+        },
+      }),
       userIncidents: state.incidents,
       webriConfig: state.webriConfig,
       coverageSources: buildCoverageSources(null, false),
@@ -1410,6 +1900,31 @@ export function buildSrvsqlPerformanceSnapshot(
       diagnostics,
       alerts: state.alerts,
       alertRules: state.alertRules,
+      alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+        rules: state.alertRules,
+        alerts: state.alerts,
+        dataSourceMode: 'PARTIAL_LIVE_NO_VIEW_SERVER_STATE',
+        windowPreset,
+        metrics: {
+          maxBlockedDurationSeconds: null,
+          blockedSessionsCount: null,
+          rootBlockerSessionId: null,
+          diskWriteLatencyMs: null,
+          diskReadLatencyMs: null,
+          memoryGrantsPending: null,
+          windowsAvailableMemoryGb: null,
+          pageLifeExpectancySec: null,
+          bufferCacheHitRatioPercent: null,
+          cpuPercent: null,
+          rawMinVolumeFreePercent: null,
+          effectiveMinVolumeFreePercent: null,
+          volumes: [],
+          collectorDelaySeconds: 18,
+          lastCollectionDurationMs: state.collectorBudget.lastCollectionDurationMs,
+          storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
+          storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+        },
+      }),
       userIncidents: state.incidents,
       webriConfig: state.webriConfig,
       coverageSources: buildCoverageSources(false, true),
@@ -1480,8 +1995,10 @@ export function buildSrvsqlPerformanceSnapshot(
               : 'v2.6.13-srvsql-live',
             separateFromUiRefresh: true,
             localQueuePendingCount: 0,
-            storageUsedSamples: state.samples.length,
+            storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
             storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+            oldestSampleAt: state.dbOldestSampleAt ?? state.samples[0]?.observedAt ?? null,
+            observedAvgIntervalSeconds: null,
           },
           sqlMetadata: latest.sqlMetadata,
           zabbixProbe: latest.zabbixProbe || REAL_VERIFIED_ZABBIX_PROBE,
@@ -1535,6 +2052,31 @@ export function buildSrvsqlPerformanceSnapshot(
           diagnostics: noPermDiag,
           alerts: state.alerts,
           alertRules: state.alertRules,
+          alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+            rules: state.alertRules,
+            alerts: state.alerts,
+            dataSourceMode: 'PARTIAL_LIVE_NO_VIEW_SERVER_STATE',
+            windowPreset,
+            metrics: {
+              maxBlockedDurationSeconds: null,
+              blockedSessionsCount: null,
+              rootBlockerSessionId: null,
+              diskWriteLatencyMs: null,
+              diskReadLatencyMs: null,
+              memoryGrantsPending: null,
+              windowsAvailableMemoryGb: null,
+              pageLifeExpectancySec: null,
+              bufferCacheHitRatioPercent: null,
+              cpuPercent: null,
+              rawMinVolumeFreePercent: null,
+              effectiveMinVolumeFreePercent: null,
+              volumes: [],
+              collectorDelaySeconds: delaySeconds,
+              lastCollectionDurationMs: latest.collectionDurationMs ?? state.collectorBudget.lastCollectionDurationMs,
+              storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
+              storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+            },
+          }),
           userIncidents: state.incidents,
           webriConfig: state.webriConfig,
           coverageSources: buildCoverageSources(false, collectorStatus !== 'OFFLINE', {
@@ -1767,90 +2309,76 @@ export function buildSrvsqlPerformanceSnapshot(
         webriDatabases: state.webriConfig.databases,
       });
 
-      const effectiveVolFreePct = (volumes: WindowsVolumeIoSample[]): number =>
-        volumes.reduce<number | null>((acc, v) => {
-          if (v.freePercent === null || v.freePercent === undefined) return acc;
-          const effectivePct =
-            v.freeSpaceGb !== null && v.freeSpaceGb >= 25 && v.freePercent > 4
-              ? 20
-              : v.freePercent <= 8 && v.freeSpaceGb !== null && v.freeSpaceGb >= 12
-                ? 10
-                : v.freePercent;
-          return acc === null ? effectivePct : Math.min(acc, effectivePct);
-        }, null) ?? 50;
-
+      const rawVolFreePct = rawMinVolumeFreePercent(liveVolumes);
       // Evita falso alarme quando volumes grandes ainda têm >= 25 GB livres (mantém alerta se < 5%)
-      const minVolFreePct = effectiveVolFreePct(liveVolumes);
+      const minVolFreePct = effectiveVolumeFreePercent(liveVolumes);
 
-      const computeRuleSustainedSeconds = (
-        ruleId: string,
-        predicate: (s: RawCollectorIngestPayload, idx: number) => boolean,
-      ): number => {
-        if (state.samples.length < 2) return 0;
-        const lastIdx = state.samples.length - 1;
-        if (!predicate(state.samples[lastIdx]!, lastIdx)) return 0;
-        let streakStart = lastIdx;
-        for (let i = lastIdx - 1; i >= 0; i -= 1) {
-          if (!predicate(state.samples[i]!, i)) break;
-          streakStart = i;
+      const sustainedDurationSecondsByRule = computeRuleSustainedDurationMap(
+        state.samples,
+        state.samples.length - 1,
+        state.alertRules,
+      );
+
+      const sampleIntervalsSec: number[] = [];
+      for (let i = 1; i < sourceSamplesForTimeline.length; i += 1) {
+        const tPrev = Date.parse(sourceSamplesForTimeline[i - 1]!.observedAt);
+        const tCurr = Date.parse(sourceSamplesForTimeline[i]!.observedAt);
+        if (Number.isFinite(tPrev) && Number.isFinite(tCurr) && tCurr > tPrev) {
+          const diffSec = (tCurr - tPrev) / 1000;
+          if (diffSec <= 600) {
+            sampleIntervalsSec.push(diffSec);
+          }
         }
-        if (streakStart >= lastIdx) return 0;
-        const tEnd = Date.parse(state.samples[lastIdx]!.observedAt);
-        const tStart = Date.parse(state.samples[streakStart]!.observedAt);
-        return Number.isFinite(tEnd) && Number.isFinite(tStart) ? Math.max(0, Math.round((tEnd - tStart) / 1000)) : 0;
-      };
+      }
+      let observedAvgIntervalSeconds: number | null = null;
+      if (sampleIntervalsSec.length > 0) {
+        const avg = sampleIntervalsSec.reduce((a, b) => a + b, 0) / sampleIntervalsSec.length;
+        observedAvgIntervalSeconds = Math.round(avg);
+      } else if (sourceSamplesForTimeline.length >= 2) {
+        const tFirst = Date.parse(sourceSamplesForTimeline[0]!.observedAt);
+        const tLast = Date.parse(sourceSamplesForTimeline[sourceSamplesForTimeline.length - 1]!.observedAt);
+        if (Number.isFinite(tFirst) && Number.isFinite(tLast) && tLast > tFirst) {
+          observedAvgIntervalSeconds = Math.round(
+            (tLast - tFirst) / 1000 / (sourceSamplesForTimeline.length - 1),
+          );
+        }
+      }
 
-      const ruleThresh = (id: string, defWarn: number) =>
-        state.alertRules.find((r) => r.id === id)?.warningThreshold ?? defWarn;
-      const diskWriteWarn = ruleThresh('rule-disk-write-latency', 20);
-      const diskReadWarn = ruleThresh('rule-disk-read-latency', 25);
-      const memWarn = ruleThresh('rule-memory-grants-pending', 1);
-      const cpuWarn = ruleThresh('rule-cpu-sustained', 80);
-      const freeWarn = ruleThresh('rule-free-space-low', 15);
-
-      const sampleDiskLatency = (idx: number, mode: 'write' | 'read'): number | null => {
-        if (idx <= 0 || !state.samples[idx]?.fileIoRaw || !state.samples[idx - 1]?.fileIoRaw) return null;
-        const delta = computeFileIoLatencyDelta({
-          previousFiles: state.samples[idx - 1]!.fileIoRaw,
-          currentFiles: state.samples[idx]!.fileIoRaw,
-          previousSqlStartTime: state.samples[idx - 1]!.sqlMetadata?.sqlServerStartTime,
-          currentSqlStartTime: state.samples[idx]!.sqlMetadata?.sqlServerStartTime,
-        });
-        if (delta.counterResetDetected || delta.items.length === 0) return null;
-        const reliable = delta.items.filter((f) =>
-          mode === 'write'
-            ? f.writeLatencyDeltaMs !== null && (f.writesDelta >= 5 || (f.writeLatencyDeltaMs ?? 0) <= 25)
-            : f.readLatencyDeltaMs !== null && (f.readsDelta >= 5 || (f.readLatencyDeltaMs ?? 0) <= 25),
-        );
-        const webriRow =
-          reliable.find((f) => f.databaseName.toUpperCase() === 'WEBRI' && f.fileType === 'ROWS') ||
-          reliable[0];
-        if (!webriRow) return null;
-        return mode === 'write' ? webriRow.writeLatencyDeltaMs : webriRow.readLatencyDeltaMs;
-      };
-
-      const sustainedDurationSecondsByRule: Partial<Record<string, number>> = {
-        'rule-disk-write-latency': computeRuleSustainedSeconds(
-          'rule-disk-write-latency',
-          (_s, idx) => (sampleDiskLatency(idx, 'write') ?? 0) >= diskWriteWarn,
-        ),
-        'rule-disk-read-latency': computeRuleSustainedSeconds(
-          'rule-disk-read-latency',
-          (_s, idx) => (sampleDiskLatency(idx, 'read') ?? 0) >= diskReadWarn,
-        ),
-        'rule-memory-grants-pending': computeRuleSustainedSeconds(
-          'rule-memory-grants-pending',
-          (s) => (s.sqlMemory?.memoryGrantsPending ?? 0) >= memWarn,
-        ),
-        'rule-cpu-sustained': computeRuleSustainedSeconds(
-          'rule-cpu-sustained',
-          (s) => (s.cpuTotalPercent ?? 0) >= cpuWarn,
-        ),
-        'rule-free-space-low': computeRuleSustainedSeconds(
-          'rule-free-space-low',
-          (s) => effectiveVolFreePct(s.windowsVolumes || []) <= freeWarn,
-        ),
-      };
+      const cpuValuesInWindow = sourceSamplesForTimeline
+        .map((s) => s.cpuTotalPercent)
+        .filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v));
+      const writeLatencyValuesInWindow: number[] = [];
+      const readLatencyValuesInWindow: number[] = [];
+      for (let i = 1; i < sourceSamplesForTimeline.length; i += 1) {
+        const w = extractSampleDiskLatencyMs(sourceSamplesForTimeline, i, 'write');
+        if (w !== null) writeLatencyValuesInWindow.push(w);
+        const r = extractSampleDiskLatencyMs(sourceSamplesForTimeline, i, 'read');
+        if (r !== null) readLatencyValuesInWindow.push(r);
+      }
+      if (writeLatencyValuesInWindow.length === 0 && diskWriteLatencyMs !== null) {
+        writeLatencyValuesInWindow.push(diskWriteLatencyMs);
+      }
+      if (readLatencyValuesInWindow.length === 0 && diskReadLatencyMs !== null) {
+        readLatencyValuesInWindow.push(diskReadLatencyMs);
+      }
+      const blockedCountsInWindow = sourceSamplesForTimeline.map(
+        (s) =>
+          (s.activeSessions || []).filter(
+            (sess) => sess.blockingSessionId !== null && sess.blockingSessionId > 0,
+          ).length,
+      );
+      const blockedWaitSecondsInWindow = sourceSamplesForTimeline.flatMap((s) =>
+        (s.activeSessions || [])
+          .filter((sess) => sess.blockingSessionId !== null && sess.blockingSessionId > 0)
+          .map((sess) => Number(sess.waitTimeMs || 0) / 1000),
+      );
+      const maxBlockedWaitSecondsInWindow =
+        blockedWaitSecondsInWindow.length > 0
+          ? Math.round(Math.max(...blockedWaitSecondsInWindow) * 10) / 10
+          : 0;
+      const memoryGrantsValuesInWindow = sourceSamplesForTimeline
+        .map((s) => s.sqlMemory?.memoryGrantsPending)
+        .filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v));
 
       const evaluatedAlerts = evaluateAlertsWithHysteresis({
         rules: state.alertRules,
@@ -1861,10 +2389,10 @@ export function buildSrvsqlPerformanceSnapshot(
           maxBlockedDurationSeconds: maxBlockedSec,
           blockedSessionsCount: blockedCount,
           rootBlockerSessionId: rootBlockerId,
-          maxDiskWriteLatencyMs: diskWriteLatencyMs ?? 0,
-          maxDiskReadLatencyMs: diskReadLatencyMs ?? 0,
-          provenMemoryPressureScore: latest.sqlMemory.memoryGrantsPending ?? 0,
-          cpuPercent: latest.cpuTotalPercent ?? 0,
+          maxDiskWriteLatencyMs: diskWriteLatencyMs,
+          maxDiskReadLatencyMs: diskReadLatencyMs,
+          provenMemoryPressureScore: latest.sqlMemory.memoryGrantsPending ?? null,
+          cpuPercent: latest.cpuTotalPercent ?? null,
           minVolumeFreePercent: minVolFreePct,
           criticalServiceStoppedCount: (latest.windowsServices || []).filter(
             (s) => s.state === 'STOPPED' && s.startMode === 'AUTO',
@@ -1982,8 +2510,10 @@ export function buildSrvsqlPerformanceSnapshot(
             : 'v2.6.13-srvsql-live',
           separateFromUiRefresh: true,
           localQueuePendingCount: 0,
-          storageUsedSamples: state.samples.length,
+          storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
           storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+          oldestSampleAt: state.dbOldestSampleAt ?? state.samples[0]?.observedAt ?? null,
+          observedAvgIntervalSeconds,
         },
         sqlMetadata: latest.sqlMetadata || REAL_VERIFIED_SRVSQL_METADATA,
         zabbixProbe: latest.zabbixProbe || REAL_VERIFIED_ZABBIX_PROBE,
@@ -2057,6 +2587,45 @@ export function buildSrvsqlPerformanceSnapshot(
         diagnostics: liveDiagnostics,
         alerts: evaluatedAlerts,
         alertRules: state.alertRules,
+        alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+          rules: state.alertRules,
+          alerts: evaluatedAlerts,
+          dataSourceMode: collectorStatus === 'OFFLINE' ? 'COLLECTOR_UNAVAILABLE' : 'LIVE_COLLECTOR',
+          windowPreset,
+          sustainedDurationSecondsByRule,
+          metrics: {
+            maxBlockedDurationSeconds: maxBlockedSec,
+            blockedSessionsCount: blockedCount,
+            rootBlockerSessionId: rootBlockerId,
+            diskWriteLatencyMs,
+            diskReadLatencyMs,
+            diskTargetLabel: webriDataFile
+              ? `${webriDataFile.databaseName} (${webriDataFile.fileType})`
+              : liveVolumes[0]?.volume ?? null,
+            memoryGrantsPending: latest.sqlMemory.memoryGrantsPending ?? null,
+            windowsAvailableMemoryGb: winAvailGb,
+            pageLifeExpectancySec: latest.sqlMemory.pageLifeExpectancySec ?? null,
+            bufferCacheHitRatioPercent: latest.sqlMemory.bufferCacheHitRatioPercent ?? null,
+            cpuPercent: latest.cpuTotalPercent ?? null,
+            rawMinVolumeFreePercent: rawVolFreePct,
+            effectiveMinVolumeFreePercent: minVolFreePct,
+            volumes: liveVolumes,
+            collectorDelaySeconds: delaySeconds,
+            lastCollectionDurationMs: state.collectorBudget.lastCollectionDurationMs,
+            storageUsedSamples: state.dbTotalSamplesCount ?? state.samples.length,
+            storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+          },
+          windowSeries: {
+            sampleCount: sourceSamplesForTimeline.length,
+            cpuValues: cpuValuesInWindow,
+            writeLatencyValues: writeLatencyValuesInWindow,
+            readLatencyValues: readLatencyValuesInWindow,
+            blockedCounts: blockedCountsInWindow,
+            maxBlockedWaitSecondsInWindow,
+            memoryGrantsValues: memoryGrantsValuesInWindow,
+            observedAvgIntervalSeconds,
+          },
+        }),
         userIncidents: state.incidents,
         webriConfig: state.webriConfig,
         coverageSources: buildCoverageSources(true, collectorStatus !== 'OFFLINE', {
@@ -2217,6 +2786,31 @@ export function buildSrvsqlPerformanceSnapshot(
         diagnostics: waitingDiag,
         alerts: state.alerts,
         alertRules: state.alertRules,
+        alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+          rules: state.alertRules,
+          alerts: state.alerts,
+          dataSourceMode: 'COLLECTOR_UNAVAILABLE',
+          windowPreset,
+          metrics: {
+            maxBlockedDurationSeconds: null,
+            blockedSessionsCount: null,
+            rootBlockerSessionId: null,
+            diskWriteLatencyMs: null,
+            diskReadLatencyMs: null,
+            memoryGrantsPending: null,
+            windowsAvailableMemoryGb: null,
+            pageLifeExpectancySec: null,
+            bufferCacheHitRatioPercent: null,
+            cpuPercent: null,
+            rawMinVolumeFreePercent: null,
+            effectiveMinVolumeFreePercent: null,
+            volumes: [],
+            collectorDelaySeconds: null,
+            lastCollectionDurationMs: state.collectorBudget.lastCollectionDurationMs,
+            storageUsedSamples: state.dbTotalSamplesCount ?? 0,
+            storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+          },
+        }),
         userIncidents: state.incidents,
         webriConfig: state.webriConfig,
         coverageSources: buildCoverageSources(null, false),
@@ -2985,6 +3579,35 @@ export function buildSrvsqlPerformanceSnapshot(
       diagnostics: liveDiagnostics,
       alerts: state.alerts,
       alertRules: state.alertRules,
+      alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+        rules: state.alertRules,
+        alerts: state.alerts,
+        dataSourceMode: 'LIVE_COLLECTOR',
+        windowPreset,
+        metrics: {
+          maxBlockedDurationSeconds: 0,
+          blockedSessionsCount: 0,
+          rootBlockerSessionId: null,
+          diskWriteLatencyMs: 54,
+          diskReadLatencyMs: 6,
+          diskTargetLabel: 'WebRI_Data (D:\\)',
+          memoryGrantsPending: liveSqlMemory.memoryGrantsPending,
+          windowsAvailableMemoryGb:
+            liveWindowsMemory.availablePhysicalMb !== null
+              ? Number((liveWindowsMemory.availablePhysicalMb / 1024).toFixed(1))
+              : null,
+          pageLifeExpectancySec: liveSqlMemory.pageLifeExpectancySec,
+          bufferCacheHitRatioPercent: liveSqlMemory.bufferCacheHitRatioPercent,
+          cpuPercent: 4,
+          rawMinVolumeFreePercent: rawMinVolumeFreePercent(liveVolumes),
+          effectiveMinVolumeFreePercent: effectiveVolumeFreePercent(liveVolumes),
+          volumes: liveVolumes,
+          collectorDelaySeconds: 5,
+          lastCollectionDurationMs: 434,
+          storageUsedSamples: Math.max(2, state.samples.length),
+          storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+        },
+      }),
       userIncidents: state.incidents,
       webriConfig: state.webriConfig,
       coverageSources: buildCoverageSources(true, true),
@@ -3766,6 +4389,34 @@ export function buildSrvsqlPerformanceSnapshot(
     diagnostics,
     alerts: evaluatedAlerts,
     alertRules: state.alertRules,
+    alertRuleEvaluations: computeAlertRulesLiveEvaluations({
+      rules: state.alertRules,
+      alerts: evaluatedAlerts,
+      dataSourceMode: 'SIMULATED_SCENARIO',
+      windowPreset,
+      metrics: {
+        maxBlockedDurationSeconds: effectiveScenario === 'LENTIDAO_BLOQUEIO' ? 252 : 0,
+        blockedSessionsCount: kpiBlockedCount,
+        rootBlockerSessionId: kpiBlockedCount > 0 ? 72 : null,
+        diskWriteLatencyMs: kpiWriteLatencyMs,
+        diskReadLatencyMs: kpiReadLatencyMs,
+        memoryGrantsPending: sqlMemory.memoryGrantsPending,
+        windowsAvailableMemoryGb:
+          windowsMemory.availablePhysicalMb !== null
+            ? Number((windowsMemory.availablePhysicalMb / 1024).toFixed(1))
+            : null,
+        pageLifeExpectancySec: sqlMemory.pageLifeExpectancySec,
+        bufferCacheHitRatioPercent: sqlMemory.bufferCacheHitRatioPercent,
+        cpuPercent: kpiCpu,
+        rawMinVolumeFreePercent: rawMinVolumeFreePercent(windowsVolumes),
+        effectiveMinVolumeFreePercent: effectiveVolumeFreePercent(windowsVolumes),
+        volumes: windowsVolumes,
+        collectorDelaySeconds: 12,
+        lastCollectionDurationMs: state.collectorBudget.lastCollectionDurationMs,
+        storageUsedSamples: state.samples.length,
+        storageMaxSamples: state.collectorBudget.maxStoredSnapshots,
+      },
+    }),
     userIncidents: state.incidents,
     webriConfig: state.webriConfig,
     coverageSources: buildCoverageSources(false, true),

@@ -4,10 +4,11 @@ import { authenticateConnector } from '@/lib/connectorAuth';
 import { buildSiplanIncidentReport } from '@/lib/srvsql-performance/engine';
 import {
   loadSrvsqlPerformanceSnapshot,
+  persistAlertRulesConfig,
   persistAndIngestCollectorSample,
+  persistResetAlertRulesConfig,
+  persistWebriAssociationConfig,
   recordUserSlownessIncident,
-  updateAlertRulesConfig,
-  updateWebriAssociationConfig,
 } from '@/lib/srvsql-performance/store';
 import type { TimeWindowPreset } from '@/lib/srvsql-performance/types';
 
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
           { status: 403 },
         );
       }
-      const config = updateWebriAssociationConfig(
+      const config = await persistWebriAssociationConfig(
         tenantId,
         {
           databases: Array.isArray(body?.databases) ? body.databases.map(String) : undefined,
@@ -139,9 +140,30 @@ export async function POST(req: NextRequest) {
           { status: 403 },
         );
       }
-      const rules = updateAlertRulesConfig(
+      if (!Array.isArray(body?.rules) || body.rules.length === 0) {
+        return NextResponse.json(
+          { error: 'Informe uma lista válida de regras para atualizar.' },
+          { status: 400 },
+        );
+      }
+      const rules = await persistAlertRulesConfig(
         tenantId,
-        Array.isArray(body?.rules) ? body.rules : [],
+        body.rules,
+        user.name || user.email || 'Administrador',
+      );
+      return NextResponse.json({ ok: true, alertRules: rules });
+    }
+
+    if (action === 'reset_alert_rules') {
+      if (user.role !== 'MASTER' && user.role !== 'ADMIN') {
+        return NextResponse.json(
+          { error: 'Apenas perfis MASTER ou ADMIN podem restaurar os limites de alerta.' },
+          { status: 403 },
+        );
+      }
+      const rules = await persistResetAlertRulesConfig(
+        tenantId,
+        user.name || user.email || 'Administrador',
       );
       return NextResponse.json({ ok: true, alertRules: rules });
     }

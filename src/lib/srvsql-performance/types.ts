@@ -400,6 +400,30 @@ export interface AlertThresholdRule {
   enabled: boolean;
   unit: string;
   baselineAdjustableNote: string;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
+export type AlertRuleLiveState =
+  | 'NORMAL'
+  | 'WARNING'
+  | 'CRITICAL'
+  | 'HYSTERESIS'
+  | 'PENDING_DURATION'
+  | 'NO_DATA'
+  | 'DISABLED';
+
+export interface AlertRuleLiveEvaluation {
+  ruleId: string;
+  currentValue: number | null;
+  currentFormatted: string;
+  sustainedSeconds: number;
+  liveState: AlertRuleLiveState;
+  activeAlertSeverity: 'WARNING' | 'CRITICAL' | null;
+  activeOccurrencesCount: number;
+  observedBaselineSummary: string;
+  sampleCountInWindow: number;
+  isInvertedThreshold: boolean;
 }
 
 export interface AlertEventRecord {
@@ -511,6 +535,8 @@ export interface SrvsqlPerformanceDashboardSnapshot {
     localQueuePendingCount: number;
     storageUsedSamples: number;
     storageMaxSamples: number;
+    oldestSampleAt?: string | null;
+    observedAvgIntervalSeconds?: number | null;
   };
   sqlMetadata: SqlInstanceMetadata;
   zabbixProbe: ZabbixIntegrationProbe;
@@ -559,6 +585,7 @@ export interface SrvsqlPerformanceDashboardSnapshot {
   diagnostics: EvidenceDiagnosticItem[];
   alerts: AlertEventRecord[];
   alertRules: AlertThresholdRule[];
+  alertRuleEvaluations: AlertRuleLiveEvaluation[];
   userIncidents: UserSlownessIncidentRecord[];
   webriConfig: WebriAssociationConfig;
   coverageSources: CoverageSourceItem[];

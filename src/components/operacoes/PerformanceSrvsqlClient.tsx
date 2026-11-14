@@ -27,6 +27,9 @@ import {
 } from '@/lib/srvsql-performance/engine';
 import { MINIMUM_PERMISSIONS_SQL_SCRIPT } from '@/lib/srvsql-performance/sql-queries';
 import type {
+  AlertRuleLiveEvaluation,
+  AlertRuleLiveState,
+  AlertThresholdRule,
   CostlyQuerySortDirection,
   CostlyQuerySortKey,
   SrvsqlPerformanceDashboardSnapshot,
@@ -41,6 +44,98 @@ interface PerformanceSrvsqlClientProps {
 }
 
 type ActiveTabId = 'visao_geral' | 'sql_bloqueios' | 'servicos' | 'incidentes' | 'coleta_acesso';
+
+type AlertRuleDraft = {
+  warningThreshold: string;
+  criticalThreshold: string;
+  recoveryHysteresisThreshold: string;
+  minDurationSeconds: string;
+  enabled: boolean;
+};
+
+const ALERT_RULE_STATE_BADGE: Record<AlertRuleLiveState, { label: string; className: string }> = {
+  NORMAL: {
+    label: 'Normal',
+    className: 'border-emerald-500/30 bg-emerald-950/35 text-emerald-300',
+  },
+  WARNING: {
+    label: 'Atenção',
+    className: 'border-amber-500/35 bg-amber-950/40 text-amber-300',
+  },
+  CRITICAL: {
+    label: 'Crítico',
+    className: 'border-rose-500/40 bg-rose-950/45 text-rose-300',
+  },
+  HYSTERESIS: {
+    label: 'Em histerese',
+    className: 'border-cyan-500/35 bg-cyan-950/35 text-cyan-300',
+  },
+  PENDING_DURATION: {
+    label: 'Em observação',
+    className: 'border-amber-500/30 bg-amber-950/25 text-amber-200',
+  },
+  NO_DATA: {
+    label: 'Sem dados',
+    className: 'border-slate-700 bg-slate-900/70 text-slate-400',
+  },
+  DISABLED: {
+    label: 'Desativada',
+    className: 'border-slate-700 bg-slate-900/50 text-slate-500',
+  },
+};
+
+function formatBrtDateTime(iso: string | null | undefined): string {
+  if (!iso) return 'Sem amostras';
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return iso;
+  return `${new Date(ms).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  })} BRT`;
+}
+
+function getEffectiveRuleDisplayEvaluation(
+  rule: AlertThresholdRule,
+  baseEval: AlertRuleLiveEvaluation | undefined,
+  liveDelaySeconds: number | null,
+): { liveState: AlertRuleLiveState; currentFormatted: string; sustainedSeconds: number; baselineSummary: string } {
+  if (!rule.enabled) {
+    return {
+      liveState: 'DISABLED',
+      currentFormatted: baseEval?.currentFormatted ?? 'Sem dados',
+      sustainedSeconds: 0,
+      baselineSummary: baseEval?.observedBaselineSummary || rule.baselineAdjustableNote,
+    };
+  }
+  if (rule.metricKey === 'COLLECTOR_STALE_SECONDS' && liveDelaySeconds !== null) {
+    const delay = Math.max(0, Math.round(liveDelaySeconds));
+    let liveState: AlertRuleLiveState = 'NORMAL';
+    if (delay >= rule.criticalThreshold) {
+      liveState = delay >= rule.minDurationSeconds ? 'CRITICAL' : 'PENDING_DURATION';
+    } else if (delay >= rule.warningThreshold) {
+      liveState = delay >= rule.minDurationSeconds ? 'WARNING' : 'PENDING_DURATION';
+    } else if (baseEval?.liveState === 'HYSTERESIS' && delay > rule.recoveryHysteresisThreshold) {
+      liveState = 'HYSTERESIS';
+    }
+    return {
+      liveState,
+      currentFormatted: `${delay} s`,
+      sustainedSeconds: delay >= rule.warningThreshold ? delay : 0,
+      baselineSummary: baseEval?.observedBaselineSummary || rule.baselineAdjustableNote,
+    };
+  }
+  return {
+    liveState: baseEval?.liveState ?? 'NO_DATA',
+    currentFormatted: baseEval?.currentFormatted ?? 'Sem dados',
+    sustainedSeconds: baseEval?.sustainedSeconds ?? 0,
+    baselineSummary: baseEval?.observedBaselineSummary || rule.baselineAdjustableNote,
+  };
+}
 
 type RealDiagnosticFocusId =
   | 'LIVE_GERAL'
@@ -119,6 +214,10 @@ export function PerformanceSrvsqlClient({
   const [submittingSlowness, setSubmittingSlowness] = useState(false);
   const [slownessFeedback, setSlownessFeedback] = useState<string | null>(null);
   const [copiedSqlNotice, setCopiedSqlNotice] = useState<string | null>(null);
+  const [editingAlertRules, setEditingAlertRules] = useState(false);
+  const [alertRuleDrafts, setAlertRuleDrafts] = useState<Record<string, AlertRuleDraft>>({});
+  const [savingAlertRules, setSavingAlertRules] = useState(false);
+  const [alertRulesFeedback, setAlertRulesFeedback] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const canManageConfig = userRole === 'MASTER' || userRole === 'ADMIN';
 
@@ -246,6 +345,137 @@ export function PerformanceSrvsqlClient({
     }
   }
 
+  function startEditingAlertRules() {
+    const nextDrafts: Record<string, AlertRuleDraft> = {};
+    for (const rule of snapshot.alertRules) {
+      nextDrafts[rule.id] = {
+        warningThreshold: String(rule.warningThreshold),
+        criticalThreshold: String(rule.criticalThreshold),
+        recoveryHysteresisThreshold: String(rule.recoveryHysteresisThreshold),
+        minDurationSeconds: String(rule.minDurationSeconds),
+        enabled: rule.enabled,
+      };
+    }
+    setAlertRuleDrafts(nextDrafts);
+    setAlertRulesFeedback(null);
+    setEditingAlertRules(true);
+  }
+
+  function cancelEditingAlertRules() {
+    setEditingAlertRules(false);
+    setAlertRulesFeedback(null);
+  }
+
+  function updateAlertRuleDraft(ruleId: string, patch: Partial<AlertRuleDraft>) {
+    setAlertRuleDrafts((prev) => {
+      const current = prev[ruleId];
+      if (!current) return prev;
+      return { ...prev, [ruleId]: { ...current, ...patch } };
+    });
+  }
+
+  async function handleSaveAlertRules() {
+    if (!canManageConfig) return;
+    const payloadRules: Array<Pick<AlertThresholdRule, 'id'> & Partial<AlertThresholdRule>> = [];
+    for (const rule of snapshot.alertRules) {
+      const draft = alertRuleDrafts[rule.id];
+      if (!draft) continue;
+      const warn = Number(draft.warningThreshold);
+      const crit = Number(draft.criticalThreshold);
+      const rec = Number(draft.recoveryHysteresisThreshold);
+      const dur = Number(draft.minDurationSeconds);
+      if (
+        !Number.isFinite(warn) ||
+        !Number.isFinite(crit) ||
+        !Number.isFinite(rec) ||
+        !Number.isFinite(dur) ||
+        dur < 0
+      ) {
+        setAlertRulesFeedback({
+          kind: 'err',
+          text: `Valores numéricos inválidos na regra "${rule.label}".`,
+        });
+        return;
+      }
+      payloadRules.push({
+        id: rule.id,
+        warningThreshold: warn,
+        criticalThreshold: crit,
+        recoveryHysteresisThreshold: rec,
+        minDurationSeconds: Math.round(dur),
+        enabled: draft.enabled,
+      });
+    }
+
+    setSavingAlertRules(true);
+    setAlertRulesFeedback(null);
+    try {
+      const res = await fetch('/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_alert_rules',
+          rules: payloadRules,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAlertRulesFeedback({
+          kind: 'err',
+          text: data?.error || 'Não foi possível salvar os limites de alerta.',
+        });
+        return;
+      }
+      setEditingAlertRules(false);
+      setAlertRulesFeedback({
+        kind: 'ok',
+        text: 'Limites atualizados e persistidos no banco com sucesso.',
+      });
+      await refreshRealSnapshot(windowPreset, { silent: true });
+    } catch {
+      setAlertRulesFeedback({
+        kind: 'err',
+        text: 'Falha de comunicação ao salvar os limites de alerta.',
+      });
+    } finally {
+      setSavingAlertRules(false);
+    }
+  }
+
+  async function handleResetAlertRules() {
+    if (!canManageConfig) return;
+    setSavingAlertRules(true);
+    setAlertRulesFeedback(null);
+    try {
+      const res = await fetch('/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_alert_rules' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAlertRulesFeedback({
+          kind: 'err',
+          text: data?.error || 'Não foi possível restaurar os limites padrão.',
+        });
+        return;
+      }
+      setEditingAlertRules(false);
+      setAlertRulesFeedback({
+        kind: 'ok',
+        text: 'Limites padrão restaurados e gravados no banco.',
+      });
+      await refreshRealSnapshot(windowPreset, { silent: true });
+    } catch {
+      setAlertRulesFeedback({
+        kind: 'err',
+        text: 'Falha de comunicação ao restaurar os limites padrão.',
+      });
+    } finally {
+      setSavingAlertRules(false);
+    }
+  }
+
   function handleExportSiplanJson() {
     const dossier = buildSiplanIncidentReport(snapshot);
     const blob = new Blob([JSON.stringify(dossier, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -331,8 +561,16 @@ export function PerformanceSrvsqlClient({
     if (snapshot.dataSourceMode === 'COLLECTOR_UNAVAILABLE') {
       return 'AGUARDANDO TELEMETRIA REAL · nenhuma simulação ativa';
     }
-    return 'MONITORAMENTO OFICIAL 100% DADOS REAIS · coleta ativa em segundo plano';
+    return null;
   }, [snapshot.dataSourceMode]);
+
+  const alertRuleEvalById = useMemo(() => {
+    const map = new Map<string, AlertRuleLiveEvaluation>();
+    for (const item of snapshot.alertRuleEvaluations || []) {
+      map.set(item.ruleId, item);
+    }
+    return map;
+  }, [snapshot.alertRuleEvaluations]);
 
   const liveDelaySeconds = useMemo(() => {
     if (!snapshot.observedAt) return snapshot.collectorHealth.delaySeconds;
@@ -451,11 +689,13 @@ export function PerformanceSrvsqlClient({
             <span className="text-slate-400 font-medium">Infraestrutura / Performance</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[#d49b43] tracking-wide">
-              {topRightModeLabel}
-            </span>
-          </div>
+          {topRightModeLabel && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-[#d49b43] tracking-wide">
+                {topRightModeLabel}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* TÍTULO PRINCIPAL E BADGE DE ESTADO */}
@@ -1385,7 +1625,17 @@ export function PerformanceSrvsqlClient({
                             {q.operationKind} ({q.databaseName})
                           </td>
                           <td className="py-2.5 px-3 text-slate-300">{q.executionCountDelta}</td>
-                          <td className="py-2.5 px-3 font-bold text-amber-300">
+                          <td
+                            className={`py-2.5 px-3 font-bold ${
+                              q.avgElapsedTimeMs >= 1000 ||
+                              (q.regressionRatio !== null && q.regressionRatio >= 2.5)
+                                ? 'text-rose-300'
+                                : q.avgElapsedTimeMs >= 250 ||
+                                    (q.regressionRatio !== null && q.regressionRatio >= 1.5)
+                                  ? 'text-amber-300'
+                                  : 'text-emerald-300'
+                            }`}
+                          >
                             {q.avgElapsedTimeMs.toLocaleString('pt-BR')} ms
                           </td>
                           <td className="py-2.5 px-3 text-slate-400">
@@ -1757,38 +2007,226 @@ export function PerformanceSrvsqlClient({
 
             {/* Regras de Alerta com Histerese e Duração Mínima */}
             <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-3">
-              <h3 className="text-sm font-bold text-white">
-                Limites de Alerta Configuráveis (Com Duração Mínima, Histerese de Recuperação e Agrupamento)
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Limites de Alerta Configuráveis (Com Duração Mínima, Histerese de Recuperação e Agrupamento)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Avaliação contínua do SRVSQL na janela {snapshot.activeWindow} com linha de base real observada.
+                  </p>
+                </div>
+                {canManageConfig && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!editingAlertRules ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={startEditingAlertRules}
+                          disabled={savingAlertRules}
+                          className="rounded-lg border border-cyan-500/40 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-900/50 disabled:opacity-50"
+                        >
+                          Editar limites
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleResetAlertRules()}
+                          disabled={savingAlertRules}
+                          className="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                        >
+                          Restaurar padrão
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveAlertRules()}
+                          disabled={savingAlertRules}
+                          className="rounded-lg border border-emerald-500/50 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-900/60 disabled:opacity-50"
+                        >
+                          {savingAlertRules ? 'Salvando...' : 'Salvar alterações'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditingAlertRules}
+                          disabled={savingAlertRules}
+                          className="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleResetAlertRules()}
+                          disabled={savingAlertRules}
+                          className="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+                        >
+                          Restaurar padrão
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {alertRulesFeedback && (
+                <div
+                  className={`rounded-lg border px-3 py-2 text-xs ${
+                    alertRulesFeedback.kind === 'ok'
+                      ? 'border-emerald-500/35 bg-emerald-950/30 text-emerald-200'
+                      : 'border-rose-500/35 bg-rose-950/30 text-rose-200'
+                  }`}
+                >
+                  {alertRulesFeedback.text}
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400">
                       <th className="py-2 pr-3">Regra</th>
+                      <th className="py-2 px-3">Valor Atual (SRVSQL)</th>
                       <th className="py-2 px-3">Atenção</th>
                       <th className="py-2 px-3">Crítico</th>
                       <th className="py-2 px-3">Recuperação (Histerese)</th>
                       <th className="py-2 px-3">Duração Mínima</th>
-                      <th className="py-2 pl-3">Calibração / Linha de Base</th>
+                      <th className="py-2 pl-3">Linha de Base Real ({snapshot.activeWindow})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {snapshot.alertRules.map((rule) => (
-                      <tr key={rule.id}>
-                        <td className="py-2.5 pr-3 font-medium text-slate-200">{rule.label}</td>
-                        <td className="py-2.5 px-3 text-amber-300 font-semibold">
-                          {rule.warningThreshold} {rule.unit}
-                        </td>
-                        <td className="py-2.5 px-3 text-rose-300 font-semibold">
-                          {rule.criticalThreshold} {rule.unit}
-                        </td>
-                        <td className="py-2.5 px-3 text-emerald-300">
-                          {rule.recoveryHysteresisThreshold} {rule.unit}
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-300">{rule.minDurationSeconds}s</td>
-                        <td className="py-2.5 pl-3 text-slate-400">{rule.baselineAdjustableNote}</td>
-                      </tr>
-                    ))}
+                    {snapshot.alertRules.map((rule) => {
+                      const effEval = getEffectiveRuleDisplayEvaluation(
+                        rule,
+                        alertRuleEvalById.get(rule.id),
+                        liveDelaySeconds,
+                      );
+                      const stateBadge = ALERT_RULE_STATE_BADGE[effEval.liveState];
+                      const isInverted = rule.metricKey === 'VOLUME_FREE_SPACE_PERCENT';
+                      const draft = alertRuleDrafts[rule.id];
+                      return (
+                        <tr key={rule.id} className={!rule.enabled && !editingAlertRules ? 'opacity-60' : undefined}>
+                          <td className="py-2.5 pr-3 align-top">
+                            <div className="font-medium text-slate-200">{rule.label}</div>
+                            <div className="mt-0.5 text-[11px] text-slate-500">
+                              {isInverted
+                                ? 'Comparação invertida: alerta quando ≤ limite'
+                                : 'Alerta quando ≥ limite'}
+                            </div>
+                            {editingAlertRules && draft && (
+                              <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={draft.enabled}
+                                  onChange={(e) =>
+                                    updateAlertRuleDraft(rule.id, { enabled: e.target.checked })
+                                  }
+                                  className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-cyan-500"
+                                />
+                                Regra ativa
+                              </label>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{effEval.currentFormatted}</span>
+                              <span
+                                className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold ${stateBadge.className}`}
+                              >
+                                {stateBadge.label}
+                              </span>
+                            </div>
+                            {effEval.sustainedSeconds > 0 && effEval.liveState !== 'NORMAL' && (
+                              <div className="mt-0.5 text-[11px] text-slate-400">
+                                há {effEval.sustainedSeconds}s contínuos
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-amber-300 font-semibold whitespace-nowrap">
+                            {editingAlertRules && draft ? (
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  aria-label={`Atenção - ${rule.label}`}
+                                  value={draft.warningThreshold}
+                                  onChange={(e) =>
+                                    updateAlertRuleDraft(rule.id, { warningThreshold: e.target.value })
+                                  }
+                                  className="w-20 rounded border border-slate-700 bg-[#09101b] px-2 py-1 text-xs text-amber-200 focus:border-cyan-500 focus:outline-none"
+                                />
+                                <span className="text-[11px] text-slate-400">{rule.unit}</span>
+                              </div>
+                            ) : (
+                              `${isInverted ? '≤' : '≥'} ${rule.warningThreshold} ${rule.unit}`
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-rose-300 font-semibold whitespace-nowrap">
+                            {editingAlertRules && draft ? (
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  aria-label={`Crítico - ${rule.label}`}
+                                  value={draft.criticalThreshold}
+                                  onChange={(e) =>
+                                    updateAlertRuleDraft(rule.id, { criticalThreshold: e.target.value })
+                                  }
+                                  className="w-20 rounded border border-slate-700 bg-[#09101b] px-2 py-1 text-xs text-rose-200 focus:border-cyan-500 focus:outline-none"
+                                />
+                                <span className="text-[11px] text-slate-400">{rule.unit}</span>
+                              </div>
+                            ) : (
+                              `${isInverted ? '≤' : '≥'} ${rule.criticalThreshold} ${rule.unit}`
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-emerald-300 whitespace-nowrap">
+                            {editingAlertRules && draft ? (
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  aria-label={`Recuperação - ${rule.label}`}
+                                  value={draft.recoveryHysteresisThreshold}
+                                  onChange={(e) =>
+                                    updateAlertRuleDraft(rule.id, {
+                                      recoveryHysteresisThreshold: e.target.value,
+                                    })
+                                  }
+                                  className="w-20 rounded border border-slate-700 bg-[#09101b] px-2 py-1 text-xs text-emerald-200 focus:border-cyan-500 focus:outline-none"
+                                />
+                                <span className="text-[11px] text-slate-400">{rule.unit}</span>
+                              </div>
+                            ) : (
+                              `${isInverted ? '≥' : '≤'} ${rule.recoveryHysteresisThreshold} ${rule.unit}`
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 align-top text-slate-300 whitespace-nowrap">
+                            {editingAlertRules && draft ? (
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  aria-label={`Duração mínima - ${rule.label}`}
+                                  value={draft.minDurationSeconds}
+                                  onChange={(e) =>
+                                    updateAlertRuleDraft(rule.id, { minDurationSeconds: e.target.value })
+                                  }
+                                  className="w-16 rounded border border-slate-700 bg-[#09101b] px-2 py-1 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                                />
+                                <span className="text-[11px] text-slate-400">s</span>
+                              </div>
+                            ) : (
+                              `${rule.minDurationSeconds}s`
+                            )}
+                          </td>
+                          <td className="py-2.5 pl-3 align-top text-slate-400">
+                            {effEval.baselineSummary}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -2058,11 +2496,22 @@ export function PerformanceSrvsqlClient({
         {/* RODAPÉ */}
         <div className="pt-2 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <span>
-            Snapshot real de monitoramento · {snapshot.observedAt || snapshot.generatedAt} · {snapshot.timezone} · Coletor separado da UI
+            Coleta real SRVSQL · {formatBrtDateTime(snapshot.observedAt || snapshot.generatedAt)}
+            {liveDelaySeconds !== null ? ` (há ${liveDelaySeconds}s)` : ''} · Coletor separado da UI
+            {snapshot.collectorBudget.lastCollectionDurationMs !== null
+              ? ` · Coleta em ${snapshot.collectorBudget.lastCollectionDurationMs} ms`
+              : ''}
+            {snapshot.collectorHealth.observedAvgIntervalSeconds
+              ? ` · Intervalo médio: ${snapshot.collectorHealth.observedAvgIntervalSeconds}s`
+              : ''}
           </span>
           <span>
-            Retenção: {snapshot.collectorBudget.retentionDays} dias (máx.{' '}
-            {snapshot.collectorBudget.maxStoredSnapshots} amostras)
+            {snapshot.collectorHealth.storageUsedSamples.toLocaleString('pt-BR')} de{' '}
+            {snapshot.collectorHealth.storageMaxSamples.toLocaleString('pt-BR')} amostras gravadas · Retenção:{' '}
+            {snapshot.collectorBudget.retentionDays} dias
+            {snapshot.collectorHealth.oldestSampleAt
+              ? ` · Desde ${formatBrtDateTime(snapshot.collectorHealth.oldestSampleAt)}`
+              : ''}
           </span>
         </div>
       </div>

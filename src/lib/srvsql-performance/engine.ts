@@ -18,10 +18,13 @@
 import { BENIGN_IDLE_WAIT_TYPES } from './sql-queries';
 import type {
   AlertEventRecord,
+  AlertRuleLiveEvaluation,
+  AlertRuleLiveState,
   AlertThresholdRule,
   AssociationConfidence,
   CostlyQuerySortDirection,
   CostlyQuerySortKey,
+  DataSourceMode,
   EvidenceDiagnosticItem,
   SiplanIncidentExportDossier,
   SqlActiveSessionSample,
@@ -35,6 +38,7 @@ import type {
   SqlWaitStatDeltaItem,
   SqlWaitStatRawSample,
   SrvsqlPerformanceDashboardSnapshot,
+  TimeWindowPreset,
   WaitCategory,
   WebriAssociationConfig,
   WindowsConcurrentEvent,
@@ -1490,6 +1494,305 @@ export function evaluateAlertsWithHysteresis(params: {
   }
 
   return updated;
+}
+
+function summarizeNumericSeries(values: number[]): {
+  avg: number;
+  p95: number;
+  max: number;
+} | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = sorted.reduce((acc, v) => acc + v, 0);
+  const avg = Math.round((sum / sorted.length) * 10) / 10;
+  const p95Idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * 0.95) - 1));
+  const p95 = Math.round(sorted[p95Idx]! * 10) / 10;
+  const max = Math.round(sorted[sorted.length - 1]! * 10) / 10;
+  return { avg, p95, max };
+}
+
+function formatPtDecimal(value: number, fractionDigits = 1): string {
+  const factor = Math.pow(10, fractionDigits);
+  const rounded = Math.round(value * factor) / factor;
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(fractionDigits).replace('.', ',');
+}
+
+/**
+ * Calcula a avaliação ao vivo (valor atual real do SRVSQL, status com histerese/duração e
+ * linha de base estatística real da janela selecionada) para cada regra de alerta configurável.
+ */
+export function computeAlertRulesLiveEvaluations(params: {
+  rules: AlertThresholdRule[];
+  alerts: AlertEventRecord[];
+  dataSourceMode: DataSourceMode;
+  windowPreset: TimeWindowPreset;
+  sustainedDurationSecondsByRule?: Partial<Record<string, number>>;
+  metrics: {
+    maxBlockedDurationSeconds: number | null;
+    blockedSessionsCount: number | null;
+    rootBlockerSessionId: number | null;
+    diskWriteLatencyMs: number | null;
+    diskReadLatencyMs: number | null;
+    diskTargetLabel?: string | null;
+    memoryGrantsPending: number | null;
+    windowsAvailableMemoryGb: number | null;
+    pageLifeExpectancySec: number | null;
+    bufferCacheHitRatioPercent: number | null;
+    cpuPercent: number | null;
+    rawMinVolumeFreePercent: number | null;
+    effectiveMinVolumeFreePercent: number | null;
+    volumes: WindowsVolumeIoSample[];
+    collectorDelaySeconds: number | null;
+    lastCollectionDurationMs: number | null;
+    storageUsedSamples: number;
+    storageMaxSamples: number;
+  };
+  windowSeries?: {
+    sampleCount: number;
+    cpuValues: number[];
+    writeLatencyValues: number[];
+    readLatencyValues: number[];
+    blockedCounts: number[];
+    maxBlockedWaitSecondsInWindow: number | null;
+    memoryGrantsValues: number[];
+    observedAvgIntervalSeconds: number | null;
+  };
+}): AlertRuleLiveEvaluation[] {
+  const {
+    rules,
+    alerts,
+    dataSourceMode,
+    windowPreset,
+    sustainedDurationSecondsByRule,
+    metrics,
+    windowSeries,
+  } = params;
+
+  const sampleCountInWindow = windowSeries?.sampleCount ?? 0;
+  const validVolumes = metrics.volumes.filter(
+    (v) => v.freePercent !== null && v.freePercent !== undefined,
+  );
+  const lowestVolume =
+    validVolumes.length > 0
+      ? [...validVolumes].sort((a, b) => (a.freePercent ?? 100) - (b.freePercent ?? 100))[0]
+      : null;
+
+  return rules.map((rule) => {
+    const isInvertedThreshold = rule.metricKey === 'VOLUME_FREE_SPACE_PERCENT';
+    const activeAlert = alerts.find((a) => a.ruleId === rule.id && a.active) ?? null;
+
+    let currentValue: number | null = null;
+    let evalValue: number | null = null;
+    let currentFormatted = 'Sem dados';
+    let sustainedSeconds = sustainedDurationSecondsByRule?.[rule.id] ?? 0;
+    let observedBaselineSummary = '';
+
+    if (rule.metricKey === 'BLOCKED_SESSION_DURATION_SEC') {
+      currentValue = metrics.maxBlockedDurationSeconds;
+      evalValue = currentValue;
+      sustainedSeconds = sustainedDurationSecondsByRule?.[rule.id] ?? currentValue ?? 0;
+      if (currentValue !== null) {
+        const durText = formatMetricOrMissing(
+          currentValue,
+          ' s',
+          currentValue % 1 !== 0 ? 1 : 0,
+        );
+        const blockedSuffix =
+          metrics.blockedSessionsCount !== null ? ` (${metrics.blockedSessionsCount} bloq.)` : '';
+        currentFormatted = `${durText}${blockedSuffix}`;
+      }
+      if (sampleCountInWindow > 0 && windowSeries) {
+        const blocksWithContention = windowSeries.blockedCounts.filter((c) => c > 0).length;
+        const maxBlocked =
+          windowSeries.blockedCounts.length > 0 ? Math.max(...windowSeries.blockedCounts) : 0;
+        const maxWaitSuffix =
+          windowSeries.maxBlockedWaitSecondsInWindow !== null &&
+          windowSeries.maxBlockedWaitSecondsInWindow > 0
+            ? ` · maior espera: ${formatPtDecimal(windowSeries.maxBlockedWaitSecondsInWindow)}s`
+            : '';
+        observedBaselineSummary = `Janela ${windowPreset} (${sampleCountInWindow} amostras): ${blocksWithContention}/${sampleCountInWindow} coletas com bloqueio · máx. simultâneas: ${maxBlocked}${maxWaitSuffix}.`;
+      }
+    } else if (rule.metricKey === 'DISK_WRITE_LATENCY_MS') {
+      currentValue = metrics.diskWriteLatencyMs;
+      evalValue = currentValue;
+      if (currentValue !== null) {
+        currentFormatted = `${Math.round(currentValue)} ms${
+          metrics.diskTargetLabel ? ` (${metrics.diskTargetLabel})` : ''
+        }`;
+      }
+      if (windowSeries && windowSeries.writeLatencyValues.length > 0) {
+        const stats = summarizeNumericSeries(windowSeries.writeLatencyValues)!;
+        observedBaselineSummary = `Janela ${windowPreset} (${windowSeries.writeLatencyValues.length} deltas): média ${formatPtDecimal(stats.avg)} ms · P95 ${formatPtDecimal(stats.p95)} ms · pico ${formatPtDecimal(stats.max)} ms.`;
+      } else if (sampleCountInWindow > 0) {
+        observedBaselineSummary =
+          'Aguardando ao menos 2 amostras consecutivas com I/O para calcular delta real de escrita.';
+      }
+    } else if (rule.metricKey === 'DISK_READ_LATENCY_MS') {
+      currentValue = metrics.diskReadLatencyMs;
+      evalValue = currentValue;
+      if (currentValue !== null) {
+        currentFormatted = `${Math.round(currentValue)} ms${
+          metrics.diskTargetLabel ? ` (${metrics.diskTargetLabel})` : ''
+        }`;
+      }
+      if (windowSeries && windowSeries.readLatencyValues.length > 0) {
+        const stats = summarizeNumericSeries(windowSeries.readLatencyValues)!;
+        observedBaselineSummary = `Janela ${windowPreset} (${windowSeries.readLatencyValues.length} deltas): média ${formatPtDecimal(stats.avg)} ms · P95 ${formatPtDecimal(stats.p95)} ms · pico ${formatPtDecimal(stats.max)} ms.`;
+      } else if (sampleCountInWindow > 0) {
+        observedBaselineSummary =
+          'Aguardando ao menos 2 amostras consecutivas com I/O para calcular delta real de leitura.';
+      }
+    } else if (rule.metricKey === 'PROVEN_MEMORY_PRESSURE') {
+      currentValue = metrics.memoryGrantsPending;
+      evalValue = currentValue;
+      if (currentValue !== null) {
+        currentFormatted = `${Math.round(currentValue)} grants`;
+      }
+      if (sampleCountInWindow > 0 || currentValue !== null) {
+        const maxGrants =
+          windowSeries && windowSeries.memoryGrantsValues.length > 0
+            ? Math.max(...windowSeries.memoryGrantsValues)
+            : currentValue ?? 0;
+        const winFree =
+          metrics.windowsAvailableMemoryGb !== null
+            ? `${formatPtDecimal(metrics.windowsAvailableMemoryGb)} GB`
+            : '—';
+        const ple =
+          metrics.pageLifeExpectancySec !== null
+            ? `${metrics.pageLifeExpectancySec.toLocaleString('pt-BR')}s`
+            : '—';
+        const hit =
+          metrics.bufferCacheHitRatioPercent !== null
+            ? ` · Cache Hit: ${formatPtDecimal(metrics.bufferCacheHitRatioPercent)}%`
+            : '';
+        observedBaselineSummary = `Janela ${windowPreset}: pico fila = ${Math.round(maxGrants)} grants · RAM livre Windows: ${winFree} · PLE: ${ple}${hit}.`;
+      }
+    } else if (rule.metricKey === 'CPU_SUSTAINED_PERCENT') {
+      currentValue = metrics.cpuPercent;
+      evalValue = currentValue;
+      if (currentValue !== null) {
+        currentFormatted = `${Math.round(currentValue)} %`;
+      }
+      if (windowSeries && windowSeries.cpuValues.length > 0) {
+        const stats = summarizeNumericSeries(windowSeries.cpuValues)!;
+        observedBaselineSummary = `Janela ${windowPreset} (${windowSeries.cpuValues.length} amostras): média ${formatPtDecimal(stats.avg)}% · P95 ${formatPtDecimal(stats.p95)}% · pico ${formatPtDecimal(stats.max)}%.`;
+      } else if (currentValue !== null) {
+        observedBaselineSummary = `Amostra atual em ${Math.round(currentValue)}% (aguardando histórico adicional na janela ${windowPreset}).`;
+      }
+    } else if (rule.metricKey === 'VOLUME_FREE_SPACE_PERCENT') {
+      currentValue = metrics.rawMinVolumeFreePercent;
+      evalValue = metrics.effectiveMinVolumeFreePercent ?? metrics.rawMinVolumeFreePercent;
+      if (currentValue !== null) {
+        const freeGbText =
+          lowestVolume && lowestVolume.freeSpaceGb !== null
+            ? ` (${lowestVolume.volume} ${formatPtDecimal(lowestVolume.freeSpaceGb)} GB livres)`
+            : '';
+        currentFormatted = `${formatPtDecimal(currentValue)} %${freeGbText}`;
+      }
+      if (validVolumes.length > 0) {
+        const volSummary = validVolumes
+          .map((v) => {
+            const free = v.freeSpaceGb !== null ? formatPtDecimal(v.freeSpaceGb) : '—';
+            const total = v.totalSpaceGb !== null ? formatPtDecimal(v.totalSpaceGb) : '—';
+            const pct = v.freePercent !== null ? formatPtDecimal(v.freePercent) : '—';
+            return `${v.volume}: ${free}/${total} GB livres (${pct}%)`;
+          })
+          .join(' · ');
+        const largeDiskGuardNote =
+          currentValue !== null &&
+          evalValue !== null &&
+          evalValue > currentValue
+            ? ' · Salvaguarda ativa (disco grande com >= 25 GB livres)'
+            : '';
+        observedBaselineSummary = `${volSummary}${largeDiskGuardNote}.`;
+      } else if (sampleCountInWindow > 0 || dataSourceMode === 'LIVE_COLLECTOR') {
+        observedBaselineSummary =
+          'Sem volumes SQL reportados por sys.dm_os_volume_stats nesta amostra.';
+      }
+    } else if (rule.metricKey === 'COLLECTOR_STALE_SECONDS') {
+      currentValue = metrics.collectorDelaySeconds;
+      evalValue = currentValue;
+      sustainedSeconds = sustainedDurationSecondsByRule?.[rule.id] ?? currentValue ?? 0;
+      if (currentValue !== null) {
+        currentFormatted = `${Math.round(currentValue)} s`;
+      }
+      if (sampleCountInWindow > 0 || currentValue !== null) {
+        const avgInt =
+          windowSeries?.observedAvgIntervalSeconds !== null &&
+          windowSeries?.observedAvgIntervalSeconds !== undefined
+            ? `${Math.round(windowSeries.observedAvgIntervalSeconds)}s`
+            : 'aguardando 2ª amostra';
+        const durText =
+          metrics.lastCollectionDurationMs !== null
+            ? ` · última coleta em ${metrics.lastCollectionDurationMs} ms`
+            : '';
+        observedBaselineSummary = `Intervalo médio real: ${avgInt}${durText} · ${metrics.storageUsedSamples.toLocaleString('pt-BR')}/${metrics.storageMaxSamples.toLocaleString('pt-BR')} amostras gravadas.`;
+      }
+    }
+
+    if (!observedBaselineSummary) {
+      if (dataSourceMode === 'PARTIAL_LIVE_NO_VIEW_SERVER_STATE') {
+        observedBaselineSummary = 'Requer permissão VIEW SERVER STATE no SRVSQL para calcular linha de base real.';
+      } else if (dataSourceMode === 'COLLECTOR_UNAVAILABLE') {
+        observedBaselineSummary = 'Sem amostras ativas no período; aguardando telemetria do FIORIXConnector.';
+      } else {
+        observedBaselineSummary = rule.baselineAdjustableNote;
+      }
+    }
+
+    if (rule.updatedBy) {
+      observedBaselineSummary = `${observedBaselineSummary} Calibrado por ${rule.updatedBy}.`;
+    }
+
+    let liveState: AlertRuleLiveState = 'NORMAL';
+    if (!rule.enabled) {
+      liveState = 'DISABLED';
+    } else if (currentValue === null || evalValue === null) {
+      liveState = 'NO_DATA';
+    } else {
+      const exceedsCritical = isInvertedThreshold
+        ? evalValue <= rule.criticalThreshold
+        : evalValue >= rule.criticalThreshold;
+      const exceedsWarning = isInvertedThreshold
+        ? evalValue <= rule.warningThreshold
+        : evalValue >= rule.warningThreshold;
+
+      if (activeAlert) {
+        if (activeAlert.severity === 'CRITICAL') {
+          liveState = 'CRITICAL';
+        } else if (!exceedsWarning && !exceedsCritical) {
+          liveState = 'HYSTERESIS';
+        } else {
+          liveState = 'WARNING';
+        }
+      } else if (exceedsCritical || exceedsWarning) {
+        liveState =
+          sustainedSeconds >= rule.minDurationSeconds
+            ? exceedsCritical
+              ? 'CRITICAL'
+              : 'WARNING'
+            : 'PENDING_DURATION';
+      } else {
+        liveState = 'NORMAL';
+      }
+    }
+
+    return {
+      ruleId: rule.id,
+      currentValue,
+      currentFormatted,
+      sustainedSeconds,
+      liveState,
+      activeAlertSeverity:
+        activeAlert && activeAlert.severity !== 'RESOLVED' ? activeAlert.severity : null,
+      activeOccurrencesCount: activeAlert?.occurrencesCount ?? 0,
+      observedBaselineSummary,
+      sampleCountInWindow,
+      isInvertedThreshold,
+    };
+  });
 }
 
 /**

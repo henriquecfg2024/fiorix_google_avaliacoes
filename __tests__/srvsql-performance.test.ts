@@ -4,6 +4,7 @@ import {
   buildBlockingChains,
   buildProcessInstanceKey,
   buildSiplanIncidentReport,
+  computeAlertRulesLiveEvaluations,
   computeCollectorBackoffSeconds,
   computeCostlyQueriesDelta,
   computeFileIoLatencyDelta,
@@ -21,6 +22,8 @@ import {
   ingestCollectorSample,
   pruneSamplesByRetention,
   recordCollectorFailure,
+  resetAlertRulesConfig,
+  updateAlertRulesConfig,
   type RawCollectorIngestPayload,
 } from '@/lib/srvsql-performance/store';
 
@@ -28,6 +31,13 @@ const mockRequireRole = vi.fn();
 
 vi.mock('@/lib/auth-helpers', () => ({
   requireRole: (...roles: string[]) => mockRequireRole(...roles),
+}));
+
+vi.mock('@/lib/prisma', () => ({
+  prisma: {
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+  },
 }));
 
 describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', () => {
@@ -1094,5 +1104,256 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     const waitDesc = sortCostlyQueries(items, 'lastWaitTypeHint', 'desc').map((i) => i.queryHash);
     expect(waitDesc.slice(0, 2)).toEqual(['0x2B', '0x1C']);
     expect(waitDesc.slice(2)).toEqual(['0x0A', '0x3D']);
+  });
+
+  it('18. computeAlertRulesLiveEvaluations, persistência/calibração de regras e RBAC da API', async () => {
+    const customRules = DEFAULT_ALERT_RULES.map((r) =>
+      r.id === 'rule-disk-read-latency' ? { ...r, enabled: false } : { ...r },
+    );
+
+    const evals = computeAlertRulesLiveEvaluations({
+      rules: customRules,
+      alerts: [
+        {
+          id: 'alert-block-hyst',
+          ruleId: 'rule-blocking-duration',
+          severity: 'WARNING',
+          title: 'Bloqueio SQL prolongado',
+          detail: 'Em histerese de recuperação',
+          firstTriggeredAt: '2026-11-14T10:00:00.000Z',
+          lastObservedAt: '2026-11-14T10:02:00.000Z',
+          resolvedAt: null,
+          occurrencesCount: 1,
+          active: true,
+          supportingSnapshotTime: '2026-11-14T10:02:00.000Z',
+        },
+      ],
+      dataSourceMode: 'LIVE_COLLECTOR',
+      windowPreset: '30m',
+      sustainedDurationSecondsByRule: {
+        'rule-disk-write-latency': 10,
+        'rule-memory-grants-pending': 45,
+        'rule-cpu-sustained': 75,
+        'rule-free-space-low': 0,
+      },
+      metrics: {
+        maxBlockedDurationSeconds: 10,
+        blockedSessionsCount: 1,
+        rootBlockerSessionId: 55,
+        diskWriteLatencyMs: 28,
+        diskReadLatencyMs: 4,
+        diskTargetLabel: 'WEBRI (ROWS)',
+        memoryGrantsPending: 2,
+        windowsAvailableMemoryGb: 16.4,
+        pageLifeExpectancySec: 10643,
+        bufferCacheHitRatioPercent: 99.8,
+        cpuPercent: 95,
+        rawMinVolumeFreePercent: 60.5,
+        effectiveMinVolumeFreePercent: 20,
+        volumes: [
+          {
+            volume: 'D:\\',
+            label: 'SQL',
+            role: 'SQL_DATA',
+            totalSpaceGb: 1599.9,
+            freeSpaceGb: 968.4,
+            freePercent: 60.5,
+            readLatencyMs: 3,
+            writeLatencyMs: 8,
+            readsPerSec: 120,
+            writesPerSec: 85,
+            throughputMbPerSec: 12,
+            queueLength: 0,
+          },
+        ],
+        collectorDelaySeconds: 15,
+        lastCollectionDurationMs: 42,
+        storageUsedSamples: 120,
+        storageMaxSamples: 2880,
+      },
+      windowSeries: {
+        sampleCount: 12,
+        cpuValues: [5, 7, 12, 95],
+        writeLatencyValues: [0, 1, 8, 28],
+        readLatencyValues: [0, 2, 4],
+        blockedCounts: [0, 0, 1],
+        maxBlockedWaitSecondsInWindow: 10,
+        memoryGrantsValues: [0, 0, 2],
+        observedAvgIntervalSeconds: 30,
+      },
+    });
+
+    const byId = new Map(evals.map((e) => [e.ruleId, e]));
+    expect(byId.get('rule-blocking-duration')?.liveState).toBe('HYSTERESIS');
+    expect(byId.get('rule-disk-write-latency')?.liveState).toBe('PENDING_DURATION');
+    expect(byId.get('rule-disk-read-latency')?.liveState).toBe('DISABLED');
+    expect(byId.get('rule-memory-grants-pending')?.liveState).toBe('WARNING');
+    expect(byId.get('rule-cpu-sustained')?.liveState).toBe('CRITICAL');
+    expect(byId.get('rule-free-space-low')?.liveState).toBe('NORMAL');
+    expect(byId.get('rule-collector-stale')?.liveState).toBe('NORMAL');
+
+    expect(byId.get('rule-cpu-sustained')?.observedBaselineSummary).toContain('Janela 30m');
+    expect(byId.get('rule-cpu-sustained')?.observedBaselineSummary).toContain('P95');
+    expect(byId.get('rule-memory-grants-pending')?.observedBaselineSummary).toContain('RAM livre Windows: 16,4 GB');
+    expect(byId.get('rule-free-space-low')?.observedBaselineSummary).toContain('D:\\');
+    expect(byId.get('rule-collector-stale')?.observedBaselineSummary).toContain('Intervalo médio real: 30s');
+
+    // Volumes ausentes devem resultar em NO_DATA (nunca 50% nem 0)
+    const missingVolumesEval = computeAlertRulesLiveEvaluations({
+      rules: DEFAULT_ALERT_RULES,
+      alerts: [],
+      dataSourceMode: 'PARTIAL_LIVE_NO_VIEW_SERVER_STATE',
+      windowPreset: '30m',
+      metrics: {
+        maxBlockedDurationSeconds: null,
+        blockedSessionsCount: null,
+        rootBlockerSessionId: null,
+        diskWriteLatencyMs: null,
+        diskReadLatencyMs: null,
+        memoryGrantsPending: null,
+        windowsAvailableMemoryGb: null,
+        pageLifeExpectancySec: null,
+        bufferCacheHitRatioPercent: null,
+        cpuPercent: null,
+        rawMinVolumeFreePercent: null,
+        effectiveMinVolumeFreePercent: null,
+        volumes: [],
+        collectorDelaySeconds: 20,
+        lastCollectionDurationMs: null,
+        storageUsedSamples: 0,
+        storageMaxSamples: 2880,
+      },
+    });
+    const volNoData = missingVolumesEval.find((e) => e.ruleId === 'rule-free-space-low');
+    expect(volNoData?.liveState).toBe('NO_DATA');
+    expect(volNoData?.currentFormatted).toBe('Sem dados');
+
+    // Validação direta na store (update + reset)
+    const updatedRules = updateAlertRulesConfig(
+      'tenant-alert-rules-unit',
+      [
+        {
+          id: 'rule-cpu-sustained',
+          warningThreshold: 75,
+          criticalThreshold: 90,
+          recoveryHysteresisThreshold: 65,
+          minDurationSeconds: 45,
+        },
+      ],
+      'Henrique',
+    );
+    const updatedCpu = updatedRules.find((r) => r.id === 'rule-cpu-sustained');
+    expect(updatedCpu?.warningThreshold).toBe(75);
+    expect(updatedCpu?.updatedBy).toBe('Henrique');
+
+    const resetRules = resetAlertRulesConfig('tenant-alert-rules-unit');
+    const resetCpu = resetRules.find((r) => r.id === 'rule-cpu-sustained');
+    expect(resetCpu?.warningThreshold).toBe(80);
+    expect(resetCpu?.updatedBy).toBeNull();
+
+    // RBAC e persistência via POST /api/v1/operacoes/srvsql-performance
+    const { POST } = await import('@/app/api/v1/operacoes/srvsql-performance/route');
+
+    mockRequireRole.mockResolvedValueOnce({
+      id: 'u-sub',
+      role: 'SUBSTITUTO',
+      tenantId: 'tenant-alert-rbac',
+      name: 'Substituto',
+      email: 'sub@7ri.test',
+    });
+    const subUpdateRes = await POST(
+      new NextRequest('http://localhost:3000/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_alert_rules',
+          rules: [{ id: 'rule-cpu-sustained', warningThreshold: 70 }],
+        }),
+      }),
+    );
+    expect(subUpdateRes.status).toBe(403);
+
+    mockRequireRole.mockResolvedValueOnce({
+      id: 'u-sub',
+      role: 'SUBSTITUTO',
+      tenantId: 'tenant-alert-rbac',
+      name: 'Substituto',
+      email: 'sub@7ri.test',
+    });
+    const subResetRes = await POST(
+      new NextRequest('http://localhost:3000/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_alert_rules' }),
+      }),
+    );
+    expect(subResetRes.status).toBe(403);
+
+    mockRequireRole.mockResolvedValueOnce({
+      id: 'u-master',
+      role: 'MASTER',
+      tenantId: 'tenant-alert-rbac',
+      name: 'Henrique Master',
+      email: 'master@7ri.test',
+    });
+    const invalidRes = await POST(
+      new NextRequest('http://localhost:3000/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_alert_rules', rules: [] }),
+      }),
+    );
+    expect(invalidRes.status).toBe(400);
+
+    mockRequireRole.mockResolvedValueOnce({
+      id: 'u-master',
+      role: 'MASTER',
+      tenantId: 'tenant-alert-rbac',
+      name: 'Henrique Master',
+      email: 'master@7ri.test',
+    });
+    const okUpdateRes = await POST(
+      new NextRequest('http://localhost:3000/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_alert_rules',
+          rules: [
+            {
+              id: 'rule-cpu-sustained',
+              warningThreshold: 76,
+              criticalThreshold: 88,
+              recoveryHysteresisThreshold: 62,
+              minDurationSeconds: 45,
+            },
+          ],
+        }),
+      }),
+    );
+    expect(okUpdateRes.status).toBe(200);
+    const okUpdateJson = await okUpdateRes.json();
+    expect(
+      okUpdateJson.alertRules.find((r: { id: string }) => r.id === 'rule-cpu-sustained')?.warningThreshold,
+    ).toBe(76);
+
+    mockRequireRole.mockResolvedValueOnce({
+      id: 'u-master',
+      role: 'MASTER',
+      tenantId: 'tenant-alert-rbac',
+      name: 'Henrique Master',
+      email: 'master@7ri.test',
+    });
+    const okResetRes = await POST(
+      new NextRequest('http://localhost:3000/api/v1/operacoes/srvsql-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_alert_rules' }),
+      }),
+    );
+    expect(okResetRes.status).toBe(200);
+    const okResetJson = await okResetRes.json();
+    expect(
+      okResetJson.alertRules.find((r: { id: string }) => r.id === 'rule-cpu-sustained')?.warningThreshold,
+    ).toBe(80);
   });
 });
