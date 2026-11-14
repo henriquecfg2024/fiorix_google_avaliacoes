@@ -1,11 +1,15 @@
 import sql from 'mssql';
 import net from 'node:net';
 import os from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { env } from '../config/env.js';
 import { AGENT_VERSION } from '../config/version.js';
 import { logger } from '../utils/logger.js';
 import { runtimeDirective } from './runtime-directive.js';
 import { sendSrvsqlPerformanceSample } from './api.js';
+
+const execFileAsync = promisify(execFile);
 
 let isCollectingSrvsqlPerf = false;
 
@@ -18,6 +22,202 @@ interface PreviousFileIoStats {
 }
 let previousFileIoMap = new Map<string, PreviousFileIoStats>();
 let previousSqlStartIso: string | null = null;
+
+interface OsProbeProcessRaw {
+  pid: number;
+  name: string;
+  cpuPercent: number | null;
+  privateWorkingSetMb: number | null;
+  workingSetMb: number | null;
+  startTimeIso: string;
+}
+
+interface OsProbeServiceRaw {
+  serviceName: string;
+  displayName: string;
+  state: 'RUNNING' | 'STOPPED';
+  startMode: 'AUTO' | 'MANUAL' | 'DISABLED';
+  pid: number | null;
+  processName: string;
+}
+
+interface CachedOsProbeResult {
+  available: boolean;
+  checkedAtMs: number;
+  services: OsProbeServiceRaw[];
+  processes: OsProbeProcessRaw[];
+}
+
+let cachedOsProbe: CachedOsProbeResult | null = null;
+const OS_PROBE_SUCCESS_TTL_MS = 60_000;
+const OS_PROBE_FAILURE_COOLDOWN_MS = 300_000;
+
+const READONLY_WMI_PS_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$target = ($env:SRVSQL_TARGET_HOST + '').Trim()
+if ([string]::IsNullOrWhiteSpace($target)) { exit 1 }
+$localNames = @('localhost', '127.0.0.1', '::1', '.', $env:COMPUTERNAME.ToLower())
+$shortTarget = $target.Split('.')[0].ToLower()
+$isLocal = $localNames -contains $target.ToLower() -or $localNames -contains $shortTarget
+
+$session = $null
+try {
+  if (-not $isLocal) {
+    try {
+      $session = New-CimSession -ComputerName $target -OperationTimeoutSec 3 -ErrorAction Stop
+    } catch {
+      $opt = New-CimSessionOption -Protocol Dcom
+      $session = New-CimSession -ComputerName $target -SessionOption $opt -OperationTimeoutSec 3 -ErrorAction Stop
+    }
+  }
+
+  $cimParams = @{ OperationTimeoutSec = 3 }
+  if ($session) { $cimParams['CimSession'] = $session }
+
+  $svcPattern = '^(MSSQL|SQLAgent|SQLSERVERAGENT|PBIEgwService|Zabbix|Veeam|AVP|klnagent|KAVFS|W3SVC|MySQL|Milvus|TrustedInstaller|DocuVieware|Radmin|Siplan|UpdateWindowsService)'
+  $services = Get-CimInstance @cimParams -ClassName Win32_Service |
+    Where-Object { $_.Name -match $svcPattern -or $_.DisplayName -match 'SQL Server|Power BI|Zabbix|Veeam|Kaspersky|Milvus|DocuVieware|Radmin|Siplan|MySQL|Windows Modules Installer' } |
+    Select-Object -First 40 |
+    ForEach-Object {
+      [pscustomobject]@{
+        serviceName = [string]$_.Name
+        displayName = [string]$_.DisplayName
+        state = if ($_.State -eq 'Running') { 'RUNNING' } else { 'STOPPED' }
+        startMode = switch ($_.StartMode) { 'Auto' { 'AUTO' } 'Manual' { 'MANUAL' } default { 'DISABLED' } }
+        pid = if ($_.ProcessId -gt 0) { [int]$_.ProcessId } else { $null }
+        processName = ''
+      }
+    }
+
+  $perfMap = @{}
+  try {
+    $perfRows = Get-CimInstance @cimParams -ClassName Win32_PerfFormattedData_PerfProc_Process |
+      Where-Object { $_.IDProcess -gt 0 }
+    foreach ($pf in $perfRows) {
+      $perfMap[[int]$pf.IDProcess] = $pf
+    }
+  } catch {}
+
+  $procs = Get-CimInstance @cimParams -ClassName Win32_Process |
+    Where-Object { $_.ProcessId -gt 4 } |
+    ForEach-Object {
+      $pidInt = [int]$_.ProcessId
+      $pf = $perfMap[$pidInt]
+      $privMb = if ($pf -and $null -ne $pf.WorkingSetPrivate) { [math]::Round(($pf.WorkingSetPrivate / 1MB), 1) } else { [math]::Round(($_.PrivatePageCount / 1MB), 1) }
+      $wsMb = [math]::Round(($_.WorkingSetSize / 1MB), 1)
+      $cpuPct = if ($pf -and $null -ne $pf.PercentProcessorTime) { [int]$pf.PercentProcessorTime } else { $null }
+      $startIso = if ($_.CreationDate) { ([datetime]$_.CreationDate).ToUniversalTime().ToString('o') } else { (Get-Date).ToUniversalTime().ToString('o') }
+      [pscustomobject]@{
+        pid = $pidInt
+        name = [string]$_.Name
+        cpuPercent = $cpuPct
+        privateWorkingSetMb = $privMb
+        workingSetMb = $wsMb
+        startTimeIso = $startIso
+      }
+    } |
+    Sort-Object @{Expression='privateWorkingSetMb';Descending=$true}, @{Expression='cpuPercent';Descending=$true} |
+    Select-Object -First 30
+
+  [pscustomobject]@{
+    services = @($services)
+    processes = @($procs)
+  } | ConvertTo-Json -Depth 4 -Compress
+} finally {
+  if ($session) { Remove-CimSession -CimSession $session -ErrorAction SilentlyContinue }
+}
+`.trim();
+
+function classifyWindowsDaemon(name: string, displayOrReason: string): {
+  category:
+    | 'SQL_SERVER'
+    | 'WEBRI_SIPLAN'
+    | 'MYSQL'
+    | 'JAVA_RUNTIME'
+    | 'IIS_WEB'
+    | 'POWERBI_GATEWAY'
+    | 'BACKUP_AGENT'
+    | 'ANTIVIRUS_SECURITY'
+    | 'MONITORING_ZABBIX'
+    | 'SISTEMA_OUTROS';
+  belongsToWebri: boolean;
+  webriConfidence: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO_ASSOCIADO';
+  reason: string;
+} {
+  const upper = `${name} ${displayOrReason}`.toUpperCase();
+  if (upper.includes('SQLSERVR') || upper.includes('MSSQL') || upper.includes('SQLAGENT') || upper.includes('SQL SERVER')) {
+    return { category: 'SQL_SERVER', belongsToWebri: true, webriConfidence: 'ALTA', reason: 'Serviço/processo SQL Server do ambiente WEBRI.' };
+  }
+  if (upper.includes('PBIEGW') || upper.includes('POWERBI') || upper.includes('POWER BI') || upper.includes('MASHUP')) {
+    return { category: 'POWERBI_GATEWAY', belongsToWebri: false, webriConfidence: 'NAO_ASSOCIADO', reason: 'Microsoft Power BI Enterprise Gateway (carga analítica externa ao WEBRI).' };
+  }
+  if (upper.includes('VEEAM') || upper.includes('ACRONIS')) {
+    return { category: 'BACKUP_AGENT', belongsToWebri: false, webriConfidence: 'NAO_ASSOCIADO', reason: 'Agente de backup residente no servidor Windows.' };
+  }
+  if (upper.includes('AVP') || upper.includes('KLNAGENT') || upper.includes('KASPERSKY')) {
+    return { category: 'ANTIVIRUS_SECURITY', belongsToWebri: false, webriConfidence: 'NAO_ASSOCIADO', reason: 'Agente de segurança / antivírus Kaspersky.' };
+  }
+  if (upper.includes('ZABBIX')) {
+    return { category: 'MONITORING_ZABBIX', belongsToWebri: false, webriConfidence: 'NAO_ASSOCIADO', reason: 'Agente de monitoramento Zabbix Agent 2 (porta 10050).' };
+  }
+  if (upper.includes('W3SVC') || upper.includes('W3WP')) {
+    return { category: 'IIS_WEB', belongsToWebri: true, webriConfidence: 'MEDIA', reason: 'Serviço/Worker IIS Web.' };
+  }
+  if (upper.includes('MYSQL')) {
+    return { category: 'MYSQL', belongsToWebri: false, webriConfidence: 'BAIXA', reason: 'Instância MySQL residente; vínculo com WEBRI depende de confirmação.' };
+  }
+  if (upper.includes('SIPLAN') || upper.includes('WEBRI')) {
+    return { category: 'WEBRI_SIPLAN', belongsToWebri: true, webriConfidence: 'ALTA', reason: 'Serviço/processo identificado da suíte SIPLAN/WEBRI.' };
+  }
+  if (upper === 'JAVA.EXE' || upper === 'JAVAW.EXE' || upper.includes('JAVA(') || upper.includes('JAVA ')) {
+    return { category: 'JAVA_RUNTIME', belongsToWebri: false, webriConfidence: 'BAIXA', reason: 'Processo Java em execução no SRVSQL; vínculo com SIPLAN/WEBRI requer confirmação (não presumido automaticamente).' };
+  }
+  return { category: 'SISTEMA_OUTROS', belongsToWebri: false, webriConfidence: 'NAO_ASSOCIADO', reason: 'Processo/serviço Windows residente no SRVSQL.' };
+}
+
+async function probeWindowsOsServicesAndProcesses(host: string): Promise<CachedOsProbeResult> {
+  if (process.platform !== 'win32' || process.env.NODE_ENV === 'test' || process.env.VITEST) {
+    return { available: false, checkedAtMs: Date.now(), services: [], processes: [] };
+  }
+
+  const nowMs = Date.now();
+  if (cachedOsProbe) {
+    const ttl = cachedOsProbe.available ? OS_PROBE_SUCCESS_TTL_MS : OS_PROBE_FAILURE_COOLDOWN_MS;
+    if (nowMs - cachedOsProbe.checkedAtMs < ttl) {
+      return cachedOsProbe;
+    }
+  }
+
+  try {
+    const encoded = Buffer.from(READONLY_WMI_PS_SCRIPT, 'utf16le').toString('base64');
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+      {
+        timeout: 4500,
+        maxBuffer: 2 * 1024 * 1024,
+        windowsHide: true,
+        env: { ...process.env, SRVSQL_TARGET_HOST: host },
+      },
+    );
+    const trimmed = (stdout || '').trim();
+    if (!trimmed) {
+      throw new Error('Saída WMI/CIM vazia');
+    }
+    const parsed = JSON.parse(trimmed) as {
+      services?: OsProbeServiceRaw[];
+      processes?: OsProbeProcessRaw[];
+    };
+    const services = Array.isArray(parsed.services) ? parsed.services : [];
+    const processes = Array.isArray(parsed.processes) ? parsed.processes : [];
+    const available = services.length > 0 || processes.length > 0;
+    cachedOsProbe = { available, checkedAtMs: Date.now(), services, processes };
+    return cachedOsProbe;
+  } catch {
+    cachedOsProbe = { available: false, checkedAtMs: Date.now(), services: [], processes: [] };
+    return cachedOsProbe;
+  }
+}
 
 async function probeZabbixAgent(
   host: string,
@@ -129,6 +329,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
 
   try {
     const zabbixPromise = probeZabbixAgent(host, 10050, 1200);
+    const osProbePromise = probeWindowsOsServicesAndProcesses(host);
 
     pool = await new sql.ConnectionPool({
       user: env.SQL_SERVER_USER,
@@ -169,13 +370,14 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
     const hasViewAnyDefinition = Boolean(metaRow.has_view_any_definition);
     const productVersion = String(metaRow.product_version || '');
     const majorVersion = Number(productVersion.split('.')[0]) || null;
-    const zabbix = await zabbixPromise;
+    const [zabbix, osProbe] = await Promise.all([zabbixPromise, osProbePromise]);
     const observedAt = new Date().toISOString();
 
     if (!hasViewServerState) {
       const partialSample = {
         observedAt,
         collectorVersion: AGENT_VERSION,
+        windowsOsTelemetryAvailable: osProbe.available,
         connectorHost: os.hostname(),
         collectionDurationMs: Date.now() - startMs,
         simpleConnectivityPingMs: selectOneMs,
@@ -253,7 +455,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       return await sendSrvsqlPerformanceSample(partialSample);
     }
 
-    const [sysRes, cpuRingRes, sessionsRes, filesRes, waitsRes, topQueriesRes, dbSpacesRes, svcRes] =
+    const [sysRes, cpuRingRes, sessionsRes, filesRes, waitsRes, topQueriesRes, dbSpacesRes, svcRes, localProcsRes] =
       await Promise.all([
         pool.request().query(`
           SET NOCOUNT ON;
@@ -296,7 +498,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           SET NOCOUNT ON;
           SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
           SET LOCK_TIMEOUT 2000;
-          DECLARE @ts_now BIGINT = (SELECT cpu_ticks / (cpu_ticks / ms_ticks) FROM sys.dm_os_sys_info);
+          DECLARE @ts_now BIGINT = (SELECT ms_ticks FROM sys.dm_os_sys_info);
           SELECT TOP (30)
             CONVERT(VARCHAR(33), DATEADD(ms, -1 * (@ts_now - [timestamp]), GETDATE()), 126) AS sample_time_iso,
             CONVERT(VARCHAR(5), DATEADD(ms, -1 * (@ts_now - [timestamp]), GETDATE()), 108) AS time_label,
@@ -402,18 +604,25 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
           SET NOCOUNT ON;
           SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
           SET LOCK_TIMEOUT 2000;
-          SELECT TOP (12)
+          SELECT TOP (25)
             CONVERT(VARCHAR(18), qs.query_hash, 1) AS query_hash,
+            ISNULL(DB_NAME(CAST(pa.value AS INT)), DB_NAME()) AS database_name,
             SUM(qs.execution_count) AS execution_count,
             CAST(SUM(qs.total_elapsed_time) / 1000.0 AS BIGINT) AS total_elapsed_time_ms,
             CAST(SUM(qs.total_worker_time) / 1000.0 AS BIGINT) AS total_cpu_time_ms,
             SUM(qs.total_logical_reads) AS total_logical_reads,
             SUM(qs.total_logical_writes) AS total_logical_writes
           FROM sys.dm_exec_query_stats AS qs
+          OUTER APPLY (
+            SELECT TOP (1) value
+            FROM sys.dm_exec_plan_attributes(qs.plan_handle)
+            WHERE attribute = 'dbid'
+          ) AS pa
           WHERE qs.query_hash <> 0x0000000000000000
-          GROUP BY qs.query_hash
+            AND qs.last_execution_time >= DATEADD(HOUR, -6, GETDATE())
+          GROUP BY qs.query_hash, DB_NAME(CAST(pa.value AS INT))
           ORDER BY SUM(qs.total_elapsed_time) DESC;
-        `),
+        `).catch(() => ({ recordset: [] as any[] })),
         pool.request().query(`
           SET NOCOUNT ON;
           SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -500,6 +709,22 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
             CONVERT(VARCHAR(33), last_startup_time, 126) AS last_startup_time_iso,
             CAST(service_account AS VARCHAR(128)) AS service_account
           FROM sys.dm_server_services;
+        `).catch(() => ({ recordset: [] as any[] })),
+        pool.request().query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+          SELECT
+            s.host_process_id,
+            MAX(CAST(s.program_name AS VARCHAR(128))) AS program_name,
+            MAX(CAST(DB_NAME(s.database_id) AS VARCHAR(128))) AS database_name,
+            MAX(CONVERT(VARCHAR(33), s.last_request_start_time, 126)) AS last_request_start_time_iso,
+            COUNT(*) AS session_count
+          FROM sys.dm_exec_sessions AS s
+          WHERE s.is_user_process = 1
+            AND s.host_process_id > 0
+            AND UPPER(LTRIM(RTRIM(ISNULL(s.host_name, '')))) = UPPER(LTRIM(RTRIM(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(128)))))
+          GROUP BY s.host_process_id;
         `).catch(() => ({ recordset: [] as any[] })),
       ]);
 
@@ -725,7 +950,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       const writes = Number(q.total_logical_writes || 0);
       return {
         queryHash: String(q.query_hash || '0x0'),
-        databaseName: database,
+        databaseName: String(q.database_name || database),
         executionCountDelta: execCount,
         totalElapsedTimeDeltaMs: totalElapsed,
         avgElapsedTimeMs: Math.round(totalElapsed / execCount),
@@ -784,7 +1009,34 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       };
     });
 
-    const windowsServices = (svcRes.recordset || []).map((sv: any) => {
+    const osProcByPid = new Map<number, OsProbeProcessRaw>();
+    for (const p of osProbe.processes) {
+      if (p.pid > 0) osProcByPid.set(p.pid, p);
+    }
+
+    const windowsServices: Array<{
+      serviceName: string;
+      displayName: string;
+      state: 'RUNNING' | 'STOPPED' | 'PAUSED' | 'START_PENDING' | 'STOP_PENDING' | 'UNKNOWN';
+      startMode: 'AUTO' | 'MANUAL' | 'DISABLED' | 'UNKNOWN';
+      pid: number | null;
+      processName: string | null;
+      processStartTimeIso: string | null;
+      belongsToWebri: boolean;
+      webriConfidence: 'ALTA' | 'MEDIA' | 'BAIXA' | 'NAO_ASSOCIADO';
+      category:
+        | 'SQL_SERVER'
+        | 'WEBRI_SIPLAN'
+        | 'MYSQL'
+        | 'JAVA_RUNTIME'
+        | 'IIS_WEB'
+        | 'POWERBI_GATEWAY'
+        | 'BACKUP_AGENT'
+        | 'ANTIVIRUS_SECURITY'
+        | 'MONITORING_ZABBIX'
+        | 'SISTEMA_OUTROS';
+      notes: string;
+    }> = (svcRes.recordset || []).map((sv: any) => {
       const svcName = String(sv.servicename || 'SQL Server');
       const statusUpper = String(sv.status_desc || '').toUpperCase();
       const startUpper = String(sv.startup_type_desc || '').toUpperCase();
@@ -806,11 +1058,68 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       };
     });
 
+    for (const osSvc of osProbe.services) {
+      const key = osSvc.serviceName.trim().toLowerCase();
+      const matchedProc = osSvc.pid ? osProcByPid.get(osSvc.pid) : undefined;
+      const existing = windowsServices.find((s) => s.serviceName.trim().toLowerCase() === key);
+      if (existing) {
+        if (!existing.pid && osSvc.pid) existing.pid = osSvc.pid;
+        if (!existing.processName && (matchedProc?.name || osSvc.processName)) {
+          existing.processName = matchedProc?.name || osSvc.processName || null;
+        }
+        if (!existing.processStartTimeIso && matchedProc?.startTimeIso) {
+          existing.processStartTimeIso = matchedProc.startTimeIso;
+        }
+        continue;
+      }
+      const cls = classifyWindowsDaemon(osSvc.serviceName, osSvc.displayName);
+      windowsServices.push({
+        serviceName: osSvc.serviceName,
+        displayName: osSvc.displayName,
+        state: osSvc.state,
+        startMode: osSvc.startMode,
+        pid: osSvc.pid,
+        processName: matchedProc?.name || osSvc.processName || null,
+        processStartTimeIso: matchedProc?.startTimeIso || null,
+        belongsToWebri: cls.belongsToWebri,
+        webriConfidence: cls.webriConfidence,
+        category: cls.category,
+        notes: osSvc.pid ? `PID ${osSvc.pid} · ${cls.reason}` : cls.reason,
+      });
+    }
+
+    if (
+      zabbix.reachable &&
+      !windowsServices.some((s) => s.serviceName.toUpperCase().includes('ZABBIX'))
+    ) {
+      const zabbixProc = osProbe.processes.find((p) => p.name.toLowerCase().includes('zabbix'));
+      windowsServices.push({
+        serviceName: 'Zabbix Agent 2',
+        displayName: 'Zabbix Agent 2 (Porta TCP 10050)',
+        state: 'RUNNING',
+        startMode: 'AUTO',
+        pid: zabbixProc?.pid ?? null,
+        processName: zabbixProc?.name || 'zabbix_agent2.exe',
+        processStartTimeIso: zabbixProc?.startTimeIso || null,
+        belongsToWebri: false,
+        webriConfidence: 'NAO_ASSOCIADO',
+        category: 'MONITORING_ZABBIX',
+        notes: zabbix.detail,
+      });
+    }
+
+    const svcByPid = new Map<number, (typeof windowsServices)[number]>();
+    for (const s of windowsServices) {
+      if (s.pid && s.pid > 0 && !svcByPid.has(s.pid)) {
+        svcByPid.set(s.pid, s);
+      }
+    }
+
     const sqlPhysMb = Number(sys.sql_physical_memory_in_use_mb) || null;
     const sqlStartIso = sys.sqlserver_start_time_iso
       ? String(sys.sqlserver_start_time_iso)
       : observedAt;
-    const sqlPid = windowsServices.find((s: any) => s.processName === 'sqlservr.exe')?.pid || 2184;
+    const sqlPid = windowsServices.find((s) => s.processName === 'sqlservr.exe')?.pid || 2184;
     const sqlMachineUpper = String(metaRow.machine_name || host || '').trim().toUpperCase();
 
     const windowsProcesses: Array<{
@@ -857,27 +1166,87 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       },
     ];
 
-    const sqlAgentSvc = windowsServices.find((s: any) => s.processName === 'SQLAGENT.EXE' && s.state === 'RUNNING' && s.pid);
+    const sqlAgentSvc = windowsServices.find((s) => s.processName === 'SQLAGENT.EXE' && s.state === 'RUNNING' && s.pid);
     if (sqlAgentSvc && sqlAgentSvc.pid) {
+      const agentOsProc = osProcByPid.get(Number(sqlAgentSvc.pid));
       windowsProcesses.push({
         pid: Number(sqlAgentSvc.pid),
         processName: 'SQLAGENT.EXE',
-        startTimeIso: sqlAgentSvc.processStartTimeIso || sqlStartIso,
-        cpuPercent: null,
-        privateWorkingSetMb: null,
-        workingSetMb: null,
+        startTimeIso: sqlAgentSvc.processStartTimeIso || agentOsProc?.startTimeIso || sqlStartIso,
+        cpuPercent: agentOsProc?.cpuPercent ?? null,
+        privateWorkingSetMb: agentOsProc?.privateWorkingSetMb ?? null,
+        workingSetMb: agentOsProc?.workingSetMb ?? null,
         associatedServiceName: sqlAgentSvc.serviceName,
         associatedServiceDisplayName: sqlAgentSvc.displayName,
         category: 'SQL_SERVER',
         belongsToWebri: true,
         webriConfidence: 'ALTA',
-        associationReason: 'SQL Server Agent em execução no SRVSQL (CPU/RAM por processo requer Perfmon local).',
+        associationReason: agentOsProc
+          ? 'SQL Server Agent em execução no SRVSQL (monitorado via DMVs e WMI/CIM).'
+          : 'SQL Server Agent em execução no SRVSQL (CPU/RAM por processo requer Perfmon/WMI local).',
         diskIoBytesPerSec: null,
         diskAttributionSource: 'NAO_SUSTENTADO_POR_FONTE',
       });
     }
 
     const seenLocalPids = new Set<number>(windowsProcesses.map((p) => p.pid));
+    for (const osProc of osProbe.processes) {
+      if (!(osProc.pid > 0) || seenLocalPids.has(osProc.pid)) {
+        continue;
+      }
+      seenLocalPids.add(osProc.pid);
+      const svc = svcByPid.get(osProc.pid);
+      const cls = classifyWindowsDaemon(osProc.name, svc?.displayName || '');
+      windowsProcesses.push({
+        pid: osProc.pid,
+        processName: osProc.name,
+        startTimeIso: osProc.startTimeIso || observedAt,
+        cpuPercent: osProc.cpuPercent,
+        privateWorkingSetMb: osProc.privateWorkingSetMb,
+        workingSetMb: osProc.workingSetMb,
+        associatedServiceName: svc?.serviceName || null,
+        associatedServiceDisplayName: svc?.displayName || null,
+        category: cls.category,
+        belongsToWebri: svc ? svc.belongsToWebri : cls.belongsToWebri,
+        webriConfidence: svc ? svc.webriConfidence : cls.webriConfidence,
+        associationReason: svc
+          ? `Serviço ${svc.displayName} (PID ${osProc.pid}) monitorado via WMI/CIM no SRVSQL.`
+          : `${cls.reason} (PID ${osProc.pid} via WMI/CIM no SRVSQL).`,
+        diskIoBytesPerSec: null,
+        diskAttributionSource: 'NAO_SUSTENTADO_POR_FONTE',
+      });
+    }
+
+    for (const lp of localProcsRes.recordset || []) {
+      const hpid = Number(lp.host_process_id || 0);
+      if (!(hpid > 0) || seenLocalPids.has(hpid)) {
+        continue;
+      }
+      seenLocalPids.add(hpid);
+      const prog = String(lp.program_name || 'LocalClient');
+      const progUpper = prog.toUpperCase();
+      const isPowerBi = progUpper.includes('MASHUP') || progUpper.includes('POWERBI') || progUpper.includes('POWER BI');
+      const cls = classifyWindowsDaemon(prog, String(lp.database_name || ''));
+      windowsProcesses.push({
+        pid: hpid,
+        processName: isPowerBi ? 'Microsoft.Mashup.Container.exe' : prog.slice(0, 64),
+        startTimeIso: lp.last_request_start_time_iso ? String(lp.last_request_start_time_iso) : sqlStartIso,
+        cpuPercent: null,
+        privateWorkingSetMb: null,
+        workingSetMb: null,
+        associatedServiceName: isPowerBi ? 'PBIEgwService' : null,
+        associatedServiceDisplayName: isPowerBi ? 'On-premises data gateway (Mashup Engine)' : null,
+        category: isPowerBi ? 'POWERBI_GATEWAY' : cls.category,
+        belongsToWebri: !isPowerBi && String(lp.database_name || '').toUpperCase().includes('WEBRI'),
+        webriConfidence: isPowerBi ? 'ALTA' : 'MEDIA',
+        associationReason: isPowerBi
+          ? `Processo local no SRVSQL (${prog}) identificado via host_process_id na DMV de sessões; carga analítica Power BI.`
+          : `Processo local no SRVSQL (${prog}) conectado ao banco ${lp.database_name || 'master'} (${Number(lp.session_count || 1)} sessão(ões); CPU/RAM por processo requer Perfmon/WMI).`,
+        diskIoBytesPerSec: null,
+        diskAttributionSource: 'NAO_SUSTENTADO_POR_FONTE',
+      });
+    }
+
     for (const s of sessionsRes.recordset || []) {
       const hpid = Number(s.host_process_id || 0);
       const sessHostUpper = String(s.host_name || '').trim().toUpperCase();
@@ -980,6 +1349,22 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
       }
     }
 
+    for (const p of osProbe.processes) {
+      const lower = p.name.toLowerCase();
+      if (lower === 'tiworker.exe' || lower === 'trustedinstaller.exe') {
+        concurrentEvents.push({
+          id: `evt-os-${p.pid}`,
+          category: 'SCHEDULED_TASK',
+          title: 'Windows Modules Installer Worker (Windows Update)',
+          source: `${p.name} (PID ${p.pid})`,
+          startedAt: p.startTimeIso,
+          endedAt: null,
+          status: 'EM_ANDAMENTO',
+          detail: `Manutenção/atualização do Windows em execução no SRVSQL (CPU ${p.cpuPercent ?? 'n/d'}%, RAM ${p.privateWorkingSetMb ?? p.workingSetMb ?? 'n/d'} MB).`,
+        });
+      }
+    }
+
     const bufferCacheHitRatioPercent =
       sys.buffer_cache_hit_ratio_pct !== null && sys.buffer_cache_hit_ratio_pct !== undefined
         ? Math.round(Number(sys.buffer_cache_hit_ratio_pct) * 100) / 100
@@ -988,6 +1373,7 @@ export async function collectAndSendSrvsqlPerformance(): Promise<boolean> {
     const samplePayload = {
       observedAt,
       collectorVersion: AGENT_VERSION,
+      windowsOsTelemetryAvailable: osProbe.available,
       connectorHost: os.hostname(),
       collectionDurationMs: Date.now() - startMs,
       simpleConnectivityPingMs: selectOneMs,

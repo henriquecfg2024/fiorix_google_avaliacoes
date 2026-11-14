@@ -5,7 +5,13 @@ import { createHash } from 'node:crypto';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { getSaoPauloDateTime } from '../utils/businessHours.js';
-import { postDocumentMessage } from './api.js';
+import {
+  postDocumentMessage,
+  prepareStorageUpload,
+  prepareStorageUploadBatch,
+  uploadBinaryToSignedUrl,
+} from './api.js';
+import { RealtimeWakeupClient, sanitizeRealtimeLogText } from './realtime-wakeup-client.js';
 import { runtimeDirective } from './runtime-directive.js';
 import {
   executeDocumentCli,
@@ -15,9 +21,11 @@ import {
   listDirectory,
   MAX_DOCUMENT_CHUNK_BYTES,
   MAX_INLINE_PDF_BYTES,
+  MAX_STORAGE_OFFLOAD_BYTES,
   parseDocumentRoots,
   readDocumentChunk,
   readDocumentText,
+  renderKenPagesAsPngBuffers,
   resolveAuthorizedFile,
   searchDocuments,
   warmDocumentIndex,
@@ -50,6 +58,7 @@ export interface DocumentWorkerFailureRecord {
 export interface DocumentWorkerTelemetry {
   enabled: boolean;
   running: boolean;
+  realtimeConnected: boolean;
   disabledReason: string | null;
   pollingIntervalIdleMs: number;
   pollingIntervalActiveMs: number;
@@ -74,9 +83,174 @@ export interface DocumentWorkerTelemetry {
     extract_petition: number;
     analyze_signatures: number;
     inspect_matricula_acervo: number;
+    stage_document_file: number;
   };
   fileServer: EstatisticasServidorArquivos | null;
   searchEngine: DocumentSearchTelemetry | null;
+}
+
+function mimeByExtension(ext: string): string {
+  const lower = ext.toLowerCase();
+  if (lower === '.pdf') return 'application/pdf';
+  if (lower === '.doc') return 'application/msword';
+  if (lower === '.docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (lower === '.rtf') return 'application/rtf';
+  if (lower === '.txt') return 'text/plain;charset=utf-8';
+  if (lower === '.tif' || lower === '.tiff' || lower === '.ken') return 'image/tiff';
+  if (lower === '.png') return 'image/png';
+  if (lower === '.jpg' || lower === '.jpeg') return 'image/jpeg';
+  return 'application/octet-stream';
+}
+
+async function stageFileToEphemeralStorage(
+  rootId: string,
+  relativePath: string,
+  targetPath: string,
+): Promise<Record<string, unknown>> {
+  const stat = await fs.stat(targetPath);
+  const fileName = path.basename(targetPath);
+  if (stat.size <= 0 || stat.size > MAX_STORAGE_OFFLOAD_BYTES) {
+    return { fallbackToChunk: true, totalSize: stat.size, fileName };
+  }
+  try {
+    const ext = path.extname(targetPath).toLowerCase() || '.bin';
+    const prep = await prepareStorageUpload({
+      rootId,
+      relativePath,
+      sizeBytes: stat.size,
+      mtimeMs: Math.trunc(stat.mtimeMs),
+      ext,
+      variant: 'raw',
+    });
+    if (!prep.storageEnabled || !prep.storagePath) {
+      return { fallbackToChunk: true, totalSize: stat.size, fileName };
+    }
+    if (!prep.alreadyExists) {
+      if (!prep.signedUploadUrl) {
+        throw new Error('URL assinada de upload ausente.');
+      }
+      const fileBuf = await fs.readFile(targetPath);
+      await uploadBinaryToSignedUrl(prep.signedUploadUrl, fileBuf, mimeByExtension(ext));
+    }
+    return {
+      storagePath: prep.storagePath,
+      totalSize: stat.size,
+      modifiedAt: stat.mtime.toISOString(),
+      fileName,
+    };
+  } catch (err: any) {
+    logger.warn(
+      `DOCUMENTAL: fallback stage_document_file para chunk (${sanitizeRealtimeLogText(err?.message || err)}).`,
+    );
+    return { fallbackToChunk: true, totalSize: stat.size, fileName };
+  }
+}
+
+async function tryUploadPdfToEphemeralStorage(
+  rootId: string,
+  relativePath: string,
+  targetPath: string,
+  size: number,
+  mtimeMs: number,
+): Promise<string | null> {
+  if (size <= 0 || size > MAX_STORAGE_OFFLOAD_BYTES) return null;
+  try {
+    const prep = await prepareStorageUpload({
+      rootId,
+      relativePath,
+      sizeBytes: size,
+      mtimeMs: Math.trunc(mtimeMs),
+      ext: '.pdf',
+      variant: 'pdf',
+    });
+    if (!prep.storageEnabled || !prep.storagePath) return null;
+    if (!prep.alreadyExists) {
+      if (!prep.signedUploadUrl) return null;
+      const buf = await fs.readFile(targetPath);
+      await uploadBinaryToSignedUrl(prep.signedUploadUrl, buf, 'application/pdf');
+    }
+    return prep.storagePath;
+  } catch (err: any) {
+    logger.warn(
+      `DOCUMENTAL: offload PDF para Storage indisponível, mantendo fallback LAN/chunk (${sanitizeRealtimeLogText(err?.message || err)}).`,
+    );
+    return null;
+  }
+}
+
+async function tryUploadKenPagesToEphemeralStorage(
+  rootId: string,
+  relativePath: string,
+  targetPath: string,
+  options?: { pageStart?: number; pageEnd?: number },
+): Promise<Record<string, unknown> | null> {
+  try {
+    const stat = await fs.stat(targetPath);
+    if (stat.size <= 0 || stat.size > MAX_STORAGE_OFFLOAD_BYTES) return null;
+
+    const rendered = await renderKenPagesAsPngBuffers(targetPath, {
+      pageStart: options?.pageStart,
+      pageEnd: options?.pageEnd,
+      maxPages: 25,
+    });
+    if (rendered.pages.length === 0) return null;
+
+    const batch = await prepareStorageUploadBatch(
+      rendered.pages.map((p) => ({
+        rootId,
+        relativePath,
+        sizeBytes: p.pngBuffer.length,
+        mtimeMs: rendered.mtimeMs,
+        ext: '.png',
+        variant: `ken_p${p.pageNumber}`,
+      })),
+    );
+    if (!batch.storageEnabled || batch.uploads.length !== rendered.pages.length) {
+      return null;
+    }
+
+    let cursor = 0;
+    const concurrency = Math.min(4, rendered.pages.length);
+    await Promise.all(
+      Array.from({ length: concurrency }, async () => {
+        while (cursor < rendered.pages.length) {
+          const idx = cursor++;
+          const uploadItem = batch.uploads[idx];
+          const pageItem = rendered.pages[idx];
+          if (!uploadItem?.storagePath) {
+            throw new Error('storagePath ausente no lote de páginas.');
+          }
+          if (!uploadItem.alreadyExists) {
+            if (!uploadItem.signedUploadUrl) {
+              throw new Error('signedUploadUrl ausente no lote de páginas.');
+            }
+            await uploadBinaryToSignedUrl(uploadItem.signedUploadUrl, pageItem.pngBuffer, 'image/png');
+          }
+        }
+      }),
+    );
+
+    const pageStoragePaths = batch.uploads.map((u) => u.storagePath);
+    if (!pageStoragePaths.every((p) => Boolean(p))) return null;
+
+    return {
+      fileName: rendered.fileName,
+      extension: rendered.extension,
+      size: rendered.size,
+      pageStoragePaths,
+      pageCount: rendered.pageCount,
+      loadedPageStart: rendered.loadedPageStart,
+      loadedPageEnd: rendered.loadedPageEnd,
+      hasMorePages: rendered.hasMorePages,
+      html: '',
+      text: `[Imagem Digitalizada da Matrícula: ${rendered.fileName} - ${rendered.pageCount} folha(s) no Livro 2 (Registro Geral)]`,
+    };
+  } catch (err: any) {
+    logger.warn(
+      `DOCUMENTAL: offload .KEN para Storage indisponível, usando fallback Base64 (${sanitizeRealtimeLogText(err?.message || err)}).`,
+    );
+    return null;
+  }
 }
 
 const FAILURE_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -121,6 +295,7 @@ function pruneRolling24hWindow(nowMs = Date.now()) {
 const workerRuntime = {
   enabled: false,
   running: false,
+  realtimeConnected: false,
   disabledReason: null as string | null,
   authorizedRoots: [] as DocumentRoot[],
   servidorArquivos: null as ServidorArquivosLocal | null,
@@ -141,6 +316,7 @@ const workerRuntime = {
     extract_petition: 0,
     analyze_signatures: 0,
     inspect_matricula_acervo: 0,
+    stage_document_file: 0,
   },
 };
 
@@ -173,9 +349,10 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
   return {
     enabled: workerRuntime.enabled,
     running: workerRuntime.running,
+    realtimeConnected: workerRuntime.realtimeConnected,
     disabledReason: workerRuntime.disabledReason,
     pollingIntervalIdleMs: workerRuntime.currentPollIntervalMs,
-    pollingIntervalActiveMs: 150,
+    pollingIntervalActiveMs: 80,
     lastPollAt: workerRuntime.lastPollAt,
     lastJobAt: workerRuntime.lastJobAt,
     lastError: workerRuntime.lastError,
@@ -263,6 +440,49 @@ export function startDocumentWorker(): () => void {
     void warmDocumentIndex(initialRoots).catch(() => {});
   }
 
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let ultimoJobTimestampMs = Date.now();
+  let inFlightTick = false;
+  let pendingWakeup = false;
+
+  // Intervalos adaptativos: wakeup Realtime (<50ms) reduz polling ocioso para 60s; fallback sub-segundo quando desconectado
+  const INTERVALO_APOS_JOB_MS = 80;
+  const INTERVALO_JANELA_ATIVA_MS = 750;
+  const INTERVALO_OCIOSO_CURTO_MS = 1500;
+  const INTERVALO_OCIOSO_MEDIO_MS = 3000;
+  const INTERVALO_OCIOSO_MAX_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_IDLE_MAX_MS) || 5000;
+  const INTERVALO_OCIOSO_FORA_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_OFFHOURS_POLL_MS) || 15000;
+  const INTERVALO_SEGURANCA_REALTIME_MS = 60_000;
+  const INTERVALO_STANDBY_MS = 10000;
+  const INTERVALO_ERRO_MS = 5000;
+
+  const wakeupClient = new RealtimeWakeupClient({
+    onWakeup: () => {
+      if (stopped || !runtimeDirective.shouldRunDocumentWorker()) return;
+      workerRuntime.realtimeConnected = wakeupClient.isConnected();
+      ultimoJobTimestampMs = Date.now();
+      if (inFlightTick) {
+        pendingWakeup = true;
+        return;
+      }
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      void tick();
+    },
+  });
+
+  function syncWakeupConfig(): void {
+    const allowed =
+      !stopped &&
+      runtimeDirective.shouldRunDocumentWorker() &&
+      workerRuntime.authorizedRoots.length > 0;
+    wakeupClient.configure(allowed ? runtimeDirective.getRealtimeWakeup() : null);
+    workerRuntime.realtimeConnected = wakeupClient.isConnected();
+  }
+
   const unsubscribeConfig = runtimeDirective.onConfigChanged((remoteCfg) => {
     try {
       const nextRoots = resolveConfiguredDocumentRoots();
@@ -273,26 +493,23 @@ export function startDocumentWorker(): () => void {
       if (servidorArquivos) {
         servidorArquivos.atualizarUrlPublica(remoteCfg.lanUrl);
       }
+      syncWakeupConfig();
     } catch (cfgErr: any) {
       logger.warn(`DOCUMENTAL: falha ao aplicar configuração remota (${cfgErr?.message || cfgErr}).`);
     }
   });
 
-  let stopped = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let ultimoJobTimestampMs = Date.now();
-
-  // Intervalos adaptativos: sub-segundo durante navegação ativa e backoff progressivo em ociosidade
-  const INTERVALO_APOS_JOB_MS = 150;
-  const INTERVALO_JANELA_ATIVA_MS = 750;
-  const INTERVALO_OCIOSO_CURTO_MS = 1500;
-  const INTERVALO_OCIOSO_MEDIO_MS = 3000;
-  const INTERVALO_OCIOSO_MAX_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_IDLE_MAX_MS) || 5000;
-  const INTERVALO_OCIOSO_FORA_EXPEDIENTE_MS = Number(process.env.DOCUMENTAL_OFFHOURS_POLL_MS) || 15000;
-  const INTERVALO_STANDBY_MS = 10000;
-  const INTERVALO_ERRO_MS = 5000;
+  const unsubscribeWakeup = runtimeDirective.onRealtimeWakeupChanged(() => {
+    syncWakeupConfig();
+  });
+  syncWakeupConfig();
 
   function calcularProximoIntervaloOcioso(): number {
+    workerRuntime.realtimeConnected = wakeupClient.isConnected();
+    if (workerRuntime.realtimeConnected) {
+      return INTERVALO_SEGURANCA_REALTIME_MS;
+    }
+
     const agoraMs = Date.now();
     const tempoSemJobMs = Math.max(0, agoraMs - ultimoJobTimestampMs);
 
@@ -316,10 +533,15 @@ export function startDocumentWorker(): () => void {
   }
 
   async function tick() {
+    if (inFlightTick || stopped) return;
+    inFlightTick = true;
+    syncWakeupConfig();
     let proximoIntervalo = calcularProximoIntervaloOcioso();
     try {
       if (!runtimeDirective.shouldRunDocumentWorker()) {
         workerRuntime.running = false;
+        workerRuntime.realtimeConnected = false;
+        wakeupClient.configure(null);
         workerRuntime.disabledReason = runtimeDirective.isPaused()
           ? 'Pausado manualmente (modo manutenção)'
           : 'Em Hot-Standby (aguardando promoção)';
@@ -393,10 +615,22 @@ export function startDocumentWorker(): () => void {
               const info = await fs.stat(targetPath);
               const link = servidorArquivos ? servidorArquivos.emitirTicket(targetPath, info.size) : null;
               let pdfDataUrl: string | undefined;
+              let storagePath: string | undefined;
               // PDFs até 2,4 MB vão também embutidos via HTTPS para abrir direto no Safari, Mac, iPad e outras estações
               if (info.size <= MAX_INLINE_PDF_BYTES) {
                 const buf = await fs.readFile(targetPath);
                 pdfDataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
+              } else {
+                const offloadedPdfPath = await tryUploadPdfToEphemeralStorage(
+                  job.rootId,
+                  job.relativePath,
+                  targetPath,
+                  info.size,
+                  info.mtimeMs,
+                );
+                if (offloadedPdfPath) {
+                  storagePath = offloadedPdfPath;
+                }
               }
               result = {
                 fileName: path.basename(targetPath),
@@ -405,14 +639,34 @@ export function startDocumentWorker(): () => void {
                 html: '',
                 text: `[Documento PDF: ${path.basename(targetPath)} • ${Math.round(info.size / 1024)} KB]`,
                 ...(pdfDataUrl ? { pdfDataUrl } : {}),
+                ...(storagePath ? { storagePath } : {}),
                 ...(link ? { localUrl: link.url, localUrlExpiresAt: link.expiraEm } : {}),
               };
             } else {
-              result = await readDocumentText(targetPath, {
-                pageStart: job.pageStart ?? undefined,
-                pageEnd: job.pageEnd ?? undefined,
-              });
+              const extLower = path.extname(targetPath).toLowerCase();
+              let offloadedKen: Record<string, unknown> | null = null;
+              if (extLower === '.ken' || extLower === '.tif' || extLower === '.tiff') {
+                offloadedKen = await tryUploadKenPagesToEphemeralStorage(
+                  job.rootId,
+                  job.relativePath,
+                  targetPath,
+                  {
+                    pageStart: job.pageStart ?? undefined,
+                    pageEnd: job.pageEnd ?? undefined,
+                  },
+                );
+              }
+              result =
+                offloadedKen ??
+                (await readDocumentText(targetPath, {
+                  pageStart: job.pageStart ?? undefined,
+                  pageEnd: job.pageEnd ?? undefined,
+                }));
             }
+          } else if (job.type === 'stage_document_file') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
+            result = await stageFileToEphemeralStorage(job.rootId, job.relativePath, targetPath);
           } else if (job.type === 'inspect_matricula_acervo') {
             const matriculaLimpa = String(job.query || '').replace(/\D+/g, '');
             if (!matriculaLimpa) throw new Error('Número de matrícula inválido.');
@@ -537,14 +791,27 @@ export function startDocumentWorker(): () => void {
       // Never log search terms, file names or authentication headers.
       logger.warn(`DOCUMENTAL: comunicação indisponível (${err?.response?.data?.error || err?.message || err}); nova tentativa em 5 segundos.`);
     } finally {
-      if (!stopped) timer = setTimeout(tick, proximoIntervalo);
+      inFlightTick = false;
+      workerRuntime.realtimeConnected = wakeupClient.isConnected();
+      if (!stopped) {
+        if (timer) clearTimeout(timer);
+        if (pendingWakeup) {
+          pendingWakeup = false;
+          timer = setTimeout(tick, 20);
+        } else {
+          timer = setTimeout(tick, proximoIntervalo);
+        }
+      }
     }
   }
   void tick();
   return () => {
     stopped = true;
     workerRuntime.running = false;
+    workerRuntime.realtimeConnected = false;
     unsubscribeConfig();
+    unsubscribeWakeup();
+    wakeupClient.stop();
     if (timer) clearTimeout(timer);
     servidorArquivos?.parar();
     workerRuntime.servidorArquivos = null;

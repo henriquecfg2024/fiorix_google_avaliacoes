@@ -65,6 +65,14 @@ export interface PendingUpdateDirective {
   publishedAt?: string;
 }
 
+export interface RealtimeWakeupDirective {
+  enabled: boolean;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  channelTopic: string;
+  event: string;
+}
+
 export interface ConnectorDirective {
   operationalState: OperationalState;
   role?: ConnectorRole;
@@ -74,6 +82,7 @@ export interface ConnectorDirective {
   remoteConfig?: ConnectorRemoteConfig | null;
   latestCheckpoints?: Record<string, CloudCheckpointEntry> | null;
   pendingUpdate?: PendingUpdateDirective | null;
+  realtimeWakeup?: RealtimeWakeupDirective | null;
 }
 
 const FORBIDDEN_SECRET_KEY_PATTERN = /(password|passwd|secret|token|credential|apikey|api_key|private_key)/i;
@@ -235,6 +244,7 @@ export function advanceCheckpointsFromCloud(
 
 type ConfigChangeListener = (config: ConnectorRemoteConfig, configVersion: number) => void;
 type UpdateDirectiveListener = (pending: PendingUpdateDirective) => void;
+type RealtimeWakeupListener = (cfg: RealtimeWakeupDirective | null) => void;
 
 class RuntimeDirectiveManager {
   private state: OperationalState;
@@ -244,8 +254,10 @@ class RuntimeDirectiveManager {
   private configVersion = 0;
   private remoteConfig: ConnectorRemoteConfig = {};
   private lastDirectiveAt: string | null = null;
+  private realtimeWakeup: RealtimeWakeupDirective | null = null;
   private configListeners = new Set<ConfigChangeListener>();
   private updateListeners = new Set<UpdateDirectiveListener>();
+  private realtimeWakeupListeners = new Set<RealtimeWakeupListener>();
   private cacheFilePath: string;
 
   constructor() {
@@ -309,6 +321,8 @@ class RuntimeDirectiveManager {
     this.configVersion = 0;
     this.remoteConfig = {};
     this.lastDirectiveAt = null;
+    this.realtimeWakeup = null;
+    this.realtimeWakeupListeners.clear();
   }
 
   public onConfigChanged(listener: ConfigChangeListener): () => void {
@@ -319,6 +333,11 @@ class RuntimeDirectiveManager {
   public onUpdateDirective(listener: UpdateDirectiveListener): () => void {
     this.updateListeners.add(listener);
     return () => this.updateListeners.delete(listener);
+  }
+
+  public onRealtimeWakeupChanged(listener: RealtimeWakeupListener): () => void {
+    this.realtimeWakeupListeners.add(listener);
+    return () => this.realtimeWakeupListeners.delete(listener);
   }
 
   public applyDirective(directive: ConnectorDirective | null | undefined, db?: DatabaseSync) {
@@ -380,6 +399,50 @@ class RuntimeDirectiveManager {
         }
       }
     }
+
+    // Wakeup Realtime (anon key e topicoHMAC): mantido exclusivamente em RAM, jamais salvo em disco
+    const prevWakeup = this.realtimeWakeup;
+    let nextWakeup: RealtimeWakeupDirective | null = prevWakeup;
+    if (nextState === 'STANDBY' || nextState === 'PAUSED') {
+      nextWakeup = null;
+    } else if (directive.realtimeWakeup !== undefined) {
+      const rw = directive.realtimeWakeup;
+      if (
+        rw &&
+        typeof rw === 'object' &&
+        rw.enabled === true &&
+        typeof rw.supabaseUrl === 'string' &&
+        rw.supabaseUrl.trim() &&
+        typeof rw.supabaseAnonKey === 'string' &&
+        rw.supabaseAnonKey.trim() &&
+        typeof rw.channelTopic === 'string' &&
+        rw.channelTopic.trim() &&
+        typeof rw.event === 'string' &&
+        rw.event.trim()
+      ) {
+        nextWakeup = {
+          enabled: true,
+          supabaseUrl: rw.supabaseUrl.trim().replace(/\/+$/, ''),
+          supabaseAnonKey: rw.supabaseAnonKey.trim(),
+          channelTopic: rw.channelTopic.trim(),
+          event: rw.event.trim(),
+        };
+      } else {
+        nextWakeup = null;
+      }
+    }
+
+    if (JSON.stringify(prevWakeup) !== JSON.stringify(nextWakeup)) {
+      this.realtimeWakeup = nextWakeup;
+      const snapshot = nextWakeup ? { ...nextWakeup } : null;
+      for (const listener of this.realtimeWakeupListeners) {
+        try {
+          listener(snapshot);
+        } catch (err: any) {
+          logger.warn(`[REALTIME_WAKEUP] Erro ao notificar listener de wakeup: ${err?.message || err}`);
+        }
+      }
+    }
   }
 
   public getOperationalState(): OperationalState {
@@ -408,6 +471,10 @@ class RuntimeDirectiveManager {
 
   public getRemoteConfig(): ConnectorRemoteConfig {
     return this.remoteConfig;
+  }
+
+  public getRealtimeWakeup(): RealtimeWakeupDirective | null {
+    return this.realtimeWakeup ? { ...this.realtimeWakeup } : null;
   }
 
   public getTelemetrySummary() {

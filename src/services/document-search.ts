@@ -1046,7 +1046,67 @@ export async function searchDocuments(
 // Limite seguro (2,4 MB bruto ≈ 3,2 MB em base64) abaixo do teto de 4,5 MB das rotas serverless na nuvem
 export const MAX_INLINE_PDF_BYTES = 2_516_582;
 export const MAX_DOCUMENT_CHUNK_BYTES = 2_516_582;
+export const MAX_STORAGE_OFFLOAD_BYTES = 48 * 1024 * 1024;
 const MAX_KEN_BASE64_CHARS = 3_200_000;
+
+export interface RenderedKenPageBuffer {
+  pageNumber: number;
+  pngBuffer: Buffer;
+}
+
+export interface RenderedKenBatchPayload {
+  fileName: string;
+  extension: string;
+  size: number;
+  mtimeMs: number;
+  pageCount: number;
+  loadedPageStart?: number;
+  loadedPageEnd?: number;
+  hasMorePages: boolean;
+  pages: RenderedKenPageBuffer[];
+}
+
+function encodeTiffIfdToPngBuffer(buf: Buffer, page: any): Buffer {
+  UTIF.decodeImage(buf, page);
+  const rgba = UTIF.toRGBA8(page);
+  return Buffer.from(UPNG.encode([rgba.buffer], page.width, page.height, 0));
+}
+
+export async function renderKenPagesAsPngBuffers(
+  filePath: string,
+  options?: { pageStart?: number; pageEnd?: number; maxPages?: number },
+): Promise<RenderedKenBatchPayload> {
+  const stat = await fs.stat(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const fileName = path.basename(filePath);
+  const buf = await fs.readFile(filePath);
+  const ifds = UTIF.decode(buf);
+  const totalIfds = ifds.length;
+  const startIdx = options?.pageStart ? Math.max(0, Math.min(totalIfds, options.pageStart - 1)) : 0;
+  const maxPages = Math.max(1, Math.min(100, options?.maxPages ?? 25));
+  const requestedEnd = options?.pageEnd ? Math.max(startIdx, Math.min(totalIfds, options.pageEnd)) : totalIfds;
+  const maxEndIdx = Math.min(requestedEnd, startIdx + maxPages);
+
+  const pages: RenderedKenPageBuffer[] = [];
+  for (let i = startIdx; i < maxEndIdx; i++) {
+    pages.push({ pageNumber: i + 1, pngBuffer: encodeTiffIfdToPngBuffer(buf, ifds[i]) });
+  }
+
+  const loadedEnd = pages.length > 0 ? startIdx + pages.length : startIdx;
+  const hasMorePages = loadedEnd < totalIfds;
+
+  return {
+    fileName,
+    extension: ext,
+    size: stat.size,
+    mtimeMs: Math.trunc(stat.mtimeMs),
+    pageCount: totalIfds,
+    loadedPageStart: pages.length > 0 ? startIdx + 1 : undefined,
+    loadedPageEnd: pages.length > 0 ? loadedEnd : undefined,
+    hasMorePages,
+    pages,
+  };
+}
 
 export interface DocumentChunkPayload {
   fileName: string;
@@ -1106,6 +1166,8 @@ export interface DocumentVisualPayload {
   text: string;
   pdfDataUrl?: string;
   pages?: string[];
+  storagePath?: string;
+  pageStoragePaths?: string[];
   pageCount?: number;
   loadedPageStart?: number;
   loadedPageEnd?: number;
@@ -1133,10 +1195,7 @@ export async function readDocumentText(
       let lastDecodedIdx = startIdx - 1;
 
       for (let i = startIdx; i < maxEndIdx; i++) {
-        const page = ifds[i];
-        UTIF.decodeImage(buf, page);
-        const rgba = UTIF.toRGBA8(page);
-        const pngBuf = Buffer.from(UPNG.encode([rgba.buffer], page.width, page.height, 0));
+        const pngBuf = encodeTiffIfdToPngBuffer(buf, ifds[i]);
         const dataUrl = `data:image/png;base64,${pngBuf.toString('base64')}`;
         if (pages.length > 0 && totalChars + dataUrl.length > MAX_KEN_BASE64_CHARS) {
           break;

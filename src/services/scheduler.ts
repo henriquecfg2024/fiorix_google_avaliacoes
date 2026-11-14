@@ -329,7 +329,7 @@ export class Scheduler {
     // Rotina de recuperação de ciclo perdido pós-reinicialização
     this.checkStartupCatchUp();
 
-    // Coleta contínua de performance das DMVs do SRVSQL\WEBRI (60s expediente / 300s fora do expediente)
+    // Coleta contínua de performance das DMVs do SRVSQL\WEBRI (30s das 07h-21h seg-sab / 120s fora desse período)
     if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
       this.srvsqlInitialTimeoutId = setTimeout(() => {
         if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
@@ -343,13 +343,16 @@ export class Scheduler {
       this.srvsqlTelemetryIntervalId = setInterval(() => {
         if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
         const nowMs = Date.now();
-        const minIntervalMs = isBusinessHours(new Date(nowMs)) ? 60_000 : 300_000;
+        const sp = getSaoPauloDateTime(new Date(nowMs));
+        const inActiveMonitoringWindow =
+          sp.dayOfWeek >= 1 && sp.dayOfWeek <= 6 && sp.hour >= 7 && sp.hour < 21;
+        const minIntervalMs = inActiveMonitoringWindow ? 30_000 : 120_000;
         if (nowMs - this.lastSrvsqlSampleAtMs < minIntervalMs - 2_000) return;
         this.lastSrvsqlSampleAtMs = nowMs;
         collectAndSendSrvsqlPerformance().catch((err) => {
           logger.warn(`[SRVSQL_TELEMETRY] Falha no ciclo periódico: ${err?.message || err}`);
         });
-      }, 60_000);
+      }, 30_000);
       this.srvsqlTelemetryIntervalId.unref?.();
     }
   }

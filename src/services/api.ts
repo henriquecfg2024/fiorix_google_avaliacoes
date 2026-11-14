@@ -274,6 +274,149 @@ export async function postDocumentMessage(message: Record<string, unknown>) {
   });
 }
 
+export interface StorageUploadFileMeta {
+  rootId: string;
+  relativePath: string;
+  sizeBytes: number;
+  mtimeMs: number;
+  ext?: string;
+  variant?: string;
+}
+
+export interface PreparedStorageUploadItem {
+  storagePath: string | null;
+  alreadyExists: boolean;
+  signedUploadUrl: string | null;
+  token: string | null;
+}
+
+function sanitizeSignedUrlErrorText(raw: unknown): string {
+  return String(raw || 'Erro desconhecido no upload')
+    .replace(/(\b(?:token|apikey|access_token|secret)=)[^&\s"']+/gi, '$1[redacted]')
+    .replace(/(https?:\/\/[^\s?]+)\?[^\s"']+/gi, '$1?[redacted]');
+}
+
+function assertAllowedSignedUploadUrl(rawUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error('URL assinada de upload inválida.');
+  }
+  const isHttps = parsed.protocol === 'https:';
+  const isTestLocalHttp =
+    process.env.NODE_ENV === 'test' &&
+    parsed.protocol === 'http:' &&
+    (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost');
+  if (!isHttps && !isTestLocalHttp) {
+    throw new Error('Protocolo de URL assinada de upload não permitido.');
+  }
+}
+
+export async function prepareStorageUpload(
+  file: StorageUploadFileMeta,
+): Promise<{ storageEnabled: boolean } & PreparedStorageUploadItem> {
+  const res = await postDocumentMessage({
+    action: 'prepare_storage_upload',
+    file,
+  });
+  const data = (res?.data || {}) as Record<string, unknown>;
+  return {
+    storageEnabled: Boolean(data.storageEnabled),
+    storagePath: typeof data.storagePath === 'string' ? data.storagePath : null,
+    alreadyExists: Boolean(data.alreadyExists),
+    signedUploadUrl: typeof data.signedUploadUrl === 'string' ? data.signedUploadUrl : null,
+    token: typeof data.token === 'string' ? data.token : null,
+  };
+}
+
+export async function prepareStorageUploadBatch(
+  files: StorageUploadFileMeta[],
+): Promise<{
+  storageEnabled: boolean;
+  uploads: Array<{
+    storagePath: string;
+    alreadyExists: boolean;
+    signedUploadUrl: string | null;
+    token: string | null;
+  }>;
+}> {
+  const res = await postDocumentMessage({
+    action: 'prepare_storage_upload_batch',
+    files,
+  });
+  const data = (res?.data || {}) as Record<string, unknown>;
+  const rawUploads = Array.isArray(data.uploads) ? data.uploads : [];
+  return {
+    storageEnabled: Boolean(data.storageEnabled),
+    uploads: rawUploads.map((item: any) => ({
+      storagePath: String(item?.storagePath || ''),
+      alreadyExists: Boolean(item?.alreadyExists),
+      signedUploadUrl: typeof item?.signedUploadUrl === 'string' ? item.signedUploadUrl : null,
+      token: typeof item?.token === 'string' ? item.token : null,
+    })),
+  };
+}
+
+export async function uploadBinaryToSignedUrl(
+  signedUploadUrl: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  assertAllowedSignedUploadUrl(signedUploadUrl);
+  const proxyCfg = env.PROXY_ENABLED
+    ? {
+        protocol: 'http' as const,
+        host: env.PROXY_HOST,
+        port: env.PROXY_PORT,
+        auth: {
+          username: env.PROXY_USERNAME,
+          password: env.PROXY_PASSWORD,
+        },
+      }
+    : (false as const);
+
+  const buildRequestConfig = (useProxy: boolean): AxiosRequestConfig => ({
+    headers: {
+      'Content-Type': contentType,
+      'x-upsert': 'true',
+      'Cache-Control': 'max-age=3600',
+    },
+    timeout: 90_000,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    proxy: useProxy ? proxyCfg : false,
+  });
+
+  try {
+    await axios.put(signedUploadUrl, body, buildRequestConfig(env.PROXY_ENABLED));
+  } catch (err: any) {
+    if (env.PROXY_ENABLED && isProxyConnectivityError(err)) {
+      logger.warn('PROXY_FALLBACK: Falha no upload direto para Storage via proxy; tentando envio direto...');
+      try {
+        await axios.put(signedUploadUrl, body, buildRequestConfig(false));
+        proxyFallbackCount++;
+        lastProxyFallbackAt = new Date().toISOString();
+        healthManager.recordProxyFallback();
+        return;
+      } catch (directErr: any) {
+        const status = directErr?.response?.status;
+        throw new Error(
+          status
+            ? `Storage upload HTTP ${status}`
+            : `Falha no upload para Storage: ${sanitizeSignedUrlErrorText(directErr?.message || directErr)}`,
+        );
+      }
+    }
+    const status = err?.response?.status;
+    throw new Error(
+      status
+        ? `Storage upload HTTP ${status}`
+        : `Falha no upload para Storage: ${sanitizeSignedUrlErrorText(err?.message || err)}`,
+    );
+  }
+}
+
 export async function sendSrvsqlPerformanceSample(sample: Record<string, unknown>): Promise<boolean> {
   try {
     const perfUrl = env.FIORIX_API_URL.replace(/\/connector\/sync\/?$/, '/operacoes/srvsql-performance');
