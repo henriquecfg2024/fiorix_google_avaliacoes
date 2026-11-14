@@ -5,6 +5,11 @@ import { documentJobInput } from '@/lib/documental/contracts';
 import { isSameOriginRequest } from '@/lib/documental/origin';
 import { createJob, readSearch } from '@/lib/documental/store';
 import {
+  isSignedStorageDocumentalEnabled,
+  STORAGE_MIN_CONNECTOR_VERSION,
+} from '@/lib/documental/ephemeral-storage';
+import {
+  compareConnectorSemver,
   listTenantConnectorNodes,
   resolveEffectiveDocumentConnector,
 } from '@/lib/connector/ha-manager';
@@ -121,6 +126,23 @@ export async function POST(req: Request) {
             ? jobData.pageEnd
             : undefined,
         forceFresh: jobData.forceFresh,
+      });
+    } else if (jobData.type === 'stage_document_file') {
+      const connectorSupportsStorage = Boolean(
+        effective.version && compareConnectorSemver(effective.version, STORAGE_MIN_CONNECTOR_VERSION) >= 0,
+      );
+      if (!isSignedStorageDocumentalEnabled() || !connectorSupportsStorage) {
+        return reply({
+          id: 'fallback-chunk',
+          status: 'complete',
+          cached: false,
+          result: { fallbackToChunk: true },
+        });
+      }
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
+        type: 'stage_document_file',
+        rootId: jobData.rootId,
+        relativePath: jobData.relativePath,
       });
     } else {
       jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {

@@ -5,6 +5,7 @@ import {
   buildProcessInstanceKey,
   buildSiplanIncidentReport,
   computeCollectorBackoffSeconds,
+  computeCostlyQueriesDelta,
   computeFileIoLatencyDelta,
   computeWaitStatsDelta,
   DEFAULT_ALERT_RULES,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/srvsql-performance/engine';
 import {
   buildSrvsqlPerformanceSnapshot,
+  getOrCreateTenantState,
   ingestCollectorSample,
   pruneSamplesByRetention,
   recordCollectorFailure,
@@ -628,7 +630,7 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     const baseTime = Date.now() - 25_000;
     const sample1: RawCollectorIngestPayload = {
       observedAt: new Date(baseTime).toISOString(),
-      collectorVersion: 'v2.6.12',
+      collectorVersion: 'v2.6.13',
       connectorHost: 'SRVFILES',
       simpleConnectivityPingMs: 4,
       sqlMetadata: {
@@ -709,15 +711,227 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     });
 
     const snap = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
-    expect(snap.collectorHealth.collectorVersion).toBe('v2.6.12-srvsql-live');
+    expect(snap.collectorHealth.collectorVersion).toBe('v2.6.13-srvsql-live');
     expect(snap.kpis.diskWriteLatencyMs).toBe(0);
-    expect(snap.overallHealth).toBe('ATENCAO');
-    expect(snap.diagnostics.some((d) => d.id === 'diag-log-backup-saturation' && d.severity === 'ATENCAO')).toBe(true);
+    // Banco auxiliar nao-WEBRI (ECKSISTEMAS) aguardando LOG_BACKUP sem contencao WRITELOG/bloqueios nao gera falso alerta de lentidao
+    expect(snap.overallHealth).toBe('NORMAL');
+    expect(snap.diagnostics.some((d) => d.id === 'diag-log-backup-saturation' && d.severity === 'INFORMATIVO')).toBe(true);
     expect(snap.diagnostics.some((d) => d.id === 'diag-db-autoshrink-pageverify' && d.severity === 'INFORMATIVO')).toBe(true);
     const zabbixCov = snap.coverageSources.find((c) => c.id === 'cov-zabbix-agent2');
     const connCov = snap.coverageSources.find((c) => c.id === 'cov-sql-connectivity');
     expect(zabbixCov?.status).toBe('OPCIONAL_DESATIVADO');
     expect(connCov?.remediationStep).toContain('SRVFILES');
     expect(connCov?.remediationStep).not.toContain('HCFG-001');
+  });
+
+  it('13. Banco WEBRI em LOG_BACKUP >= 85% / >= 95% mantém severidade ATENCAO / CRITICO', () => {
+    const tId = `tenant-webri-log-${Date.now()}`;
+    const baseMs = Date.now() - 20_000;
+    const baseSample: RawCollectorIngestPayload = {
+      observedAt: new Date(baseMs).toISOString(),
+      collectorVersion: 'v2.6.13',
+      connectorHost: 'SRVFILES',
+      simpleConnectivityPingMs: 3,
+      sqlMetadata: {
+        serverName: 'SRVSQL', machineName: 'SRVSQL', instanceName: 'MSSQLSERVER',
+        edition: 'Standard Edition (64-bit)', productVersion: '11.0.7507.2', productLevel: 'SP4', majorVersion: 11,
+        sqlServerStartTime: '2026-11-01T06:00:00.000Z', loginUsed: 'fiorix_connector',
+        hasViewServerState: true, hasViewServerPerformanceState: false, hasViewAnyDefinition: true,
+        queryStoreSupported: false, queryStoreEnabled: null, requiredPermissionLabel: 'VIEW SERVER STATE',
+      },
+      cpuTotalPercent: 12,
+      sqlCpuPercent: 8,
+      cpuCount: 10,
+      windowsMemory: {
+        totalPhysicalMb: 73999.6, availablePhysicalMb: 20000, usedPhysicalMb: 53999.6, usedPercent: 73,
+        committedMb: 55000, commitLimitMb: 85000, commitPercent: 65,
+        pagesPerSec: null, pageInputsPerSec: null, pageFaultsPerSec: null, windowsMemoryPressure: 'NORMAL',
+      },
+      windowsVolumes: [],
+      windowsNetwork: [],
+      windowsProcesses: [],
+      windowsServices: [],
+      concurrentEvents: [],
+      activeSessions: [],
+      waitStatsRaw: [],
+      fileIoRaw: [],
+      sqlMemory: {
+        totalServerMemoryMb: 38000, targetServerMemoryMb: 40000, maxServerMemoryConfigMb: 40000, minServerMemoryConfigMb: 0,
+        sqlProcessWorkingSetMb: 38000, sqlProcessPrivateMb: 38000, pageLifeExpectancySec: 600,
+        bufferCacheHitRatioPercent: 99.9, memoryGrantsPending: 0, memoryGrantsActive: 0,
+        grantedWorkspaceMemoryMb: 0, maxWorkspaceMemoryMb: null, processPhysicalMemoryLow: false, processVirtualMemoryLow: false,
+      },
+      databaseSpaces: [
+        {
+          databaseName: 'WEBRI', recoveryModel: 'FULL', dataTotalMb: 450000, dataUsedMb: null,
+          logTotalMb: 10240, logUsedMb: 9011, logUsedPercent: 88.0, logReuseWaitDesc: 'LOG_BACKUP',
+          isTempdb: false, isAutoShrinkOn: false, pageVerifyOption: 'CHECKSUM',
+        },
+      ],
+      costlyQueries: [],
+    };
+
+    ingestCollectorSample(tId, baseSample);
+    ingestCollectorSample(tId, { ...baseSample, observedAt: new Date(Date.now() - 5_000).toISOString() });
+    const snapAttn = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapAttn.overallHealth).toBe('ATENCAO');
+    expect(snapAttn.diagnostics.some((d) => d.id === 'diag-log-backup-saturation' && d.severity === 'ATENCAO')).toBe(true);
+
+    ingestCollectorSample(tId, {
+      ...baseSample,
+      observedAt: new Date().toISOString(),
+      databaseSpaces: [{ ...baseSample.databaseSpaces![0]!, logUsedMb: 9830, logUsedPercent: 96.0 }],
+    });
+    const snapCrit = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapCrit.overallHealth).toBe('CRITICO');
+    expect(snapCrit.diagnostics.some((d) => d.id === 'diag-log-backup-saturation' && d.severity === 'CRITICO')).toBe(true);
+  });
+
+  it('14. computeCostlyQueriesDelta calcula delta real entre amostras e descarta consultas sem novas execuções', () => {
+    const prev = [
+      {
+        queryHash: '0xAABBCC',
+        databaseName: 'WEBRI',
+        executionCountDelta: 100,
+        totalElapsedTimeDeltaMs: 500_000,
+        avgElapsedTimeMs: 5_000,
+        baselineAvgElapsedTimeMs: null,
+        regressionRatio: null,
+        totalCpuTimeDeltaMs: 120_000,
+        totalLogicalReadsDelta: 900_000,
+        totalWritesDelta: 1_000,
+        lastWaitTypeHint: null,
+        operationKind: 'CONSULTA' as const,
+      },
+      {
+        queryHash: '0xIDLE00',
+        databaseName: 'WEBRI',
+        executionCountDelta: 50,
+        totalElapsedTimeDeltaMs: 1_170_000,
+        avgElapsedTimeMs: 23_400,
+        baselineAvgElapsedTimeMs: null,
+        regressionRatio: null,
+        totalCpuTimeDeltaMs: 300_000,
+        totalLogicalReadsDelta: 2_000_000,
+        totalWritesDelta: 0,
+        lastWaitTypeHint: null,
+        operationKind: 'CONSULTA' as const,
+      },
+    ];
+    const curr = [
+      {
+        ...prev[0]!,
+        executionCountDelta: 104,
+        totalElapsedTimeDeltaMs: 500_120,
+        totalCpuTimeDeltaMs: 120_040,
+        totalLogicalReadsDelta: 900_400,
+        totalWritesDelta: 1_002,
+      },
+      { ...prev[1]! }, // Nenhuma execução no intervalo -> deve ser descartada!
+    ];
+
+    const delta = computeCostlyQueriesDelta({ previousQueries: prev, currentQueries: curr });
+    expect(delta).toHaveLength(1);
+    expect(delta[0]!.queryHash).toBe('0xAABBCC');
+    expect(delta[0]!.executionCountDelta).toBe(4);
+    expect(delta[0]!.totalElapsedTimeDeltaMs).toBe(120);
+    expect(delta[0]!.avgElapsedTimeMs).toBe(30);
+
+    const noExecDelta = computeCostlyQueriesDelta({ previousQueries: prev, currentQueries: prev });
+    expect(noExecDelta).toHaveLength(0);
+  });
+
+  it('15. latencySemantics.userPerceivedLatencyMs vem apenas de incidentes na janela ativa (nunca de histórico acumulado)', () => {
+    const tId = `tenant-latency-${Date.now()}`;
+    const baseMs = Date.now() - 20_000;
+    const sample: RawCollectorIngestPayload = {
+      observedAt: new Date(baseMs).toISOString(),
+      collectorVersion: 'v2.6.13',
+      connectorHost: 'SRVFILES',
+      simpleConnectivityPingMs: 2,
+      cpuTotalPercent: 5,
+      sqlCpuPercent: 2,
+      cpuCount: 10,
+      sqlMetadata: {
+        serverName: 'SRVSQL', machineName: 'SRVSQL', instanceName: 'MSSQLSERVER',
+        edition: 'Standard Edition (64-bit)', productVersion: '11.0.7507.2', productLevel: 'SP4', majorVersion: 11,
+        sqlServerStartTime: '2026-11-01T06:00:00.000Z', loginUsed: 'fiorix_connector',
+        hasViewServerState: true, hasViewServerPerformanceState: false, hasViewAnyDefinition: true,
+        queryStoreSupported: false, queryStoreEnabled: null, requiredPermissionLabel: 'VIEW SERVER STATE',
+      },
+      costlyQueries: [
+        {
+          queryHash: '0xHIST99',
+          databaseName: 'WEBRI',
+          executionCountDelta: 10,
+          totalElapsedTimeDeltaMs: 234_000,
+          avgElapsedTimeMs: 23_400,
+          baselineAvgElapsedTimeMs: null,
+          regressionRatio: null,
+          totalCpuTimeDeltaMs: 50_000,
+          totalLogicalReadsDelta: 100_000,
+          totalWritesDelta: 0,
+          lastWaitTypeHint: null,
+          operationKind: 'CONSULTA',
+        },
+      ],
+    };
+
+    ingestCollectorSample(tId, sample);
+    ingestCollectorSample(tId, { ...sample, observedAt: new Date(Date.now() - 4_000).toISOString() });
+
+    const snapNoIncident = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapNoIncident.latencySemantics.userPerceivedLatencyMs).toBeNull();
+    expect(snapNoIncident.latencySemantics.sqlObservedElapsedMs).toBe(0);
+
+    getOrCreateTenantState(tId).incidents.push({
+      id: 'inc-win-1',
+      reportedAt: new Date().toISOString(),
+      occurredAt: new Date(Date.now() - 60_000).toISOString(),
+      reportedBy: 'Escrevente',
+      affectedOperation: 'Lavratura WEBRI',
+      perceivedDurationSeconds: 18,
+      observation: 'Lentidão pontual relatada na estação',
+      beforeSnapshotSummary: {
+        observedAt: null, cpuPercent: null, memoryUsedPercent: null, diskWriteLatencyMs: null,
+        blockedSessionsCount: null, rootBlockerSessionId: null, topWaitType: null,
+      },
+      afterSnapshotSummary: {
+        observedAt: null, cpuPercent: null, memoryUsedPercent: null, diskWriteLatencyMs: null,
+        blockedSessionsCount: null, rootBlockerSessionId: null, topWaitType: null,
+      },
+    });
+
+    const snapWithIncident = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapWithIncident.latencySemantics.userPerceivedLatencyMs).toBe(18_000);
+  });
+
+  it('16. Cobertura cov-windows-perf reflete windowsOsTelemetryAvailable de forma verdadeira', () => {
+    const tId = `tenant-winos-${Date.now()}`;
+    const baseSample: RawCollectorIngestPayload = {
+      observedAt: new Date(Date.now() - 10_000).toISOString(),
+      collectorVersion: 'v2.6.13',
+      connectorHost: 'SRVFILES',
+      windowsOsTelemetryAvailable: false,
+      sqlMetadata: {
+        serverName: 'SRVSQL', machineName: 'SRVSQL', instanceName: 'MSSQLSERVER',
+        edition: 'Standard Edition (64-bit)', productVersion: '11.0.7507.2', productLevel: 'SP4', majorVersion: 11,
+        sqlServerStartTime: '2026-11-01T06:00:00.000Z', loginUsed: 'fiorix_connector',
+        hasViewServerState: true, hasViewServerPerformanceState: false, hasViewAnyDefinition: true,
+        queryStoreSupported: false, queryStoreEnabled: null, requiredPermissionLabel: 'VIEW SERVER STATE',
+      },
+    };
+
+    ingestCollectorSample(tId, baseSample);
+    const snapOff = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapOff.coverageSources.find((c) => c.id === 'cov-windows-perf')?.status).toBe('OPCIONAL_DESATIVADO');
+
+    ingestCollectorSample(tId, {
+      ...baseSample,
+      observedAt: new Date().toISOString(),
+      windowsOsTelemetryAvailable: true,
+    });
+    const snapOn = buildSrvsqlPerformanceSnapshot(tId, 'LIVE_OR_REAL', '30m');
+    expect(snapOn.coverageSources.find((c) => c.id === 'cov-windows-perf')?.status).toBe('DISPONIVEL');
   });
 });

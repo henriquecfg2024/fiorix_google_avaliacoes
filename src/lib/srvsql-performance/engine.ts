@@ -25,6 +25,7 @@ import type {
   SqlActiveSessionSample,
   SqlBlockingChainNode,
   SqlBlockingChainSummary,
+  SqlCostlyQueryHashItem,
   SqlDatabaseSpaceSample,
   SqlFileIoDeltaItem,
   SqlFileIoRawSample,
@@ -39,6 +40,16 @@ import type {
   WindowsProcessSample,
   WindowsVolumeIoSample,
 } from './types';
+
+const DEFAULT_WEBRI_DATABASE_SET = new Set([
+  'WEBRI',
+  'SPCM_EPP',
+  'GESTOR',
+  'WEBGERAL',
+  'WEBROTINAS',
+  'SIPLANGERAL',
+  'DBDOCDIGITAL',
+]);
 
 /**
  * Classifica o `wait_type` do SQL Server em uma categoria semântica, sem presumir causa raiz isolada.
@@ -334,6 +345,90 @@ export function computeFileIoLatencyDelta(params: {
   }
 
   return { items, counterResetDetected: anyReset };
+}
+
+/**
+ * Calcula o delta de consultas mais custosas (`sys.dm_exec_query_stats`) entre duas amostras consecutivas.
+ * - Descarta acumulados históricos desde a compilação do plano ou reinicialização do SQL Server.
+ * - Só reporta consultas cujo `executionCountDelta` avançou no intervalo atual.
+ */
+export function computeCostlyQueriesDelta(params: {
+  previousQueries: SqlCostlyQueryHashItem[] | null;
+  currentQueries: SqlCostlyQueryHashItem[] | null;
+  previousSqlStartTime?: string | null;
+  currentSqlStartTime?: string | null;
+}): SqlCostlyQueryHashItem[] {
+  const { previousQueries, currentQueries, previousSqlStartTime, currentSqlStartTime } = params;
+
+  if (!previousQueries || !currentQueries || previousQueries.length === 0 || currentQueries.length === 0) {
+    return [];
+  }
+
+  if (
+    previousSqlStartTime &&
+    currentSqlStartTime &&
+    previousSqlStartTime !== currentSqlStartTime
+  ) {
+    return [];
+  }
+
+  const prevByComposite = new Map<string, SqlCostlyQueryHashItem>();
+  const prevByHash = new Map<string, SqlCostlyQueryHashItem>();
+  for (const q of previousQueries) {
+    const hashKey = q.queryHash.trim().toUpperCase();
+    const dbKey = (q.databaseName || '').trim().toUpperCase();
+    prevByComposite.set(`${hashKey}::${dbKey}`, q);
+    if (!prevByHash.has(hashKey)) {
+      prevByHash.set(hashKey, q);
+    }
+  }
+
+  const items: SqlCostlyQueryHashItem[] = [];
+  for (const curr of currentQueries) {
+    const hashKey = curr.queryHash.trim().toUpperCase();
+    const dbKey = (curr.databaseName || '').trim().toUpperCase();
+    const prev = prevByComposite.get(`${hashKey}::${dbKey}`) || prevByHash.get(hashKey);
+    if (!prev) {
+      continue;
+    }
+
+    const execDelta = curr.executionCountDelta - prev.executionCountDelta;
+    const elapsedDelta = curr.totalElapsedTimeDeltaMs - prev.totalElapsedTimeDeltaMs;
+    if (execDelta <= 0 || elapsedDelta < 0) {
+      continue;
+    }
+
+    const avgElapsedTimeMs = Math.round(elapsedDelta / execDelta);
+    const baselineAvgElapsedTimeMs =
+      prev.executionCountDelta > 0
+        ? Math.round(prev.totalElapsedTimeDeltaMs / prev.executionCountDelta)
+        : null;
+    const regressionRatio =
+      baselineAvgElapsedTimeMs !== null && baselineAvgElapsedTimeMs > 0
+        ? Math.round((avgElapsedTimeMs / baselineAvgElapsedTimeMs) * 10) / 10
+        : null;
+    const cpuDelta = Math.max(0, curr.totalCpuTimeDeltaMs - prev.totalCpuTimeDeltaMs);
+    const readsDelta = Math.max(0, curr.totalLogicalReadsDelta - prev.totalLogicalReadsDelta);
+    const writesDelta = Math.max(0, curr.totalWritesDelta - prev.totalWritesDelta);
+
+    items.push({
+      queryHash: curr.queryHash,
+      databaseName: curr.databaseName,
+      executionCountDelta: execDelta,
+      totalElapsedTimeDeltaMs: elapsedDelta,
+      avgElapsedTimeMs,
+      baselineAvgElapsedTimeMs,
+      regressionRatio,
+      totalCpuTimeDeltaMs: cpuDelta,
+      totalLogicalReadsDelta: readsDelta,
+      totalWritesDelta: writesDelta,
+      lastWaitTypeHint: curr.lastWaitTypeHint ?? null,
+      operationKind: writesDelta > 0 ? 'GRAVACAO_TRANSACIONAL' : curr.operationKind,
+    });
+  }
+
+  items.sort((a, b) => b.totalElapsedTimeDeltaMs - a.totalElapsedTimeDeltaMs);
+  return items;
 }
 
 /**
@@ -672,6 +767,7 @@ export function generateEvidenceDiagnostics(params: {
   collectorReachable: boolean;
   alertRules?: AlertThresholdRule[];
   databaseSpaces?: SqlDatabaseSpaceSample[];
+  webriDatabases?: string[];
 }): EvidenceDiagnosticItem[] {
   const {
     intervalLabel,
@@ -688,6 +784,7 @@ export function generateEvidenceDiagnostics(params: {
     collectorReachable,
     alertRules,
     databaseSpaces = [],
+    webriDatabases,
   } = params;
 
   const diagnostics: EvidenceDiagnosticItem[] = [];
@@ -932,7 +1029,15 @@ export function generateEvidenceDiagnostics(params: {
     });
   }
 
-  // 4. Diagnóstico de saturação de Transaction Log em modo FULL aguardando LOG_BACKUP (ex.: ECKSISTEMAS)
+  // 4. Diagnóstico de saturação de Transaction Log em modo FULL aguardando LOG_BACKUP (diferencia base WEBRI de base auxiliar)
+  const webriDbSet =
+    webriDatabases && webriDatabases.length > 0
+      ? new Set(webriDatabases.map((n) => n.trim().toUpperCase()))
+      : DEFAULT_WEBRI_DATABASE_SET;
+  const hasActiveWriteLogContention =
+    Boolean(writelogWait && writelogWait.sharePercent >= 25 && writelogWait.waitTimeDeltaMs >= 1000) ||
+    (observedWriteLatencyMs !== null && observedWriteLatencyMs >= writeThresh.warn);
+
   const saturatedFullLogs = databaseSpaces.filter(
     (d) =>
       d.recoveryModel.toUpperCase() === 'FULL' &&
@@ -940,20 +1045,52 @@ export function generateEvidenceDiagnostics(params: {
       (d.logReuseWaitDesc || '').toUpperCase().includes('LOG_BACKUP'),
   );
   if (saturatedFullLogs.length > 0) {
+    const webriSaturatedLogs = saturatedFullLogs.filter((d) =>
+      webriDbSet.has(d.databaseName.trim().toUpperCase()),
+    );
+    const auxSaturatedLogs = saturatedFullLogs.filter(
+      (d) => !webriDbSet.has(d.databaseName.trim().toUpperCase()),
+    );
     const maxPct = Math.max(...saturatedFullLogs.map((d) => d.logUsedPercent ?? 0));
     const namesLabel = saturatedFullLogs
-      .map((d) => `${d.databaseName} (${(d.logUsedPercent ?? 0).toFixed(1)}%${d.logUsedMb !== null && d.logTotalMb !== null ? ` · ${Math.round(d.logUsedMb)}/${Math.round(d.logTotalMb)} MB` : ''})`)
+      .map(
+        (d) =>
+          `${d.databaseName} (${(d.logUsedPercent ?? 0).toFixed(1)}%${d.logUsedMb !== null && d.logTotalMb !== null ? ` · ${Math.round(d.logUsedMb)}/${Math.round(d.logTotalMb)} MB` : ''})`,
+      )
       .join(', ');
+
+    let logSeverity: EvidenceDiagnosticItem['severity'] = 'INFORMATIVO';
+    if (webriSaturatedLogs.length > 0) {
+      const maxWebriPct = Math.max(...webriSaturatedLogs.map((d) => d.logUsedPercent ?? 0));
+      if (maxWebriPct >= 95 || (maxWebriPct >= 85 && hasActiveWriteLogContention)) {
+        logSeverity = 'CRITICO';
+      } else if (maxWebriPct >= 85 || hasActiveWriteLogContention) {
+        logSeverity = 'ATENCAO';
+      } else {
+        logSeverity = 'INFORMATIVO';
+      }
+    } else if (maxPct >= 99 && hasActiveWriteLogContention) {
+      logSeverity = 'ATENCAO';
+    }
+
+    const isAuxOnlyAdvisory = webriSaturatedLogs.length === 0 && logSeverity === 'INFORMATIVO';
+    const affectedNames = saturatedFullLogs.map((d) => d.databaseName).join(', ');
+
     diagnostics.push({
       id: 'diag-log-backup-saturation',
-      severity: maxPct >= 97 ? 'CRITICO' : 'ATENCAO',
-      title: `Log de transações próximo da saturação aguardando LOG_BACKUP (${saturatedFullLogs.map((d) => d.databaseName).join(', ')})`,
-      observedSummary: `Base(s) em Recovery Model FULL com alto consumo do arquivo .ldf aguardando rotina de backup de log (log_reuse_wait_desc = LOG_BACKUP): ${namesLabel}. Sem BACKUP LOG periódico, o arquivo de log continua crescendo ou atinge o limite de espaço.`,
+      severity: logSeverity,
+      title: isAuxOnlyAdvisory
+        ? `Manutenção preventiva DBA: log em modo FULL aguardando LOG_BACKUP em base auxiliar (${auxSaturatedLogs.map((d) => d.databaseName).join(', ')})`
+        : `Log de transações próximo da saturação aguardando LOG_BACKUP (${affectedNames})`,
+      observedSummary: isAuxOnlyAdvisory
+        ? `A(s) base(s) auxiliar(es) não-WEBRI em Recovery Model FULL (${namesLabel}) atingiram alto percentual do arquivo .ldf aguardando rotina de backup de log (log_reuse_wait_desc = LOG_BACKUP). Por não integrarem o WEBRI e não apresentarem latência de escrita elevada ou bloqueios agora, este aviso não indica lentidão atual, apenas manutenção preventiva recomendada.`
+        : `Base(s) em Recovery Model FULL com alto consumo do arquivo .ldf aguardando rotina de backup de log (log_reuse_wait_desc = LOG_BACKUP): ${namesLabel}. Sem BACKUP LOG periódico, o arquivo de log continua crescendo ou atinge o limite de espaço.`,
       supportingInterval: intervalLabel,
       supportingMetrics: saturatedFullLogs.map(
-        (d) => `${d.databaseName}: Log ${(d.logUsedPercent ?? 0).toFixed(1)}% em uso · log_reuse_wait=${d.logReuseWaitDesc || 'LOG_BACKUP'}`,
+        (d) =>
+          `${d.databaseName}: Log ${(d.logUsedPercent ?? 0).toFixed(1)}% em uso · log_reuse_wait=${d.logReuseWaitDesc || 'LOG_BACKUP'}${webriDbSet.has(d.databaseName.trim().toUpperCase()) ? ' · WEBRI' : ' · Base auxiliar'}`,
       ),
-      causalClassification: 'HIPOTESE_SUSTENTADA',
+      causalClassification: isAuxOnlyAdvisory ? 'CORRELACAO_PARCIAL' : 'HIPOTESE_SUSTENTADA',
       confidenceLevel: 'ALTA',
       limitations: [
         'O FIORIX realiza apenas leitura das DMVs/contadores de log e nunca executa BACKUP LOG, DBCC SHRINKFILE nem altera o Recovery Model.',
@@ -993,6 +1130,14 @@ export function generateEvidenceDiagnostics(params: {
         'O FIORIX nunca executa ALTER DATABASE nem DBCC SHRINKDATABASE automaticamente.',
     });
   }
+
+  const severityOrder: Record<EvidenceDiagnosticItem['severity'], number> = {
+    CRITICO: 0,
+    ATENCAO: 1,
+    NORMAL: 2,
+    INFORMATIVO: 3,
+  };
+  diagnostics.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
   return diagnostics;
 }

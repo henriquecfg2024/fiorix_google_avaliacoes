@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  buildDocumentalBlobCacheKey,
+  getCachedDocumentBlob,
+  MAX_SINGLE_BLOB_BYTES,
+  putCachedDocumentBlob,
+} from './pdfIndexedDbCache';
+
 /**
  * Utilitário multi-navegador (Safari macOS/iPadOS/iOS, Chrome, Edge, Firefox)
  * para download, conversão em Blob e abertura segura de PDFs e matrículas .KEN
@@ -350,7 +357,7 @@ async function solicitarBlocoUnicoViaHttps(opcoes: {
       const deadline = Date.now() + 60000;
       let tent = 0;
       while (Date.now() < deadline) {
-        await aguardarComCancelamento(tent === 0 ? 110 : tent < 6 ? 190 : 300, signal);
+        await aguardarComCancelamento(tent === 0 ? 350 : tent < 5 ? 500 : 700, signal);
         tent++;
         const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
           cache: 'no-store',
@@ -606,6 +613,132 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
   }
 }
 
+async function baixarViaSignedUrl(
+  signedUrl: string,
+  mimeType: string,
+  tamanhoEsperado: number,
+  onProgress?: (recebido: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; url: string }> {
+  lancarSeCancelado(signal);
+  const response = await fetch(signedUrl, {
+    cache: 'no-store',
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    signal,
+  });
+
+  if (signal?.aborted) {
+    throw criarErroAbortado();
+  }
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ao baixar do Storage.`);
+  }
+
+  const total = Number(response.headers.get('Content-Length')) || tamanhoEsperado;
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const rawBlob = await response.blob();
+    const typedBlob = rawBlob.type === mimeType ? rawBlob : new Blob([rawBlob], { type: mimeType });
+    onProgress?.(typedBlob.size, Math.max(total, typedBlob.size));
+    return { blob: typedBlob, url: URL.createObjectURL(typedBlob) };
+  }
+
+  const partes: Uint8Array[] = [];
+  let recebido = 0;
+  let ultimaAtualizacao = 0;
+  try {
+    for (;;) {
+      lancarSeCancelado(signal);
+      const { done, value } = await reader.read();
+      if (done) break;
+      partes.push(value);
+      recebido += value.length;
+      const agora = performance.now();
+      if (onProgress && agora - ultimaAtualizacao > 120) {
+        ultimaAtualizacao = agora;
+        onProgress(recebido, Math.max(total, recebido));
+      }
+    }
+  } catch (err) {
+    if (signal?.aborted) {
+      try {
+        await reader.cancel();
+      } catch {}
+      throw criarErroAbortado();
+    }
+    throw err;
+  }
+
+  onProgress?.(recebido, Math.max(total, recebido));
+  const typedBlob = new Blob(partes as BlobPart[], { type: mimeType });
+  return { blob: typedBlob, url: URL.createObjectURL(typedBlob) };
+}
+
+async function solicitarStagingSignedUrlViaHttps(opcoes: {
+  connectorId: string;
+  rootId: string;
+  relativePath: string;
+  signal?: AbortSignal;
+}): Promise<string | null> {
+  const { connectorId, rootId, relativePath, signal } = opcoes;
+  lancarSeCancelado(signal);
+  try {
+    const postRes = await fetch('/api/gestao-documental', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        connectorId,
+        type: 'stage_document_file',
+        rootId,
+        relativePath,
+      }),
+      signal,
+    });
+    if (!postRes.ok) return null;
+    const postBody = (await postRes.json()) as {
+      id?: string;
+      status?: string;
+      result?: { signedUrl?: unknown; fallbackToChunk?: unknown } | null;
+    };
+
+    if (postBody.status === 'complete') {
+      if (postBody.result?.fallbackToChunk) return null;
+      return typeof postBody.result?.signedUrl === 'string' ? postBody.result.signedUrl : null;
+    }
+    if (!postBody.id) return null;
+
+    const deadline = Date.now() + 45_000;
+    let tent = 0;
+    while (Date.now() < deadline) {
+      await aguardarComCancelamento(tent === 0 ? 350 : tent < 5 ? 500 : 700, signal);
+      tent++;
+      const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
+        cache: 'no-store',
+        signal,
+      });
+      if (!pollRes.ok) return null;
+      const pollState = (await pollRes.json()) as {
+        status?: string;
+        result?: { signedUrl?: unknown; fallbackToChunk?: unknown } | null;
+      };
+      if (pollState.status === 'complete') {
+        if (pollState.result?.fallbackToChunk) return null;
+        return typeof pollState.result?.signedUrl === 'string' ? pollState.result.signedUrl : null;
+      }
+      if (pollState.status === 'failed') {
+        return null;
+      }
+    }
+    return null;
+  } catch (err) {
+    if (ehErroAbortado(err) || signal?.aborted) {
+      throw criarErroAbortado();
+    }
+    return null;
+  }
+}
+
 /**
  * Baixa qualquer arquivo original do acervo (.DOC, .DOCX, .RTF, .TXT, .KEN, .PDF)
  * diretamente pelo canal autenticado HTTPS do Connector ativo do cartório,
@@ -640,16 +773,68 @@ export async function baixarArquivoOriginalViaHttps(opcoes: {
     throw new Error('Nenhum servidor Connector online disponível para baixar o arquivo original.');
   }
 
-  const { url } = await baixarPdfEmBlocosViaHttps({
+  const mimeType = mimePorExtensao(opcoes.fileName);
+  const tamanho = opcoes.tamanhoEsperado ?? 0;
+  const cacheKey = buildDocumentalBlobCacheKey({
     connectorId: cid,
     rootId: opcoes.rootId,
     relativePath: opcoes.relativePath,
-    mimeType: mimePorExtensao(opcoes.fileName),
-    tamanhoEsperado: opcoes.tamanhoEsperado,
-    onProgress: opcoes.onProgress,
-    signal: opcoes.signal,
+    size: tamanho,
   });
 
+  let resolvido: { blob: Blob; url: string } | null = null;
+  if (cacheKey) {
+    const cachedBlob = await getCachedDocumentBlob(cacheKey);
+    if (cachedBlob) {
+      opcoes.onProgress?.(cachedBlob.size, cachedBlob.size);
+      resolvido = { blob: cachedBlob, url: URL.createObjectURL(cachedBlob) };
+    }
+  }
+
+  if (!resolvido && (tamanho === 0 || tamanho <= MAX_SINGLE_BLOB_BYTES)) {
+    const signedUrl = await solicitarStagingSignedUrlViaHttps({
+      connectorId: cid,
+      rootId: opcoes.rootId,
+      relativePath: opcoes.relativePath,
+      signal: opcoes.signal,
+    });
+    if (signedUrl) {
+      try {
+        resolvido = await baixarViaSignedUrl(
+          signedUrl,
+          mimeType,
+          tamanho,
+          opcoes.onProgress,
+          opcoes.signal,
+        );
+        if (cacheKey && resolvido.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+          void putCachedDocumentBlob(cacheKey, resolvido.blob);
+        }
+      } catch (err) {
+        if (ehErroAbortado(err) || opcoes.signal?.aborted) {
+          throw criarErroAbortado();
+        }
+        resolvido = null;
+      }
+    }
+  }
+
+  if (!resolvido) {
+    resolvido = await baixarPdfEmBlocosViaHttps({
+      connectorId: cid,
+      rootId: opcoes.rootId,
+      relativePath: opcoes.relativePath,
+      mimeType,
+      tamanhoEsperado: opcoes.tamanhoEsperado,
+      onProgress: opcoes.onProgress,
+      signal: opcoes.signal,
+    });
+    if (cacheKey && resolvido.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+      void putCachedDocumentBlob(cacheKey, resolvido.blob);
+    }
+  }
+
+  const { url } = resolvido;
   const link = document.createElement('a');
   link.href = url;
   link.download = opcoes.fileName;
@@ -661,24 +846,46 @@ export async function baixarArquivoOriginalViaHttps(opcoes: {
 }
 
 /**
- * Resolve qualquer resultado de PDF (data: base64, link local da rede interna ou blocos HTTPS)
+ * Resolve qualquer resultado de PDF (cache IndexedDB, data: base64, Signed URL, link local da rede interna ou blocos HTTPS)
  * em um `blob:` URL pronto para Safari, Chrome, Edge e Firefox em qualquer dispositivo.
  */
 export async function resolverPdfParaNavegador(
   resultado: {
     pdfDataUrl?: string;
     localUrl?: string;
+    signedUrl?: string;
+    signedUrlExpiresAt?: string;
     size?: number;
   },
   opcoes: OpcoesDownloadPdf = {},
 ): Promise<{ url: string; blob?: Blob } | null> {
   lancarSeCancelado(opcoes.signal);
 
+  const tamanho = opcoes.tamanhoEsperado ?? resultado.size ?? 0;
+  const cacheKey = buildDocumentalBlobCacheKey({
+    connectorId: opcoes.connectorId,
+    rootId: opcoes.rootId,
+    relativePath: opcoes.relativePath,
+    size: tamanho,
+  });
+
+  // 0. Cache local persistente em IndexedDB (zero tráfego extra ao reabrir o mesmo documento)
+  if (cacheKey) {
+    const cachedBlob = await getCachedDocumentBlob(cacheKey);
+    if (cachedBlob) {
+      opcoes.onProgress?.(cachedBlob.size, cachedBlob.size);
+      return { blob: cachedBlob, url: URL.createObjectURL(cachedBlob) };
+    }
+  }
+
   // 1. Se já veio embutido como data:application/pdf;base64,... (ex.: PDFs até 2,4 MB), converte direto em Blob local
   if (resultado.pdfDataUrl) {
     if (resultado.pdfDataUrl.startsWith('data:application/pdf')) {
       const convertido = converterDataUrlPdfParaBlob(resultado.pdfDataUrl);
       if (convertido) {
+        if (cacheKey && convertido.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+          void putCachedDocumentBlob(cacheKey, convertido.blob);
+        }
         opcoes.onProgress?.(convertido.blob.size, convertido.blob.size);
         return convertido;
       }
@@ -686,13 +893,43 @@ export async function resolverPdfParaNavegador(
     return { url: resultado.pdfDataUrl };
   }
 
-  const tamanho = opcoes.tamanhoEsperado ?? resultado.size ?? 0;
+  // 2. Signed URL direta do Storage privado efêmero (upload direto do Connector, fora do bandwidth Vercel)
+  if (resultado.signedUrl) {
+    try {
+      opcoes.onProgress?.(0, tamanho);
+      const viaStorage = await baixarViaSignedUrl(
+        resultado.signedUrl,
+        'application/pdf',
+        tamanho,
+        opcoes.onProgress,
+        opcoes.signal,
+      );
+      if (cacheKey && viaStorage.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+        void putCachedDocumentBlob(cacheKey, viaStorage.blob);
+      }
+      return viaStorage;
+    } catch (err) {
+      if (ehErroAbortado(err) || opcoes.signal?.aborted) {
+        throw criarErroAbortado();
+      }
+      // Segue para rede local / staging / chunks em caso de falha ou expiração
+    }
+  }
 
-  // 2. Caminho rápido na própria estação quando o link local é acessível sem Mixed Content
+  // 3. Caminho rápido na própria estação quando o link local é acessível sem Mixed Content
   if (resultado.localUrl && podeTentarServidorLocalDireto(resultado.localUrl)) {
     try {
       opcoes.onProgress?.(0, tamanho);
-      return await tentarBaixarDiretoRedeLocal(resultado.localUrl, tamanho, opcoes.onProgress, opcoes.signal);
+      const viaLan = await tentarBaixarDiretoRedeLocal(
+        resultado.localUrl,
+        tamanho,
+        opcoes.onProgress,
+        opcoes.signal,
+      );
+      if (cacheKey && viaLan.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+        void putCachedDocumentBlob(cacheKey, viaLan.blob);
+      }
+      return viaLan;
     } catch (err) {
       if (ehErroAbortado(err) || opcoes.signal?.aborted) {
         throw criarErroAbortado();
@@ -704,13 +941,41 @@ export async function resolverPdfParaNavegador(
       ) {
         throw err;
       }
-      // Qualquer bloqueio de rede/porta/Mixed Content cai automaticamente para transferência HTTPS abaixo
+      // Qualquer bloqueio de rede/porta/Mixed Content cai automaticamente para staging/HTTPS abaixo
     }
   }
 
-  // 3. Transferência universal via HTTPS pelo Connector (Safari, Mac, iPad, celular e outras estações)
+  // 4. Transferência universal via Storage staging (<= 48 MB) ou chunks HTTPS pelo Connector
   if (opcoes.connectorId && opcoes.rootId && opcoes.relativePath) {
-    return await baixarPdfEmBlocosViaHttps({
+    if (tamanho === 0 || tamanho <= MAX_SINGLE_BLOB_BYTES) {
+      const stagedSignedUrl = await solicitarStagingSignedUrlViaHttps({
+        connectorId: opcoes.connectorId,
+        rootId: opcoes.rootId,
+        relativePath: opcoes.relativePath,
+        signal: opcoes.signal,
+      });
+      if (stagedSignedUrl) {
+        try {
+          const viaStaged = await baixarViaSignedUrl(
+            stagedSignedUrl,
+            'application/pdf',
+            tamanho,
+            opcoes.onProgress,
+            opcoes.signal,
+          );
+          if (cacheKey && viaStaged.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+            void putCachedDocumentBlob(cacheKey, viaStaged.blob);
+          }
+          return viaStaged;
+        } catch (err) {
+          if (ehErroAbortado(err) || opcoes.signal?.aborted) {
+            throw criarErroAbortado();
+          }
+        }
+      }
+    }
+
+    const viaChunks = await baixarPdfEmBlocosViaHttps({
       connectorId: opcoes.connectorId,
       rootId: opcoes.rootId,
       relativePath: opcoes.relativePath,
@@ -718,9 +983,13 @@ export async function resolverPdfParaNavegador(
       onProgress: opcoes.onProgress,
       signal: opcoes.signal,
     });
+    if (cacheKey && viaChunks.blob.size <= MAX_SINGLE_BLOB_BYTES) {
+      void putCachedDocumentBlob(cacheKey, viaChunks.blob);
+    }
+    return viaChunks;
   }
 
-  if (resultado.localUrl) {
+  if (resultado.localUrl || resultado.signedUrl) {
     throw new Error(
       'Não foi possível acessar o PDF diretamente nesta estação. Selecione um Connector online para carregar via HTTPS.',
     );

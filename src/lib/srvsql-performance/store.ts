@@ -18,6 +18,7 @@ import {
   buildBlockingChains,
   buildProcessInstanceKey,
   computeCollectorBackoffSeconds,
+  computeCostlyQueriesDelta,
   computeFileIoLatencyDelta,
   computeWaitStatsDelta,
   DEFAULT_ALERT_RULES,
@@ -59,7 +60,7 @@ export interface RawCollectorIngestPayload {
   collectionDurationMs?: number;
   sqlMetadata: SqlInstanceMetadata;
   zabbixProbe?: ZabbixIntegrationProbe;
-  cpuTotalPercent: number | null;
+  cpuTotalPercent?: number | null;
   sqlCpuPercent?: number | null;
   cpuCount?: number | null;
   totalUserSessionsCount?: number | null;
@@ -69,6 +70,23 @@ export interface RawCollectorIngestPayload {
     timeLabel: string;
     totalServerCpuPercent: number | null;
   }>;
+  windowsMemory?: WindowsMemorySample;
+  windowsVolumes?: WindowsVolumeIoSample[];
+  windowsNetwork?: WindowsNetworkSample[];
+  windowsProcesses?: Array<Omit<WindowsProcessSample, 'processInstanceKey'>>;
+  windowsServices?: WindowsServiceSample[];
+  windowsOsTelemetryAvailable?: boolean;
+  concurrentEvents?: WindowsConcurrentEvent[];
+  activeSessions?: SqlActiveSessionSample[];
+  waitStatsRaw?: SqlWaitStatRawSample[] | null;
+  fileIoRaw?: SqlFileIoRawSample[] | null;
+  sqlMemory?: SqlMemoryHealthSample;
+  databaseSpaces?: SqlDatabaseSpaceSample[];
+  costlyQueries?: SqlCostlyQueryHashItem[];
+}
+
+interface NormalizedCollectorSample extends RawCollectorIngestPayload {
+  cpuTotalPercent: number | null;
   windowsMemory: WindowsMemorySample;
   windowsVolumes: WindowsVolumeIoSample[];
   windowsNetwork: WindowsNetworkSample[];
@@ -83,8 +101,62 @@ export interface RawCollectorIngestPayload {
   costlyQueries: SqlCostlyQueryHashItem[];
 }
 
+const DEFAULT_EMPTY_WINDOWS_MEMORY: WindowsMemorySample = {
+  totalPhysicalMb: null,
+  availablePhysicalMb: null,
+  usedPhysicalMb: null,
+  usedPercent: null,
+  committedMb: null,
+  commitLimitMb: null,
+  commitPercent: null,
+  pagesPerSec: null,
+  pageInputsPerSec: null,
+  pageFaultsPerSec: null,
+  windowsMemoryPressure: 'SEM_DADOS',
+};
+
+const DEFAULT_EMPTY_SQL_MEMORY: SqlMemoryHealthSample = {
+  totalServerMemoryMb: null,
+  targetServerMemoryMb: null,
+  maxServerMemoryConfigMb: null,
+  minServerMemoryConfigMb: null,
+  sqlProcessWorkingSetMb: null,
+  sqlProcessPrivateMb: null,
+  pageLifeExpectancySec: null,
+  bufferCacheHitRatioPercent: null,
+  memoryGrantsPending: null,
+  memoryGrantsActive: null,
+  grantedWorkspaceMemoryMb: null,
+  maxWorkspaceMemoryMb: null,
+  processPhysicalMemoryLow: null,
+  processVirtualMemoryLow: null,
+};
+
+function normalizeCollectorPayload(payload: RawCollectorIngestPayload): NormalizedCollectorSample {
+  return {
+    ...payload,
+    cpuTotalPercent: payload.cpuTotalPercent ?? null,
+    windowsMemory: payload.windowsMemory
+      ? { ...DEFAULT_EMPTY_WINDOWS_MEMORY, ...payload.windowsMemory }
+      : { ...DEFAULT_EMPTY_WINDOWS_MEMORY },
+    sqlMemory: payload.sqlMemory
+      ? { ...DEFAULT_EMPTY_SQL_MEMORY, ...payload.sqlMemory }
+      : { ...DEFAULT_EMPTY_SQL_MEMORY },
+    windowsVolumes: payload.windowsVolumes ?? [],
+    windowsNetwork: payload.windowsNetwork ?? [],
+    windowsProcesses: payload.windowsProcesses ?? [],
+    windowsServices: payload.windowsServices ?? [],
+    concurrentEvents: payload.concurrentEvents ?? [],
+    activeSessions: payload.activeSessions ?? [],
+    waitStatsRaw: payload.waitStatsRaw ?? null,
+    fileIoRaw: payload.fileIoRaw ?? null,
+    databaseSpaces: payload.databaseSpaces ?? [],
+    costlyQueries: payload.costlyQueries ?? [],
+  };
+}
+
 interface TenantMonitorRuntimeState {
-  samples: RawCollectorIngestPayload[];
+  samples: NormalizedCollectorSample[];
   incidents: UserSlownessIncidentRecord[];
   alerts: AlertEventRecord[];
   alertRules: AlertThresholdRule[];
@@ -228,11 +300,11 @@ export function getOrCreateTenantState(tenantId: string): TenantMonitorRuntimeSt
  * Aplica limites de retenção por tempo (`retentionDays`) e quantidade máxima (`maxStoredSnapshots`)
  * para impedir que a base de monitoramento cresça indefinidamente (Seção 1 e Seção 11).
  */
-export function pruneSamplesByRetention(
-  samples: RawCollectorIngestPayload[],
+export function pruneSamplesByRetention<T extends RawCollectorIngestPayload>(
+  samples: T[],
   options: { retentionDays: number; maxStoredSnapshots: number; nowIso?: string },
 ): {
-  kept: RawCollectorIngestPayload[];
+  kept: T[];
   prunedCount: number;
 } {
   const nowMs = options.nowIso ? Date.parse(options.nowIso) : Date.now();
@@ -283,7 +355,7 @@ export function ingestCollectorSample(
     state.collectorBudget.autoThrottled = false;
   }
 
-  state.samples.push(payload);
+  state.samples.push(normalizeCollectorPayload(payload));
   const pruned = pruneSamplesByRetention(state.samples, {
     retentionDays: state.collectorBudget.retentionDays,
     maxStoredSnapshots: state.collectorBudget.maxStoredSnapshots,
@@ -395,13 +467,13 @@ export async function loadSrvsqlPerformanceSnapshot(
         const chronological = sampleRows
           .map((r) => {
             const p = (typeof r.payload === 'string' ? JSON.parse(r.payload) : r.payload) as RawCollectorIngestPayload;
-            return {
+            return normalizeCollectorPayload({
               ...p,
               observedAt:
                 r.observed_at instanceof Date
                   ? r.observed_at.toISOString()
                   : p.observedAt,
-            };
+            });
           })
           .reverse();
         state.samples = chronological;
@@ -807,6 +879,7 @@ function buildCoverageSources(
     pingMs?: number | null;
     connectorHost?: string | null;
     zabbixProbe?: ZabbixIntegrationProbe | null;
+    windowsOsAvailable?: boolean;
   },
 ): CoverageSourceItem[] {
   const pingLabel =
@@ -880,12 +953,20 @@ function buildCoverageSources(
       id: 'cov-windows-perf',
       name: 'Contadores de Windows (CPU, Memória Privada/Working Set, Volumes e Serviços)',
       layer: 'WINDOWS_OS',
-      status: collectorOnline ? 'DISPONIVEL' : 'INDISPONIVEL',
-      requiredPermission: 'Grupo local Performance Monitor Users no SRVSQL',
+      status: !collectorOnline
+        ? 'INDISPONIVEL'
+        : options?.windowsOsAvailable === false
+          ? 'OPCIONAL_DESATIVADO'
+          : 'DISPONIVEL',
+      requiredPermission: 'Grupo local Performance Monitor Users / DCOM no SRVSQL',
       impactWhenMissing:
-        'Sem coleta local/remota de contadores do Windows, não é possível correlacionar processos não-SQL (Java, MySQL, Backup, Antivírus) com as janelas de lentidão.',
+        'Sem coleta WMI/Perfmon do Windows, exibimos apenas serviços SQL (sys.dm_server_services), Zabbix (TCP 10050) e processos locais conectados às DMVs.',
       remediationStep:
-        'Adicionar a conta de serviço do coletor ao grupo local "Usuários do Monitor de Desempenho" (Performance Monitor Users) no SRVSQL.',
+        !collectorOnline
+          ? 'Aguardando comunicação com o FIORIXConnector.'
+          : options?.windowsOsAvailable === false
+            ? 'Coletando serviços SQL (sys.dm_server_services), agente Zabbix (TCP 10050) e processos locais conectados ao banco. Para inventariar todos os processos remotos do Windows (Java, Veeam, Kaspersky, TiWorker) com CPU/RAM privada via WMI/CIM, executar o FIORIXConnector com conta de domínio nos grupos "Performance Monitor Users" e "Distributed COM Users" do SRVSQL.'
+            : 'Inventário de processos, memória privada e serviços do Windows ativo no SRVSQL.',
     },
   ];
 }
@@ -1396,7 +1477,7 @@ export function buildSrvsqlPerformanceSnapshot(
             delaySeconds,
             collectorVersion: latest.collectorVersion
               ? `${latest.collectorVersion}-srvsql-live`
-              : 'v2.6.12-srvsql-live',
+              : 'v2.6.13-srvsql-live',
             separateFromUiRefresh: true,
             localQueuePendingCount: 0,
             storageUsedSamples: state.samples.length,
@@ -1683,6 +1764,7 @@ export function buildSrvsqlPerformanceSnapshot(
         collectorReachable: collectorStatus !== 'OFFLINE',
         alertRules: state.alertRules,
         databaseSpaces: latest.databaseSpaces || [],
+        webriDatabases: state.webriConfig.databases,
       });
 
       const effectiveVolFreePct = (volumes: WindowsVolumeIoSample[]): number =>
@@ -1840,10 +1922,39 @@ export function buildSrvsqlPerformanceSnapshot(
             ? `ATENÇÃO: amostra defasada há ${Math.round(delaySeconds / 60)} min (${observedSpLabel})`
             : `COLETOR SEM ENVIO HÁ ${Math.round(delaySeconds / 60)} MIN (${observedSpLabel})`;
 
-      const topSlowQueryMs =
-        latest.costlyQueries && latest.costlyQueries.length > 0
-          ? Math.max(...latest.costlyQueries.map((q) => q.avgElapsedTimeMs || 0))
+      const costlyQueriesDelta = previous
+        ? computeCostlyQueriesDelta({
+            previousQueries: previous.costlyQueries || null,
+            currentQueries: latest.costlyQueries || null,
+            previousSqlStartTime: previous.sqlMetadata?.sqlServerStartTime,
+            currentSqlStartTime: latest.sqlMetadata?.sqlServerStartTime,
+          })
+        : [];
+
+      const recentIncidentsInWindow = state.incidents.filter((inc) => {
+        const ts = Date.parse(inc.occurredAt);
+        return Number.isFinite(ts) && ts >= refNowMs - windowMs && ts <= refNowMs + 60_000;
+      });
+      const userPerceivedLatencyMs =
+        recentIncidentsInWindow.length > 0
+          ? Math.max(...recentIncidentsInWindow.map((inc) => Math.round(inc.perceivedDurationSeconds * 1000)))
           : null;
+
+      const activeNonCollectorRequests = (latest.activeSessions || []).filter(
+        (s) =>
+          s.sessionStatus !== 'sleeping' &&
+          s.sessionStatus !== 'background' &&
+          s.loginName.trim().toUpperCase() !== 'FIORIX_CONNECTOR',
+      );
+      const maxActiveElapsedMs =
+        activeNonCollectorRequests.length > 0
+          ? Math.max(
+              ...activeNonCollectorRequests.map((s) =>
+                Math.max(Number(s.elapsedTimeMs || 0), Number(s.waitTimeMs || 0)),
+              ),
+            )
+          : 0;
+      const sqlObservedElapsedMs = Math.max(Math.round(maxBlockedSec * 1000), maxActiveElapsedMs);
 
       return {
         generatedAt,
@@ -1868,7 +1979,7 @@ export function buildSrvsqlPerformanceSnapshot(
           delaySeconds,
           collectorVersion: latest.collectorVersion
             ? `${latest.collectorVersion}-srvsql-live`
-            : 'v2.6.12-srvsql-live',
+            : 'v2.6.13-srvsql-live',
           separateFromUiRefresh: true,
           localQueuePendingCount: 0,
           storageUsedSamples: state.samples.length,
@@ -1905,11 +2016,15 @@ export function buildSrvsqlPerformanceSnapshot(
               : `${totalSessions} sessões ativas · nenhum bloqueio neste instante`,
         },
         latencySemantics: {
-          userPerceivedLatencyMs: topSlowQueryMs,
-          sqlObservedElapsedMs: maxBlockedSec > 0 ? Math.round(maxBlockedSec * 1000) : topSlowQueryMs,
+          userPerceivedLatencyMs,
+          sqlObservedElapsedMs,
           simpleConnectivityPingMs: latest.simpleConnectivityPingMs ?? null,
           explanation: `SELECT 1 respondeu em ${latest.simpleConnectivityPingMs ?? '—'
-            } ms na coleta de ${observedSpLabel}. O painel reflete os contadores reais recebidos do FIORIX Connector.`,
+            } ms na coleta de ${observedSpLabel}. ${
+            blockedCount > 0
+              ? `Há ${blockedCount} sessão(ões) aguardando liberação de lock.`
+              : 'Nenhuma requisição bloqueada ou retida neste instante.'
+          }`,
         },
         timeline: dynamicTimeline,
         previousPeriodComparison: {
@@ -1932,7 +2047,7 @@ export function buildSrvsqlPerformanceSnapshot(
         sqlMemory: latest.sqlMemory,
         databaseSpaces: latest.databaseSpaces || [],
         fileIoDeltas,
-        costlyQueries: latest.costlyQueries || [],
+        costlyQueries: costlyQueriesDelta,
         windowsMemory: latest.windowsMemory,
         windowsVolumes: liveVolumes,
         windowsNetwork: latest.windowsNetwork || [],
@@ -1948,6 +2063,7 @@ export function buildSrvsqlPerformanceSnapshot(
           pingMs: latest.simpleConnectivityPingMs,
           connectorHost: latest.connectorHost,
           zabbixProbe: latest.zabbixProbe,
+          windowsOsAvailable: latest.windowsOsTelemetryAvailable,
         }),
         collectorBudget: state.collectorBudget,
         counterResetNotice: waitDeltaComputed?.resetReason ?? null,
@@ -2007,7 +2123,7 @@ export function buildSrvsqlPerformanceSnapshot(
         activeScenario: 'LIVE_OR_REAL',
         activeWindow: windowPreset,
         bannerMessage:
-          'Aguardando primeira coleta ao vivo do FIORIX Connector em SRVSQL (envio automático a cada 60s). Nenhum valor congelado ou simulado está sendo exibido.',
+          'Aguardando primeira coleta ao vivo do FIORIX Connector em SRVSQL (envio automático a cada 30s). Nenhum valor congelado ou simulado está sendo exibido.',
         collectorHealth: {
           status: 'STALE',
           lastCollectionAt: null,

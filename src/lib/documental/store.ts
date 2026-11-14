@@ -7,6 +7,26 @@ import {
   enrichAndNormalizeSignatureAuditForTenant,
   executeLocalPdfSignatureAudit,
 } from '@/lib/documental/signatureAuditStore';
+import {
+  deleteTenantStorageObjects,
+  hydrateDocumentJobResultForBrowser,
+} from '@/lib/documental/ephemeral-storage';
+import { notifyConnectorJobQueued } from '@/lib/documental/realtime-wakeup';
+
+function extractStoragePathsFromResult(rawResult: unknown): string[] {
+  if (!rawResult || typeof rawResult !== 'object' || Array.isArray(rawResult)) return [];
+  const rec = rawResult as Record<string, unknown>;
+  const paths: string[] = [];
+  if (typeof rec.storagePath === 'string' && rec.storagePath.length > 0) {
+    paths.push(rec.storagePath);
+  }
+  if (Array.isArray(rec.pageStoragePaths)) {
+    for (const p of rec.pageStoragePaths) {
+      if (typeof p === 'string' && p.length > 0) paths.push(p);
+    }
+  }
+  return paths;
+}
 
 export interface SearchJob {
   id: string;
@@ -47,7 +67,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
   const pageEnd = options.pageEnd ?? null;
   const forceFresh = !!options.forceFresh;
 
-  return prisma.$transaction(async tx => {
+  const txOut: { response: JobResponse; newlyInserted: boolean } = await prisma.$transaction(async tx => {
     // Serialize per user to enforce one outstanding job across concurrent requests.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId + ':' + userId}))`;
     await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId} AND "expiresAt" <= NOW()`;
@@ -60,7 +80,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND status = 'complete'
             AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', ''))`;
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
+      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'stage_document_file' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND status = 'complete'
@@ -78,8 +98,13 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             AND "expiresAt" > NOW()
           ORDER BY "createdAt" DESC LIMIT 1
         `;
-        if (recent.length) return { id: recent[0].id, status: 'complete', result: recent[0].result, cached: true };
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text') && rootId && relativePath) {
+        if (recent.length) {
+          return {
+            response: { id: recent[0].id, status: 'complete' as const, result: recent[0].result, cached: true },
+            newlyInserted: false,
+          };
+        }
+      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text' || type === 'stage_document_file') && rootId && relativePath) {
         const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue; pageStart: number | null; pageEnd: number | null }>>`
           SELECT id, result, "pageStart", "pageEnd" FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
@@ -111,32 +136,60 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             const isKen = relLower.endsWith('.ken') || relLower.endsWith('.tif') || relLower.endsWith('.tiff');
             const isPdf = relLower.endsWith('.pdf');
             if (isKen) {
-              const paginasCache = Array.isArray(res?.pages) ? (res.pages as string[]) : [];
-              if (paginasCache.length === 0) {
-                ehValido = false;
-              } else if (pageStart !== null && pageEnd !== null && row.pageStart === null && row.pageEnd === null) {
-                const totalDoc = Number(res?.pageCount) || paginasCache.length;
-                const endEfetivo = Math.min(pageEnd, totalDoc);
-                if (pageStart >= 1 && paginasCache.length >= endEfetivo) {
-                  const fatia = paginasCache.slice(pageStart - 1, endEfetivo);
-                  resultadoFinal = {
-                    ...res,
-                    pages: fatia,
-                    pageCount: totalDoc,
-                    loadedPageStart: pageStart,
-                    loadedPageEnd: pageStart + fatia.length - 1,
-                    hasMorePages: pageStart + fatia.length - 1 < totalDoc,
-                  };
-                } else {
+              const storagePathsCache = Array.isArray(res?.pageStoragePaths)
+                ? (res.pageStoragePaths as unknown[]).filter((p): p is string => typeof p === 'string' && p.length > 0)
+                : [];
+              if (storagePathsCache.length > 0) {
+                if (pageStart !== null && pageEnd !== null && row.pageStart === null && row.pageEnd === null) {
+                  const totalDoc = Number(res?.pageCount) || storagePathsCache.length;
+                  const endEfetivo = Math.min(pageEnd, totalDoc);
+                  if (pageStart >= 1 && storagePathsCache.length >= endEfetivo) {
+                    const fatiaPaths = storagePathsCache.slice(pageStart - 1, endEfetivo);
+                    resultadoFinal = {
+                      ...res,
+                      pageStoragePaths: fatiaPaths,
+                      pages: [],
+                      pageCount: totalDoc,
+                      loadedPageStart: pageStart,
+                      loadedPageEnd: pageStart + fatiaPaths.length - 1,
+                      hasMorePages: pageStart + fatiaPaths.length - 1 < totalDoc,
+                    };
+                  } else {
+                    ehValido = false;
+                  }
+                }
+              } else {
+                const paginasCache = Array.isArray(res?.pages) ? (res.pages as string[]) : [];
+                if (paginasCache.length === 0) {
                   ehValido = false;
+                } else if (pageStart !== null && pageEnd !== null && row.pageStart === null && row.pageEnd === null) {
+                  const totalDoc = Number(res?.pageCount) || paginasCache.length;
+                  const endEfetivo = Math.min(pageEnd, totalDoc);
+                  if (pageStart >= 1 && paginasCache.length >= endEfetivo) {
+                    const fatia = paginasCache.slice(pageStart - 1, endEfetivo);
+                    resultadoFinal = {
+                      ...res,
+                      pages: fatia,
+                      pageCount: totalDoc,
+                      loadedPageStart: pageStart,
+                      loadedPageEnd: pageStart + fatia.length - 1,
+                      hasMorePages: pageStart + fatia.length - 1 < totalDoc,
+                    };
+                  } else {
+                    ehValido = false;
+                  }
                 }
               }
             } else if (isPdf) {
-              // PDF servido pelo Connector na rede interna: o ticket expira (15 min)
+              // PDF servido pelo Connector na rede interna (15 min) ou Storage privado efemero
+              const hasStoragePath = typeof res?.storagePath === 'string' && res.storagePath.length > 0;
               const expira = typeof res?.localUrlExpiresAt === 'string' ? Date.parse(res.localUrlExpiresAt) : NaN;
               const linkLocalValido = !!res?.localUrl && Number.isFinite(expira) && expira - Date.now() > 60_000;
-              if (!res?.pdfDataUrl && !linkLocalValido) ehValido = false;
+              if (!res?.pdfDataUrl && !linkLocalValido && !hasStoragePath) ehValido = false;
             }
+          } else if (type === 'stage_document_file') {
+            const hasStoragePath = typeof res?.storagePath === 'string' && res.storagePath.length > 0;
+            if (!hasStoragePath) ehValido = false;
           } else if (type === 'analyze_signatures') {
             if (res?.versao_motor !== 2) {
               ehValido = false;
@@ -153,9 +206,12 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             }
           }
           if (ehValido) {
-            return { id: row.id, status: 'complete', result: resultadoFinal, cached: true };
+            return {
+              response: { id: row.id, status: 'complete' as const, result: resultadoFinal, cached: true },
+              newlyInserted: false,
+            };
           }
-          if (type === 'analyze_signatures') {
+          if (type === 'analyze_signatures' || type === 'stage_document_file') {
             await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${row.id}`;
           }
         }
@@ -170,12 +226,15 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         const id = randomUUID();
         await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt")
           VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, NULL, NULL, 'complete', ${JSON.stringify(localAudited)}::jsonb, NOW() + INTERVAL '24 hours')`;
-        return { id, status: 'complete', result: localAudited, cached: false };
+        return {
+          response: { id, status: 'complete' as const, result: localAudited, cached: false },
+          newlyInserted: false,
+        };
       }
     }
 
     // Nunca cancela extrações de petição ou análises de assinatura em execução quando chega
-    // leitura de bloco (chunk), listagem de diretório ou outro tipo de job do mesmo usuário.
+    // leitura de bloco (chunk), staging ou listagem de diretório do mesmo usuário.
     if (type !== 'read_document_chunk') {
       const active = await tx.$queryRaw<Array<{ id: string; type: string; status: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
         SELECT id, type, status, query, "rootId", "relativePath", "pageStart", "pageEnd" FROM "DocumentSearchRequest"
@@ -192,7 +251,10 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           a.pageStart === pageStart &&
           a.pageEnd === pageEnd
         ) {
-          return { id: a.id, status: 'queued', cached: false };
+          return {
+            response: { id: a.id, status: 'queued' as const, cached: false },
+            newlyInserted: false,
+          };
         }
         if (a.status === 'queued' || type === 'search' || type === 'list_directory') {
           await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${a.id}`;
@@ -202,8 +264,39 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
     const id = randomUUID();
     await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", "expiresAt")
       VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}::int, ${pageEnd}::int, NOW() + INTERVAL '3 minutes')`;
-    return { id, status: 'queued', cached: false };
+    return {
+      response: { id, status: 'queued' as const, cached: false },
+      newlyInserted: true,
+    };
   });
+
+  if (txOut.newlyInserted) {
+    await notifyConnectorJobQueued(tenantId);
+  }
+
+  if (
+    txOut.response.status === 'complete' &&
+    txOut.response.result &&
+    (type === 'read_document_text' || type === 'stage_document_file')
+  ) {
+    const hydrated = await hydrateDocumentJobResultForBrowser(tenantId, txOut.response.result);
+    if (!hydrated.storageValid) {
+      const stalePaths = extractStoragePathsFromResult(txOut.response.result);
+      await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${txOut.response.id} AND "tenantId" = ${tenantId}`.catch(() => {});
+      if (stalePaths.length > 0) {
+        void deleteTenantStorageObjects(tenantId, stalePaths);
+      }
+      if (!forceFresh) {
+        return createJob(tenantId, userId, connectorId, { ...options, forceFresh: true });
+      }
+    }
+    return {
+      ...txOut.response,
+      result: hydrated.result,
+    };
+  }
+
+  return txOut.response;
 }
 
 export async function createSearch(tenantId: string, userId: string, connectorId: string, query: string) {
@@ -229,6 +322,32 @@ export async function readSearch(id: string, tenantId: string, userId?: string) 
       result: normalized as unknown as Prisma.JsonValue,
     };
   }
+  if (
+    job &&
+    job.status === 'complete' &&
+    job.result &&
+    (job.type === 'read_document_text' || job.type === 'stage_document_file')
+  ) {
+    const hydrated = await hydrateDocumentJobResultForBrowser(tenantId, job.result);
+    if (!hydrated.storageValid) {
+      const stalePaths = extractStoragePathsFromResult(job.result);
+      await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${id} AND "tenantId" = ${tenantId}`.catch(() => {});
+      if (stalePaths.length > 0) {
+        void deleteTenantStorageObjects(tenantId, stalePaths);
+      }
+      return {
+        ...job,
+        status: 'failed' as const,
+        result: {
+          error: 'Arquivo expirado no storage temporario. Recarregue o documento.',
+        } as unknown as Prisma.JsonValue,
+      };
+    }
+    return {
+      ...job,
+      result: hydrated.result as unknown as Prisma.JsonValue,
+    };
+  }
   return job;
 }
 
@@ -250,7 +369,7 @@ export async function claimSearch(tenantId: string, connectorId: string) {
     WHERE id = (SELECT id FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId}
       AND "connectorId" = ${connectorId} AND status = 'queued' AND "expiresAt" > NOW()
       ORDER BY
-        CASE WHEN type IN ('read_document_text', 'read_document_chunk') THEN 0 ELSE 1 END ASC,
+        CASE WHEN type IN ('stage_document_file', 'read_document_text', 'read_document_chunk') THEN 0 ELSE 1 END ASC,
         "createdAt" ASC
       FOR UPDATE SKIP LOCKED LIMIT 1)
     RETURNING id, type, query, "rootId", "relativePath", "pageStart", "pageEnd"`;

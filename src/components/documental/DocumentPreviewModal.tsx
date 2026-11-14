@@ -138,6 +138,12 @@ export interface DocumentTextResult {
   pdfBlob?: Blob;
   localUrl?: string;
   localUrlExpiresAt?: string;
+  signedUrl?: string;
+  signedUrlExpiresAt?: string;
+  signedUrlsExpiresAt?: string;
+  storagePath?: string;
+  pageStoragePaths?: string[];
+  fallbackToChunk?: boolean;
   pages?: string[];
   loadedPageStart?: number;
   loadedPageEnd?: number;
@@ -437,7 +443,7 @@ export function DocumentPreviewModal({
               if (docData) {
                 let pdfUrl: string | undefined = docData.pdfDataUrl;
                 let pdfBlobResolvido: Blob | undefined;
-                if (docData.localUrl || (pdfUrl && pdfUrl.startsWith('data:application/pdf'))) {
+                if (docData.signedUrl || docData.localUrl || (pdfUrl && pdfUrl.startsWith('data:application/pdf'))) {
                   const resolvido = await resolverPdfParaNavegador(docData, {
                     connectorId: cid,
                     rootId: escolhido.rootId,
@@ -463,6 +469,7 @@ export function DocumentPreviewModal({
                     pdfDataUrl: pdfUrl,
                     pdfBlob: pdfBlobResolvido,
                     localUrl: undefined,
+                    signedUrl: undefined,
                     pages: docData.pages?.length ? docData.pages : (pdfUrl ? [pdfUrl] : []),
                     notFound: false,
                   });

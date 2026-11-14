@@ -29,6 +29,30 @@ export async function POST(req: Request) {
     const tenantId = auth.tenant.id;
     const connectorId = auth.connector.id;
     if (message.action === 'claim') return reply({ job: await claimSearch(tenantId, connectorId) });
+    if (message.action === 'prepare_storage_upload') {
+      const storage = await import('@/lib/documental/ephemeral-storage');
+      if (!storage.isSignedStorageDocumentalEnabled()) {
+        return reply({ storageEnabled: false, storagePath: null, alreadyExists: false, signedUploadUrl: null, token: null });
+      }
+      try {
+        const prepared = await storage.prepareConnectorSignedUpload(tenantId, message.file);
+        return reply({ storageEnabled: true, ...prepared });
+      } catch {
+        return reply({ storageEnabled: false, storagePath: null, alreadyExists: false, signedUploadUrl: null, token: null });
+      }
+    }
+    if (message.action === 'prepare_storage_upload_batch') {
+      const storage = await import('@/lib/documental/ephemeral-storage');
+      if (!storage.isSignedStorageDocumentalEnabled()) {
+        return reply({ storageEnabled: false, uploads: [] });
+      }
+      try {
+        const uploads = await storage.prepareConnectorSignedUploadBatch(tenantId, message.files);
+        return reply({ storageEnabled: true, uploads });
+      } catch {
+        return reply({ storageEnabled: false, uploads: [] });
+      }
+    }
     const payloadResult =
       message.action === 'complete'
         ? message.result

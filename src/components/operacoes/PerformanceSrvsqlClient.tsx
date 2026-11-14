@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -12,6 +12,7 @@ import {
   HardDrive,
   Lock,
   Plus,
+  RefreshCw,
   Server,
   ShieldCheck,
   Terminal,
@@ -58,6 +59,12 @@ export function PerformanceSrvsqlClient({
   const [diagnosticFocus, setDiagnosticFocus] = useState<RealDiagnosticFocusId>('LIVE_GERAL');
   const [windowPreset, setWindowPreset] = useState<TimeWindowPreset>(initialSnapshot.activeWindow);
   const [loadingScenario, setLoadingScenario] = useState(false);
+  const [nowTickMs, setNowTickMs] = useState<number>(() => Date.now());
+  const windowPresetRef = useRef<TimeWindowPreset>(windowPreset);
+
+  useEffect(() => {
+    windowPresetRef.current = windowPreset;
+  }, [windowPreset]);
 
   // Modal "+ Registrar lentidão"
   const [isSlownessModalOpen, setIsSlownessModalOpen] = useState(false);
@@ -70,24 +77,63 @@ export function PerformanceSrvsqlClient({
 
   const canManageConfig = userRole === 'MASTER' || userRole === 'ADMIN';
 
-  async function refreshRealSnapshot(nextWindow: TimeWindowPreset) {
-    setWindowPreset(nextWindow);
-    setLoadingScenario(true);
-    try {
-      const res = await fetch(
-        `/api/v1/operacoes/srvsql-performance?scenario=LIVE_OR_REAL&window=${encodeURIComponent(nextWindow)}`,
-        { cache: 'no-store' },
-      );
-      if (res.ok) {
-        const data = (await res.json()) as SrvsqlPerformanceDashboardSnapshot;
-        setSnapshot(data);
+  const refreshRealSnapshot = useCallback(
+    async (nextWindow: TimeWindowPreset, options?: { silent?: boolean }) => {
+      windowPresetRef.current = nextWindow;
+      setWindowPreset(nextWindow);
+      if (!options?.silent) {
+        setLoadingScenario(true);
       }
-    } catch {
-      // Mantém último estado visível em caso de oscilação de rede
-    } finally {
-      setLoadingScenario(false);
+      try {
+        const res = await fetch(
+          `/api/v1/operacoes/srvsql-performance?scenario=LIVE_OR_REAL&window=${encodeURIComponent(nextWindow)}`,
+          { cache: 'no-store' },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as SrvsqlPerformanceDashboardSnapshot;
+          setSnapshot(data);
+          setNowTickMs(Date.now());
+        }
+      } catch {
+        // Mantém último estado visível em caso de oscilação de rede
+      } finally {
+        if (!options?.silent) {
+          setLoadingScenario(false);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const tickTimer = setInterval(() => {
+      setNowTickMs(Date.now());
+    }, 5_000);
+
+    const pollTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void refreshRealSnapshot(windowPresetRef.current, { silent: true });
+    }, 30_000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        setNowTickMs(Date.now());
+        void refreshRealSnapshot(windowPresetRef.current, { silent: true });
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
-  }
+
+    return () => {
+      clearInterval(tickTimer);
+      clearInterval(pollTimer);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [refreshRealSnapshot]);
 
   async function handleDiagnosticFocusChange(nextFocus: RealDiagnosticFocusId) {
     setDiagnosticFocus(nextFocus);
@@ -243,6 +289,44 @@ export function PerformanceSrvsqlClient({
     return 'MONITORAMENTO OFICIAL 100% DADOS REAIS · coleta ativa em segundo plano';
   }, [snapshot.dataSourceMode]);
 
+  const liveDelaySeconds = useMemo(() => {
+    if (!snapshot.observedAt) return snapshot.collectorHealth.delaySeconds;
+    const obsMs = Date.parse(snapshot.observedAt);
+    if (!Number.isFinite(obsMs)) return snapshot.collectorHealth.delaySeconds;
+    return Math.max(0, Math.round((nowTickMs - obsMs) / 1000));
+  }, [snapshot.observedAt, snapshot.collectorHealth.delaySeconds, nowTickMs]);
+
+  const isTelemetryStale = liveDelaySeconds !== null && liveDelaySeconds >= 180;
+
+  const displayedBannerMessage = useMemo(() => {
+    if (!snapshot.bannerMessage || liveDelaySeconds === null) return snapshot.bannerMessage;
+    return snapshot.bannerMessage.replace(/\(há \d+s\)/, `(há ${liveDelaySeconds}s)`);
+  }, [snapshot.bannerMessage, liveDelaySeconds]);
+
+  const timelineSummary = useMemo(() => {
+    const validCpus = snapshot.timeline
+      .map((pt) => pt.cpuPercent)
+      .filter((v): v is number => v !== null && Number.isFinite(v));
+    const validWrites = snapshot.timeline
+      .map((pt) => pt.diskWriteLatencyMs)
+      .filter((v): v is number => v !== null && Number.isFinite(v));
+    const validBlocked = snapshot.timeline
+      .map((pt) => pt.blockedSessionsCount)
+      .filter((v): v is number => v !== null && Number.isFinite(v));
+
+    return {
+      sampleCount: snapshot.timeline.length,
+      avgCpu:
+        validCpus.length > 0
+          ? Math.round(validCpus.reduce((a, b) => a + b, 0) / validCpus.length)
+          : null,
+      maxCpu: validCpus.length > 0 ? Math.max(...validCpus) : null,
+      maxWriteMs:
+        validWrites.length > 0 ? Math.round(Math.max(...validWrites) * 10) / 10 : null,
+      maxBlocked: validBlocked.length > 0 ? Math.max(...validBlocked) : null,
+    };
+  }, [snapshot.timeline]);
+
   const statusPill = useMemo(() => {
     if (snapshot.overallHealth === 'COLETOR_INDISPONIVEL') {
       return {
@@ -262,19 +346,53 @@ export function PerformanceSrvsqlClient({
         className: 'border-rose-500/40 bg-rose-950/50 text-rose-200',
       };
     }
+    const hasRealContention =
+      snapshot.blockingChains.length > 0 ||
+      (snapshot.kpis.diskWriteLatencyMs !== null && snapshot.kpis.diskWriteLatencyMs >= 20) ||
+      (snapshot.kpis.serverCpuPercent !== null && snapshot.kpis.serverCpuPercent >= 85);
+
     if (snapshot.overallHealth === 'ATENCAO') {
+      const text = isTelemetryStale
+        ? 'Atenção · coleta defasada'
+        : hasRealContention
+          ? 'Atenção · contenção detectada'
+          : 'Atenção · verificação preventiva';
       return {
-        text: 'Atenção · lentidão detectada',
+        text,
+        className: 'border-amber-500/35 bg-[#2a2112] text-[#e6b86a]',
+      };
+    }
+    if (isTelemetryStale && snapshot.dataSourceMode === 'LIVE_COLLECTOR') {
+      return {
+        text: 'Atenção · coleta defasada',
         className: 'border-amber-500/35 bg-[#2a2112] text-[#e6b86a]',
       };
     }
     return {
-      text: 'Normal · coleta saudável',
+      text: 'Normal · operação saudável',
       className: 'border-emerald-500/35 bg-emerald-950/40 text-emerald-200',
     };
-  }, [snapshot.overallHealth]);
+  }, [
+    snapshot.overallHealth,
+    snapshot.blockingChains.length,
+    snapshot.kpis.diskWriteLatencyMs,
+    snapshot.kpis.serverCpuPercent,
+    snapshot.dataSourceMode,
+    isTelemetryStale,
+  ]);
 
-  const primaryDiagnostic = snapshot.diagnostics[0] || null;
+  const activeDiagnostics = useMemo(
+    () => snapshot.diagnostics.filter((d) => d.severity === 'CRITICO' || d.severity === 'ATENCAO'),
+    [snapshot.diagnostics],
+  );
+  const preventiveNotes = useMemo(
+    () => snapshot.diagnostics.filter((d) => d.severity === 'INFORMATIVO'),
+    [snapshot.diagnostics],
+  );
+  const primaryActiveDiagnostic = useMemo(
+    () => activeDiagnostics[0] || snapshot.diagnostics.find((d) => d.severity === 'NORMAL') || null,
+    [activeDiagnostics, snapshot.diagnostics],
+  );
 
   return (
     <div className="min-h-screen bg-[#070d17] text-slate-100 font-sans pb-16">
@@ -306,7 +424,13 @@ export function PerformanceSrvsqlClient({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {liveDelaySeconds !== null && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#0c1422] px-2.5 py-1.5 text-xs text-slate-300">
+                <Clock className="h-3.5 w-3.5 text-cyan-400" />
+                Última amostra há {liveDelaySeconds}s
+              </span>
+            )}
             <span
               className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold ${statusPill.className}`}
             >
@@ -380,6 +504,17 @@ export function PerformanceSrvsqlClient({
                 <option value="24h">Últimas 24 horas</option>
               </select>
             </div>
+
+            <button
+              type="button"
+              onClick={() => refreshRealSnapshot(windowPreset)}
+              disabled={loadingScenario}
+              title="Atualizar painel com a amostra mais recente (sem reconsultar diretamente o SRVSQL)"
+              className="h-10 inline-flex items-center gap-2 rounded-lg border border-slate-700/80 bg-[#0d1624] hover:bg-slate-800/80 disabled:opacity-60 px-3.5 text-xs font-semibold text-slate-200 transition cursor-pointer"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${loadingScenario ? 'animate-spin' : ''}`} />
+              <span>{loadingScenario ? 'Atualizando...' : 'Atualizar'}</span>
+            </button>
 
             <button
               type="button"
@@ -485,7 +620,7 @@ export function PerformanceSrvsqlClient({
                 : 'border-amber-600/40 bg-[#231c10] text-amber-100'
           }`}
         >
-          {snapshot.bannerMessage}
+          {displayedBannerMessage}
         </div>
 
         {/* BARRA DE ABAS (5 ABAS DO PRINT) */}
@@ -560,8 +695,8 @@ export function PerformanceSrvsqlClient({
                       </p>
                     </div>
                   ) : (
-                    <div className="mt-6 pt-2">
-                      <div className="h-44 flex items-end justify-between gap-1.5 px-1 border-b border-slate-800/80 pb-2">
+                    <div className="mt-5 pt-2">
+                      <div className="h-48 flex items-end justify-between gap-1.5 px-1 border-b border-slate-800/80 pb-2">
                         {snapshot.timeline.slice(-20).map((pt) => {
                           const cpuH = Math.max(4, Math.min(100, pt.cpuPercent ?? 0));
                           const memH = Math.max(4, Math.min(100, pt.memoryUsedPercent ?? 0));
@@ -598,9 +733,45 @@ export function PerformanceSrvsqlClient({
                   )}
                 </div>
 
-                <p className="mt-3 text-xs text-slate-400">
-                  Amostras reais coletadas em segundo plano · atualização do painel não reconsulta o SRVSQL
-                </p>
+                <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                    <div className="rounded-lg border border-slate-800/80 bg-[#09101b] px-3 py-2">
+                      <span className="text-[11px] text-slate-400">Amostras / PLE</span>
+                      <div className="mt-0.5 font-semibold text-slate-100">
+                        {timelineSummary.sampleCount} pts · PLE{' '}
+                        {formatMetricOrMissing(snapshot.sqlMemory.pageLifeExpectancySec, 's')}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-800/80 bg-[#09101b] px-3 py-2">
+                      <span className="text-[11px] text-slate-400">CPU Média / Pico</span>
+                      <div className="mt-0.5 font-semibold text-cyan-300">
+                        {formatMetricOrMissing(timelineSummary.avgCpu, '%')} /{' '}
+                        {formatMetricOrMissing(timelineSummary.maxCpu, '%')}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-800/80 bg-[#09101b] px-3 py-2">
+                      <span className="text-[11px] text-slate-400">Escrita Disco (Pico)</span>
+                      <div className="mt-0.5 font-semibold text-slate-100">
+                        {formatMetricOrMissing(timelineSummary.maxWriteMs, ' ms', 1)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-slate-800/80 bg-[#09101b] px-3 py-2">
+                      <span className="text-[11px] text-slate-400">Pico de Bloqueios</span>
+                      <div
+                        className={`mt-0.5 font-semibold ${
+                          (timelineSummary.maxBlocked ?? 0) > 0
+                            ? 'text-amber-300'
+                            : 'text-emerald-300'
+                        }`}
+                      >
+                        {formatMetricOrMissing(timelineSummary.maxBlocked)}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Amostras reais coletadas em segundo plano · atualização do painel não reconsulta o SRVSQL
+                  </p>
+                </div>
               </div>
 
               {/* Card Direito: Esperas SQL no intervalo (5 colunas) */}
@@ -617,14 +788,16 @@ export function PerformanceSrvsqlClient({
                       </p>
                     </div>
                   ) : (
-                    <div className="mt-5 space-y-5">
-                      {snapshot.waitStatsDelta.map((w) => (
-                        <div key={w.waitType} className="space-y-2">
+                    <div className="mt-4 space-y-3.5">
+                      {snapshot.waitStatsDelta.slice(0, 6).map((w) => (
+                        <div key={w.waitType} className="space-y-1.5">
                           <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-slate-200">{w.label}</span>
-                            <span className="font-bold text-slate-100">{Math.round(w.sharePercent)}%</span>
+                            <span className="font-medium text-slate-200 truncate pr-2">{w.label}</span>
+                            <span className="font-bold text-slate-100 shrink-0">
+                              {Math.round(w.sharePercent)}%
+                            </span>
                           </div>
-                          <div className="h-2.5 w-full rounded-full bg-slate-800/90 overflow-hidden">
+                          <div className="h-2 w-full rounded-full bg-slate-800/90 overflow-hidden">
                             <div
                               style={{ width: `${Math.min(100, Math.max(4, w.sharePercent))}%` }}
                               className="h-full rounded-full bg-cyan-400"
@@ -632,40 +805,141 @@ export function PerformanceSrvsqlClient({
                           </div>
                         </div>
                       ))}
+
+                      {snapshot.waitStatsDelta.length > 6 && (
+                        <details className="mt-2 rounded-lg border border-slate-800/80 bg-[#09101b] px-3 py-2 text-xs">
+                          <summary className="cursor-pointer select-none font-medium text-cyan-300 hover:text-cyan-200">
+                            Ver mais {snapshot.waitStatsDelta.length - 6} esperas residuais
+                          </summary>
+                          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {snapshot.waitStatsDelta.slice(6).map((w) => (
+                              <div key={w.waitType} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-300 truncate pr-2">{w.label}</span>
+                                  <span className="font-semibold text-slate-200 shrink-0">
+                                    {Math.round(w.sharePercent)}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-slate-800/90 overflow-hidden">
+                                  <div
+                                    style={{ width: `${Math.min(100, Math.max(2, w.sharePercent))}%` }}
+                                    className="h-full rounded-full bg-cyan-500/75"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <p className="mt-6 text-xs text-slate-400 leading-relaxed">
+                <p className="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 leading-relaxed">
                   Distribuição do tempo de espera não ocioso calculada por diferença (delta) entre amostras, descartando contadores acumulados desde a inicialização.
                 </p>
               </div>
             </div>
 
-            {/* CARD: LEITURA DO INCIDENTE E PRÓXIMA VERIFICAÇÃO (FIEL AO PRINT) */}
-            {primaryDiagnostic && (
-              <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-bold text-white">Leitura do incidente</h2>
-                  <span className="rounded-md border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                    Confiança: {primaryDiagnostic.confidenceLevel} · {primaryDiagnostic.causalClassification.replace(/_/g, ' ')}
-                  </span>
-                </div>
-
-                <p className="text-sm text-slate-200 leading-relaxed">
-                  {primaryDiagnostic.observedSummary}
-                </p>
-
-                <div className="border-t border-slate-800/90 pt-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Próxima verificação
-                  </h3>
-                  <p className="mt-1.5 text-sm text-slate-200 leading-relaxed">
-                    {primaryDiagnostic.recommendedNextVerification}
+            {/* CARD: LEITURA DO INCIDENTE E PRÓXIMA VERIFICAÇÃO */}
+            <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-4">
+              {activeDiagnostics.length === 0 ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                      Leitura do ambiente no intervalo
+                    </h2>
+                    <span className="rounded-md border border-emerald-500/35 bg-emerald-950/40 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                      Operação saudável no intervalo · Sem lentidão ou contenção ativa no WEBRI
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-200 leading-relaxed">
+                    {primaryActiveDiagnostic?.observedSummary ||
+                      `Nenhuma cadeia de bloqueio ativa e baixa latência de escrita (${formatMetricOrMissing(snapshot.kpis.diskWriteLatencyMs, ' ms')}) nas bases do WEBRI nesta janela.`}
                   </p>
+                  {primaryActiveDiagnostic?.recommendedNextVerification && (
+                    <div className="border-t border-slate-800/90 pt-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Próxima verificação
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-300 leading-relaxed">
+                        {primaryActiveDiagnostic.recommendedNextVerification}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ) : (
+                primaryActiveDiagnostic && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-base font-bold text-white flex items-center gap-2">
+                        <AlertTriangle
+                          className={`h-4 w-4 ${
+                            primaryActiveDiagnostic.severity === 'CRITICO'
+                              ? 'text-rose-400'
+                              : 'text-amber-300'
+                          }`}
+                        />
+                        Leitura do incidente
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {activeDiagnostics.length > 1 && (
+                          <span className="rounded-md border border-amber-500/35 bg-amber-950/35 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                            +{activeDiagnostics.length - 1} achado(s) ativo(s)
+                          </span>
+                        )}
+                        <span className="rounded-md border border-slate-700 bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
+                          Confiança: {primaryActiveDiagnostic.confidenceLevel} ·{' '}
+                          {primaryActiveDiagnostic.causalClassification.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-slate-200 leading-relaxed">
+                      {primaryActiveDiagnostic.observedSummary}
+                    </p>
+
+                    <div className="border-t border-slate-800/90 pt-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Próxima verificação
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-200 leading-relaxed">
+                        {primaryActiveDiagnostic.recommendedNextVerification}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {preventiveNotes.length > 0 && (
+                <details className="rounded-lg border border-slate-800/90 bg-[#09101b] p-3 text-xs">
+                  <summary className="cursor-pointer select-none font-semibold text-cyan-300 hover:text-cyan-200">
+                    Observações preventivas de DBA — sem impacto atual de performance no WEBRI (
+                    {preventiveNotes.length})
+                  </summary>
+                  <div className="mt-3 space-y-2.5 border-t border-slate-800/80 pt-3">
+                    {preventiveNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="rounded-lg border border-slate-800 bg-[#0c1422] p-3 space-y-1"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <strong className="text-slate-100">{note.title}</strong>
+                          <span className="rounded bg-cyan-950/50 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-200">
+                            INFORMATIVO
+                          </span>
+                        </div>
+                        <p className="text-slate-300 leading-relaxed">{note.observedSummary}</p>
+                        <p className="text-slate-400">
+                          <strong>Verificação DBA:</strong> {note.recommendedNextVerification}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
 
             {/* DIFERENCIAÇÃO SEMÂNTICA: TEMPO DO USUÁRIO vs TEMPO NO SQL vs TESTE DE CONECTIVIDADE (SEÇÃO 4) */}
             <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5">
@@ -682,25 +956,44 @@ export function PerformanceSrvsqlClient({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3.5">
                   <span className="text-xs text-slate-400">Tempo percebido pelo usuário (WEBRI)</span>
-                  <div className="mt-1 text-lg font-bold text-amber-300">
+                  <div
+                    className={`mt-1 text-lg font-bold ${
+                      snapshot.latencySemantics.userPerceivedLatencyMs !== null
+                        ? 'text-amber-300'
+                        : 'text-emerald-300'
+                    }`}
+                  >
                     {snapshot.latencySemantics.userPerceivedLatencyMs !== null
                       ? `${(snapshot.latencySemantics.userPerceivedLatencyMs / 1000).toFixed(1).replace('.', ',')} s`
-                      : 'Sem dados'}
+                      : 'Sem relato na janela'}
                   </div>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Inclui estação, rede, IIS/serviço SIPLAN e espera por locks no banco.
+                    {snapshot.latencySemantics.userPerceivedLatencyMs !== null
+                      ? 'Inclui estação, rede, IIS/serviço SIPLAN e espera por locks no banco.'
+                      : 'Nenhum incidente manual registrado na janela ativa; use "+ Registrar lentidão" apenas quando houver queixa real.'}
                   </p>
                 </div>
 
                 <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3.5">
                   <span className="text-xs text-slate-400">Maior tempo retido dentro do SQL</span>
-                  <div className="mt-1 text-lg font-bold text-slate-100">
-                    {snapshot.latencySemantics.sqlObservedElapsedMs !== null
-                      ? `${(snapshot.latencySemantics.sqlObservedElapsedMs / 1000).toFixed(1).replace('.', ',')} s`
-                      : 'Sem dados'}
+                  <div
+                    className={`mt-1 text-lg font-bold ${
+                      snapshot.latencySemantics.sqlObservedElapsedMs !== null &&
+                      snapshot.latencySemantics.sqlObservedElapsedMs > 0
+                        ? 'text-amber-300'
+                        : snapshot.latencySemantics.sqlObservedElapsedMs === 0
+                          ? 'text-emerald-300'
+                          : 'text-slate-100'
+                    }`}
+                  >
+                    {snapshot.latencySemantics.sqlObservedElapsedMs === 0
+                      ? '0,0 s (sem contenção)'
+                      : snapshot.latencySemantics.sqlObservedElapsedMs !== null
+                        ? `${(snapshot.latencySemantics.sqlObservedElapsedMs / 1000).toFixed(1).replace('.', ',')} s`
+                        : 'Sem dados'}
                   </div>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Medido via sys.dm_exec_requests (requisições retidas em LCK_M_* / I/O).
+                    Medido via sys.dm_exec_requests (requisições ativas/retidas em LCK_M_* / I/O).
                   </p>
                 </div>
 
@@ -820,7 +1113,7 @@ export function PerformanceSrvsqlClient({
             </div>
 
             {/* Latência por arquivo de dados e log (calculada por diferenças) e Memória SQL */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-3">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <HardDrive className="h-4 w-4 text-cyan-400" />
@@ -831,9 +1124,9 @@ export function PerformanceSrvsqlClient({
                     Sem dados de delta por arquivo neste intervalo.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto max-h-[420px] overflow-y-auto pr-1">
                     <table className="w-full text-left text-xs">
-                      <thead>
+                      <thead className="sticky top-0 bg-[#0c1422] z-10">
                         <tr className="border-b border-slate-800 text-slate-400">
                           <th className="py-2 pr-2">Banco / Arquivo</th>
                           <th className="py-2 px-2">Tipo</th>
@@ -894,14 +1187,14 @@ export function PerformanceSrvsqlClient({
                       snapshot.sqlMemory.bufferCacheHitRatioPercent !== undefined
                         ? `${snapshot.sqlMemory.bufferCacheHitRatioPercent.toFixed(2)}%`
                         : snapshot.dataSourceMode === 'LIVE_COLLECTOR'
-                          ? 'Aguardando coletor v2.6.12'
+                          ? 'Aguardando coletor v2.6.13'
                           : 'Sem dados'}
                     </div>
                   </div>
                 </div>
 
                 {snapshot.databaseSpaces.length > 0 && (
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-2 pt-1 max-h-[420px] overflow-y-auto pr-1">
                     {snapshot.databaseSpaces.map((db) => {
                       const pct = db.logUsedPercent;
                       const pctColorClass =
@@ -951,7 +1244,7 @@ export function PerformanceSrvsqlClient({
                             Log em uso:{' '}
                             {pct === null || pct === undefined ? (
                               snapshot.dataSourceMode === 'LIVE_COLLECTOR' ? (
-                                <span className="text-slate-400">Aguardando coletor v2.6.12</span>
+                                <span className="text-slate-400">Aguardando coletor v2.6.13</span>
                               ) : (
                                 <strong className="text-amber-300">Sem dados</strong>
                               )
@@ -990,9 +1283,9 @@ export function PerformanceSrvsqlClient({
                   Sem dados de consultas agrupadas por query_hash neste período.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[420px] overflow-y-auto pr-1">
                   <table className="w-full text-left text-xs">
-                    <thead>
+                    <thead className="sticky top-0 bg-[#0c1422] z-10">
                       <tr className="border-b border-slate-800 text-slate-400">
                         <th className="py-2 pr-3">Query Hash</th>
                         <th className="py-2 px-3">Tipo / Banco</th>
@@ -1040,12 +1333,86 @@ export function PerformanceSrvsqlClient({
            ===================================================================== */}
         {activeTab === 'servicos' && (
           <div className="space-y-6">
+            {/* SERVIÇOS DO WINDOWS MONITORADOS NO SRVSQL */}
+            <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                    Serviços do Windows no SRVSQL ({snapshot.windowsServices.length})
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Estado ao vivo dos serviços críticos (SQL Server, SQL Agent, Power BI Gateway, Zabbix Agent 2, Backup e Segurança).
+                  </p>
+                </div>
+                {snapshot.coverageSources.some(
+                  (c) => c.id === 'cov-windows-perf' && c.status === 'OPCIONAL_DESATIVADO',
+                ) && (
+                  <span className="rounded-md border border-cyan-500/30 bg-cyan-950/40 px-2.5 py-1 text-[11px] font-medium text-cyan-200">
+                    Modo DMV + Zabbix TCP (contadores WMI/CIM do Windows opcionais)
+                  </span>
+                )}
+              </div>
+
+              {snapshot.windowsServices.length === 0 ? (
+                <p className="text-xs text-slate-400 py-3">
+                  Nenhum serviço do Windows reportado na amostra atual.
+                </p>
+              ) : (
+                <div className="max-h-[360px] overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {snapshot.windowsServices.map((svc) => (
+                    <div
+                      key={svc.serviceName}
+                      className="rounded-lg border border-slate-800 bg-[#09101b] p-3.5 text-xs space-y-1.5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-100 truncate">{svc.displayName}</div>
+                          <div className="text-[11px] font-mono text-slate-400 truncate">
+                            {svc.serviceName}
+                            {svc.processName ? ` · ${svc.processName}` : ''}
+                            {svc.pid ? ` · PID ${svc.pid}` : ''}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                              svc.state === 'RUNNING'
+                                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-slate-800 text-slate-300 border border-slate-700'
+                            }`}
+                          >
+                            {svc.state}
+                          </span>
+                          <span className="rounded bg-slate-800/80 px-2 py-0.5 text-[10px] font-mono text-slate-300">
+                            {svc.startMode}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        <span
+                          className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold ${
+                            svc.belongsToWebri
+                              ? 'bg-cyan-950/60 text-cyan-200 border border-cyan-500/30'
+                              : 'bg-slate-800/70 text-slate-400'
+                          }`}
+                        >
+                          {svc.belongsToWebri ? `WEBRI (${svc.webriConfidence})` : 'Externo ao WEBRI'}
+                        </span>
+                        <span className="text-[11px] text-slate-400 truncate">{svc.notes}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     <Server className="h-4 w-4 text-cyan-400" />
-                    Processos e Serviços no SRVSQL (Identificados por PID + Horário de Início)
+                    Processos no SRVSQL (Identificados por PID + Horário de Início)
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Distingue Memória Privada (Private Working Set) de Conjunto de Trabalho (Working Set) e não classifica todo processo Java ou MySQL como SIPLAN.
@@ -1070,9 +1437,9 @@ export function PerformanceSrvsqlClient({
                   Sem dados de processos do Windows coletados no intervalo.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[420px] overflow-y-auto pr-1">
                   <table className="w-full text-left text-xs">
-                    <thead>
+                    <thead className="sticky top-0 bg-[#0c1422] z-10">
                       <tr className="border-b border-slate-800 text-slate-400">
                         <th className="py-2 pr-3">Processo (PID · Início)</th>
                         <th className="py-2 px-3">Serviço Relacionado</th>

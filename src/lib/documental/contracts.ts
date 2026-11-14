@@ -65,6 +65,14 @@ export const listDirectoryInput = z.object({
   relativePath: relativePathSchema,
 }).strict();
 
+// Staging binario direto do Connector para Storage privado efemero (evita chunks Base64 via Vercel)
+export const stageDocumentFileInput = z.object({
+  connectorId: connectorIdSchema,
+  type: z.literal('stage_document_file'),
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+  relativePath: relativePathSchema,
+}).strict();
+
 export const documentJobInput = z.union([
   searchInput,
   extractPetitionInput,
@@ -72,6 +80,7 @@ export const documentJobInput = z.union([
   readDocumentTextInput,
   readDocumentChunkInput,
   listDirectoryInput,
+  stageDocumentFileInput,
 ]);
 
 export const documentResult = z.object({
@@ -86,10 +95,21 @@ export const documentResult = z.object({
   unavailableRoots: z.array(z.string().max(32)).max(10),
 }).strict();
 
+export const storageUploadMetaSchema = z.object({
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+  relativePath: relativePathSchema,
+  sizeBytes: z.number().int().min(1).max(50331648), // 48 MB
+  mtimeMs: z.number().nonnegative().max(99999999999999),
+  ext: z.string().regex(/^\.?[a-zA-Z0-9]{1,8}$/).optional(),
+  variant: z.string().regex(/^[a-z0-9_-]{1,32}$/).optional(),
+}).strict();
+
 export const connectorMessage = z.discriminatedUnion('action', [
   z.object({ action: z.literal('claim'), connectorId: z.string().min(1).max(128) }).strict(),
   z.object({ action: z.literal('complete'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), result: z.union([documentResult, z.record(z.string(), z.any()), z.array(z.any())]) }).strict(),
   z.object({ action: z.literal('fail'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), error: z.string().max(300).optional() }).strict(),
+  z.object({ action: z.literal('prepare_storage_upload'), connectorId: z.string().min(1).max(128), file: storageUploadMetaSchema }).strict(),
+  z.object({ action: z.literal('prepare_storage_upload_batch'), connectorId: z.string().min(1).max(128), files: z.array(storageUploadMetaSchema).min(1).max(120) }).strict(),
 ]);
 
 // ─── Manifestações: fila de conferência e histórico ─────────────────────────

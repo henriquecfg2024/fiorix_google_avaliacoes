@@ -963,10 +963,18 @@ export function DocumentSearch({
 
     const isValid = (data: DocumentTextResult | null | undefined, fromDiskStorage = false): boolean => {
       if (!data) return false;
+      if (data.signedUrlsExpiresAt) {
+        const exp = Date.parse(data.signedUrlsExpiresAt);
+        if (!Number.isFinite(exp) || exp - Date.now() < 60_000) return false;
+      }
+      if (data.signedUrlExpiresAt && !data.pdfDataUrl?.startsWith('blob:')) {
+        const exp = Date.parse(data.signedUrlExpiresAt);
+        if (!Number.isFinite(exp) || exp - Date.now() < 60_000) return false;
+      }
       if (isKen && (!data.pages || data.pages.length === 0)) return false;
       if (isPdf) {
-        if (!data.pdfDataUrl) return false;
-        if (fromDiskStorage && data.pdfDataUrl.startsWith('blob:')) return false;
+        if (!data.pdfDataUrl && !data.signedUrl) return false;
+        if (fromDiskStorage && data.pdfDataUrl?.startsWith('blob:')) return false;
       }
       return true;
     };
@@ -1877,7 +1885,7 @@ export function DocumentSearch({
         const deadline = Date.now() + 30000;
         let tent = 0;
         while (Date.now() < deadline) {
-          await new Promise(r => setTimeout(r, tent === 0 ? 180 : 350));
+          await new Promise(r => setTimeout(r, tent === 0 ? 350 : 550));
           tent++;
           const pr = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
           if (!pr.ok) break;
@@ -1891,13 +1899,19 @@ export function DocumentSearch({
       if (!lote.hasMorePages) break;
       proxInicio = (lote.loadedPageEnd ?? todasPaginas.length) + 1;
     }
-    return { ...inicial, pages: todasPaginas, pageCount: todasPaginas.length, hasMorePages: false };
+    return {
+      ...inicial,
+      pages: todasPaginas,
+      pageCount: todasPaginas.length,
+      hasMorePages: false,
+      ...(inicial.signedUrlsExpiresAt ? { signedUrlsExpiresAt: inicial.signedUrlsExpiresAt } : {}),
+    };
   }
 
   async function abrirResultadoLeitura(fileKey: string, result: DocumentTextResult, file: Match) {
     const extLower = (result.extension || file.name || '').toLowerCase();
-    const ehPdf = extLower.endsWith('.pdf') || Boolean(result.localUrl) || Boolean(result.pdfDataUrl);
-    if (ehPdf && (result.localUrl || result.pdfDataUrl)) {
+    const ehPdf = extLower.endsWith('.pdf') || Boolean(result.signedUrl) || Boolean(result.localUrl) || Boolean(result.pdfDataUrl);
+    if (ehPdf && (result.signedUrl || result.localUrl || result.pdfDataUrl)) {
       const resolvido = await resolverPdfParaNavegador(result, {
         connectorId,
         rootId: file.rootId,
@@ -1911,6 +1925,7 @@ export function DocumentSearch({
           pdfDataUrl: resolvido.url,
           pdfBlob: resolvido.blob,
           localUrl: undefined,
+          signedUrl: undefined,
         };
         if (resolvido.url.startsWith('blob:')) {
           pdfsLocaisRef.current.push({ fileKey, url: resolvido.url });

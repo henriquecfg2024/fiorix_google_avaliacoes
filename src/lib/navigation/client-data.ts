@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/nav-permissions";
 import { evaluateRouteAccessFromAllowedIds } from "@/lib/nav-permissions/evaluator";
 import { invalidateOperationsAlertsCache } from "@/lib/operacoes/alerts-client-cache";
+import { clearDocumentalIndexedDbCache } from "@/lib/documental/pdfIndexedDbCache";
 
 type CurrentUser = Awaited<ReturnType<typeof getCurrentUser>>;
 export type UserNavPermissions = Awaited<ReturnType<typeof getUserNavPermissionsAction>>;
@@ -45,6 +46,7 @@ export function clearClientSessionCaches() {
   navigationStatsFetchedAt = 0;
   invalidateNavPermissionsClientCache();
   invalidateOperationsAlertsCache();
+  void clearDocumentalIndexedDbCache();
 
   if (typeof window !== "undefined") {
     for (const storage of [window.localStorage, window.sessionStorage]) {
@@ -155,6 +157,7 @@ export function loadCurrentUserOnce(force = false) {
         invalidateNavPermissionsClientCache();
         navigationStatsPromise = null;
         navigationStatsFetchedAt = 0;
+        void clearDocumentalIndexedDbCache();
       }
       lastResolvedIdentityKey = nextKey;
       return user;

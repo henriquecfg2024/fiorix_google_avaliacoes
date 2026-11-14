@@ -5,6 +5,10 @@ import { prisma } from '@/lib/prisma';
 import { generateConnectorSecret, hashConnectorSecret } from '@/lib/connectorAuth';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 import type { AuthenticatedUser } from '@/lib/auth-helpers';
+import {
+  getRealtimeWakeupDirective,
+  type RealtimeWakeupDirective,
+} from '@/lib/documental/realtime-wakeup';
 
 async function recordAuditLog(
   params: Parameters<typeof import('@/lib/audit')['recordAuditLog']>[0],
@@ -148,6 +152,7 @@ export interface ConnectorDirectivePayload {
     sha256: string;
     publishedAt: string;
   } | null;
+  realtimeWakeup?: RealtimeWakeupDirective | null;
 }
 
 const FORBIDDEN_SECRET_KEY_REGEX = /(password|passwd|secret|token|credential|apikey|api_key|private_key)/i;
@@ -1393,6 +1398,7 @@ export async function processHeartbeatHaAndBuildDirective(params: {
       remoteConfig: {},
       latestCheckpoints: {},
       pendingUpdate: null,
+      realtimeWakeup: getRealtimeWakeupDirective(tenantId, true),
     };
   }
   await syncTenantConnectorsHaRows(tenantId);
@@ -1736,6 +1742,7 @@ export async function processHeartbeatHaAndBuildDirective(params: {
     remoteConfig: finalNode?.remoteConfig ?? {},
     latestCheckpoints,
     pendingUpdate,
+    realtimeWakeup: getRealtimeWakeupDirective(tenantId, state === 'ACTIVE'),
   };
 }
 
@@ -1747,19 +1754,23 @@ export async function processHeartbeatHaAndBuildDirective(params: {
 export async function resolveEffectiveDocumentConnector(
   tenantId: string,
   requestedConnectorId?: string | null,
-): Promise<{ connectorId: string; lastSeenAt: Date } | null> {
+): Promise<{ connectorId: string; lastSeenAt: Date; version?: string | null } | null> {
   if (!hasRawSqlSupport()) {
     if (!requestedConnectorId || typeof prisma?.connector?.findFirst !== 'function') {
       return null;
     }
     const connector = await prisma.connector.findFirst({
       where: { id: requestedConnectorId, tenantId, enabled: true },
-      select: { id: true, lastSeenAt: true },
+      select: { id: true, lastSeenAt: true, version: true },
     });
     if (!connector?.lastSeenAt || Date.now() - new Date(connector.lastSeenAt).getTime() > 120_000) {
       return null;
     }
-    return { connectorId: connector.id, lastSeenAt: new Date(connector.lastSeenAt) };
+    return {
+      connectorId: connector.id,
+      lastSeenAt: new Date(connector.lastSeenAt),
+      version: connector.version ?? null,
+    };
   }
 
   const nodes = await listTenantConnectorNodes(tenantId);
@@ -1770,13 +1781,17 @@ export async function resolveEffectiveDocumentConnector(
   if (requestedConnectorId) {
     const exact = nodes.find((n) => n.connectorId === requestedConnectorId);
     if (exact && exact.operationalState === 'ACTIVE' && isOnline(exact) && exact.lastSeenAt) {
-      return { connectorId: exact.connectorId, lastSeenAt: exact.lastSeenAt };
+      return { connectorId: exact.connectorId, lastSeenAt: exact.lastSeenAt, version: exact.version };
     }
   }
 
   const activeOnline = nodes.find((n) => n.operationalState === 'ACTIVE' && isOnline(n));
   if (activeOnline && activeOnline.lastSeenAt) {
-    return { connectorId: activeOnline.connectorId, lastSeenAt: activeOnline.lastSeenAt };
+    return {
+      connectorId: activeOnline.connectorId,
+      lastSeenAt: activeOnline.lastSeenAt,
+      version: activeOnline.version,
+    };
   }
 
   return null;

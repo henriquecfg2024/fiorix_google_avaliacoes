@@ -584,7 +584,13 @@ export function VisualizadorDedicado({
     file: MatchItem,
     signal?: AbortSignal,
   ): Promise<DocumentTextResult> {
-    if (!resultado.localUrl && !resultado.pdfDataUrl?.startsWith('data:application/pdf')) return resultado;
+    if (
+      !resultado.signedUrl &&
+      !resultado.localUrl &&
+      !resultado.pdfDataUrl?.startsWith('data:application/pdf')
+    ) {
+      return resultado;
+    }
     const tamanhoInicial = resultado.size || file.size || 0;
     if (tamanhoInicial > 0) {
       setProgressoPdf({ recebido: 0, total: tamanhoInicial });
@@ -602,7 +608,13 @@ export function VisualizadorDedicado({
       },
     });
     if (!resolvido) return resultado;
-    return { ...resultado, pdfDataUrl: resolvido.url, pdfBlob: resolvido.blob, localUrl: undefined };
+    return {
+      ...resultado,
+      pdfDataUrl: resolvido.url,
+      pdfBlob: resolvido.blob,
+      localUrl: undefined,
+      signedUrl: undefined,
+    };
   }
 
   // Abre e lê o arquivo pelo conector do cartório
