@@ -24,6 +24,8 @@ import {
   buildSiplanIncidentReport,
   formatMetricOrMissing,
   sortCostlyQueries,
+  sortDatabaseSpaces,
+  sortFileIoDeltas,
 } from '@/lib/srvsql-performance/engine';
 import { MINIMUM_PERMISSIONS_SQL_SCRIPT } from '@/lib/srvsql-performance/sql-queries';
 import type {
@@ -32,6 +34,8 @@ import type {
   AlertThresholdRule,
   CostlyQuerySortDirection,
   CostlyQuerySortKey,
+  DatabaseSpaceSortKey,
+  FileIoSortKey,
   SrvsqlPerformanceDashboardSnapshot,
   TimeWindowPreset,
   UserSlownessIncidentRecord,
@@ -168,6 +172,18 @@ const COSTLY_QUERY_COLUMNS: ReadonlyArray<{
   { key: 'lastWaitTypeHint', label: 'Espera Associada', thClassName: 'py-2 pl-3' },
 ];
 
+const FILE_IO_COLUMNS: ReadonlyArray<{
+  key: FileIoSortKey;
+  label: string;
+  thClassName: string;
+}> = [
+  { key: 'databaseAndFile', label: 'Banco / Arquivo', thClassName: 'py-2 pr-2' },
+  { key: 'fileType', label: 'Tipo', thClassName: 'py-2 px-2' },
+  { key: 'readLatencyDeltaMs', label: 'Leitura (Δ)', thClassName: 'py-2 px-2' },
+  { key: 'writeLatencyDeltaMs', label: 'Escrita (Δ)', thClassName: 'py-2 px-2' },
+  { key: 'iopsDelta', label: 'IOPS (L/E)', thClassName: 'py-2 pl-2' },
+];
+
 export function PerformanceSrvsqlClient({
   initialSnapshot,
   userRole,
@@ -183,6 +199,14 @@ export function PerformanceSrvsqlClient({
     key: CostlyQuerySortKey | null;
     direction: CostlyQuerySortDirection;
   }>({ key: null, direction: 'desc' });
+  const [fileIoSort, setFileIoSort] = useState<{
+    key: FileIoSortKey;
+    direction: CostlyQuerySortDirection;
+  }>({ key: 'readLatencyDeltaMs', direction: 'desc' });
+  const [dbSpaceSort, setDbSpaceSort] = useState<{
+    key: DatabaseSpaceSortKey;
+    direction: CostlyQuerySortDirection;
+  }>({ key: 'logUsedPercent', direction: 'desc' });
 
   const handleCostlyQuerySort = useCallback((nextKey: CostlyQuerySortKey) => {
     setCostlyQuerySort((prev) => {
@@ -197,9 +221,40 @@ export function PerformanceSrvsqlClient({
     });
   }, []);
 
+  const handleFileIoSort = useCallback((nextKey: FileIoSortKey) => {
+    setFileIoSort((prev) => {
+      if (prev.key === nextKey) {
+        return { key: nextKey, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      const defaultDir: CostlyQuerySortDirection =
+        nextKey === 'databaseAndFile' || nextKey === 'fileType' ? 'asc' : 'desc';
+      return { key: nextKey, direction: defaultDir };
+    });
+  }, []);
+
+  const handleDbSpaceSort = useCallback((nextKey: DatabaseSpaceSortKey) => {
+    setDbSpaceSort((prev) => {
+      if (prev.key === nextKey) {
+        return { key: nextKey, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      const defaultDir: CostlyQuerySortDirection = nextKey === 'databaseName' ? 'asc' : 'desc';
+      return { key: nextKey, direction: defaultDir };
+    });
+  }, []);
+
   const sortedCostlyQueries = useMemo(
     () => sortCostlyQueries(snapshot.costlyQueries, costlyQuerySort.key, costlyQuerySort.direction),
     [snapshot.costlyQueries, costlyQuerySort.key, costlyQuerySort.direction],
+  );
+
+  const sortedFileIoDeltas = useMemo(
+    () => sortFileIoDeltas(snapshot.fileIoDeltas, fileIoSort.key, fileIoSort.direction),
+    [snapshot.fileIoDeltas, fileIoSort.key, fileIoSort.direction],
+  );
+
+  const sortedDatabaseSpaces = useMemo(
+    () => sortDatabaseSpaces(snapshot.databaseSpaces, dbSpaceSort.key, dbSpaceSort.direction),
+    [snapshot.databaseSpaces, dbSpaceSort.key, dbSpaceSort.direction],
   );
 
   useEffect(() => {
@@ -1400,10 +1455,21 @@ export function PerformanceSrvsqlClient({
             {/* Latência por arquivo de dados e log (calculada por diferenças) e Memória SQL */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-cyan-400" />
-                  Latência por Arquivo SQL (Delta sys.dm_io_virtual_file_stats)
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-cyan-400" />
+                    Latência por Arquivo SQL (Delta sys.dm_io_virtual_file_stats)
+                  </h3>
+                  {(fileIoSort.key !== 'readLatencyDeltaMs' || fileIoSort.direction !== 'desc') && (
+                    <button
+                      type="button"
+                      onClick={() => setFileIoSort({ key: 'readLatencyDeltaMs', direction: 'desc' })}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Restaurar padrão
+                    </button>
+                  )}
+                </div>
                 {snapshot.fileIoDeltas.length === 0 ? (
                   <p className="text-xs text-slate-400 py-4">
                     Sem dados de delta por arquivo neste intervalo.
@@ -1413,15 +1479,40 @@ export function PerformanceSrvsqlClient({
                     <table className="w-full text-left text-xs">
                       <thead className="sticky top-0 bg-[#0c1422] z-10">
                         <tr className="border-b border-slate-800 text-slate-400">
-                          <th className="py-2 pr-2">Banco / Arquivo</th>
-                          <th className="py-2 px-2">Tipo</th>
-                          <th className="py-2 px-2">Leitura (Δ)</th>
-                          <th className="py-2 px-2">Escrita (Δ)</th>
-                          <th className="py-2 pl-2">IOPS (L/E)</th>
+                          {FILE_IO_COLUMNS.map((col) => {
+                            const isActive = fileIoSort.key === col.key;
+                            const ariaSort = isActive
+                              ? fileIoSort.direction === 'asc'
+                                ? 'ascending'
+                                : 'descending'
+                              : 'none';
+                            return (
+                              <th key={col.key} aria-sort={ariaSort} className={col.thClassName}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleFileIoSort(col.key)}
+                                  className={`group inline-flex items-center gap-1 font-semibold transition-colors hover:text-white select-none ${
+                                    isActive ? 'text-cyan-300' : ''
+                                  }`}
+                                >
+                                  <span>{col.label}</span>
+                                  {isActive ? (
+                                    fileIoSort.direction === 'asc' ? (
+                                      <ArrowUp className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                    ) : (
+                                      <ArrowDown className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                    )
+                                  ) : (
+                                    <ArrowUpDown className="h-3 w-3 text-slate-500 group-hover:text-slate-300 shrink-0" />
+                                  )}
+                                </button>
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
-                        {snapshot.fileIoDeltas.map((f) => (
+                        {sortedFileIoDeltas.map((f) => (
                           <tr key={`${f.databaseName}-${f.fileId}`}>
                             <td className="py-2.5 pr-2 font-medium text-slate-200">
                               {f.databaseName} · <span className="text-slate-400">{f.logicalName}</span>{' '}
@@ -1446,10 +1537,48 @@ export function PerformanceSrvsqlClient({
               </div>
 
               <div className="rounded-xl border border-slate-800/90 bg-[#0c1422] p-5 space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Database className="h-4 w-4 text-cyan-400" />
-                  Memória SQL Server, Memory Grants, TempDB e Logs
-                </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Database className="h-4 w-4 text-cyan-400" />
+                    Memória SQL Server, Memory Grants, TempDB e Logs
+                  </h3>
+                  {snapshot.databaseSpaces.length > 1 && (
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <span className="text-slate-400">Ordenar:</span>
+                      {(
+                        [
+                          { key: 'logUsedPercent' as const, label: 'Log em uso' },
+                          { key: 'databaseName' as const, label: 'Banco' },
+                        ] as const
+                      ).map((opt) => {
+                        const active = dbSpaceSort.key === opt.key;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => handleDbSpaceSort(opt.key)}
+                            className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-medium transition-colors ${
+                              active
+                                ? 'border-cyan-500/45 bg-cyan-950/50 text-cyan-200'
+                                : 'border-slate-700 bg-slate-900/70 text-slate-300 hover:text-white'
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {active ? (
+                              dbSpaceSort.direction === 'asc' ? (
+                                <ArrowUp className="h-3 w-3 text-cyan-300" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3 text-cyan-300" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="h-2.5 w-2.5 text-slate-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="rounded-lg border border-slate-800 bg-[#09101b] p-3">
                     <span className="text-slate-400">Total / Max Server Memory</span>
@@ -1478,9 +1607,9 @@ export function PerformanceSrvsqlClient({
                   </div>
                 </div>
 
-                {snapshot.databaseSpaces.length > 0 && (
+                {sortedDatabaseSpaces.length > 0 && (
                   <div className="space-y-2 pt-1 max-h-[420px] overflow-y-auto pr-1">
-                    {snapshot.databaseSpaces.map((db) => {
+                    {sortedDatabaseSpaces.map((db) => {
                       const pct = db.logUsedPercent;
                       const pctColorClass =
                         pct === null || pct === undefined

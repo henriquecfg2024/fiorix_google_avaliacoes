@@ -15,6 +15,8 @@ import {
   evaluateWebriSessionAssociation,
   formatMetricOrMissing,
   sortCostlyQueries,
+  sortDatabaseSpaces,
+  sortFileIoDeltas,
 } from '@/lib/srvsql-performance/engine';
 import {
   buildSrvsqlPerformanceSnapshot,
@@ -1355,5 +1357,216 @@ describe('Módulo Performance do SRVSQL — Validação Técnica (Seção 11)', 
     expect(
       okResetJson.alertRules.find((r: { id: string }) => r.id === 'rule-cpu-sustained')?.warningThreshold,
     ).toBe(80);
+  });
+
+  it('19. sortDatabaseSpaces e sortFileIoDeltas ordenam Logs por uso e Latência por Leitura (Δ) com nulos no fim', () => {
+    const spaces = [
+      {
+        databaseName: 'WEBRI',
+        recoveryModel: 'SIMPLE',
+        dataTotalMb: 338401,
+        dataUsedMb: 312400,
+        logTotalMb: 62948,
+        logUsedMb: 107,
+        logUsedPercent: 0.2,
+        logReuseWaitDesc: 'NOTHING',
+        isTempdb: false,
+      },
+      {
+        databaseName: 'SemDadoLog',
+        recoveryModel: 'FULL',
+        dataTotalMb: 10,
+        dataUsedMb: 5,
+        logTotalMb: 10,
+        logUsedMb: null,
+        logUsedPercent: null,
+        logReuseWaitDesc: 'NOTHING',
+        isTempdb: false,
+      },
+      {
+        databaseName: 'SPCM_EPP',
+        recoveryModel: 'FULL',
+        dataTotalMb: 8,
+        dataUsedMb: 4,
+        logTotalMb: 72,
+        logUsedMb: 54,
+        logUsedPercent: 75.1,
+        logReuseWaitDesc: 'LOG_BACKUP',
+        isTempdb: false,
+      },
+      {
+        databaseName: 'tempdb',
+        recoveryModel: 'SIMPLE',
+        dataTotalMb: 1000,
+        dataUsedMb: 100,
+        logTotalMb: 133,
+        logUsedMb: 40,
+        logUsedPercent: 30.4,
+        logReuseWaitDesc: 'NOTHING',
+        isTempdb: true,
+      },
+      {
+        databaseName: 'Configuracao',
+        recoveryModel: 'FULL',
+        dataTotalMb: 4,
+        dataUsedMb: 2,
+        logTotalMb: 124,
+        logUsedMb: 50,
+        logUsedPercent: 30.4,
+        logReuseWaitDesc: 'LOG_BACKUP',
+        isTempdb: false,
+      },
+    ];
+
+    // Padrão: logUsedPercent DESC (empate em 30.4 desempata por logUsedMb DESC -> Configuracao 50MB > tempdb 40MB), null sempre no fim
+    expect(sortDatabaseSpaces(spaces).map((s) => s.databaseName)).toEqual([
+      'SPCM_EPP',
+      'Configuracao',
+      'tempdb',
+      'WEBRI',
+      'SemDadoLog',
+    ]);
+    expect(sortDatabaseSpaces(spaces, 'logUsedPercent', 'asc').map((s) => s.databaseName)).toEqual([
+      'WEBRI',
+      'tempdb',
+      'Configuracao',
+      'SPCM_EPP',
+      'SemDadoLog',
+    ]);
+    expect(sortDatabaseSpaces(spaces, 'databaseName', 'asc').map((s) => s.databaseName)).toEqual([
+      'Configuracao',
+      'SemDadoLog',
+      'SPCM_EPP',
+      'tempdb',
+      'WEBRI',
+    ]);
+    expect(sortDatabaseSpaces(spaces, 'databaseName', 'desc').map((s) => s.databaseName)).toEqual([
+      'WEBRI',
+      'tempdb',
+      'SPCM_EPP',
+      'SemDadoLog',
+      'Configuracao',
+    ]);
+
+    const files = [
+      {
+        databaseName: 'master',
+        fileId: 1,
+        logicalName: 'master',
+        fileType: 'ROWS' as const,
+        volumeMountPoint: 'D:\\',
+        readsDelta: 0,
+        writesDelta: 0,
+        readLatencyDeltaMs: 0,
+        writeLatencyDeltaMs: 0,
+        bytesReadDelta: 0,
+        bytesWrittenDelta: 0,
+        counterResetDetected: false,
+      },
+      {
+        databaseName: 'tempdb',
+        fileId: 1,
+        logicalName: 'tempdev',
+        fileType: 'ROWS' as const,
+        volumeMountPoint: 'D:\\',
+        readsDelta: 128,
+        writesDelta: 116,
+        readLatencyDeltaMs: 2.3,
+        writeLatencyDeltaMs: 0.6,
+        bytesReadDelta: 1024,
+        bytesWrittenDelta: 1024,
+        counterResetDetected: false,
+      },
+      {
+        databaseName: 'tempdb',
+        fileId: 2,
+        logicalName: 'templog',
+        fileType: 'LOG' as const,
+        volumeMountPoint: 'D:\\',
+        readsDelta: 0,
+        writesDelta: 42,
+        readLatencyDeltaMs: 0,
+        writeLatencyDeltaMs: 1.8,
+        bytesReadDelta: 0,
+        bytesWrittenDelta: 512,
+        counterResetDetected: false,
+      },
+      {
+        databaseName: 'WEBRI',
+        fileId: 1,
+        logicalName: 'WebRI_Data',
+        fileType: 'ROWS' as const,
+        volumeMountPoint: 'D:\\',
+        readsDelta: 200,
+        writesDelta: 10,
+        readLatencyDeltaMs: 5.4,
+        writeLatencyDeltaMs: 1.2,
+        bytesReadDelta: 4096,
+        bytesWrittenDelta: 256,
+        counterResetDetected: false,
+      },
+      {
+        databaseName: 'SemDelta',
+        fileId: 1,
+        logicalName: 'SemDelta_dat',
+        fileType: 'ROWS' as const,
+        volumeMountPoint: 'D:\\',
+        readsDelta: 0,
+        writesDelta: 0,
+        readLatencyDeltaMs: null,
+        writeLatencyDeltaMs: null,
+        bytesReadDelta: 0,
+        bytesWrittenDelta: 0,
+        counterResetDetected: false,
+      },
+    ];
+
+    // Padrão: readLatencyDeltaMs DESC (empate 0ms desempata por escrita/IOPS -> templog > master), null sempre no fim
+    expect(
+      sortFileIoDeltas(files).map((f) => `${f.databaseName}:${f.logicalName}`),
+    ).toEqual([
+      'WEBRI:WebRI_Data',
+      'tempdb:tempdev',
+      'tempdb:templog',
+      'master:master',
+      'SemDelta:SemDelta_dat',
+    ]);
+    expect(
+      sortFileIoDeltas(files, 'readLatencyDeltaMs', 'asc').map(
+        (f) => `${f.databaseName}:${f.logicalName}`,
+      ),
+    ).toEqual([
+      'tempdb:templog',
+      'master:master',
+      'tempdb:tempdev',
+      'WEBRI:WebRI_Data',
+      'SemDelta:SemDelta_dat',
+    ]);
+    expect(
+      sortFileIoDeltas(files, 'writeLatencyDeltaMs', 'desc').map(
+        (f) => `${f.databaseName}:${f.logicalName}`,
+      ),
+    ).toEqual([
+      'tempdb:templog',
+      'WEBRI:WebRI_Data',
+      'tempdb:tempdev',
+      'master:master',
+      'SemDelta:SemDelta_dat',
+    ]);
+    expect(
+      sortFileIoDeltas(files, 'iopsDelta', 'desc').map((f) => `${f.databaseName}:${f.logicalName}`),
+    ).toEqual([
+      'tempdb:tempdev',
+      'WEBRI:WebRI_Data',
+      'tempdb:templog',
+      'master:master',
+      'SemDelta:SemDelta_dat',
+    ]);
+    expect(
+      sortFileIoDeltas(files, 'fileType', 'asc')[0]?.fileType,
+    ).toBe('LOG');
+    expect(
+      sortFileIoDeltas(files, 'databaseAndFile', 'asc').map((f) => f.databaseName),
+    ).toEqual(['master', 'SemDelta', 'tempdb', 'tempdb', 'WEBRI']);
   });
 });

@@ -352,6 +352,15 @@ export type CostlyQuerySortKey =
 
 export type CostlyQuerySortDirection = 'asc' | 'desc';
 
+export type FileIoSortKey =
+  | 'databaseAndFile'
+  | 'fileType'
+  | 'readLatencyDeltaMs'
+  | 'writeLatencyDeltaMs'
+  | 'iopsDelta';
+
+export type DatabaseSpaceSortKey = 'logUsedPercent' | 'databaseName';
+
 export interface SrvsqlTimelinePoint {
   timestampIso: string;
   timeLabel: string;

@@ -25,7 +25,9 @@ import type {
   CostlyQuerySortDirection,
   CostlyQuerySortKey,
   DataSourceMode,
+  DatabaseSpaceSortKey,
   EvidenceDiagnosticItem,
+  FileIoSortKey,
   SiplanIncidentExportDossier,
   SqlActiveSessionSample,
   SqlBlockingChainNode,
@@ -514,6 +516,124 @@ export function sortCostlyQueries(
         return a.queryHash.localeCompare(b.queryHash);
       }
     }
+  });
+
+  return copy;
+}
+
+function compareNullableMetric(
+  aVal: number | null | undefined,
+  bVal: number | null | undefined,
+  mult: 1 | -1,
+): number | null {
+  const aNull = aVal === null || aVal === undefined || !Number.isFinite(aVal);
+  const bNull = bVal === null || bVal === undefined || !Number.isFinite(bVal);
+  if (aNull !== bNull) return aNull ? 1 : -1;
+  if (aNull && bNull) return 0;
+  const diff = (aVal as number) - (bVal as number);
+  return diff !== 0 ? mult * diff : null;
+}
+
+function compareFileIoIdentity(a: SqlFileIoDeltaItem, b: SqlFileIoDeltaItem, mult: 1 | -1 = 1): number {
+  const dbCmp = a.databaseName.localeCompare(b.databaseName, 'pt-BR', { sensitivity: 'base' });
+  if (dbCmp !== 0) return mult * dbCmp;
+  const logicalCmp = a.logicalName.localeCompare(b.logicalName, 'pt-BR', { sensitivity: 'base' });
+  if (logicalCmp !== 0) return mult * logicalCmp;
+  return mult * (a.fileId - b.fileId);
+}
+
+/**
+ * Ordena os deltas de I/O por arquivo (`sys.dm_io_virtual_file_stats`) por qualquer coluna,
+ * mantendo valores nulos de latência sempre ao final e aplicando desempates determinísticos.
+ */
+export function sortFileIoDeltas(
+  items: readonly SqlFileIoDeltaItem[],
+  sortKey: FileIoSortKey = 'readLatencyDeltaMs',
+  direction: CostlyQuerySortDirection = 'desc',
+): SqlFileIoDeltaItem[] {
+  const copy = [...items];
+  if (copy.length <= 1) return copy;
+  const mult: 1 | -1 = direction === 'asc' ? 1 : -1;
+
+  copy.sort((a, b) => {
+    switch (sortKey) {
+      case 'readLatencyDeltaMs': {
+        const primary = compareNullableMetric(a.readLatencyDeltaMs, b.readLatencyDeltaMs, mult);
+        if (primary !== null) {
+          return primary !== 0 ? primary : compareFileIoIdentity(a, b);
+        }
+        const writeTie = (b.writeLatencyDeltaMs ?? -1) - (a.writeLatencyDeltaMs ?? -1);
+        if (writeTie !== 0) return writeTie;
+        const iopsTie = (b.readsDelta + b.writesDelta) - (a.readsDelta + a.writesDelta);
+        if (iopsTie !== 0) return iopsTie;
+        return compareFileIoIdentity(a, b);
+      }
+      case 'writeLatencyDeltaMs': {
+        const primary = compareNullableMetric(a.writeLatencyDeltaMs, b.writeLatencyDeltaMs, mult);
+        if (primary !== null) {
+          return primary !== 0 ? primary : compareFileIoIdentity(a, b);
+        }
+        const readTie = (b.readLatencyDeltaMs ?? -1) - (a.readLatencyDeltaMs ?? -1);
+        if (readTie !== 0) return readTie;
+        const iopsTie = (b.readsDelta + b.writesDelta) - (a.readsDelta + a.writesDelta);
+        if (iopsTie !== 0) return iopsTie;
+        return compareFileIoIdentity(a, b);
+      }
+      case 'iopsDelta': {
+        const aTotal = a.readsDelta + a.writesDelta;
+        const bTotal = b.readsDelta + b.writesDelta;
+        if (aTotal !== bTotal) return mult * (aTotal - bTotal);
+        if (a.readsDelta !== b.readsDelta) return mult * (a.readsDelta - b.readsDelta);
+        const readTie = (b.readLatencyDeltaMs ?? -1) - (a.readLatencyDeltaMs ?? -1);
+        if (readTie !== 0) return readTie;
+        return compareFileIoIdentity(a, b);
+      }
+      case 'fileType': {
+        const cmp = a.fileType.localeCompare(b.fileType, 'pt-BR', { sensitivity: 'base' });
+        if (cmp !== 0) return mult * cmp;
+        const readTie = (b.readLatencyDeltaMs ?? -1) - (a.readLatencyDeltaMs ?? -1);
+        if (readTie !== 0) return readTie;
+        return compareFileIoIdentity(a, b);
+      }
+      case 'databaseAndFile': {
+        const labelA = `${a.databaseName} ${a.logicalName}`;
+        const labelB = `${b.databaseName} ${b.logicalName}`;
+        const cmp = labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+        if (cmp !== 0) return mult * cmp;
+        return mult * (a.fileId - b.fileId);
+      }
+    }
+  });
+
+  return copy;
+}
+
+/**
+ * Ordena os bancos de dados do card de Memória/Logs por percentual de log em uso ou nome do banco,
+ * mantendo valores nulos sempre ao final em ordem crescente e decrescente.
+ */
+export function sortDatabaseSpaces(
+  items: readonly SqlDatabaseSpaceSample[],
+  sortKey: DatabaseSpaceSortKey = 'logUsedPercent',
+  direction: CostlyQuerySortDirection = 'desc',
+): SqlDatabaseSpaceSample[] {
+  const copy = [...items];
+  if (copy.length <= 1) return copy;
+  const mult: 1 | -1 = direction === 'asc' ? 1 : -1;
+
+  copy.sort((a, b) => {
+    if (sortKey === 'databaseName') {
+      return mult * a.databaseName.localeCompare(b.databaseName, 'pt-BR', { sensitivity: 'base' });
+    }
+    const primary = compareNullableMetric(a.logUsedPercent, b.logUsedPercent, mult);
+    if (primary !== null) {
+      return primary !== 0
+        ? primary
+        : a.databaseName.localeCompare(b.databaseName, 'pt-BR', { sensitivity: 'base' });
+    }
+    const mbDiff = (a.logUsedMb ?? 0) - (b.logUsedMb ?? 0);
+    if (mbDiff !== 0) return mult * mbDiff;
+    return a.databaseName.localeCompare(b.databaseName, 'pt-BR', { sensitivity: 'base' });
   });
 
   return copy;
