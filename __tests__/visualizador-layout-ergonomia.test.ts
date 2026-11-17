@@ -2,10 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  casaTermoPesquisaLocal,
   construirUrlIframePdf,
+  extrairAlvoDiretoMatriculaLv2,
   isAcessoExclusivoVisualizador,
   obterIniciaisUsuario,
   obterRotuloSessaoAcervo,
+  ordenarResultadosPesquisaVisualizador,
 } from '@/lib/documental/visualizadorHelpers';
 
 const raizRepo = path.resolve(__dirname, '..');
@@ -140,5 +143,56 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     expect(src).toContain('id="btn-menu-conta-visualizador"');
     expect(src).toContain('href="/minha-conta"');
     expect(src).toContain('handleSignOut');
+  });
+
+  it('evita falsos positivos de substring numérica na varredura local (casaTermoPesquisaLocal)', () => {
+    expect(casaTermoPesquisaLocal('40000', 'LV2\\00040000\\00040000.KEN')).toBe(true);
+    expect(casaTermoPesquisaLocal('40000', 'DEP\\PARECER\\Matr. 40.000 - Lote.docx')).toBe(true);
+    expect(casaTermoPesquisaLocal('40.000', 'LV2\\00040000\\00040000.KEN')).toBe(true);
+
+    expect(casaTermoPesquisaLocal('40000', 'VOL1\\SPH16040000271D3.pdf')).toBe(false);
+    expect(casaTermoPesquisaLocal('40000', 'DEP\\540.000 - Desistencia.docx')).toBe(false);
+    expect(casaTermoPesquisaLocal('40000', 'DEP\\400.003 - EXCLUIR.doc')).toBe(false);
+    expect(casaTermoPesquisaLocal('649109', 'CERTIDAO\\matr. 229.534\\649109 - 200 - 201 - 202.doc')).toBe(true);
+  });
+
+  it('ordena resultados priorizando LV2 exata e títulos/documentos do nº pesquisado', () => {
+    const ordenadosMat = ordenarResultadosPesquisaVisualizador('40000', [
+      { rootId: 'deptos', relativePath: 'Parecer\\Matr 40.000.docx', name: 'Matr 40.000.docx' },
+      { rootId: 'imagens', relativePath: 'LV3\\00040000\\00040000.KEN', name: '00040000.KEN' },
+      { rootId: 'livro2', relativePath: '00040000\\00040000.KEN', name: '00040000.KEN' },
+    ]);
+    expect(ordenadosMat.map((f) => `${f.rootId}:${f.name}`)).toEqual([
+      'livro2:00040000.KEN',
+      'imagens:00040000.KEN',
+      'deptos:Matr 40.000.docx',
+    ]);
+
+    const ordenadosProto = ordenarResultadosPesquisaVisualizador('649109', [
+      { rootId: 'titulos_visualiza', relativePath: '00649000\\00649999.TIF', name: '00649999.TIF' },
+      { rootId: 'livro2', relativePath: '00229000\\00229534.KEN', name: '00229534.KEN' },
+      { rootId: 'deptos', relativePath: 'CERTIDAO\\649109 - 200 - 201 - 202.doc', name: '649109 - 200 - 201 - 202.doc' },
+      { rootId: 'titulos_visualiza', relativePath: '00649000\\00649109.TIF', name: '00649109.TIF' },
+    ]);
+    expect(ordenadosProto.map((f) => f.name)).toEqual([
+      '00649109.TIF',
+      '649109 - 200 - 201 - 202.doc',
+      '00229534.KEN',
+      '00649999.TIF',
+    ]);
+  });
+
+  it('calcula alvo direto de bloco no LV2 apenas para candidatas válidas de matrícula', () => {
+    expect(extrairAlvoDiretoMatriculaLv2('40000')).toEqual({
+      num: 40000,
+      pad8: '00040000',
+      bloco: '00040000',
+      fileName: '00040000.KEN',
+    });
+    expect(extrairAlvoDiretoMatriculaLv2('Matrícula 229.534')?.fileName).toBe('00229534.KEN');
+    expect(extrairAlvoDiretoMatriculaLv2('Protocolo 649109')).toBeNull();
+    expect(extrairAlvoDiretoMatriculaLv2('00001')).toBeNull();
+    expect(extrairAlvoDiretoMatriculaLv2('649109')).toBeNull();
+    expect(extrairAlvoDiretoMatriculaLv2('1124837-38.2022.8.26.0100')).toBeNull();
   });
 });

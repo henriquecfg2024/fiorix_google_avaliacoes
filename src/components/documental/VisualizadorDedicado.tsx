@@ -44,9 +44,12 @@ import {
   LogOut,
 } from 'lucide-react';
 import {
+  casaTermoPesquisaLocal,
   construirUrlIframePdf,
+  extrairAlvoDiretoMatriculaLv2,
   obterRotuloSessaoAcervo,
   obterIniciaisUsuario,
+  ordenarResultadosPesquisaVisualizador,
 } from '@/lib/documental/visualizadorHelpers';
 import { handleSignOut } from '@/app/actions/auth';
 import { clearClientSessionCaches } from '@/lib/navigation/client-data';
@@ -439,17 +442,6 @@ export function VisualizadorDedicado({
     setIsSearching(true);
     setErroPasta('');
     try {
-      const termosNorm = normalizarTexto(termo).split(/\s+/).filter(Boolean);
-      const casaComTermo = (caminhoOuNome: string) => {
-        const norm = normalizarTexto(caminhoOuNome);
-        const limpo = norm.replace(/[.\-_/\s]/g, '');
-        return termosNorm.every(t => {
-          if (norm.includes(t)) return true;
-          const tLimpo = t.replace(/[.\-_/\s]/g, '');
-          return tLimpo.length >= 2 && limpo.includes(tLimpo);
-        });
-      };
-
       // Se houver pasta selecionada, também varre diretamente a pasta atual e suas subpastas imediatas
       const termoNormalizado = normalizarTermoPesquisaDocumental(termo);
       const promessaBuscaGlobal = executarJob<{ files?: MatchItem[]; partial?: boolean; matriculaDetectada?: string; matriculas?: string[] }>(
@@ -495,7 +487,7 @@ export function VisualizadorDedicado({
                 if (visitadas.size + filaPastas.length < MAX_PASTAS_LOCAIS) {
                   filaPastas.push(entry.relativePath);
                 }
-              } else if (casaComTermo(`${entry.relativePath} ${entry.name}`)) {
+              } else if (casaTermoPesquisaLocal(termo, `${entry.relativePath} ${entry.name}`)) {
                 achadosLocais.push({
                   name: entry.name,
                   relativePath: entry.relativePath,
@@ -512,6 +504,48 @@ export function VisualizadorDedicado({
 
       const [resultado, achadosPasta] = await Promise.all([promessaBuscaGlobal, promessaVarreduraPasta]);
       const brutos = [...achadosPasta, ...(resultado.files || [])];
+
+      // Contingência direta por bloco do Livro 2: garante localização da matrícula exata mesmo se a busca global estiver em atualização
+      const alvoLv2 = extrairAlvoDiretoMatriculaLv2(termo);
+      const escopoIncluiLv2 =
+        !pastaAtual ||
+        pastaAtual.rootId === 'livro2' ||
+        (pastaAtual.rootId === 'imagens' &&
+          (!pastaAtual.relativePath || /^lv2(?:[\\/]|$)/i.test(normalizarCaminho(pastaAtual.relativePath))));
+      if (alvoLv2 && escopoIncluiLv2) {
+        const jaTemLv2Exata = brutos.some(
+          f =>
+            f.name.toLowerCase() === alvoLv2.fileName.toLowerCase() &&
+            (f.rootId === 'livro2' || /(?:^|[\\/])lv2[\\/]/i.test(f.relativePath)),
+        );
+        if (!jaTemLv2Exata) {
+          try {
+            const chaveBloco = `livro2:${normalizarCaminho(alvoLv2.bloco)}`;
+            let listagemBloco = listagemCacheRef.current.get(chaveBloco);
+            if (!listagemBloco) {
+              listagemBloco = await executarJob<DirectoryListing>(
+                { type: 'list_directory', rootId: 'livro2', relativePath: alvoLv2.bloco },
+                'Falha ao consultar bloco no Livro 2',
+                15000,
+              );
+              listagemCacheRef.current.set(chaveBloco, listagemBloco);
+            }
+            const entradaExata = listagemBloco?.entries?.find(
+              e => e.type === 'file' && e.name.toLowerCase() === alvoLv2.fileName.toLowerCase(),
+            );
+            if (entradaExata) {
+              brutos.push({
+                name: entradaExata.name,
+                relativePath: entradaExata.relativePath,
+                rootId: 'livro2',
+                size: entradaExata.size,
+                modifiedAt: entradaExata.modifiedAt,
+                matricula: `Matrícula nº ${alvoLv2.num}`,
+              });
+            }
+          } catch {}
+        }
+      }
 
       // Se encontrou processo de usucapião com matrícula conhecida (nos metadados ou cache de extração),
       // traz também o arquivo da imagem (LV2) de K:\IMAGENS\LV2 no resultado da busca
@@ -578,7 +612,7 @@ export function VisualizadorDedicado({
         }
       }
       const todos = Array.from(mapaCanon.values());
-      const noEscopo = todos.filter(estaNoEscopo);
+      const noEscopo = ordenarResultadosPesquisaVisualizador(termo, todos.filter(estaNoEscopo));
       setResultadosBusca({
         termo,
         files: noEscopo,
