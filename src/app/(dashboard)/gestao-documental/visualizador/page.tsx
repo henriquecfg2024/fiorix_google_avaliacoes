@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
+import type { AuthenticatedUser } from '@/lib/auth-helpers';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
+import { getAllowedNavItemsForUser } from '@/lib/nav-permissions/service';
+import { isAcessoExclusivoVisualizador } from '@/lib/documental/visualizadorHelpers';
 import { VisualizadorJanela } from '@/components/documental/VisualizadorJanela';
 import { VisualizadorDedicado } from '@/components/documental/VisualizadorDedicado';
 import { listarAbasGestaoDocumentalVisiveis } from '@/components/documental/GestaoDocumentalAbas';
@@ -24,8 +27,9 @@ export default async function VisualizadorPage({
   const initialSessao = sp?.sessao?.trim() || '';
   const modoJanelaSeparada = sp?.janela === '1';
 
+  let user: AuthenticatedUser;
   try {
-    await requireDocumentAccess(janelaId ? undefined : '/gestao-documental/visualizador');
+    user = await requireDocumentAccess(janelaId ? undefined : '/gestao-documental/visualizador');
   } catch (error) {
     if (!(error instanceof DocumentAccessError)) throw error;
     return (
@@ -40,7 +44,20 @@ export default async function VisualizadorPage({
     return <VisualizadorJanela id={janelaId} />;
   }
 
-  const abasNavegacao = await listarAbasGestaoDocumentalVisiveis('visualizador');
+  const [abasNavegacao, navPerms] = await Promise.all([
+    listarAbasGestaoDocumentalVisiveis('visualizador'),
+    getAllowedNavItemsForUser(user),
+  ]);
+  const acessoExclusivoVisualizador = isAcessoExclusivoVisualizador({
+    navPermissionsEnabled: navPerms.enabled,
+    userRole: user.role,
+    allowedItemIds: navPerms.allowedItemIds,
+  });
+  const usuarioAtual = {
+    nome: user.name || 'Usuário',
+    email: user.email || '',
+    role: String(user.role || 'USER'),
+  };
 
   return (
     <div className="h-full w-full bg-[#070A12] text-white overflow-hidden flex flex-col font-sans">
@@ -50,6 +67,8 @@ export default async function VisualizadorPage({
         initialSessao={initialSessao}
         modoJanelaSeparada={modoJanelaSeparada}
         abasNavegacao={abasNavegacao}
+        acessoExclusivoVisualizador={acessoExclusivoVisualizador}
+        usuarioAtual={usuarioAtual}
       />
     </div>
   );

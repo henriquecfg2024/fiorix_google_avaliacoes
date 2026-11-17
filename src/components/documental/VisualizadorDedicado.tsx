@@ -40,11 +40,16 @@ import {
   X,
   Loader2,
   Star,
+  User,
+  LogOut,
 } from 'lucide-react';
 import {
   construirUrlIframePdf,
   obterRotuloSessaoAcervo,
+  obterIniciaisUsuario,
 } from '@/lib/documental/visualizadorHelpers';
+import { handleSignOut } from '@/app/actions/auth';
+import { clearClientSessionCaches } from '@/lib/navigation/client-data';
 import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
 import type { AbaGestaoDocumentalLink } from './GestaoDocumentalAbas';
 import { getFichaRotulo, DocumentTextResult } from './DocumentPreviewModal';
@@ -151,16 +156,26 @@ function formatarTamanho(bytes?: number): string {
 
 const TAMANHO_PADRAO_KEN_DESCRICAO = '7,05 × 9,38 Pol • 1064 × 1417 px • 151 DPI';
 
+export interface UsuarioVisualizadorResumo {
+  nome: string;
+  email: string;
+  role: string;
+}
+
 export function VisualizadorDedicado({
   initialMatricula = "",
   initialSessao = "",
   modoJanelaSeparada = false,
   abasNavegacao = [],
+  acessoExclusivoVisualizador = false,
+  usuarioAtual,
 }: {
   initialMatricula?: string;
   initialSessao?: string;
   modoJanelaSeparada?: boolean;
   abasNavegacao?: AbaGestaoDocumentalLink[];
+  acessoExclusivoVisualizador?: boolean;
+  usuarioAtual?: UsuarioVisualizadorResumo;
 } = {}) {
   // Conectores e Servidor
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
@@ -201,6 +216,8 @@ export function VisualizadorDedicado({
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [menuAbasAberto, setMenuAbasAberto] = useState(false);
   const menuAbasRef = useRef<HTMLDivElement>(null);
+  const [menuContaAberto, setMenuContaAberto] = useState(false);
+  const menuContaRef = useRef<HTMLDivElement>(null);
 
   // Pan (arrastar com o mouse)
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
@@ -919,14 +936,21 @@ export function VisualizadorDedicado({
   }, [modoJanelaSeparada]);
 
   useEffect(() => {
-    if (!menuAbasAberto) return;
+    if (!menuAbasAberto && !menuContaAberto) return;
     const aoClicarFora = (e: MouseEvent) => {
-      if (menuAbasRef.current && !menuAbasRef.current.contains(e.target as Node)) {
+      const alvo = e.target as Node;
+      if (menuAbasAberto && menuAbasRef.current && !menuAbasRef.current.contains(alvo)) {
         setMenuAbasAberto(false);
+      }
+      if (menuContaAberto && menuContaRef.current && !menuContaRef.current.contains(alvo)) {
+        setMenuContaAberto(false);
       }
     };
     const aoPressionarEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuAbasAberto(false);
+      if (e.key === 'Escape') {
+        setMenuAbasAberto(false);
+        setMenuContaAberto(false);
+      }
     };
     document.addEventListener('mousedown', aoClicarFora);
     document.addEventListener('keydown', aoPressionarEsc);
@@ -934,7 +958,7 @@ export function VisualizadorDedicado({
       document.removeEventListener('mousedown', aoClicarFora);
       document.removeEventListener('keydown', aoPressionarEsc);
     };
-  }, [menuAbasAberto]);
+  }, [menuAbasAberto, menuContaAberto]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -1721,7 +1745,7 @@ export function VisualizadorDedicado({
       <div className="min-h-[40px] px-2 sm:px-3 py-1 bg-[#0B1020] border-b border-white/10 flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 shrink-0">
         {/* Esquerda: Voltar, Menu de Abas, Painel Lateral e Explorador */}
         <div className="shrink-0 flex items-center gap-1.5">
-          <BotaoVoltarTelaAnterior compact label="Voltar" />
+          {!acessoExclusivoVisualizador && <BotaoVoltarTelaAnterior compact label="Voltar" />}
 
           {abasNavegacao.length > 1 && (
             <div ref={menuAbasRef} className="relative">
@@ -2116,6 +2140,78 @@ export function VisualizadorDedicado({
           >
             {isFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
+
+          {acessoExclusivoVisualizador && (
+            <div ref={menuContaRef} className="relative">
+              <button
+                type="button"
+                id="btn-menu-conta-visualizador"
+                onClick={() => setMenuContaAberto(v => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuContaAberto}
+                title={usuarioAtual?.nome ? `${usuarioAtual.nome} • Conta e Sair` : 'Conta e Sair'}
+                className="h-7 px-2 rounded-md border border-white/15 bg-slate-900/90 hover:bg-slate-800 text-[11px] font-semibold text-slate-200 inline-flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-cyan-500/40 bg-cyan-950/80 text-[9px] font-bold text-cyan-200 shrink-0">
+                  {obterIniciaisUsuario(usuarioAtual?.nome)}
+                </span>
+                <span className="hidden sm:inline max-w-[90px] truncate">
+                  {(usuarioAtual?.nome || 'Conta').trim().split(/\s+/)[0]}
+                </span>
+                <ChevronDown
+                  className={`h-3 w-3 text-slate-400 transition-transform ${menuContaAberto ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {menuContaAberto && (
+                <div
+                  role="menu"
+                  aria-label="Conta e sessão do usuário"
+                  className="absolute right-0 top-full z-[150] mt-1 w-60 rounded-xl border border-white/15 bg-[#0B1020] p-2 text-xs text-slate-200 shadow-2xl"
+                >
+                  <div className="mb-1.5 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-slate-300">
+                    <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate">7º RI São Paulo</span>
+                  </div>
+
+                  <div className="mb-1.5 border-b border-white/10 px-2.5 pb-2">
+                    <p className="truncate text-xs font-semibold text-slate-100">
+                      {usuarioAtual?.nome || 'Usuário'}
+                    </p>
+                    {usuarioAtual?.email && (
+                      <p className="mt-0.5 truncate text-[10px] text-slate-400">{usuarioAtual.email}</p>
+                    )}
+                    <div className="mt-1">
+                      <span className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-300">
+                        {usuarioAtual?.role || 'USER'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/minha-conta"
+                    role="menuitem"
+                    onClick={() => setMenuContaAberto(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-200 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <User className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                    <span>Minha Conta</span>
+                  </Link>
+
+                  <form action={handleSignOut} onSubmit={() => clearClientSessionCaches()} className="mt-1">
+                    <button
+                      type="submit"
+                      role="menuitem"
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-rose-400 transition hover:bg-rose-500/10 hover:text-rose-300"
+                    >
+                      <LogOut className="h-3.5 w-3.5 shrink-0" />
+                      <span>Sair</span>
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

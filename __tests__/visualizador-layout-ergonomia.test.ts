@@ -3,6 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   construirUrlIframePdf,
+  isAcessoExclusivoVisualizador,
+  obterIniciaisUsuario,
   obterRotuloSessaoAcervo,
 } from '@/lib/documental/visualizadorHelpers';
 
@@ -68,5 +70,75 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     expect(src).toContain('max-h-[calc(100dvh-52px)]');
     expect(src).toContain('variant="dark"');
     expect(src).toContain('compact');
+  });
+
+  it('identifica corretamente usuário com acesso exclusivo ao Visualizador no sistema', () => {
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: true,
+        userRole: 'COLABORADOR',
+        allowedItemIds: ['visualizador_documental'],
+      }),
+    ).toBe(true);
+
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: true,
+        userRole: 'USER',
+        allowedItemIds: ['visualizador_documental', 'validacao_autenticidade_documental'],
+      }),
+    ).toBe(true);
+
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: true,
+        userRole: 'COLABORADOR',
+        allowedItemIds: ['visualizador_documental', 'minha_it'],
+      }),
+    ).toBe(false);
+
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: true,
+        userRole: 'ADMIN',
+        allowedItemIds: ['visualizador_documental', 'gestao_documental'],
+      }),
+    ).toBe(false);
+
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: true,
+        userRole: 'MASTER',
+        allowedItemIds: ['visualizador_documental'],
+      }),
+    ).toBe(false);
+
+    expect(
+      isAcessoExclusivoVisualizador({
+        navPermissionsEnabled: false,
+        userRole: 'COLABORADOR',
+        allowedItemIds: ['visualizador_documental'],
+      }),
+    ).toBe(false);
+  });
+
+  it('formata iniciais do usuário para o menu compacto de conta', () => {
+    expect(obterIniciaisUsuario('Henrique Gama')).toBe('HG');
+    expect(obterIniciaisUsuario('Maria Oliveira Souza')).toBe('MS');
+    expect(obterIniciaisUsuario('Escrevente')).toBe('ES');
+    expect(obterIniciaisUsuario('   ')).toBe('U');
+    expect(obterIniciaisUsuario(null)).toBe('U');
+  });
+
+  it('oculta botão Voltar e expõe menu Conta/Sair quando acessoExclusivoVisualizador está ativo', () => {
+    const pageSrc = lerArquivoRepo('src/app/(dashboard)/gestao-documental/visualizador/page.tsx');
+    expect(pageSrc).toContain('getAllowedNavItemsForUser');
+    expect(pageSrc).toContain('acessoExclusivoVisualizador={acessoExclusivoVisualizador}');
+
+    const src = lerArquivoRepo('src/components/documental/VisualizadorDedicado.tsx');
+    expect(src).toContain('{!acessoExclusivoVisualizador && <BotaoVoltarTelaAnterior');
+    expect(src).toContain('id="btn-menu-conta-visualizador"');
+    expect(src).toContain('href="/minha-conta"');
+    expect(src).toContain('handleSignOut');
   });
 });

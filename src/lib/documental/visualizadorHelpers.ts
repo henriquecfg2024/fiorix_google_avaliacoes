@@ -32,3 +32,40 @@ export function obterRotuloSessaoAcervo(rootId?: string, relativePath?: string):
       return rootId ? rootId.toUpperCase() : 'LOCAL';
   }
 }
+
+export interface AvaliacaoAcessoExclusivoParams {
+  navPermissionsEnabled: boolean;
+  userRole?: string | null;
+  allowedItemIds: string[];
+}
+
+/**
+ * Determina se o Visualizador (/gestao-documental/visualizador) é a única tela
+ * navegável liberada para o usuário em todo o FIORIX.
+ */
+export function isAcessoExclusivoVisualizador({
+  navPermissionsEnabled,
+  userRole,
+  allowedItemIds,
+}: AvaliacaoAcessoExclusivoParams): boolean {
+  if (String(userRole || '').toUpperCase() === 'MASTER') return false;
+  if (!navPermissionsEnabled) return false;
+
+  const itensNavegaveis = allowedItemIds.filter(
+    (id) => Boolean(id) && id !== 'validacao_autenticidade_documental',
+  );
+
+  return (
+    itensNavegaveis.length === 0 ||
+    (itensNavegaveis.length === 1 && itensNavegaveis[0] === 'visualizador_documental')
+  );
+}
+
+/** Retorna até 2 iniciais maiúsculas para o avatar compacto do usuário. */
+export function obterIniciaisUsuario(nome?: string | null): string {
+  if (!nome) return 'U';
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return 'U';
+  if (partes.length === 1) return partes[0].substring(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
