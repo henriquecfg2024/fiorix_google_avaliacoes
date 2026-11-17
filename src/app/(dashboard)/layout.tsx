@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (pathname?.includes('visualizador')) {
     return (
-      <div className="h-screen w-screen overflow-hidden bg-[#EAEAEA] flex flex-col">
+      <div className="h-dvh w-screen overflow-hidden bg-[#070A12] flex flex-col">
         <VisitorAccessBanner variant="compact" />
         <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
       </div>

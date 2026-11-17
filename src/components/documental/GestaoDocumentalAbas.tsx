@@ -3,9 +3,15 @@ import { FileText, Eye, Archive, Clock, FolderArchive } from 'lucide-react';
 import { requireAuth } from '@/lib/auth-helpers';
 import { isNavPermissionsFeatureEnabled, isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
-type Aba = 'manifestacoes' | 'visualizador' | 'historico' | 'conferencia' | 'arquivo';
+export type AbaGestaoDocumentalId = 'manifestacoes' | 'visualizador' | 'historico' | 'conferencia' | 'arquivo';
 
-const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] = [
+export interface AbaGestaoDocumentalLink {
+  id: AbaGestaoDocumentalId;
+  href: string;
+  rotulo: string;
+}
+
+const ABAS: { id: AbaGestaoDocumentalId; href: string; rotulo: string; Icone: typeof FileText }[] = [
   { id: 'manifestacoes', href: '/gestao-documental', rotulo: 'MANIFESTAÇÕES', Icone: FileText },
   { id: 'visualizador', href: '/gestao-documental/visualizador', rotulo: 'VISUALIZADOR', Icone: Eye },
   { id: 'conferencia', href: '/gestao-documental/conferencia', rotulo: 'EM CONFERÊNCIA', Icone: Clock },
@@ -13,8 +19,14 @@ const ABAS: { id: Aba; href: string; rotulo: string; Icone: typeof FileText }[] 
   { id: 'historico', href: '/gestao-documental/historico', rotulo: 'ANDAMENTOS', Icone: Archive },
 ];
 
-/** Alternador de submenus da Gestão Documental (MANIFESTAÇÕES / VISUALIZADOR / EM CONFERÊNCIA / ARQUIVO / ANDAMENTOS). */
-export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
+const ICONE_POR_ABA = new Map<AbaGestaoDocumentalId, typeof FileText>(
+  ABAS.map((aba) => [aba.id, aba.Icone]),
+);
+
+/** Lista as abas autorizadas da Gestão Documental como objetos serializáveis para componentes Client. */
+export async function listarAbasGestaoDocumentalVisiveis(
+  ativa: AbaGestaoDocumentalId,
+): Promise<AbaGestaoDocumentalLink[]> {
   let podeManifestacoes = true;
   let podeVisualizador = true;
   let podeHistorico = true;
@@ -41,7 +53,7 @@ export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
     // Em caso de falha na sessão, exibe apenas a aba ativa
   }
 
-  const abasVisiveis = ABAS.filter((aba) => {
+  return ABAS.filter((aba) => {
     if (aba.id === ativa) return true;
     if (aba.id === 'manifestacoes') return podeManifestacoes;
     if (aba.id === 'visualizador') return podeVisualizador;
@@ -49,7 +61,12 @@ export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
     if (aba.id === 'conferencia') return podeConferencia;
     if (aba.id === 'arquivo') return podeArquivo;
     return true;
-  });
+  }).map(({ id, href, rotulo }) => ({ id, href, rotulo }));
+}
+
+/** Alternador de submenus da Gestão Documental (MANIFESTAÇÕES / VISUALIZADOR / EM CONFERÊNCIA / ARQUIVO / ANDAMENTOS). */
+export async function GestaoDocumentalAbas({ ativa }: { ativa: AbaGestaoDocumentalId }) {
+  const abasVisiveis = await listarAbasGestaoDocumentalVisiveis(ativa);
 
   if (abasVisiveis.length <= 1) {
     return null;
@@ -57,21 +74,24 @@ export async function GestaoDocumentalAbas({ ativa }: { ativa: Aba }) {
 
   return (
     <nav aria-label="Submenus da Gestão Documental" className="flex items-center rounded-lg border border-white/15 bg-slate-900/80 p-0.5 text-xs font-semibold">
-      {abasVisiveis.map(({ id, href, rotulo, Icone }) => (
-        <Link
-          key={id}
-          href={href}
-          aria-current={ativa === id ? 'page' : undefined}
-          className={
-            ativa === id
-              ? 'flex items-center gap-1.5 px-3 py-1 bg-cyan-600/90 text-white shadow-sm transition rounded-md font-bold'
-              : 'flex items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-white transition rounded-md'
-          }
-        >
-          <Icone className="h-3.5 w-3.5" />
-          <span>{rotulo}</span>
-        </Link>
-      ))}
+      {abasVisiveis.map(({ id, href, rotulo }) => {
+        const Icone = ICONE_POR_ABA.get(id) ?? FileText;
+        return (
+          <Link
+            key={id}
+            href={href}
+            aria-current={ativa === id ? 'page' : undefined}
+            className={
+              ativa === id
+                ? 'flex items-center gap-1.5 px-3 py-1 bg-cyan-600/90 text-white shadow-sm transition rounded-md font-bold'
+                : 'flex items-center gap-1.5 px-3 py-1 text-slate-400 hover:text-white transition rounded-md'
+            }
+          >
+            <Icone className="h-3.5 w-3.5" />
+            <span>{rotulo}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

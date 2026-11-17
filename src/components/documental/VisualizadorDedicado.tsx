@@ -27,17 +27,12 @@ import {
   Hand,
   CheckSquare,
   Square,
-  Layers,
   FolderOpen,
-  ArrowLeft,
   RefreshCw,
   Upload,
   Maximize2,
   Minimize2,
-  Monitor,
   Check,
-  Copy,
-  Clock,
   HardDrive,
   FileSearch,
   Folder,
@@ -46,15 +41,18 @@ import {
   Loader2,
   Star,
 } from 'lucide-react';
+import {
+  construirUrlIframePdf,
+  obterRotuloSessaoAcervo,
+} from '@/lib/documental/visualizadorHelpers';
+import { BotaoVoltarTelaAnterior } from '@/components/ui/BotaoVoltarTelaAnterior';
+import type { AbaGestaoDocumentalLink } from './GestaoDocumentalAbas';
 import { getFichaRotulo, DocumentTextResult } from './DocumentPreviewModal';
 import { JanelaSeparadaMenu } from './JanelaSeparadaMenu';
 import {
-  lerPreferenciasJanelas,
   memorizarMonitorAtual,
-  desfazerMemorizacaoMonitor,
   CANAL_VISUALIZADOR_LV2,
   type MensagemVisualizadorLv2,
-  type PreferenciasJanelas,
 } from '@/lib/documental/janelasDocumento';
 import {
   baixarArquivoOriginalViaHttps,
@@ -151,14 +149,18 @@ function formatarTamanho(bytes?: number): string {
 
 
 
+const TAMANHO_PADRAO_KEN_DESCRICAO = '7,05 × 9,38 Pol • 1064 × 1417 px • 151 DPI';
+
 export function VisualizadorDedicado({
   initialMatricula = "",
   initialSessao = "",
   modoJanelaSeparada = false,
+  abasNavegacao = [],
 }: {
   initialMatricula?: string;
   initialSessao?: string;
   modoJanelaSeparada?: boolean;
+  abasNavegacao?: AbaGestaoDocumentalLink[];
 } = {}) {
   // Conectores e Servidor
   const [connectors, setConnectors] = useState<ConnectorItem[]>([]);
@@ -197,7 +199,8 @@ export function VisualizadorDedicado({
   const [imprimirTodas, setImprimirTodas] = useState(true);
   const [modoNegativo, setModoNegativo] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [menuAbasAberto, setMenuAbasAberto] = useState(false);
+  const menuAbasRef = useRef<HTMLDivElement>(null);
 
   // Pan (arrastar com o mouse)
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
@@ -218,11 +221,7 @@ export function VisualizadorDedicado({
     setPastasFavoritas(favoritos);
   }
 
-  // Monitor e janelas
-  const [prefJanelas, setPrefJanelas] = useState<PreferenciasJanelas | null>(null);
-
   useEffect(() => {
-    setPrefJanelas(lerPreferenciasJanelas());
     setPastasFavoritas(lerPastasFavoritas());
     const sincronizarFavoritos = () => setPastasFavoritas(lerPastasFavoritas());
     window.addEventListener(EVENTO_FAVORITOS_ATUALIZADOS, sincronizarFavoritos);
@@ -382,8 +381,9 @@ export function VisualizadorDedicado({
       );
       listagemCacheRef.current.set(chave, resultado);
       if (pedido === pedidoPastaRef.current) setListagem(resultado);
-    } catch (err: any) {
-      if (pedido === pedidoPastaRef.current) setErroPasta(err?.message || 'Falha ao abrir a pasta.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao abrir a pasta.';
+      if (pedido === pedidoPastaRef.current) setErroPasta(msg);
     } finally {
       if (pedido === pedidoPastaRef.current) setCarregandoPasta(false);
     }
@@ -568,8 +568,8 @@ export function VisualizadorDedicado({
         ocultados: Math.max(0, todos.length - noEscopo.length),
         parcial: !!resultado.partial && achadosPasta.length === 0,
       });
-    } catch (err: any) {
-      setErroPasta(err?.message || 'Falha ao pesquisar arquivos.');
+    } catch (err: unknown) {
+      setErroPasta(err instanceof Error ? err.message : 'Falha ao pesquisar arquivos.');
     } finally {
       setIsSearching(false);
     }
@@ -747,14 +747,21 @@ export function VisualizadorDedicado({
           }
         })();
       }
-    } catch (err: any) {
-      if (pedido !== pedidoDocRef.current || controller.signal.aborted || err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      const isAbort = err instanceof Error && err.name === 'AbortError';
+      if (pedido !== pedidoDocRef.current || controller.signal.aborted || isAbort) return;
       // Link do servidor de arquivos expirou: pede um novo ao Connector uma única vez
       if (err instanceof LinkLocalExpiradoError && !forceFresh) {
         await abrirDocumento(file, true);
         return;
       }
-      setErrorMessage(err instanceof LinkLocalExpiradoError ? 'O link do PDF expirou. Tente novamente.' : (err?.message || 'Erro ao carregar arquivo.'));
+      const msg =
+        err instanceof LinkLocalExpiradoError
+          ? 'O link do PDF expirou. Tente novamente.'
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao carregar arquivo.';
+      setErrorMessage(msg);
     } finally {
       if (pedido === pedidoDocRef.current) {
         setIsLoadingDoc(false);
@@ -911,6 +918,53 @@ export function VisualizadorDedicado({
     };
   }, [modoJanelaSeparada]);
 
+  useEffect(() => {
+    if (!menuAbasAberto) return;
+    const aoClicarFora = (e: MouseEvent) => {
+      if (menuAbasRef.current && !menuAbasRef.current.contains(e.target as Node)) {
+        setMenuAbasAberto(false);
+      }
+    };
+    const aoPressionarEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuAbasAberto(false);
+    };
+    document.addEventListener('mousedown', aoClicarFora);
+    document.addEventListener('keydown', aoPressionarEsc);
+    return () => {
+      document.removeEventListener('mousedown', aoClicarFora);
+      document.removeEventListener('keydown', aoPressionarEsc);
+    };
+  }, [menuAbasAberto]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const aoMudarTelaCheia = () => {
+      setIsFullScreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', aoMudarTelaCheia);
+    return () => document.removeEventListener('fullscreenchange', aoMudarTelaCheia);
+  }, []);
+
+  const alternarTelaCheia = async () => {
+    if (typeof document === 'undefined') {
+      setIsFullScreen(prev => !prev);
+      return;
+    }
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (document.documentElement?.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+        return;
+      }
+    } catch {
+      // Fallback CSS quando o navegador bloqueia a Fullscreen API
+    }
+    setIsFullScreen(prev => !prev);
+  };
+
   // Permite abrir qualquer arquivo local (Upload / PC / Rede)
   function handleAbrirArquivoLocal(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -981,6 +1035,25 @@ export function VisualizadorDedicado({
 
   const pages = documentoAtivo?.pages || [];
   const totalPages = pages.length || documentoAtivo?.pageCount || 1;
+  const sessaoRotulo = obterRotuloSessaoAcervo(arquivoAtivo?.rootId, arquivoAtivo?.relativePath);
+  const caminhoCanonicoExibicao = arquivoAtivo
+    ? arquivoAtivo.rootId === 'local'
+      ? arquivoAtivo.name
+      : formatarCaminhoPasta(arquivoAtivo.rootId as RaizId, arquivoAtivo.relativePath)
+    : '';
+  const bytesAtivo = documentoAtivo?.size || arquivoAtivo?.size || 0;
+  const tamanhoFormatado = bytesAtivo > 0 ? formatarTamanho(bytesAtivo) : '';
+  const tituloDocumentoTooltip = documentoAtivo
+    ? [
+        documentoAtivo.fileName,
+        caminhoCanonicoExibicao,
+        `Sessão: ${sessaoRotulo}`,
+        tamanhoFormatado ? `Tamanho: ${tamanhoFormatado}` : '',
+        isKenOrTif && pages.length > 0 ? `${pages.length} ficha(s) • ${TAMANHO_PADRAO_KEN_DESCRICAO}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ')
+    : 'Selecione uma pasta ou pesquise uma matrícula / processo';
 
   // Impressão Oficial Siplan
   const handlePrint = (forcarTodas?: boolean) => {
@@ -1639,41 +1712,315 @@ export function VisualizadorDedicado({
   const exibindoExplorador = exploradorAberto || !temDocumento;
 
   return (
-    <div className={`flex flex-col bg-[#070A12] text-white overflow-hidden ${isFullScreen ? 'fixed inset-0 z-50 pt-[env(safe-area-inset-top)] sm:pt-0' : 'h-[calc(100dvh-76px)] sm:h-[calc(100vh-80px)] rounded-xl sm:rounded-2xl border border-white/10 shadow-2xl'}`}>
-      {/* 1. BARRA SUPERIOR SIPLAN & CONTROLES */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-white/10 bg-[#0B1020] px-3 sm:px-4 py-2 sm:py-2.5 shrink-0">
-        {/* Identificação do Documento Aberto */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-          <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-800/80 text-cyan-400 shadow-sm">
-            <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <h2 className="truncate text-xs sm:text-base font-bold text-slate-100 font-mono tracking-tight" title={documentoAtivo?.fileName || 'Nenhum documento aberto'}>
-                {documentoAtivo ? documentoAtivo.fileName : 'Visualizador de Documentos'}
-              </h2>
-              {documentoAtivo && (
-                <span className="rounded border border-cyan-500/40 bg-cyan-950/60 px-1.5 sm:px-2 py-0.5 font-mono text-[10px] font-black text-cyan-300 uppercase shrink-0">
-                  {ext.replace('.', '') || 'KEN'}
-                </span>
+    <div
+      className={`flex flex-col bg-[#070A12] text-white overflow-hidden ${
+        isFullScreen ? 'fixed inset-0 z-50' : 'h-full w-full'
+      }`}
+    >
+      {/* 1. BARRA SUPERIOR ÚNICA COMPACTA (~40 px) */}
+      <div className="min-h-[40px] px-2 sm:px-3 py-1 bg-[#0B1020] border-b border-white/10 flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 shrink-0">
+        {/* Esquerda: Voltar, Menu de Abas, Painel Lateral e Explorador */}
+        <div className="shrink-0 flex items-center gap-1.5">
+          <BotaoVoltarTelaAnterior compact label="Voltar" />
+
+          {abasNavegacao.length > 1 && (
+            <div ref={menuAbasRef} className="relative">
+              <button
+                type="button"
+                id="btn-menu-abas-documental"
+                onClick={() => setMenuAbasAberto(v => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuAbasAberto}
+                title="Trocar de tela na Gestão Documental"
+                className="h-7 px-2 rounded-md border border-white/15 bg-slate-900/90 text-[11px] font-semibold text-cyan-300 hover:bg-slate-800 inline-flex items-center gap-1 transition cursor-pointer shrink-0"
+              >
+                <span>Visualizador</span>
+                <ChevronDown
+                  className={`h-3 w-3 text-cyan-400 transition-transform ${menuAbasAberto ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {menuAbasAberto && (
+                <div
+                  role="menu"
+                  aria-label="Módulos da Gestão Documental"
+                  className="absolute left-0 top-full z-[140] mt-1 w-52 rounded-lg border border-white/15 bg-[#0B1020] p-1 text-xs shadow-2xl"
+                >
+                  {abasNavegacao.map(aba => {
+                    const ativa = aba.id === 'visualizador';
+                    return (
+                      <Link
+                        key={aba.id}
+                        href={aba.href}
+                        role="menuitem"
+                        aria-current={ativa ? 'page' : undefined}
+                        onClick={() => setMenuAbasAberto(false)}
+                        className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 font-semibold transition ${
+                          ativa
+                            ? 'bg-cyan-600/25 text-cyan-200 border border-cyan-500/40'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <span className="truncate">{aba.rotulo}</span>
+                        {ativa && <Check className="h-3.5 w-3.5 text-cyan-300 shrink-0" />}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
             </div>
-            <p className="truncate text-[11px] sm:text-xs font-mono text-slate-400 mt-0.5">
-              {arquivoAtivo
-                ? `${arquivoAtivo.rootId.toUpperCase()}:\\${arquivoAtivo.relativePath}`
-                : 'Selecione uma pasta ou pesquise uma matrícula / processo'}
-              {isKenOrTif && pages.length > 0 && ` • ${pages.length} ficha(s) digitalizada(s)`}
-            </p>
-          </div>
+          )}
+
+          {temDocumento && (
+            <>
+              <button
+                id="btn-alternar-painel-lateral"
+                type="button"
+                onClick={() => setSidebarOpen(s => !s)}
+                disabled={exibindoExplorador}
+                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
+                  sidebarOpen && !exibindoExplorador
+                    ? 'border-cyan-500/50 bg-slate-800 text-cyan-300 shadow-sm'
+                    : 'border-white/15 bg-slate-900 text-slate-300 hover:text-white'
+                }`}
+                title={
+                  exibindoExplorador
+                    ? 'O painel lateral fica disponível ao fechar o explorador'
+                    : 'Exibir ou recolher painel lateral'
+                }
+              >
+                {sidebarOpen && !exibindoExplorador ? (
+                  <PanelLeftClose className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                ) : (
+                  <PanelLeft className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                )}
+                <span className="hidden lg:inline">Painel</span>
+              </button>
+
+              <button
+                id="btn-alternar-explorador"
+                type="button"
+                onClick={() => setExploradorAberto(a => !a)}
+                className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition cursor-pointer ${
+                  exploradorAberto
+                    ? 'border-amber-500/50 bg-amber-950/60 text-amber-300 shadow-sm'
+                    : 'border-white/15 bg-slate-900 text-slate-300 hover:text-white'
+                }`}
+                title={exploradorAberto ? 'Voltar ao documento aberto' : 'Abrir o Explorador de pastas do cartório'}
+              >
+                <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden lg:inline">{exploradorAberto ? 'Documento' : 'Explorador'}</span>
+              </button>
+            </>
+          )}
         </div>
 
-        {/* Ações da Barra Superior */}
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-          {/* Seletor do Conector */}
+        {/* Centro-Esquerda: Identidade compacta em linha única */}
+        <div
+          className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden px-1"
+          title={tituloDocumentoTooltip}
+        >
+          <Building2 className="h-3.5 w-3.5 text-cyan-400 shrink-0 hidden sm:block" />
+          <h2 className="truncate text-xs sm:text-[13px] font-bold text-slate-100 font-mono tracking-tight">
+            {documentoAtivo ? documentoAtivo.fileName : 'Visualizador de Documentos'}
+          </h2>
+          {documentoAtivo && (
+            <span className="rounded border border-cyan-500/40 bg-cyan-950/60 px-1.5 py-0.5 font-mono text-[9px] font-black text-cyan-300 uppercase shrink-0">
+              {ext.replace('.', '') || 'KEN'}
+            </span>
+          )}
+          {documentoAtivo &&
+            (isKenOrTif && pages.length > 0 ? (
+              <span className="hidden md:inline shrink-0 rounded border border-white/10 bg-slate-900/90 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+                {pages.length} {pages.length === 1 ? 'ficha' : 'fichas'}
+              </span>
+            ) : tamanhoFormatado ? (
+              <span className="hidden md:inline shrink-0 font-mono text-[10px] text-slate-400">
+                {tamanhoFormatado}
+              </span>
+            ) : null)}
+        </div>
+
+        {/* Centro-Direita: Controles de Imagem .KEN / TIFF inline (somente com imagem aberta no canvas) */}
+        {isKenOrTif && pages.length > 0 && !exploradorAberto && (
+          <div className="shrink-0 flex items-center gap-1">
+            <div className="flex h-7 items-center gap-0.5 bg-slate-950/90 border border-slate-800 rounded-md px-0.5 shadow-inner">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => mudarPagina(1)}
+                className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
+                title="Primeira Ficha (1.F)"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => mudarPagina(currentPage - 1)}
+                className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
+                title="Ficha anterior"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                <span className="rounded bg-[#8B1E1E] px-1 py-0.5 font-mono text-[10px] font-black text-white shadow-sm border border-red-500/40 leading-none">
+                  {getFichaRotulo(currentPage - 1).codigo}
+                </span>
+                <select
+                  value={currentPage}
+                  onChange={e => mudarPagina(Number(e.target.value))}
+                  className="bg-transparent text-slate-100 font-mono text-[11px] font-semibold focus:outline-none cursor-pointer hover:text-cyan-300 transition max-w-[72px]"
+                  title="Selecionar ficha diretamente"
+                >
+                  {pages.map((_, i) => (
+                    <option key={i} value={i + 1} className="bg-slate-900 text-slate-200">
+                      {getFichaRotulo(i).codigo} — {getFichaRotulo(i).descricao} ({i + 1}/{totalPages})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => mudarPagina(currentPage + 1)}
+                className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
+                title="Próxima Ficha"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => mudarPagina(totalPages)}
+                className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
+                title="Última Ficha"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {pages.length > 1 && (
+              <div className="hidden xl:flex h-7 items-center rounded-md border border-slate-800 bg-slate-950 p-0.5 text-[11px] font-medium">
+                <button
+                  type="button"
+                  onClick={() => setModoVisualizacao('pagina')}
+                  className={`rounded px-1.5 py-0.5 transition ${
+                    modoVisualizacao === 'pagina'
+                      ? 'bg-slate-800 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Única
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoVisualizacao('todas')}
+                  className={`rounded px-1.5 py-0.5 transition ${
+                    modoVisualizacao === 'todas'
+                      ? 'bg-slate-800 text-cyan-300 border border-cyan-500/30 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Todas ({totalPages})
+                </button>
+              </div>
+            )}
+
+            <div className="flex h-7 items-center rounded-md border border-slate-800 bg-slate-950 px-0.5">
+              <button
+                type="button"
+                onClick={() => setRotation(r => (r - 90 + 360) % 360)}
+                className="p-1 text-slate-400 hover:text-amber-300 transition"
+                title="Girar 90° para a esquerda"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setRotation(r => (r + 90) % 360)}
+                className="p-1 text-slate-400 hover:text-amber-300 transition"
+                title="Girar 90° para a direita"
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="flex h-7 items-center rounded-md border border-slate-800 bg-slate-950 px-0.5">
+              <button
+                type="button"
+                onClick={() => setZoom(z => Math.max(30, z - 25))}
+                className="p-1 text-slate-400 hover:text-white transition"
+                title="Diminuir Zoom"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <select
+                value={zoom}
+                onChange={e => setZoom(Number(e.target.value))}
+                className="bg-transparent text-slate-200 font-mono text-[11px] font-bold focus:outline-none cursor-pointer px-0.5"
+                title="Zoom"
+              >
+                {[50, 75, 100, 125, 150, 175, 200, 250].map(v => (
+                  <option key={v} value={v} className="bg-slate-900 text-slate-200">
+                    {v}%
+                  </option>
+                ))}
+                {![50, 75, 100, 125, 150, 175, 200, 250].includes(zoom) && (
+                  <option value={zoom} className="bg-slate-900 text-slate-200">
+                    {zoom}%
+                  </option>
+                )}
+              </select>
+              <button
+                type="button"
+                onClick={() => setZoom(z => Math.min(300, z + 25))}
+                className="p-1 text-slate-400 hover:text-white transition"
+                title="Aumentar Zoom"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setModoNegativo(n => !n)}
+              className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-semibold transition cursor-pointer ${
+                modoNegativo
+                  ? 'border-amber-500 bg-amber-500 text-slate-950 shadow-md font-bold'
+                  : 'border-slate-800 bg-slate-950 text-slate-300 hover:text-white hover:border-slate-700'
+              }`}
+              title="Modo Negativo (Inversão de cores / Alto contraste) — ideal para carimbos apagados e assinaturas antigas"
+            >
+              <Contrast className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden xl:inline">Negativo</span>
+            </button>
+
+            {(zoom !== 100 || rotation !== 0 || panPosition.x !== 0 || panPosition.y !== 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setZoom(100);
+                  setRotation(0);
+                  setPanPosition({ x: 0, y: 0 });
+                }}
+                className="h-7 rounded-md border border-slate-800 bg-slate-950 px-2 text-[11px] text-slate-300 hover:text-white transition cursor-pointer"
+                title="Ajustar ao tamanho original"
+              >
+                Ajustar
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Direita: Ações compactas */}
+        <div className="shrink-0 flex items-center gap-1">
           <select
             value={connectorId}
             onChange={e => setConnectorId(e.target.value)}
-            className="h-8 min-w-0 flex-1 sm:flex-initial sm:max-w-[190px] rounded-lg border border-white/15 bg-[#080D1A] px-2 text-base sm:text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="h-7 max-w-[140px] rounded-md border border-white/15 bg-[#080D1A] px-1.5 text-[11px] text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             title="Conector ativo"
           >
             {connectors.length === 0 && (
@@ -1691,7 +2038,6 @@ export function VisualizadorDedicado({
             })}
           </select>
 
-          {/* Botão de Abrir Arquivo Local */}
           <input
             ref={fileInputRef}
             type="file"
@@ -1702,17 +2048,18 @@ export function VisualizadorDedicado({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 text-xs font-semibold text-cyan-300 transition shadow-sm"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-cyan-500/40 bg-cyan-950/60 hover:bg-cyan-900/60 px-2 text-[11px] font-semibold text-cyan-300 transition shadow-sm cursor-pointer"
             title="Abrir arquivo do computador ou da rede local"
           >
-            <Upload className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Abrir Arquivo</span>
+            <Upload className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden xl:inline">Abrir</span>
           </button>
 
-          {/* Outro Monitor (Janela Separada — apenas desktop >= sm) */}
           {documentoAtivo && (
             <div className="hidden sm:block">
               <JanelaSeparadaMenu
+                variant="dark"
+                compact
                 item={{
                   documento: documentoAtivo,
                   relativePath: arquivoAtivo?.relativePath,
@@ -1722,7 +2069,6 @@ export function VisualizadorDedicado({
             </div>
           )}
 
-          {/* Nova Guia */}
           {documentoAtivo && (isPdf || isKenOrTif) && (
             <button
               type="button"
@@ -1730,282 +2076,48 @@ export function VisualizadorDedicado({
                 if (isPdf && documentoAtivo.pdfDataUrl) window.open(documentoAtivo.pdfDataUrl, '_blank');
                 else if (pages[currentPage - 1]) window.open(pages[currentPage - 1], '_blank');
               }}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
-              title="Abrir imagem em nova guia"
+              className="hidden sm:inline-flex h-7 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10 transition cursor-pointer"
+              title="Abrir em nova guia"
             >
-              <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
-              <span className="hidden md:inline">Nova Guia</span>
+              <ExternalLink className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span className="hidden 2xl:inline">Nova Guia</span>
             </button>
           )}
 
-          {/* Baixar */}
           {documentoAtivo && (
             <button
               type="button"
               onClick={handleDownload}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10 transition cursor-pointer"
               title="Baixar cópia oficial"
             >
-              <Download className="h-3.5 w-3.5 text-slate-400" />
-              <span className="hidden md:inline">Baixar</span>
+              <Download className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span className="hidden 2xl:inline">Baixar</span>
             </button>
           )}
 
-          {/* Imprimir */}
           {documentoAtivo && (
             <button
               type="button"
               onClick={() => handlePrint()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2 text-[11px] font-semibold text-slate-300 hover:bg-white/10 transition cursor-pointer"
               title="Imprimir visualização oficial"
             >
-              <Printer className="h-3.5 w-3.5 text-slate-400" />
-              <span className="hidden sm:inline">Imprimir</span>
+              <Printer className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span className="hidden 2xl:inline">Imprimir</span>
             </button>
           )}
 
-          {/* Tela Cheia */}
           <button
             type="button"
-            onClick={() => setIsFullScreen(!isFullScreen)}
-            className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 transition"
+            onClick={() => void alternarTelaCheia()}
+            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-white/15 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
             title={isFullScreen ? 'Sair da tela cheia' : 'Tela cheia'}
           >
-            {isFullScreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {isFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
         </div>
       </div>
-
-      {/* 2. BARRA DE FERRAMENTAS DEDICADA (visível quando há documento aberto) */}
-      {temDocumento && (
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-[#0E1526] px-3 sm:px-4 py-2 text-xs shrink-0">
-        {/* Esquerda: Alternar Barra Lateral e Sessão do Cartório */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(s => !s)}
-            disabled={exibindoExplorador}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed ${
-              sidebarOpen && !exibindoExplorador
-                ? 'border-cyan-500/50 bg-slate-800 text-cyan-300 shadow-sm'
-                : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-            }`}
-            title={exibindoExplorador ? 'O painel lateral fica disponível ao abrir um documento' : 'Exibir ou recolher painel lateral'}
-          >
-            {sidebarOpen && !exibindoExplorador ? <PanelLeftClose className="h-3.5 w-3.5 text-cyan-400" /> : <PanelLeft className="h-3.5 w-3.5 text-slate-400" />}
-            <span className="hidden sm:inline">Painel Lateral</span>
-          </button>
-
-          {temDocumento && (
-          <button
-            id="btn-alternar-explorador"
-            type="button"
-            onClick={() => setExploradorAberto(a => !a)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-              exploradorAberto
-                ? 'border-amber-500/50 bg-amber-950/60 text-amber-300 shadow-sm'
-                : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-            }`}
-            title={exploradorAberto ? 'Voltar ao documento aberto' : 'Abrir o Explorador de pastas do cartório'}
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Explorador</span>
-          </button>
-          )}
-
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded border border-slate-700/60 bg-slate-800/60 text-[11px] text-slate-300 font-mono">
-            <span className="text-cyan-400 font-bold">SESSÃO:</span>
-            <span className="text-slate-200">
-              {arquivoAtivo?.rootId === 'livro2'
-                ? 'LV2'
-                : arquivoAtivo?.rootId === 'processos'
-                ? 'H: (Processos da Vara)'
-                : arquivoAtivo?.rootId === 'minutas'
-                ? 'W: (Usucapião)'
-                : 'LOCAL'}
-            </span>
-          </div>
-        </div>
-
-        {/* Centro: Controles de Navegação Siplan |<< < 1.F > >>| */}
-        {isKenOrTif && pages.length > 0 && (
-          <div className="flex items-center gap-1 bg-slate-950/90 border border-slate-800 rounded-lg p-0.5 shadow-inner">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => mudarPagina(1)}
-              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
-              title="Primeira Ficha (1.F)"
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => mudarPagina(currentPage - 1)}
-              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
-              title="Ficha anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            {/* Seletor Rápido de Ficha com Código Siplan */}
-            <div className="flex items-center gap-1.5 px-2 py-0.5">
-              <span className="rounded bg-[#8B1E1E] px-1.5 py-0.5 font-mono text-[11px] font-black text-white shadow-sm border border-red-500/40">
-                {getFichaRotulo(currentPage - 1).codigo}
-              </span>
-              <select
-                value={currentPage}
-                onChange={e => mudarPagina(Number(e.target.value))}
-                className="bg-transparent text-slate-100 font-mono text-xs font-semibold focus:outline-none cursor-pointer hover:text-cyan-300 transition"
-                title="Selecionar ficha diretamente"
-              >
-                {pages.map((_, i) => (
-                  <option key={i} value={i + 1} className="bg-slate-900 text-slate-200">
-                    {getFichaRotulo(i).codigo} — {getFichaRotulo(i).descricao} ({i + 1}/{totalPages})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => mudarPagina(currentPage + 1)}
-              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
-              title="Próxima Ficha"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => mudarPagina(totalPages)}
-              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-25 hover:bg-slate-900 transition"
-              title="Última Ficha"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* Direita: Rotação, Zoom, Modo Negativo e Presets */}
-        <div className="flex items-center gap-1.5">
-          {/* Rotação */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950 p-0.5">
-            <button
-              type="button"
-              onClick={() => setRotation(r => (r - 90 + 360) % 360)}
-              className="p-1 text-slate-400 hover:text-amber-300 transition"
-              title="Girar 90° para a esquerda (↺)"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setRotation(r => (r + 90) % 360)}
-              className="p-1 text-slate-400 hover:text-amber-300 transition"
-              title="Girar 90° para a direita (↻)"
-            >
-              <RotateCw className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Zoom */}
-          <div className="flex items-center rounded-lg border border-slate-800 bg-slate-950 p-0.5">
-            <button
-              type="button"
-              onClick={() => setZoom(z => Math.max(30, z - 25))}
-              className="p-1 text-slate-400 hover:text-white transition"
-              title="Diminuir Zoom"
-            >
-              <ZoomOut className="h-3.5 w-3.5" />
-            </button>
-            <select
-              value={zoom}
-              onChange={e => setZoom(Number(e.target.value))}
-              className="bg-transparent text-slate-200 font-mono text-[11px] font-bold focus:outline-none cursor-pointer px-1"
-            >
-              {[50, 75, 100, 125, 150, 175, 200, 250].map(v => (
-                <option key={v} value={v} className="bg-slate-900 text-slate-200">
-                  {v}%
-                </option>
-              ))}
-              {![50, 75, 100, 125, 150, 175, 200, 250].includes(zoom) && (
-                <option value={zoom} className="bg-slate-900 text-slate-200">{zoom}%</option>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={() => setZoom(z => Math.min(300, z + 25))}
-              className="p-1 text-slate-400 hover:text-white transition"
-              title="Aumentar Zoom"
-            >
-              <ZoomIn className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Modo Negativo / Alto Contraste */}
-          <button
-            type="button"
-            onClick={() => setModoNegativo(n => !n)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition ${
-              modoNegativo
-                ? 'border-amber-500 bg-amber-500 text-slate-950 shadow-md font-bold'
-                : 'border-slate-800 bg-slate-950 text-slate-300 hover:text-white hover:border-slate-700'
-            }`}
-            title="Modo Negativo (Inversão de cores / Alto contraste) — ideal para carimbos apagados e assinaturas antigas"
-          >
-            <Contrast className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Negativo</span>
-          </button>
-
-          {/* Alternar Modo: Única vs Todas */}
-          {isKenOrTif && pages.length > 1 && (
-            <div className="hidden lg:flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setModoVisualizacao('pagina')}
-                className={`rounded px-2 py-0.5 transition ${
-                  modoVisualizacao === 'pagina'
-                    ? 'bg-slate-800 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Única
-              </button>
-              <button
-                type="button"
-                onClick={() => setModoVisualizacao('todas')}
-                className={`rounded px-2 py-0.5 transition ${
-                  modoVisualizacao === 'todas'
-                    ? 'bg-slate-800 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Todas ({totalPages})
-              </button>
-            </div>
-          )}
-
-          {/* Botão Reset / Ajustar */}
-          {(zoom !== 100 || rotation !== 0 || panPosition.x !== 0 || panPosition.y !== 0) && (
-            <button
-              type="button"
-              onClick={() => {
-                setZoom(100);
-                setRotation(0);
-                setPanPosition({ x: 0, y: 0 });
-              }}
-              className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-400 hover:text-white transition"
-              title="Ajustar ao tamanho original"
-            >
-              Ajustar
-            </button>
-          )}
-        </div>
-      </div>
-      )}
 
       {/* 3. CORPO CENTRAL: PAINEL LATERAL + CANVAS SIPLAN */}
       <div className="flex-1 flex overflow-hidden bg-slate-950/80 relative">
@@ -2020,9 +2132,9 @@ export function VisualizadorDedicado({
 
         {/* PAINEL LATERAL COM 3 ABAS: Miniaturas | Arquivos | Metadados */}
         {sidebarOpen && !exibindoExplorador && (
-          <div className="absolute inset-y-0 left-0 z-30 w-[86vw] max-w-[320px] shadow-2xl md:static md:z-auto md:w-80 md:max-w-none md:shadow-none border-r border-white/10 bg-[#0B1020] md:bg-[#0B1020]/95 flex flex-col shrink-0">
+          <div className="absolute inset-y-0 left-0 z-30 w-[84vw] max-w-[280px] shadow-2xl md:static md:z-auto md:w-[260px] md:max-w-none md:shadow-none border-r border-white/10 bg-[#0B1020] md:bg-[#0B1020]/95 flex flex-col shrink-0">
             {/* Abas do Painel */}
-            <div className="p-2.5 border-b border-white/10 bg-[#080D1A]">
+            <div className="p-2 border-b border-white/10 bg-[#080D1A]">
               <div className="grid grid-cols-3 gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px] font-semibold">
                 <button
                   type="button"
@@ -2062,10 +2174,10 @@ export function VisualizadorDedicado({
 
             {/* ABA 1: MINIATURAS DAS FICHAS (Padrão Siplan Image com badges 1.F, 1.V) */}
             {sidebarTab === 'miniaturas' && (
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
+              <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
                 {isKenOrTif && pages.length > 0 ? (
                   <>
-                    <div className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300">
+                    <div className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/40 px-2 py-1 text-xs text-slate-300">
                       <button
                         type="button"
                         onClick={() => setImprimirTodas(c => !c)}
@@ -2084,7 +2196,7 @@ export function VisualizadorDedicado({
                       </button>
                     </div>
 
-                    <div className="space-y-2.5">
+                    <div className="space-y-1.5">
                       {pages.map((pageSrc, idx) => {
                         const ficha = getFichaRotulo(idx);
                         const isSelected = currentPage === idx + 1;
@@ -2092,13 +2204,14 @@ export function VisualizadorDedicado({
                           <div
                             key={idx}
                             onClick={() => mudarPagina(idx + 1)}
-                            className={`group relative cursor-pointer rounded-xl border p-2 transition-all ${
+                            className={`group relative cursor-pointer rounded-xl border p-1.5 transition-all ${
                               isSelected
                                 ? 'border-amber-500 bg-amber-950/40 shadow-lg shadow-amber-950/50 ring-1 ring-amber-500/40'
                                 : 'border-slate-800/80 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/80'
                             }`}
                           >
                             <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-white shadow-inner flex items-center justify-center">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={pageSrc}
                                 alt={ficha.descricao}
@@ -2194,7 +2307,7 @@ export function VisualizadorDedicado({
               return (
                 <div className="flex-1 min-h-0 flex flex-col">
                   {/* Barra de navegação + seletor VOL1 / IMAGENS / DEP + favoritos */}
-                  <div className="p-2.5 border-b border-white/10 space-y-2">
+                  <div className="p-2 border-b border-white/10 space-y-1.5">
                     {/* Seletor rápido de pasta: Todas | VOL1 | IMAGENS | DEP */}
                     <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-slate-950 p-0.5 text-[10px] font-bold">
                       <button
@@ -2543,28 +2656,34 @@ export function VisualizadorDedicado({
               );
             })()}
 
-            {/* ABA 3: METADADOS TÉCNICOS DO SIPLAN */}
+            {/* ABA 3: METADADOS TÉCNICOS */}
             {sidebarTab === 'metadados' && (
-              <div className="flex-1 overflow-y-auto p-3 text-xs space-y-3 font-mono">
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 space-y-2">
-                  <p className="text-amber-400 font-bold text-[11px] uppercase tracking-wider">Identificação do Acervo</p>
-                  <div className="space-y-1 text-slate-300 text-[11px]">
+              <div className="flex-1 overflow-y-auto p-2.5 text-[11px] space-y-2 font-mono">
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 space-y-1.5">
+                  <p className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">Identificação do Acervo</p>
+                  <div className="space-y-1 text-slate-300 text-[11px] break-all">
                     <div><span className="text-slate-500">Serventia:</span> 7º Oficial de Registro de Imóveis de SP</div>
-                    <div><span className="text-slate-500">Livro:</span> Nº 2 – Registro Geral</div>
+                    <div><span className="text-slate-500">Sessão / Origem:</span> {sessaoRotulo}</div>
                     <div><span className="text-slate-500">Arquivo:</span> {documentoAtivo?.fileName || '-'}</div>
-                    <div><span className="text-slate-500">Caminho:</span> {arquivoAtivo?.relativePath || '-'}</div>
-                    <div><span className="text-slate-500">Origem:</span> {arquivoAtivo?.rootId.toUpperCase()}</div>
+                    <div><span className="text-slate-500">Tamanho:</span> {tamanhoFormatado || '-'}</div>
+                    <div><span className="text-slate-500">Caminho completo:</span> {caminhoCanonicoExibicao || '-'}</div>
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 space-y-2">
-                  <p className="text-amber-400 font-bold text-[11px] uppercase tracking-wider">Especificações Técnicas</p>
+                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 space-y-1.5">
+                  <p className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">Especificações Técnicas</p>
                   <div className="space-y-1 text-slate-300 text-[11px]">
-                    <div><span className="text-slate-500">Resolução:</span> 151 DPI (Horizontal / Vertical)</div>
-                    <div><span className="text-slate-500">Dimensões:</span> 1064 × 1417 Pixels</div>
-                    <div><span className="text-slate-500">Tamanho:</span> 7,05 × 9,38 Polegadas</div>
-                    <div><span className="text-slate-500">Total Fichas:</span> {totalPages} ({Math.ceil(totalPages / 2)} Fichas F/V)</div>
-                    <div><span className="text-slate-500">Formato:</span> {ext.toUpperCase()} (Processamento Digital)</div>
+                    <div><span className="text-slate-500">Formato:</span> {(ext || 'N/D').toUpperCase()}</div>
+                    {isKenOrTif ? (
+                      <>
+                        <div><span className="text-slate-500">Resolução:</span> 151 DPI (Horizontal / Vertical)</div>
+                        <div><span className="text-slate-500">Dimensões:</span> 1064 × 1417 Pixels</div>
+                        <div><span className="text-slate-500">Tamanho físico:</span> 7,05 × 9,38 Polegadas</div>
+                        <div><span className="text-slate-500">Total Fichas:</span> {totalPages} ({Math.ceil(totalPages / 2)} Fichas F/V)</div>
+                      </>
+                    ) : (
+                      <div><span className="text-slate-500">Tamanho do arquivo:</span> {tamanhoFormatado || '-'}</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2643,7 +2762,7 @@ export function VisualizadorDedicado({
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleMouseUp}
-                  className="flex-1 overflow-auto flex items-center justify-center p-4 bg-slate-950 select-none relative"
+                  className="flex-1 overflow-auto flex items-center justify-center p-1 sm:p-1.5 bg-slate-950 select-none relative"
                   style={{
                     cursor: isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
                   }}
@@ -2665,21 +2784,23 @@ export function VisualizadorDedicado({
                       filter: modoNegativo ? 'invert(1) contrast(1.3) brightness(1.1)' : 'none',
                     }}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={pages[currentPage - 1]}
                       alt={`Ficha ${getFichaRotulo(currentPage - 1).codigo}`}
-                      className="rounded shadow-2xl border border-slate-700 bg-white max-w-full max-h-[82vh] object-contain pointer-events-none"
+                      className="rounded shadow-2xl border border-slate-700 bg-white max-w-full max-h-[calc(100dvh-52px)] object-contain pointer-events-none"
                       draggable={false}
                     />
                   </div>
                 </div>
               ) : (
                 /* Exibição Contínua de Todas as Fichas */
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 max-w-4xl mx-auto w-full">
+                <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-4 max-w-5xl mx-auto w-full">
                   {pages.map((pageSrc, idx) => {
                     const ficha = getFichaRotulo(idx);
                     return (
-                      <div key={idx} className="flex flex-col items-center space-y-2 border-b border-slate-800/80 pb-8 last:border-b-0">
+                      <div key={idx} className="flex flex-col items-center space-y-2 border-b border-slate-800/80 pb-6 last:border-b-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={pageSrc}
                           alt={ficha.descricao}
@@ -2696,35 +2817,25 @@ export function VisualizadorDedicado({
           ) : isPdf && documentoAtivo?.pdfDataUrl ? (
             /* CASO 2: VISUALIZADOR PDF INTERATIVO (Safari, Chrome, Edge, Firefox) */
             <div className="flex-1 min-h-0 w-full flex flex-col bg-slate-900">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 sm:py-1.5 text-[11px] text-slate-300 shrink-0">
-                <span className="w-full sm:w-auto sm:flex-1 min-w-0 leading-snug whitespace-normal sm:truncate">
-                  {isIOSOrIPadOS()
-                    ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para navegar por todas as páginas.'
-                    : `Documento PDF • ${documentoAtivo.fileName}${documentoAtivo.size ? ` • ${formatarTamanho(documentoAtivo.size)}` : ''}`}
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+              {isIOSOrIPadOS() && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-300 shrink-0">
+                  <span className="flex-1 min-w-0 leading-snug">
+                    No iPad/iPhone (Safari), toque em &quot;Abrir PDF completo&quot; para navegar por todas as páginas.
+                  </span>
                   <a
                     href={documentoAtivo.pdfDataUrl}
                     target="_blank"
                     rel={documentoAtivo.pdfDataUrl?.startsWith('blob:') ? undefined : 'noopener noreferrer'}
-                    className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition"
+                    className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition shrink-0"
                   >
                     <ExternalLink className="h-3 w-3 shrink-0" />
-                    <span>{isIOSOrIPadOS() ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
-                  </a>
-                  <a
-                    href={documentoAtivo.pdfDataUrl}
-                    download={documentoAtivo.fileName}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 transition"
-                  >
-                    <Download className="h-3 w-3 shrink-0" />
-                    <span>Baixar PDF</span>
+                    <span>Abrir PDF completo</span>
                   </a>
                 </div>
-              </div>
+              )}
               <div className="relative flex-1 min-h-0 w-full bg-white">
                 <iframe
-                  src={documentoAtivo.pdfDataUrl}
+                  src={construirUrlIframePdf(documentoAtivo.pdfDataUrl)}
                   className="absolute inset-0 w-full h-full border-0 bg-white"
                   title={documentoAtivo.fileName}
                 />
@@ -2732,8 +2843,8 @@ export function VisualizadorDedicado({
             </div>
           ) : isDoc && documentoAtivo ? (
             /* CASO 3: MINUTA WORD (.DOCX / .DOC) EM FOLHA OFICIAL */
-            <div className="flex-1 overflow-y-auto p-2.5 sm:p-8 bg-slate-950">
-              <div className="mx-auto max-w-3xl rounded-xl border border-slate-300 bg-white text-slate-900 shadow-xl p-4 sm:p-12 min-h-full">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-slate-950">
+              <div className="mx-auto max-w-4xl rounded-xl border border-slate-300 bg-white text-slate-900 shadow-xl p-4 sm:p-8 min-h-full">
                 <div className="text-center border-b border-slate-300 pb-4 mb-6">
                   <div className="flex items-center justify-center gap-2 text-slate-700 mb-1">
                     <Building2 className="h-4 w-4 text-slate-600 shrink-0" />
@@ -2779,31 +2890,6 @@ export function VisualizadorDedicado({
             /* NENHUM ARQUIVO ABERTO: exibe o Explorador de pastas */
             renderExploradorPrincipal()
           )}
-        </div>
-      </div>
-
-      {/* 4. RODAPÉ TÉCNICO */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-[#0B1020] px-3 sm:px-4 py-1.5 sm:py-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:pb-2 text-xs text-slate-400 shrink-0">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400 sm:hidden">
-          <span className="text-slate-300 font-bold">Acervo Digital • 7º RI SP</span>
-        </div>
-        <div className="hidden sm:flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-400">
-          <span className="text-cyan-300 font-semibold">Tamanho: 7,05 × 9,38 (Pol) / 1064 × 1417 (Pixels)</span>
-          <span className="text-slate-600">|</span>
-          <span>DPI Resolução: 151 Horizontal / 151 Vertical</span>
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-300 font-bold">Acervo Digital • 7º RI de São Paulo</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {isKenOrTif && pages.length > 0 && (
-            <span className="font-mono text-[11px] text-cyan-300 font-semibold bg-slate-800/80 px-2 py-0.5 rounded border border-cyan-500/30">
-              Ficha {getFichaRotulo(currentPage - 1).codigo} ({currentPage}/{totalPages})
-            </span>
-          )}
-          <span className="font-mono text-[11px] hidden sm:inline text-slate-400">
-            {documentoAtivo?.fileName || '7º RI SP'}
-          </span>
         </div>
       </div>
     </div>

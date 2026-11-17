@@ -20,10 +20,11 @@ interface JanelaSeparadaMenuProps {
   /** Chamado após abrir a janela (ex.: fechar o visualizador sobreposto) */
   onAberto?: () => void;
   variant?: 'siplan' | 'dark';
+  compact?: boolean;
 }
 
 /** Botão "Abrir em outro monitor" do visualizador de documentos */
-export function JanelaSeparadaMenu({ item, onAberto, variant = 'siplan' }: JanelaSeparadaMenuProps) {
+export function JanelaSeparadaMenu({ item, onAberto, variant = 'siplan', compact = false }: JanelaSeparadaMenuProps) {
   const [aberto, setAberto] = useState(false);
   const [monitores, setMonitores] = useState<MonitorDisponivel[]>([]);
   const [detectando, setDetectando] = useState(false);
@@ -97,11 +98,13 @@ export function JanelaSeparadaMenu({ item, onAberto, variant = 'siplan' }: Janel
         className={
           isSiplan
             ? 'inline-flex items-center gap-1 rounded border border-[#C0C0C0] bg-white px-1.5 h-5 text-[11px] font-bold text-[#800000] hover:border-[#800000] hover:bg-gray-50 transition cursor-pointer'
+            : compact
+            ? 'inline-flex h-7 items-center gap-1 rounded-md border border-cyan-500/50 bg-cyan-500/10 px-2 text-[11px] font-semibold text-cyan-200 hover:bg-cyan-500/20 transition cursor-pointer'
             : 'inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 transition'
         }
       >
         <MonitorUp className={isSiplan ? 'h-3 w-3 text-[#800000]' : 'h-3.5 w-3.5 text-cyan-300'} />
-        <span className="hidden md:inline">Outro monitor</span>
+        <span className={compact ? 'hidden 2xl:inline' : 'hidden md:inline'}>Outro monitor</span>
       </button>
 
       {aberto && (
