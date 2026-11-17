@@ -308,6 +308,15 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         structuralRoles: ['MASTER', 'ADMIN'],
       },
       {
+        id: 'briefing_matinal',
+        label: 'Briefing Matinal',
+        href: '/sistema/briefing-matinal',
+        groupId: 'sistema',
+        groupLabel: 'SISTEMA & TECNOLOGIA',
+        description: 'Diagnóstico matinal consolidado de SRVSQL, SRVFILES e SRVSIPLANIA',
+        structuralRoles: ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE'],
+      },
+      {
         id: 'performance_srvsql',
         label: 'Performance do SRVSQL',
         href: '/sistema/performance-srvsql',

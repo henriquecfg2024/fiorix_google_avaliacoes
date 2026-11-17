@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   History,
   FolderArchive,
+  Sunrise,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -253,6 +254,13 @@ export const navigationGroups = {
         href: "/sistema/operacoes",
         icon: Activity,
         description: "Saúde e monitoramento",
+      },
+      {
+        id: "briefing_matinal",
+        label: "Briefing Matinal",
+        href: "/sistema/briefing-matinal",
+        icon: Sunrise,
+        description: "SRVSQL · SRVFILES · SRVSIPLANIA às 07:15",
       },
       {
         id: "performance_srvsql",

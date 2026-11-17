@@ -79,6 +79,13 @@ export async function getRoleRulesFromDb(
     if (!map.has('cv_relatorios') && map.has('cv_visao_geral')) {
       map.set('cv_relatorios', map.get('cv_visao_geral')!);
     }
+    if (!map.has('briefing_matinal')) {
+      if (map.has('performance_srvsql')) {
+        map.set('briefing_matinal', map.get('performance_srvsql')!);
+      } else if (map.has('central_operacoes')) {
+        map.set('briefing_matinal', map.get('central_operacoes')!);
+      }
+    }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
@@ -120,6 +127,9 @@ export async function getDepartmentRulesFromDb(
     if (!map.has('cv_relatorios') && map.has('cv_visao_geral')) {
       map.set('cv_relatorios', map.get('cv_visao_geral')!);
     }
+    if (!map.has('briefing_matinal') && map.has('performance_srvsql')) {
+      map.set('briefing_matinal', map.get('performance_srvsql')!);
+    }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)
   }
@@ -155,6 +165,9 @@ export async function getUserRulesFromDb(
     }
     if (!map.has('cv_relatorios') && map.has('cv_visao_geral')) {
       map.set('cv_relatorios', map.get('cv_visao_geral')!);
+    }
+    if (!map.has('briefing_matinal') && map.has('performance_srvsql')) {
+      map.set('briefing_matinal', map.get('performance_srvsql')!);
     }
   } catch {
     // Tabela ainda não aplicada no ambiente - retorna mapa vazio (preserva legado)

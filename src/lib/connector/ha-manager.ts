@@ -153,6 +153,7 @@ export interface ConnectorDirectivePayload {
     publishedAt: string;
   } | null;
   realtimeWakeup?: RealtimeWakeupDirective | null;
+  forceInfraBriefingAt?: string | null;
 }
 
 const FORBIDDEN_SECRET_KEY_REGEX = /(password|passwd|secret|token|credential|apikey|api_key|private_key)/i;
@@ -1733,6 +1734,16 @@ export async function processHeartbeatHaAndBuildDirective(params: {
         }
       : null;
 
+  let forceInfraBriefingAt: string | null = null;
+  if (state === 'ACTIVE') {
+    try {
+      const mod = await import('@/lib/infra-briefing/store');
+      forceInfraBriefingAt = await mod.consumePendingInfraBriefingDirective(tenantId);
+    } catch {
+      // Falha não-fatal na consulta de diretiva do briefing matinal
+    }
+  }
+
   return {
     operationalState: state,
     role,
@@ -1743,6 +1754,7 @@ export async function processHeartbeatHaAndBuildDirective(params: {
     latestCheckpoints,
     pendingUpdate,
     realtimeWakeup: getRealtimeWakeupDirective(tenantId, state === 'ACTIVE'),
+    forceInfraBriefingAt,
   };
 }
 

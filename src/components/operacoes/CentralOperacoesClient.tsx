@@ -27,6 +27,7 @@ import { AlertSettingsSection } from './AlertSettingsSection';
 import { ConnectorSubsystemsSection } from './ConnectorSubsystemsSection';
 import { ProceduresOverviewSection } from './ProceduresOverviewSection';
 import { ConnectorClusterSection } from './ConnectorClusterSection';
+import { MorningBriefingSummaryCard } from './MorningBriefingSummaryCard';
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -353,6 +354,9 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             </button>
           </div>
         </section>
+
+        {/* 2.2 BRIEFING MATINAL DA INFRAESTRUTURA (07:15 BRT) */}
+        <MorningBriefingSummaryCard />
 
         {/* 3. INDICADORES ABAIXO DO STATUS (TEMPO DE RESPOSTA E DISPONIBILIDADE) */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
