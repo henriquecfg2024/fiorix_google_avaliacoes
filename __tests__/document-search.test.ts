@@ -7,6 +7,7 @@ import {
   enrichPetitionData,
   executeDocumentCli,
   extrairConfrontacoes,
+  extrairNumeroMatricula,
   isAllowedDocumentApiUrl,
   isWithinRoot,
   parseDocumentRoots,
@@ -466,6 +467,133 @@ describe('document search', () => {
 
     const toList = await listDirectory(roots, 'titulos_online', 'AC');
     expect(toList.entries.map(e => e.name)).toEqual(['645706-AC016401954']);
+  });
+
+  it('extrairNumeroMatricula reconhece abreviações do cartório sem capturar número de ato de .doc', () => {
+    expect(extrairNumeroMatricula('CERTIDAO/matr. 229.534 - LOTIC INCORPORAÇÕES LTDA/649109 - 200 - 201 - 202.doc')).toBe(
+      'Matrícula nº 229.534',
+    );
+    expect(extrairNumeroMatricula('devidamente matriculado sob nº 229.534 do 7º RI')).toBe('Matrícula nº 229.534');
+    expect(extrairNumeroMatricula('transcr. nº 6.063')).toBe('Transcrição nº 6.063');
+    expect(extrairNumeroMatricula('649109 - 200 - 201 - 202.doc')).toBeNull();
+    expect(extrairNumeroMatricula('matriz 123.pdf')).toBeNull();
+    expect(extrairNumeroMatricula('material 456.docx')).toBeNull();
+    expect(extrairNumeroMatricula('LV2/00040000/00040000.KEN')).toBe('Matrícula nº 40000');
+    expect(extrairNumeroMatricula('SETORES/00053000/00053006.KEN')).toBeNull();
+  });
+
+  it('busca por "40000" retorna 00040000.KEN em 1º lugar e rejeita colisões de substring e 00006063.KEN', async () => {
+    const vol1Dir = await fixture();
+    const deptosDir = await fixture();
+    const imgDir = await fixture();
+
+    // Arquivos que antes causavam falso positivo de substring na busca por "40000"
+    await fs.writeFile(path.join(vol1Dir, 'SPH16040000271D3.pdf'), 'pdf-colisao');
+    await fs.writeFile(path.join(deptosDir, '540.000 - Desistencia.docx'), Buffer.alloc(2048, 0x41));
+    await fs.writeFile(path.join(deptosDir, '400.003 - EXCLUIR.doc'), Buffer.alloc(2048, 0x41));
+    await fs.writeFile(
+      path.join(deptosDir, '400.003 - nota.txt'),
+      'Referente à Transcrição nº 6.063 do Livro 3.',
+    );
+
+    // Arquivo legítimo que contém 40.000 isolado (deve vir após o .KEN direto)
+    await fs.writeFile(path.join(deptosDir, 'Matr. 40.000 - Parecer.txt'), 'Matrícula nº 40.000');
+
+    // Imagens: Matrícula 40000 no LV2 e Transcrição 6063 no LV3
+    await fs.mkdir(path.join(imgDir, 'LV2', '00040000'), { recursive: true });
+    await fs.writeFile(path.join(imgDir, 'LV2', '00040000', '00040000.KEN'), 'ken-40000');
+    await fs.mkdir(path.join(imgDir, 'LV3', '00006000'), { recursive: true });
+    await fs.writeFile(path.join(imgDir, 'LV3', '00006000', '00006063.KEN'), 'ken-6063');
+
+    const roots = [
+      { id: 'vol1', path: vol1Dir },
+      { id: 'deptos', path: deptosDir },
+      { id: 'imagens', path: imgDir },
+      { id: 'livro2', path: path.join(imgDir, 'LV2') },
+    ];
+
+    const result = await searchDocuments(roots, '40000');
+    const names = result.files.map(f => f.name);
+
+    expect(names[0]).toBe('00040000.KEN');
+    expect(result.files[0].rootId).toBe('livro2');
+    expect(names).toContain('Matr. 40.000 - Parecer.txt');
+    expect(names).not.toContain('SPH16040000271D3.pdf');
+    expect(names).not.toContain('540.000 - Desistencia.docx');
+    expect(names).not.toContain('400.003 - EXCLUIR.doc');
+    expect(names).not.toContain('400.003 - nota.txt');
+    expect(names).not.toContain('00006063.KEN');
+  });
+
+  it('busca por protocolo "649109" ignora ato "202" no nome do .doc, traz 00229534.KEN e nunca 00000202.KEN', async () => {
+    const deptosDir = await fixture();
+    const lv2Dir = await fixture();
+    const tvDir = await fixture();
+
+    const subCert = path.join(deptosDir, 'CERTIDAO', 'matr. 229.534 - LOTIC INCORPORACOES LTDA');
+    await fs.mkdir(subCert, { recursive: true });
+    await fs.writeFile(path.join(subCert, '649109 - 200 - 201 - 202.doc'), Buffer.alloc(2048, 0x41));
+
+    await fs.mkdir(path.join(tvDir, '00649000'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00649000', '00649109.TIF'), 'tif-649109');
+
+    await fs.mkdir(path.join(lv2Dir, '00000000'), { recursive: true });
+    await fs.writeFile(path.join(lv2Dir, '00000000', '00000202.KEN'), 'ken-202');
+    await fs.mkdir(path.join(lv2Dir, '00229000'), { recursive: true });
+    await fs.writeFile(path.join(lv2Dir, '00229000', '00229534.KEN'), 'ken-229534');
+
+    const roots = [
+      { id: 'deptos', path: deptosDir },
+      { id: 'livro2', path: lv2Dir },
+      { id: 'titulos_visualiza', path: tvDir },
+    ];
+
+    const result = await searchDocuments(roots, '649109');
+    const names = result.files.map(f => f.name);
+
+    expect(names).toContain('00649109.TIF');
+    expect(names).toContain('649109 - 200 - 201 - 202.doc');
+    expect(names).toContain('00229534.KEN');
+    expect(names).not.toContain('00000202.KEN');
+    expect(result.matriculaDetectada).toBe('Matrícula nº 229.534');
+  });
+
+  it('busca por protocolo "649109" sem .doc em W: traz 00229534.KEN via vínculo reverso Protocolo->LV2 no WEBRI', async () => {
+    const lv2Dir = await fixture();
+    const tvDir = await fixture();
+
+    await fs.mkdir(path.join(tvDir, '00649000'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00649000', '00649109.TIF'), 'tif-649109');
+
+    await fs.mkdir(path.join(lv2Dir, '00229000'), { recursive: true });
+    await fs.writeFile(path.join(lv2Dir, '00229000', '00229534.KEN'), 'ken-229534');
+
+    const roots = [
+      { id: 'livro2', path: lv2Dir },
+      { id: 'titulos_visualiza', path: tvDir },
+    ];
+
+    const result = await searchDocuments(
+      roots,
+      '649109',
+      100,
+      { maxEntries: 50000, timeoutMs: 25000 },
+      {
+        webriResolver: async ({ protocolosDiretos, matriculas }) => {
+          if (protocolosDiretos?.includes(649109)) {
+            return [{ protocolo: 649109, protocoloCentral: null, origem: 'protocolo', matriculasLv2: [229534] }];
+          }
+          expect(matriculas).toContain(229534);
+          return [];
+        },
+      },
+    );
+
+    expect(result.files.map(f => `${f.rootId}:${f.name}`)).toEqual([
+      'titulos_visualiza:00649109.TIF',
+      'livro2:00229534.KEN',
+    ]);
+    expect(result.matriculaDetectada).toBe('Matrícula nº 229.534');
   });
 });
 

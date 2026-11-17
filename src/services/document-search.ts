@@ -265,25 +265,41 @@ export function isAllowedDocumentApiUrl(
   return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
 
+const REGEX_MATRICULA_EXPLICITA =
+  /\b(?:matr[ií]culas?\b|matriculad[oa]s?\s+sob\b|matr(?:\.|\b)|mat\.|transcri[çc][õo]es\b|transcri[çc][ãa]o\b|transcrit[oa]s?\s+sob\b|transcr(?:\.|\b))\s*(?:(?:o|de)\s+)?(?:n[ºo°.]*\s*)?[:.\-\s]*([0-9][0-9.]*)(?![\d.])(?!-\d{2}\.(?:19|20)\d{2})/gi;
+
+function formatarMilharCartorio(n: number): string {
+  const inteiro = Math.trunc(Math.abs(n));
+  if (!Number.isFinite(inteiro) || inteiro <= 0) return String(n);
+  return inteiro.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 export function extrairNumeroMatricula(textoOuNome: string): string | null {
   if (!textoOuNome) return null;
-  const match = textoOuNome.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*[:.\s]*([0-9.\-]+)/i);
-  if (match) {
+
+  for (const match of textoOuNome.matchAll(REGEX_MATRICULA_EXPLICITA)) {
     const rawNum = match[1]
       .trim()
-      .replace(/[.\-]+$/, '')
-      .replace(/^(?:0+\.)*0+([1-9]\d*)/, '$1');
-    if (rawNum.length >= 2) {
-      const rotulo = /transcri/i.test(match[0]) ? 'Transcrição' : 'Matrícula';
+      .replace(/\.+$/, '')
+      .replace(/^(?:0+\.)*0+([1-9])/, '$1');
+    const digitsOnly = rawNum.replace(/\D+/g, '');
+    const parsedNum = parseInt(digitsOnly, 10);
+    if (digitsOnly.length >= 1 && digitsOnly.length <= 7 && Number.isFinite(parsedNum) && parsedNum > 0) {
+      const rotulo = /transcr/i.test(match[0]) ? 'Transcrição' : 'Matrícula';
       return `${rotulo} nº ${rawNum}`;
     }
   }
 
-  const fileNumMatch = textoOuNome.match(/(?:^|[\\/_\-\s])0*([1-9][0-9]{2,7})(?:\.pdf|\.tif|\.tiff|\.ken|\.docx?|$)/i);
-  if (fileNumMatch) {
-    const digits = fileNumMatch[1];
-    if (digits.length >= 3 && digits.length <= 7) {
-      return `Matrícula nº ${digits}`;
+  // Sem rótulo explícito, apenas arquivos .KEN do Livro 2 / Livro 3 identificam nº de registro (nunca Plantas de SETORES nem .DOC/.PDF de atos)
+  if (!/(?:^|[\\/])setores[\\/]/i.test(textoOuNome)) {
+    const kenMatch = textoOuNome.match(/(?:^|[\\/])0*([1-9][0-9]{0,7})\.ken$/i);
+    if (kenMatch) {
+      const digits = kenMatch[1];
+      const parsedNum = parseInt(digits, 10);
+      if (Number.isFinite(parsedNum) && parsedNum > 0 && parsedNum <= 9_999_999) {
+        const rotulo = /(?:^|[\\/])lv3[\\/]/i.test(textoOuNome) ? 'Transcrição' : 'Matrícula';
+        return `${rotulo} nº ${digits}`;
+      }
     }
   }
 
@@ -315,10 +331,10 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
   const fileName = path.basename(filePath);
   const ext = path.extname(filePath).toLowerCase();
 
-  const nameMatch = extrairNumeroMatricula(fileName);
-  if (nameMatch) {
-    registrarMatriculaNoCache(filePath, nameMatch);
-    return nameMatch;
+  const pathMatch = extrairNumeroMatricula(filePath);
+  if (pathMatch) {
+    registrarMatriculaNoCache(filePath, pathMatch);
+    return pathMatch;
   }
 
   if (ext === '.docx' || ext === '.doc') {
@@ -1191,6 +1207,19 @@ export async function searchDocuments(
   const criteriosEffectiveTerms = criterios.map(c => getEffectiveSearchTerms(c.termos));
 
   const termoCasa = (term: string, normRel: string, cleanRel: string): boolean => {
+    if (/^[0-9.]+$/.test(term)) {
+      const rawDigits = term.replace(/\./g, '');
+      if (/^\d{2,8}$/.test(rawDigits)) {
+        const semZeros = rawDigits.replace(/^0+/, '') || '0';
+        const normMilhares = normRel
+          .replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2')
+          .replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2');
+        if (rawDigits.length === 7 && !rawDigits.startsWith('0')) {
+          return new RegExp(`(^|\\D)(?:0*${semZeros}(\\D|$)|${rawDigits}\\d{13}(\\D|$))`).test(normMilhares);
+        }
+        return new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(normMilhares);
+      }
+    }
     if (buscaCruzada) {
       // Na busca cruzada, nº curto (matrícula, SQL) precisa aparecer isolado no caminho:
       // "7987" não pode casar com "1079875-..." de outro processo.
@@ -1215,7 +1244,7 @@ export async function searchDocuments(
   const critTituloInfo = criterios.map(c => extractDirectTituloCriterionInfo(c.texto));
   const allDirectProtos = Array.from(new Set(critTituloInfo.flatMap(i => i.protocolosDiretos)));
   const allCentralCodes = Array.from(new Set(critTituloInfo.flatMap(i => i.codigosCentral)));
-  const webriDirectTargets =
+  const webriDirectTargets: ProtocoloVinculadoWebri[] =
     allDirectProtos.length > 0 || allCentralCodes.length > 0
       ? await webriResolver({
           protocolosDiretos: allDirectProtos,
@@ -1259,17 +1288,23 @@ export async function searchDocuments(
           }
         }
 
+        const textoCrit = criterios[i].texto.trim();
+        const ehZerosParciaisProcesso = /^0+[1-9]\d*$/.test(textoCrit) && textoCrit.length < 8;
         const directMatches = await checkDirectMatriculaFiles(canonical, root.id, criterios[i].texto);
         for (const m of directMatches) {
-          lv2DirectMatByCrit.add(i);
+          const ehDoLivro2 = m.rootId === 'livro2' || /^lv2[\\/]/i.test(m.relativePath);
+          if (ehDoLivro2) {
+            lv2DirectMatByCrit.add(i);
+          }
           criteriosResolvidosDireto.add(i);
           if (result.files.length >= limit) {
             result.partial = true;
             break;
           }
           const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
-          // Na busca simples o nº é ambíguo (pode ser processo); só o campo da busca cruzada é explícito
-          if (buscaCruzada) chavesExplicitas.add(key);
+          if (buscaCruzada || !ehZerosParciaisProcesso) {
+            chavesExplicitas.add(key);
+          }
           if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
             result.files.push(m);
           }
@@ -1472,7 +1507,32 @@ export async function searchDocuments(
     }
   }
 
-  // Se uma busca direta por código AC/PH/IN revelou o nº do protocolo, cruza automaticamente em TITULOS-VISUALIZA
+  // Se uma busca direta por código AC/PH/IN revelou o nº do protocolo, cruza automaticamente em TITULOS-VISUALIZA e WEBRI
+  const discoveredProtoNums = Array.from(
+    new Set(discoveredCentralProtos.map(p => p.protocolo).filter((n): n is number => Boolean(n && n > 0))),
+  );
+  if (discoveredProtoNums.length > 0) {
+    const extraWebri = await webriResolver({ protocolosDiretos: discoveredProtoNums }).catch(
+      () => [] as ProtocoloVinculadoWebri[],
+    );
+    for (const ew of extraWebri) {
+      const existing = webriDirectTargets.find(w => w.protocolo === ew.protocolo);
+      if (!existing) {
+        webriDirectTargets.push(ew);
+      } else {
+        if (!existing.protocoloCentral && ew.protocoloCentral) existing.protocoloCentral = ew.protocoloCentral;
+        if (ew.matriculasLv2?.length) {
+          existing.matriculasLv2 = Array.from(new Set([...(existing.matriculasLv2 || []), ...ew.matriculasLv2]));
+        }
+        if (ew.transcricoesLv3?.length) {
+          existing.transcricoesLv3 = Array.from(
+            new Set([...(existing.transcricoesLv3 || []), ...ew.transcricoesLv3]),
+          );
+        }
+      }
+    }
+  }
+
   if (discoveredCentralProtos.length > 0 && result.files.length < limit) {
     for (const root of roots) {
       if (root.id !== 'titulos_visualiza' && (root.id !== 'imagens' || hasDedicatedTv)) continue;
@@ -1529,18 +1589,20 @@ export async function searchDocuments(
           }
           if (ehArquivoDeTitulo) {
             // Não extrair nº solto do nome do título/prenotação como se fosse nº de matrícula
-            const explicitTitleMat = file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*[:.\s]*([0-9.\-]+)/i);
+            const explicitTitleMat = file.name.match(
+              /\b(?:matr[ií]cula|matr\.|transcri[çc][ãa]o|transcr\.)\s*(?:n[ºo°.]*\s*)?[:.\s]*([0-9][0-9.]*)/i,
+            );
             if (!explicitTitleMat) return;
           }
-          const nameMat = extrairNumeroMatricula(file.name);
-          if (nameMat) {
-            file.matricula = nameMat;
-            matriculasEncontradas.add(nameMat);
+          const pathMat = extrairNumeroMatricula(file.relativePath);
+          if (pathMat) {
+            file.matricula = pathMat;
+            matriculasEncontradas.add(pathMat);
             if (!isImageFile && !ehArquivoDeTitulo) {
-              matriculasDosProcessos.add(nameMat);
-              if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = nameMat;
+              matriculasDosProcessos.add(pathMat);
+              if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = pathMat;
             }
-            if (!matriculaPrincipal) matriculaPrincipal = nameMat;
+            if (!matriculaPrincipal) matriculaPrincipal = pathMat;
             return;
           }
           if (ehArquivoDeTitulo) return;
@@ -1568,14 +1630,39 @@ export async function searchDocuments(
 
     // -------------------------------------------------------------
     // REGRA DE BUSCA CRUZADA AUTOMÁTICA COM O LIVRO 2 (K:\IMAGENS\LV2):
-    // Se a busca encontrou documentos de processo (PDF, DOCX) e detectou a matrícula
-    // a eles vinculada (ex: Matrícula nº 123.456), realizamos o cruzamento automático
-    // para localizar a imagem digitalizada (.KEN) dessa matrícula no acervo do Livro 2
-    // e incluí-la diretamente no resultado da busca!
+    // Se a busca encontrou documentos de processo (PDF, DOCX) ou protocolos WEBRI vinculados a
+    // matrículas (ex: Protocolo 649109 -> Matrícula nº 229.534), localizamos a imagem digitalizada
+    // (.KEN) correspondente no acervo do Livro 2 / Livro 3 e a incluímos no resultado.
     // -------------------------------------------------------------
+    const matriculasViaProtocoloWebri = new Set<string>();
+    const protosElegiveisWebri = new Set<number>(discoveredProtoNums);
+    for (let critIdx = 0; critIdx < critTituloInfo.length; critIdx++) {
+      if (lv2DirectMatByCrit.has(critIdx) && !critTituloInfo[critIdx]?.isExplicitProtocolo) continue;
+      for (const p of critTituloInfo[critIdx].protocolosDiretos) {
+        protosElegiveisWebri.add(p);
+      }
+    }
+    for (const w of webriDirectTargets) {
+      if (!protosElegiveisWebri.has(w.protocolo)) continue;
+      for (const mNum of w.matriculasLv2 || []) {
+        const fmt = `Matrícula nº ${formatarMilharCartorio(mNum)}`;
+        matriculasViaProtocoloWebri.add(fmt);
+        matriculasEncontradas.add(fmt);
+      }
+      for (const tNum of w.transcricoesLv3 || []) {
+        const fmt = `Transcrição nº ${formatarMilharCartorio(tNum)}`;
+        matriculasViaProtocoloWebri.add(fmt);
+        matriculasEncontradas.add(fmt);
+      }
+    }
+
     const matriculasParaCruzar = new Set<string>();
-    if (result.matriculaDetectada) matriculasParaCruzar.add(result.matriculaDetectada);
+    if (matriculaPrincipalProcesso) matriculasParaCruzar.add(matriculaPrincipalProcesso);
     for (const m of matriculasDosProcessos) matriculasParaCruzar.add(m);
+    for (const m of matriculasViaProtocoloWebri) matriculasParaCruzar.add(m);
+    if (matriculasParaCruzar.size === 0 && result.matriculaDetectada) {
+      matriculasParaCruzar.add(result.matriculaDetectada);
+    }
 
     const temDocumentosProcesso = result.files.some(f => {
       if (isTituloAcervoMatch(f.rootId, f.relativePath)) return false;
@@ -1583,7 +1670,7 @@ export async function searchDocuments(
       return ext !== '.ken' && ext !== '.tif' && ext !== '.tiff';
     });
 
-    if (matriculasParaCruzar.size > 0 && temDocumentosProcesso) {
+    if (matriculasParaCruzar.size > 0 && (temDocumentosProcesso || matriculasViaProtocoloWebri.size > 0)) {
       const numerosMatriculaLivro2 = new Set<number>();
       const numerosTranscricaoLivro3 = new Set<number>();
       for (const m of matriculasParaCruzar) {
@@ -1632,7 +1719,7 @@ export async function searchDocuments(
         const ext = path.extname(f.name).toLowerCase();
         const isImg = ext === '.ken' || ext === '.tif' || ext === '.tiff';
         if (!isImg) return true; // Preserva todos os arquivos de processo (PDF, DOCX, TXT, etc.)
-        // Matrícula digitada explicitamente (ex.: campo Matrícula da Busca Cruzada) sempre permanece
+        // Matrícula digitada explicitamente sempre permanece
         if (chavesExplicitas.has(`${f.rootId}:${f.relativePath.toLowerCase()}`)) return true;
 
         const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
@@ -1658,8 +1745,9 @@ export async function searchDocuments(
       }
 
       // Atualizar lista final de matrículas
-      result.matriculas = Array.from(new Set([...matriculasParaCruzar]));
-      result.matriculaDetectada = matriculaPrincipalProcesso || result.matriculaDetectada;
+      const matriculasOrdenadas = Array.from(new Set([...matriculasParaCruzar]));
+      result.matriculas = matriculasOrdenadas;
+      result.matriculaDetectada = matriculaPrincipalProcesso || result.matriculaDetectada || matriculasOrdenadas[0];
     }
   }
 
@@ -1776,6 +1864,81 @@ export async function searchDocuments(
     );
     result.files = Array.from(porCaminhoCanonico.values())
       .sort((a, b) => a.idx - b.idx)
+      .map(v => v.item);
+  }
+
+  // Ordena por relevância preservando ordem estável dentro de cada camada
+  if (result.files.length > 1) {
+    const queryNums = new Set<number>();
+    for (const c of criterios) {
+      const semProc = removerNumerosDeProcesso(c.texto);
+      const dotted = semProc.match(/\b\d{1,3}(?:\.\d{3})+\b/g) || [];
+      for (const d of dotted) {
+        const num = parseInt(d.replace(/\D+/g, ''), 10);
+        if (Number.isFinite(num) && num > 0) queryNums.add(num);
+      }
+      const plain = semProc.replace(/\b\d{1,3}(?:\.\d{3})+\b/g, ' ').match(/\b\d{1,8}\b/g) || [];
+      for (const p of plain) {
+        const num = parseInt(p, 10);
+        if (Number.isFinite(num) && num > 0) queryNums.add(num);
+      }
+    }
+    const queryCentralCodes = new Set(critTituloInfo.flatMap(i => i.codigosCentral.map(c => c.toLowerCase())));
+    const queriouTranscricao = criterios.some(c => /transcri[çc][ãa]o|transcr/i.test(c.texto));
+
+    const calcularTierRelevancia = (item: DocumentMatch): number => {
+      const rawExt = path.extname(item.name);
+      const ext = rawExt.toLowerCase();
+      const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+      const isTitulo = isTituloAcervoMatch(item.rootId, item.relativePath);
+      const isLv2 = item.rootId === 'livro2' || /(?:^|[\\/])lv2[\\/]/i.test(item.relativePath);
+      const isLv3 = /(?:^|[\\/])lv3[\\/]/i.test(item.relativePath);
+      const isLv1 = /(?:^|[\\/])lv1[\\/]/i.test(item.relativePath);
+      const baseName = rawExt ? item.name.slice(0, -rawExt.length) : item.name;
+      const imgNumExact = /^\d{1,8}$/.test(baseName) ? parseInt(baseName, 10) : NaN;
+      const temImgExataBuscada = !Number.isNaN(imgNumExact) && queryNums.has(imgNumExact);
+
+      if (isKenOrTif && !isTitulo && temImgExataBuscada) {
+        if ((queriouTranscricao && isLv3) || (!queriouTranscricao && isLv2)) return 0;
+        if (isLv2 || isLv3 || isLv1) return 1;
+      }
+
+      if (isTitulo) {
+        if (temImgExataBuscada) return 1;
+        const pFolder = item.relativePath.match(/(?:^|[\\/])0*([1-9]\d{1,7})(?:-([a-z]{2,3}[a-z0-9]{4,}))?(?:[\\/]|$)/i);
+        if (pFolder) {
+          const folderNum = parseInt(pFolder[1], 10);
+          if (queryNums.has(folderNum) || (pFolder[2] && queryCentralCodes.has(pFolder[2].toLowerCase()))) {
+            return 1;
+          }
+        }
+        const relLower = item.relativePath.toLowerCase();
+        for (const code of queryCentralCodes) {
+          if (relLower.includes(code)) return 1;
+        }
+      }
+
+      if (queryNums.size > 0) {
+        const normNameMilhares = normalize(item.name)
+          .replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2')
+          .replace(/(\d)\.(\d{3})(?!\d)/g, '$1$2');
+        for (const qn of queryNums) {
+          if (new RegExp(`(^|\\D)0*${qn}(\\D|$)`).test(normNameMilhares)) {
+            return 2;
+          }
+        }
+      }
+
+      if (isKenOrTif && !isTitulo && (isLv2 || isLv3 || isLv1)) {
+        return 3;
+      }
+
+      return 4;
+    };
+
+    result.files = result.files
+      .map((item, idx) => ({ item, idx, tier: calcularTierRelevancia(item) }))
+      .sort((a, b) => a.tier - b.tier || a.idx - b.idx)
       .map(v => v.item);
   }
 

@@ -4,6 +4,8 @@ export interface ProtocoloVinculadoWebri {
   protocolo: number;
   protocoloCentral: string | null;
   origem: 'matricula' | 'processo' | 'protocolo';
+  matriculasLv2?: number[];
+  transcricoesLv3?: number[];
 }
 
 export interface ConsultaProtocolosVinculadosParams {
@@ -46,6 +48,14 @@ function buildProcessPrefixes(rawCnj: string): { prefFmt: string; prefDig: strin
   };
 }
 
+function cloneProtocoloItem(item: ProtocoloVinculadoWebri): ProtocoloVinculadoWebri {
+  return {
+    ...item,
+    ...(item.matriculasLv2 ? { matriculasLv2: [...item.matriculasLv2] } : {}),
+    ...(item.transcricoesLv3 ? { transcricoesLv3: [...item.transcricoesLv3] } : {}),
+  };
+}
+
 function getCached(key: string): ProtocoloVinculadoWebri[] | null {
   const hit = queryCache.get(key);
   if (!hit) return null;
@@ -53,7 +63,7 @@ function getCached(key: string): ProtocoloVinculadoWebri[] | null {
     queryCache.delete(key);
     return null;
   }
-  return hit.items.map((item) => ({ ...item }));
+  return hit.items.map(cloneProtocoloItem);
 }
 
 function setCached(key: string, items: ProtocoloVinculadoWebri[]): void {
@@ -63,7 +73,7 @@ function setCached(key: string, items: ProtocoloVinculadoWebri[]): void {
   }
   queryCache.set(key, {
     expiresAt: Date.now() + CACHE_TTL_MS,
-    items: items.map((item) => ({ ...item })),
+    items: items.map(cloneProtocoloItem),
   });
 }
 
@@ -202,11 +212,28 @@ export async function consultarProtocolosVinculadosWebriReadOnly(
       if (!Number.isFinite(protocolo) || protocolo <= 0) return;
       const rawCentral = String(row?.protocoloCentral ?? '').trim();
       const protocoloCentral = rawCentral.length > 0 ? rawCentral : null;
-      const existing = collected.get(protocolo);
-      if (!existing) {
-        collected.set(protocolo, { protocolo, protocoloCentral, origem });
-      } else if (!existing.protocoloCentral && protocoloCentral) {
-        existing.protocoloCentral = protocoloCentral;
+      let target = collected.get(protocolo);
+      if (!target) {
+        target = { protocolo, protocoloCentral, origem };
+        collected.set(protocolo, target);
+      } else if (!target.protocoloCentral && protocoloCentral) {
+        target.protocoloCentral = protocoloCentral;
+      }
+
+      const livroId = Number(row?.livroId);
+      const numLivro = Math.trunc(Number(row?.numLivro || 0));
+      if (Number.isFinite(numLivro) && numLivro > 0) {
+        if (livroId === 2) {
+          target.matriculasLv2 ??= [];
+          if (!target.matriculasLv2.includes(numLivro) && target.matriculasLv2.length < 10) {
+            target.matriculasLv2.push(numLivro);
+          }
+        } else if (livroId === 3) {
+          target.transcricoesLv3 ??= [];
+          if (!target.transcricoesLv3.includes(numLivro) && target.transcricoesLv3.length < 10) {
+            target.transcricoesLv3.push(numLivro);
+          }
+        }
       }
     };
 
@@ -218,10 +245,17 @@ export async function consultarProtocolosVinculadosWebriReadOnly(
             .input('Protocolo', sql.Int, proto)
             .query(`
               ${SQL_HEADER}
-              SELECT TOP (1)
+              SELECT TOP (25)
                 rec.PK_Recepcao AS protocolo,
-                LTRIM(RTRIM(ISNULL(rec.ProtocoloEntidade, ''))) AS protocoloCentral
+                LTRIM(RTRIM(ISNULL(rec.ProtocoloEntidade, ''))) AS protocoloCentral,
+                r.FK_tblWRILivro_Id AS livroId,
+                r.PK_Num_Livro AS numLivro
               FROM dbo.tblWRIRecepcao rec WITH (NOLOCK)
+              LEFT JOIN dbo.tblWRITitulosReal tr WITH (NOLOCK)
+                ON tr.FK_tblWRIRecepcaoFlagRecepcao = 1
+               AND tr.FK_tblWRIRecepcaoRecepcao = rec.PK_Recepcao
+              LEFT JOIN dbo.tblWRIReal r WITH (NOLOCK)
+                ON r.PK_Id = tr.FK_tblWRIReal_Id
               WHERE rec.PK_FlagRecepcao = 1
                 AND rec.PK_Recepcao = @Protocolo;
             `);
