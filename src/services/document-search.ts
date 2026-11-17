@@ -2010,6 +2010,312 @@ export async function renderKenPagesAsPngBuffers(
   };
 }
 
+export type OcrWordTuple = [text: string, x: number, y: number, w: number, h: number];
+
+export interface DocumentOcrPage {
+  page: number;
+  words: OcrWordTuple[];
+}
+
+export interface DocumentOcrPayload {
+  fileName: string;
+  pageCount: number;
+  loadedPageStart: number;
+  loadedPageEnd: number;
+  hasMorePages: boolean;
+  pages: DocumentOcrPage[];
+}
+
+interface OcrCacheEntry {
+  mtimeMs: number;
+  size: number;
+  pageCount: number;
+  pages: Map<number, OcrWordTuple[]>;
+}
+
+const OCR_CACHE_MAX_FILES = 60;
+const OCR_SUPPORTED_EXTENSIONS = new Set(['.ken', '.tif', '.tiff', '.png', '.jpg', '.jpeg']);
+const ocrDocumentCache = new Map<string, OcrCacheEntry>();
+
+function getOrResetOcrCacheEntry(cacheKey: string, mtimeMs: number, size: number): OcrCacheEntry | null {
+  const existing = ocrDocumentCache.get(cacheKey);
+  if (!existing) return null;
+  if (existing.mtimeMs !== mtimeMs || existing.size !== size) {
+    ocrDocumentCache.delete(cacheKey);
+    return null;
+  }
+  // Renova LRU
+  ocrDocumentCache.delete(cacheKey);
+  ocrDocumentCache.set(cacheKey, existing);
+  return existing;
+}
+
+function storeOcrPagesInCache(
+  cacheKey: string,
+  mtimeMs: number,
+  size: number,
+  pageCount: number,
+  pages: DocumentOcrPage[],
+): void {
+  let entry = getOrResetOcrCacheEntry(cacheKey, mtimeMs, size);
+  if (!entry) {
+    if (ocrDocumentCache.size >= OCR_CACHE_MAX_FILES) {
+      const oldestKey = ocrDocumentCache.keys().next().value;
+      if (oldestKey !== undefined) ocrDocumentCache.delete(oldestKey);
+    }
+    entry = { mtimeMs, size, pageCount, pages: new Map() };
+    ocrDocumentCache.set(cacheKey, entry);
+  }
+  entry.pageCount = pageCount;
+  for (const p of pages) {
+    entry.pages.set(p.page, p.words);
+  }
+}
+
+const WINRT_OCR_POWERSHELL_SCRIPT = [
+  'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
+  '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
+  '$null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime]',
+  '$null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Foundation,ContentType=WindowsRuntime]',
+  '$null = [Windows.Storage.StorageFile,Windows.Foundation,ContentType=WindowsRuntime]',
+  '$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq "AsTask" -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -like "IAsyncOperation*" })[0]',
+  'function Await($op, [Type]$t) { $asTaskGeneric.MakeGenericMethod($t).Invoke($null, @($op)).GetAwaiter().GetResult() }',
+  '$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()',
+  'if (-not $engine) { $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage([Windows.Globalization.Language]::new("pt-BR")) }',
+  '$job = $env:FIORIX_OCR_JOB | ConvertFrom-Json',
+  'function Extract-WordsFromBitmap($bmp) {',
+  '  $words = New-Object System.Collections.ArrayList',
+  '  if (-not $engine -or $bmp.PixelWidth -le 0 -or $bmp.PixelHeight -le 0) { return $words }',
+  '  $res = Await ($engine.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult])',
+  '  $w = [double]$bmp.PixelWidth',
+  '  $h = [double]$bmp.PixelHeight',
+  '  foreach ($line in $res.Lines) {',
+  '    foreach ($word in $line.Words) {',
+  '      $r = $word.BoundingRect',
+  '      $null = $words.Add(@([string]$word.Text, [Math]::Round($r.X / $w, 4), [Math]::Round($r.Y / $h, 4), [Math]::Round($r.Width / $w, 4), [Math]::Round($r.Height / $h, 4)))',
+  '    }',
+  '  }',
+  '  return ,$words',
+  '}',
+  '$outPages = New-Object System.Collections.ArrayList',
+  '$totalCount = 0',
+  'if ($job.mode -eq "file") {',
+  '  $sf = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync([string]$job.filePath)) ([Windows.Storage.StorageFile])',
+  '  $stream = Await ($sf.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])',
+  '  try {',
+  '    $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])',
+  '    $totalCount = [int]$dec.FrameCount',
+  '    $firstIdx = [Math]::Max(0, [int]$job.startPage - 1)',
+  '    $lastIdx = [Math]::Min($totalCount - 1, [int]$job.endPage - 1)',
+  '    for ($i = $firstIdx; $i -le $lastIdx; $i++) {',
+  '      $frame = Await ($dec.GetFrameAsync([uint32]$i)) ([Windows.Graphics.Imaging.BitmapFrame])',
+  '      $bmp = Await ($frame.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])',
+  '      try {',
+  '        $wlist = Extract-WordsFromBitmap $bmp',
+  '        $null = $outPages.Add(@{ page = ($i + 1); words = $wlist })',
+  '      } finally {',
+  '        $bmp.Dispose()',
+  '      }',
+  '    }',
+  '  } finally {',
+  '    $stream.Dispose()',
+  '  }',
+  '} elseif ($job.mode -eq "png_dir") {',
+  '  $totalCount = [int]$job.pageCount',
+  '  foreach ($pNum in $job.pageNumbers) {',
+  '    $pngPath = Join-Path ([string]$job.dirPath) ("$pNum.png")',
+  '    $sf = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($pngPath)) ([Windows.Storage.StorageFile])',
+  '    $stream = Await ($sf.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])',
+  '    try {',
+  '      $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])',
+  '      $bmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])',
+  '      try {',
+  '        $wlist = Extract-WordsFromBitmap $bmp',
+  '        $null = $outPages.Add(@{ page = [int]$pNum; words = $wlist })',
+  '      } finally {',
+  '        $bmp.Dispose()',
+  '      }',
+  '    } finally {',
+  '      $stream.Dispose()',
+  '    }',
+  '  }',
+  '}',
+  '@{ pageCount = $totalCount; pages = @($outPages) } | ConvertTo-Json -Depth 6 -Compress',
+].join('\n');
+
+function sanitizeOcrWords(rawWords: unknown): OcrWordTuple[] {
+  if (!Array.isArray(rawWords)) return [];
+  const words: OcrWordTuple[] = [];
+  for (const w of rawWords) {
+    if (!Array.isArray(w) || w.length < 5) continue;
+    const text = String(w[0] ?? '').trim();
+    if (!text) continue;
+    const x = Math.max(0, Math.min(1, Number(w[1]) || 0));
+    const y = Math.max(0, Math.min(1, Number(w[2]) || 0));
+    const width = Math.max(0, Math.min(1, Number(w[3]) || 0));
+    const height = Math.max(0, Math.min(1, Number(w[4]) || 0));
+    words.push([text, Number(x.toFixed(4)), Number(y.toFixed(4)), Number(width.toFixed(4)), Number(height.toFixed(4))]);
+  }
+  return words;
+}
+
+async function runWinRtOcrScript(
+  jobPayload:
+    | { mode: 'file'; filePath: string; startPage: number; endPage: number }
+    | { mode: 'png_dir'; dirPath: string; pageNumbers: number[]; pageCount: number },
+): Promise<{ pageCount: number; pages: DocumentOcrPage[] }> {
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', WINRT_OCR_POWERSHELL_SCRIPT],
+    {
+      env: { ...process.env, FIORIX_OCR_JOB: JSON.stringify(jobPayload) },
+      encoding: 'utf8',
+      timeout: 45_000,
+      maxBuffer: 25 * 1024 * 1024,
+      windowsHide: true,
+    },
+  );
+  const rawJson = (stdout || '').trim();
+  if (!rawJson) return { pageCount: 0, pages: [] };
+  const parsed = JSON.parse(rawJson) as { pageCount?: number; pages?: Array<{ page?: number; words?: unknown }> };
+  const pageCount = Math.max(0, Math.trunc(Number(parsed?.pageCount) || 0));
+  const rawPages = Array.isArray(parsed?.pages) ? parsed.pages : parsed?.pages ? [parsed.pages] : [];
+  const pages: DocumentOcrPage[] = [];
+  for (const p of rawPages) {
+    const pageNum = Math.trunc(Number(p?.page) || 0);
+    if (pageNum <= 0) continue;
+    pages.push({ page: pageNum, words: sanitizeOcrWords(p?.words) });
+  }
+  pages.sort((a, b) => a.page - b.page);
+  return { pageCount, pages };
+}
+
+/**
+ * Extrai texto com coordenadas normalizadas (`0..1`) de páginas de imagens digitalizadas (.KEN, .TIF, .PNG, .JPG)
+ * usando Windows.Media.Ocr (pt-BR) localmente e com fallback automático UTIF+UPNG caso o decoder nativo falhe.
+ */
+export async function extractDocumentOcrPages(
+  filePath: string,
+  options?: { pageStart?: number; pageEnd?: number; maxPages?: number },
+): Promise<DocumentOcrPayload> {
+  const stat = await fs.stat(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const fileName = path.basename(filePath);
+
+  if (!OCR_SUPPORTED_EXTENSIONS.has(ext) || process.platform !== 'win32') {
+    return { fileName, pageCount: 0, loadedPageStart: 0, loadedPageEnd: 0, hasMorePages: false, pages: [] };
+  }
+
+  const maxPages = Math.max(1, Math.min(20, Math.trunc(options?.maxPages ?? 12)));
+  const startPage = Math.max(1, Math.trunc(options?.pageStart ?? 1));
+  const requestedEnd = options?.pageEnd ? Math.max(startPage, Math.trunc(options.pageEnd)) : startPage + maxPages - 1;
+  const endPage = Math.min(requestedEnd, startPage + maxPages - 1);
+  const cacheKey = filePath.toLowerCase();
+  const mtimeMs = Math.trunc(stat.mtimeMs);
+
+  const cached = getOrResetOcrCacheEntry(cacheKey, mtimeMs, stat.size);
+  if (cached && cached.pageCount > 0) {
+    const effectiveEnd = Math.min(endPage, cached.pageCount);
+    if (startPage > cached.pageCount) {
+      return {
+        fileName,
+        pageCount: cached.pageCount,
+        loadedPageStart: 0,
+        loadedPageEnd: 0,
+        hasMorePages: false,
+        pages: [],
+      };
+    }
+    const allHit: DocumentOcrPage[] = [];
+    for (let p = startPage; p <= effectiveEnd; p++) {
+      const hit = cached.pages.get(p);
+      if (!hit) {
+        allHit.length = 0;
+        break;
+      }
+      allHit.push({ page: p, words: hit });
+    }
+    if (allHit.length === effectiveEnd - startPage + 1) {
+      return {
+        fileName,
+        pageCount: cached.pageCount,
+        loadedPageStart: startPage,
+        loadedPageEnd: effectiveEnd,
+        hasMorePages: effectiveEnd < cached.pageCount,
+        pages: allHit,
+      };
+    }
+  }
+
+  let extracted: { pageCount: number; pages: DocumentOcrPage[] } | null = null;
+  try {
+    extracted = await runWinRtOcrScript({ mode: 'file', filePath, startPage, endPage });
+  } catch {
+    extracted = null;
+  }
+
+  // Fallback automático com UTIF + UPNG quando o BitmapDecoder do Windows não decodifica frames do .KEN/.TIF
+  if ((!extracted || (extracted.pageCount === 0 && extracted.pages.length === 0)) && (ext === '.ken' || ext === '.tif' || ext === '.tiff')) {
+    const rendered = await renderKenPagesAsPngBuffers(filePath, {
+      pageStart: startPage,
+      pageEnd: endPage,
+      maxPages,
+    });
+    if (rendered.pageCount === 0 || rendered.pages.length === 0) {
+      return {
+        fileName,
+        pageCount: rendered.pageCount,
+        loadedPageStart: 0,
+        loadedPageEnd: 0,
+        hasMorePages: false,
+        pages: [],
+      };
+    }
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fiorix-ocr-'));
+    try {
+      const pageNumbers: number[] = [];
+      await Promise.all(
+        rendered.pages.map(async (p) => {
+          pageNumbers.push(p.pageNumber);
+          await fs.writeFile(path.join(tmpDir, `${p.pageNumber}.png`), p.pngBuffer);
+        }),
+      );
+      pageNumbers.sort((a, b) => a - b);
+      extracted = await runWinRtOcrScript({
+        mode: 'png_dir',
+        dirPath: tmpDir,
+        pageNumbers,
+        pageCount: rendered.pageCount,
+      });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+
+  if (!extracted || extracted.pageCount === 0 || extracted.pages.length === 0) {
+    return {
+      fileName,
+      pageCount: extracted?.pageCount ?? 0,
+      loadedPageStart: 0,
+      loadedPageEnd: 0,
+      hasMorePages: false,
+      pages: [],
+    };
+  }
+
+  storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, extracted.pageCount, extracted.pages);
+  const loadedPageStart = extracted.pages[0].page;
+  const loadedPageEnd = extracted.pages[extracted.pages.length - 1].page;
+  return {
+    fileName,
+    pageCount: extracted.pageCount,
+    loadedPageStart,
+    loadedPageEnd,
+    hasMorePages: loadedPageEnd < extracted.pageCount,
+    pages: extracted.pages,
+  };
+}
+
 export interface DocumentChunkPayload {
   fileName: string;
   totalSize: number;

@@ -15,6 +15,7 @@ import { RealtimeWakeupClient, sanitizeRealtimeLogText } from './realtime-wakeup
 import { runtimeDirective } from './runtime-directive.js';
 import {
   executeDocumentCli,
+  extractDocumentOcrPages,
   extractDocxPetition,
   extractPdfPetitionResilient,
   isAllowedDocumentApiUrl,
@@ -84,6 +85,7 @@ export interface DocumentWorkerTelemetry {
     analyze_signatures: number;
     inspect_matricula_acervo: number;
     stage_document_file: number;
+    ocr_document_pages: number;
   };
   fileServer: EstatisticasServidorArquivos | null;
   searchEngine: DocumentSearchTelemetry | null;
@@ -317,6 +319,7 @@ const workerRuntime = {
     analyze_signatures: 0,
     inspect_matricula_acervo: 0,
     stage_document_file: 0,
+    ocr_document_pages: 0,
   },
 };
 
@@ -673,6 +676,14 @@ export function startDocumentWorker(): () => void {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
             result = await stageFileToEphemeralStorage(job.rootId, job.relativePath, targetPath);
+          } else if (job.type === 'ocr_document_pages') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
+            result = await extractDocumentOcrPages(targetPath, {
+              pageStart: job.pageStart ?? 1,
+              pageEnd: job.pageEnd ?? 12,
+              maxPages: 15,
+            });
           } else if (job.type === 'inspect_matricula_acervo') {
             const matriculaLimpa = String(job.query || '').replace(/\D+/g, '');
             if (!matriculaLimpa) throw new Error('Número de matrícula inválido.');

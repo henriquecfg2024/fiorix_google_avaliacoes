@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import {
   checkDirectTitulosFiles,
   enrichPetitionData,
   executeDocumentCli,
+  extractDocumentOcrPages,
   extrairConfrontacoes,
   extrairNumeroMatricula,
   isAllowedDocumentApiUrl,
@@ -595,5 +598,57 @@ describe('document search', () => {
     ]);
     expect(result.matriculaDetectada).toBe('Matrícula nº 229.534');
   });
+
+  it('extractDocumentOcrPages extrai palavras com coordenadas normalizadas [0,1] e reutiliza cache em memória', async () => {
+    if (process.platform !== 'win32') return;
+    const dir = await fixture();
+    const imgPath = path.join(dir, 'ocr-fixture.png');
+    const execFileAsync = promisify(execFile);
+    await execFileAsync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        [
+          'Add-Type -AssemblyName System.Drawing',
+          '$bmp = New-Object System.Drawing.Bitmap 640, 220',
+          '$g = [System.Drawing.Graphics]::FromImage($bmp)',
+          '$g.Clear([System.Drawing.Color]::White)',
+          '$font = New-Object System.Drawing.Font("Arial", 28, [System.Drawing.FontStyle]::Bold)',
+          '$g.DrawString("MATRICULA 40.000", $font, [System.Drawing.Brushes]::Black, 40, 70)',
+          '$g.Dispose()',
+          '$bmp.Save($env:FIORIX_TEST_PNG, [System.Drawing.Imaging.ImageFormat]::Png)',
+          '$bmp.Dispose()',
+        ].join('; '),
+      ],
+      { env: { ...process.env, FIORIX_TEST_PNG: imgPath }, windowsHide: true },
+    );
+
+    const first = await extractDocumentOcrPages(imgPath, { pageStart: 1, pageEnd: 5 });
+    expect(first.fileName).toBe('ocr-fixture.png');
+    expect(first.hasMorePages).toBe(false);
+    expect(first.pageCount).toBe(1);
+    expect(first.loadedPageStart).toBe(1);
+    expect(first.loadedPageEnd).toBe(1);
+    expect(first.pages).toHaveLength(1);
+    expect(first.pages[0].words.some(([text]) => text.includes('40.000'))).toBe(true);
+    for (const [, x, y, w, h] of first.pages[0].words) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(1);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(y).toBeLessThanOrEqual(1);
+      expect(w).toBeGreaterThan(0);
+      expect(w).toBeLessThanOrEqual(1);
+      expect(h).toBeGreaterThan(0);
+      expect(h).toBeLessThanOrEqual(1);
+    }
+
+    const tCache0 = Date.now();
+    const second = await extractDocumentOcrPages(imgPath, { pageStart: 1, pageEnd: 5 });
+    const cacheMs = Date.now() - tCache0;
+    expect(second).toEqual(first);
+    expect(cacheMs).toBeLessThan(200);
+  }, 20000);
 });
 
