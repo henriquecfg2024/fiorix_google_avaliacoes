@@ -19,12 +19,29 @@ function sha256Hex(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
-const bundlePath = path.join(connectorRoot, 'dist', 'index.js');
+const distDir = path.join(connectorRoot, 'dist');
+const bundlePath = path.join(distDir, 'index.js');
 if (!fs.existsSync(bundlePath)) {
   throw new Error('dist/index.js não encontrado. Execute npm run build primeiro.');
 }
 
+const extraDistJsFiles = fs
+  .readdirSync(distDir)
+  .filter((f) => f.endsWith('.js') && f !== 'index.js');
+if (extraDistJsFiles.length > 0) {
+  throw new Error(
+    `Code-splitting detectado em dist/ (${extraDistJsFiles.join(', ')}). O bundle de auto-update exige um único dist/index.js sem chunks.`
+  );
+}
+
 const bundleRaw = fs.readFileSync(bundlePath);
+const bundleText = bundleRaw.toString('utf8');
+const relativeChunkImportMatch = bundleText.match(/(?:from|import\s*\()\s*["']\.\/[^"']+\.js["']/);
+if (relativeChunkImportMatch) {
+  throw new Error(
+    `Import relativo de chunk detectado em dist/index.js (${relativeChunkImportMatch[0]}). Configure splitting: false para gerar bundle único.`
+  );
+}
 const bundleSha256 = sha256Hex(bundleRaw);
 const bundleGz = zlib.gzipSync(bundleRaw, { level: 9 });
 

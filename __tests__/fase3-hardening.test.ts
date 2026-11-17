@@ -8,7 +8,12 @@ import { initializeCheckpointSchema } from '../src/db/checkpoint';
 import { initializeChunkSchema } from '../src/services/chunkRetry';
 import { sanitizeLanFileServerUrl } from '../src/services/document-file-server';
 import { HealthManager } from '../src/services/health';
-import { computeBufferSha256, verifyBundleChecksum } from '../src/services/self-updater';
+import {
+  buildWindowsUpdatePowerShellScript,
+  computeBufferSha256,
+  parsePersistedUpdateStatusJson,
+  verifyBundleChecksum,
+} from '../src/services/self-updater';
 
 describe('Fase 3 Hardening — Healthcheck Completo, LAN URL, SQL Encrypt e Constant-Time Updater (LOW-02 & LOW-04)', () => {
   let db: DatabaseSync;
@@ -40,8 +45,8 @@ describe('Fase 3 Hardening — Healthcheck Completo, LAN URL, SQL Encrypt e Cons
     else process.env.CARTORIO_VIRTUAL_SQL_ENABLED = savedCvEnv;
   });
 
-  it('atualiza AGENT_VERSION para v2.6.15', () => {
-    expect(AGENT_VERSION).toBe('v2.6.15');
+  it('atualiza AGENT_VERSION para v2.6.16', () => {
+    expect(AGENT_VERSION).toBe('v2.6.16');
   });
 
   it('LOW-02: monitora staleness e falhas consecutivas de colaboradores_rh e cartorio_virtual_certidoes', () => {
@@ -134,6 +139,36 @@ describe('Fase 3 Hardening — Healthcheck Completo, LAN URL, SQL Encrypt e Cons
     expect(updaterSrc).toContain('crypto.timingSafeEqual');
     expect(mssqlSrc).toContain('SQL_SERVER_ENCRYPT');
     expect(certidoesSrc).toContain('SQL_SERVER_ENCRYPT');
+  });
+
+  it('parsePersistedUpdateStatusJson tolera UTF-8 BOM e script PowerShell grava sem BOM', () => {
+    const rawNoBom = JSON.stringify({
+      status: 'ROLLED_BACK',
+      targetVersion: 'v2.6.16',
+      previousVersion: 'v2.6.14',
+      message: 'Falha simulada',
+      updatedAt: '2026-11-17T13:00:00.000Z',
+    });
+    const rawWithBom = `\uFEFF${rawNoBom}`;
+
+    expect(parsePersistedUpdateStatusJson(rawNoBom)?.status).toBe('ROLLED_BACK');
+    expect(parsePersistedUpdateStatusJson(rawWithBom)?.targetVersion).toBe('v2.6.16');
+    expect(parsePersistedUpdateStatusJson('')).toBeNull();
+    expect(parsePersistedUpdateStatusJson('not-json')).toBeNull();
+
+    const psScript = buildWindowsUpdatePowerShellScript({
+      serviceName: 'FIORIXConnector',
+      rootDir: 'C:\\Program Files\\FIORIX Connector',
+      stagedBundlePath: 'C:\\Program Files\\FIORIX Connector\\dist\\index.js.new',
+      activeBundlePath: 'C:\\Program Files\\FIORIX Connector\\dist\\index.js',
+      rollbackBundlePath: 'C:\\Program Files\\FIORIX Connector\\dist.rollback\\index.js',
+      statusFilePath: 'C:\\Program Files\\FIORIX Connector\\update-status.json',
+      targetVersion: 'v2.6.16',
+      previousVersion: 'v2.6.14',
+    });
+    expect(psScript).toContain('New-Object System.Text.UTF8Encoding($false)');
+    expect(psScript).toContain('[System.IO.File]::WriteAllText');
+    expect(psScript).not.toContain('Set-Content -Path $StatusFile');
   });
 });
 

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
+  splitting: false,
   clean: true,
   target: 'node22',
   platform: 'node',

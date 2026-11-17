@@ -39,6 +39,21 @@ export function verifyBundleChecksum(buf: Buffer, expectedSha256: string): boole
   return crypto.timingSafeEqual(a, b);
 }
 
+/**
+ * Faz o parse de update-status.json tolerando UTF-8 BOM gravado por scripts PowerShell legados.
+ */
+export function parsePersistedUpdateStatusJson(raw: string): Partial<PersistedUpdateStatus> | null {
+  try {
+    const clean = String(raw || '').replace(/^\uFEFF/, '').trim();
+    if (!clean) return null;
+    const parsed = JSON.parse(clean);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Partial<PersistedUpdateStatus>;
+  } catch {
+    return null;
+  }
+}
+
 export function buildWindowsUpdatePowerShellScript(params: {
   serviceName: string;
   rootDir: string;
@@ -68,7 +83,8 @@ function Write-UpdateState([string]$Status, [string]$Message) {
     message = $Message
     updatedAt = (Get-Date).ToUniversalTime().ToString('o')
   } | ConvertTo-Json -Compress
-  Set-Content -Path $StatusFile -Value $obj -Encoding UTF8 -Force
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($StatusFile, $obj, $utf8NoBom)
 }
 
 Start-Sleep -Seconds 2
@@ -150,8 +166,8 @@ class SelfUpdaterService {
   private reconcileBootUpdateState() {
     try {
       if (!fs.existsSync(this.statusFilePath)) return;
-      const parsed = JSON.parse(fs.readFileSync(this.statusFilePath, 'utf8')) as Partial<PersistedUpdateStatus>;
-      if (!parsed || typeof parsed !== 'object') return;
+      const parsed = parsePersistedUpdateStatusJson(fs.readFileSync(this.statusFilePath, 'utf8'));
+      if (!parsed) return;
 
       if (parsed.status === 'APPLYING' && parsed.targetVersion === AGENT_VERSION) {
         this.currentState = {
@@ -170,6 +186,19 @@ class SelfUpdaterService {
           message: parsed.message ?? null,
           updatedAt: parsed.updatedAt || new Date().toISOString(),
         };
+
+        // Respeita cooldown de 3 min pós-rollback/falha mesmo após reinício do serviço para evitar loop rápido
+        if (
+          (parsed.status === 'ROLLED_BACK' || parsed.status === 'FAILED') &&
+          parsed.targetVersion &&
+          parsed.updatedAt
+        ) {
+          const parsedTs = Date.parse(parsed.updatedAt);
+          if (Number.isFinite(parsedTs) && Date.now() - parsedTs < 180_000) {
+            this.lastAttemptedVersion = parsed.targetVersion;
+            this.lastAttemptAtMs = parsedTs;
+          }
+        }
       }
     } catch {
       // Ignora arquivo ausente/inválido
