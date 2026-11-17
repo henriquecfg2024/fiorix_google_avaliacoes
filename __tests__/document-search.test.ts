@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  checkDirectTitulosFiles,
   enrichPetitionData,
   executeDocumentCli,
   extrairConfrontacoes,
@@ -341,6 +342,130 @@ describe('document search', () => {
       if (chunk.eof) break;
     }
     expect(Buffer.concat(partes).equals(conteudo)).toBe(true);
+  });
+
+  it('localiza títulos diretos em TITULOS-VISUALIZA e Titulos_Online ignorando Limpeza/.zip/.xml/.p7s', async () => {
+    const tvDir = await fixture();
+    const toDir = await fixture();
+
+    // TITULOS-VISUALIZA: .TIF no bloco e PDF dentro da pasta do protocolo + lixo a ignorar
+    await fs.mkdir(path.join(tvDir, '00646000'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00646000', '00646803.TIF'), 'tif-646803');
+    await fs.mkdir(path.join(tvDir, '00645000', '645706'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00645000', '645706', 'escritura_52071209.pdf'), 'pdf-tv');
+    await fs.writeFile(path.join(tvDir, '00645000', '645706', 'Thumbs.db'), 'thumb');
+    await fs.mkdir(path.join(tvDir, 'Backup', '645706'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, 'Backup', '645706', 'ignorar.pdf'), 'backup');
+
+    // Titulos_Online: bloco 00640000 e subpasta AC\645706-AC016401954 + Limpeza + .zip/.xml/.p7s
+    await fs.mkdir(path.join(toDir, '00640000'), { recursive: true });
+    await fs.writeFile(path.join(toDir, '00640000', '00640146.PDF'), 'pdf-640146');
+    await fs.mkdir(path.join(toDir, 'AC', '645706-AC016401954'), { recursive: true });
+    await fs.writeFile(path.join(toDir, 'AC', '645706-AC016401954', 'AC016401954_procuracao.pdf'), 'pdf-ac');
+    await fs.writeFile(path.join(toDir, 'AC', '645706-AC016401954', 'AC016401954_Anexos_Todos.zip'), 'zip');
+    await fs.writeFile(path.join(toDir, 'AC', '645706-AC016401954', 'manifest.xml'), 'xml');
+    await fs.writeFile(path.join(toDir, 'AC', '645706-AC016401954', 'req.p7s'), 'p7s');
+    await fs.mkdir(path.join(toDir, 'Limpeza'), { recursive: true });
+    await fs.writeFile(path.join(toDir, 'Limpeza', '645706-old.pdf'), 'limpeza');
+
+    const roots = [
+      { id: 'titulos_visualiza', path: tvDir },
+      { id: 'titulos_online', path: toDir },
+    ];
+
+    const resTif = await checkDirectTitulosFiles(tvDir, 'titulos_visualiza', [{ protocolo: 646803 }]);
+    expect(resTif.map(f => f.name)).toEqual(['00646803.TIF']);
+
+    const resBlk = await searchDocuments(roots, 'Protocolo 640146');
+    expect(resBlk.files.map(f => `${f.rootId}:${f.name}`)).toEqual(['titulos_online:00640146.PDF']);
+
+    // Busca por código Central AC016401954 encontra AC\645706-AC016401954 e cruza com TITULOS-VISUALIZA\00645000\645706
+    const resCentral = await searchDocuments(roots, 'AC016401954');
+    expect(resCentral.files.map(f => `${f.rootId}:${f.name}`).sort()).toEqual([
+      'titulos_online:AC016401954_procuracao.pdf',
+      'titulos_visualiza:escritura_52071209.pdf',
+    ]);
+  });
+
+  it('cruza Matrícula e Processo CNJ via WEBRI trazendo LV2 + TITULOS-VISUALIZA + Titulos_Online sem perder .TIF', async () => {
+    const procDir = await fixture();
+    const lv2Dir = await fixture();
+    const tvDir = await fixture();
+    const toDir = await fixture();
+
+    await fs.writeFile(
+      path.join(procDir, '1037173-83.2024.8.26.0007_manifestacao.txt'),
+      'Processo 1037173-83.2024.8.26.0007 referentes à Matrícula nº 160.430.',
+    );
+    await fs.mkdir(path.join(lv2Dir, '00160000'), { recursive: true });
+    await fs.writeFile(path.join(lv2Dir, '00160000', '00160430.KEN'), 'ken-160430');
+
+    await fs.mkdir(path.join(tvDir, '00646000'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00646000', '00646803.TIF'), 'tif-646803');
+    await fs.mkdir(path.join(tvDir, '00645000', '645706'), { recursive: true });
+    await fs.writeFile(path.join(tvDir, '00645000', '645706', 'contrato_645706.pdf'), 'pdf-tv-645706');
+
+    await fs.mkdir(path.join(toDir, 'AC', '645706-AC016401954'), { recursive: true });
+    await fs.writeFile(path.join(toDir, 'AC', '645706-AC016401954', 'AC016401954_titulo.pdf'), 'pdf-ac-645706');
+
+    const roots = [
+      { id: 'processos', path: procDir },
+      { id: 'livro2', path: lv2Dir },
+      { id: 'titulos_visualiza', path: tvDir },
+      { id: 'titulos_online', path: toDir },
+    ];
+
+    const result = await searchDocuments(
+      roots,
+      '1037173-83.2024.8.26.0007 | 160430',
+      100,
+      { maxEntries: 50000, timeoutMs: 25000 },
+      {
+        webriResolver: async ({ matriculas, processosCnj }) => {
+          expect(matriculas).toContain(160430);
+          expect(processosCnj).toContain('1037173-83.2024.8.26.0007');
+          return [
+            { protocolo: 646803, protocoloCentral: null, origem: 'matricula' },
+            { protocolo: 645706, protocoloCentral: 'AC016401954', origem: 'matricula' },
+          ];
+        },
+      },
+    );
+
+    const names = result.files.map(f => `${f.rootId}:${f.name}`).sort();
+    expect(names).toEqual([
+      'livro2:00160430.KEN',
+      'processos:1037173-83.2024.8.26.0007_manifestacao.txt',
+      'titulos_online:AC016401954_titulo.pdf',
+      'titulos_visualiza:00646803.TIF',
+      'titulos_visualiza:contrato_645706.pdf',
+    ]);
+
+    const tifMatch = result.files.find(f => f.name === '00646803.TIF');
+    expect(tifMatch?.matricula).toBeUndefined();
+    expect(result.matriculaDetectada).toBe('Matrícula nº 160.430');
+  });
+
+  it('resolveAuthorizedFile e listDirectory funcionam com titulos_visualiza e titulos_online derivados de imagens', async () => {
+    const imgDir = await fixture();
+    await fs.mkdir(path.join(imgDir, 'TITULOS-VISUALIZA', '00645000', '645706'), { recursive: true });
+    await fs.mkdir(path.join(imgDir, 'Titulos_Online', 'AC', '645706-AC016401954'), { recursive: true });
+    await fs.writeFile(path.join(imgDir, 'TITULOS-VISUALIZA', '00645000', '645706', 'doc.pdf'), 'tv');
+    await fs.writeFile(path.join(imgDir, 'Titulos_Online', 'AC', '645706-AC016401954', 'ac.pdf'), 'to');
+
+    const roots = [{ id: 'imagens', path: imgDir }];
+
+    const tvResolved = await resolveAuthorizedFile(roots, 'titulos_visualiza', '00645000/645706/doc.pdf');
+    expect(tvResolved.toLowerCase()).toBe(path.join(imgDir, 'TITULOS-VISUALIZA', '00645000', '645706', 'doc.pdf').toLowerCase());
+
+    const toResolved = await resolveAuthorizedFile(roots, 'titulos_online', 'AC/645706-AC016401954/ac.pdf');
+    expect(toResolved.toLowerCase()).toBe(path.join(imgDir, 'Titulos_Online', 'AC', '645706-AC016401954', 'ac.pdf').toLowerCase());
+
+    const tvList = await listDirectory(roots, 'titulos_visualiza', '.');
+    expect(tvList.entries.map(e => e.name)).toEqual(['00645000']);
+
+    const toList = await listDirectory(roots, 'titulos_online', 'AC');
+    expect(toList.entries.map(e => e.name)).toEqual(['645706-AC016401954']);
   });
 });
 

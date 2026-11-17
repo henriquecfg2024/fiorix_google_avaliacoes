@@ -10,6 +10,10 @@ import {
   plainTextToSafeHtml,
   sanitizeDocumentHtml,
 } from '../utils/html-sanitizer.js';
+import {
+  consultarProtocolosVinculadosWebriReadOnly,
+  type ProtocoloVinculadoWebri,
+} from '../db/titulos-cruzados-readonly.js';
 // @ts-ignore
 import * as UTIFImport from 'utif';
 // @ts-ignore
@@ -71,13 +75,34 @@ export function isWithinRoot(root: string, target: string): boolean {
 }
 
 function resolveAuthorizedRoot(roots: DocumentRoot[], rootId: string): DocumentRoot {
-  const root = roots.find(r => r.id === rootId)
-    || (rootId === 'livro2' ? roots.find(r => r.id === 'imagens') : undefined)
-    || (rootId === 'imagens' ? roots.find(r => r.id === 'livro2') : undefined)
-    || (rootId === 'minutas' ? roots.find(r => r.id === 'usucapiao') : undefined)
-    || (rootId === 'usucapiao' ? roots.find(r => r.id === 'minutas') : undefined);
-  if (!root) throw new Error('Pasta não autorizada.');
-  return root;
+  const direct = roots.find(r => r.id === rootId);
+  if (direct) return direct;
+
+  if (rootId === 'livro2') {
+    const img = roots.find(r => r.id === 'imagens');
+    if (img) return img;
+  }
+  if (rootId === 'imagens') {
+    const lv2 = roots.find(r => r.id === 'livro2');
+    if (lv2) return lv2;
+  }
+  if (rootId === 'minutas') {
+    const usuc = roots.find(r => r.id === 'usucapiao');
+    if (usuc) return usuc;
+  }
+  if (rootId === 'usucapiao') {
+    const min = roots.find(r => r.id === 'minutas');
+    if (min) return min;
+  }
+  if (rootId === 'titulos_visualiza') {
+    const img = roots.find(r => r.id === 'imagens');
+    if (img) return { id: 'titulos_visualiza', path: path.join(img.path, 'TITULOS-VISUALIZA') };
+  }
+  if (rootId === 'titulos_online') {
+    const img = roots.find(r => r.id === 'imagens');
+    if (img) return { id: 'titulos_online', path: path.join(img.path, 'Titulos_Online') };
+  }
+  throw new Error('Pasta não autorizada.');
 }
 
 export async function resolveAuthorizedFile(
@@ -386,9 +411,19 @@ export async function checkDirectMatriculaFiles(
   query: string,
 ): Promise<DocumentMatch[]> {
   const matches: DocumentMatch[] = [];
+  if (rootId === 'titulos_visualiza' || rootId === 'titulos_online') {
+    return [];
+  }
   const numbersToTry = new Set<number>();
   const ehTranscricao = /transcri[çc][ãa]o/i.test(query);
   const ehMatriculaExplicita = /matr[ií]cula/i.test(query);
+  const ehProtocoloOuCentralExplicito =
+    /\b(?:protocolo|prenota[çc][ãa]o|t[íi]tulo|ac\d{5,}|ph\d{5,}|in[a-z0-9]{5,})\b/i.test(query);
+
+  // Consulta explícita de Protocolo/Prenotação/Central sem menção a Matrícula não deve casar com LV2/LV3
+  if (ehProtocoloOuCentralExplicito && !ehMatriculaExplicita && !ehTranscricao) {
+    return [];
+  }
 
   // Transcrição pertence ao Livro 3 (LV3), nunca ao Livro 2 (LV2 / Matrículas)
   if (ehTranscricao && rootId === 'livro2') {
@@ -499,7 +534,7 @@ export async function checkDirectSetorFiles(
   rootId: string,
   query: string,
 ): Promise<DocumentMatch[]> {
-  if (rootId === 'livro2') return [];
+  if (rootId === 'livro2' || rootId === 'titulos_visualiza' || rootId === 'titulos_online') return [];
   const matches: DocumentMatch[] = [];
   const consultaSemProcesso = removerNumerosDeProcesso(query);
   const paresSetorQuadra = new Set<string>();
@@ -685,9 +720,446 @@ async function buildRootDirectoryIndex(rootPath: string): Promise<RootDirectoryI
   return built;
 }
 
+export interface TituloDirectTarget {
+  protocolo?: number;
+  protocoloCentral?: string | null;
+}
+
+const STOP_LABEL_TERMS = new Set(['matricula', 'transcricao', 'protocolo', 'prenotacao', 'titulo']);
+function getEffectiveSearchTerms(termos: string[]): string[] {
+  const filtered = termos.filter(t => !STOP_LABEL_TERMS.has(t));
+  return filtered.length > 0 ? filtered : termos;
+}
+
+export function isTituloAcervoMatch(rootId: string, relativePath: string): boolean {
+  const r = (rootId || '').toLowerCase();
+  return (
+    r === 'titulos_visualiza' ||
+    r === 'titulos_online' ||
+    /(?:^|[\\/])(?:titulos-visualiza|titulos_online)(?:[\\/]|$)/i.test(relativePath || '')
+  );
+}
+
+const IGNORED_TITULO_DIR_RE = /^(?:limpeza|backup|temp|nova pasta(?:\s*\(\d+\))?|\$recycle\.bin)$/i;
+function isIgnoredTituloFolderOrFile(name: string, isDir: boolean): boolean {
+  if (!name || name.startsWith('$') || name.startsWith('~$')) return true;
+  if (isDir) return IGNORED_TITULO_DIR_RE.test(name.trim());
+  return !extensions.has(path.extname(name).toLowerCase());
+}
+
+interface TitulosOnlineChannelIndex {
+  canonicalBase: string;
+  builtAt: number;
+  byProtocolo: Map<number, string[]>;
+  byCentralCode: Map<string, string[]>;
+}
+
+const TITULOS_ONLINE_INDEX_TTL_MS = 5 * 60_000;
+const TITULOS_ONLINE_CHANNELS = ['AC', 'PH', 'IN', 'ProcessosDigitais'] as const;
+const titulosOnlineIndexCache = new Map<string, TitulosOnlineChannelIndex>();
+const titulosOnlineIndexInFlight = new Map<string, Promise<TitulosOnlineChannelIndex>>();
+
+function pushMapArray<K>(map: Map<K, string[]>, key: K, val: string): void {
+  const list = map.get(key);
+  if (list) {
+    if (!list.includes(val)) list.push(val);
+  } else {
+    map.set(key, [val]);
+  }
+}
+
+async function getOrBuildTitulosOnlineIndex(canonicalBase: string): Promise<TitulosOnlineChannelIndex> {
+  const cached = titulosOnlineIndexCache.get(canonicalBase);
+  if (cached && Date.now() - cached.builtAt < TITULOS_ONLINE_INDEX_TTL_MS) {
+    return cached;
+  }
+  const existing = titulosOnlineIndexInFlight.get(canonicalBase);
+  if (existing) return existing;
+
+  const task = (async (): Promise<TitulosOnlineChannelIndex> => {
+    const byProtocolo = new Map<number, string[]>();
+    const byCentralCode = new Map<string, string[]>();
+
+    await Promise.all(
+      TITULOS_ONLINE_CHANNELS.map(async channel => {
+        const channelDir = path.join(canonicalBase, channel);
+        try {
+          const handle = await fs.opendir(channelDir);
+          for await (const entry of handle) {
+            if (entry.isSymbolicLink() || !entry.isDirectory()) continue;
+            if (isIgnoredTituloFolderOrFile(entry.name, true)) continue;
+            const relSub = path.join(channel, entry.name);
+            const protoCentralMatch = entry.name.match(/^0*([1-9]\d{2,7})-([a-z]{2,3}[a-z0-9]{4,})$/i);
+            if (protoCentralMatch) {
+              const protoNum = parseInt(protoCentralMatch[1], 10);
+              if (Number.isFinite(protoNum) && protoNum > 0) pushMapArray(byProtocolo, protoNum, relSub);
+              pushMapArray(byCentralCode, protoCentralMatch[2].toLowerCase(), relSub);
+              continue;
+            }
+            const centralOnlyMatch = entry.name.match(/^([a-z]{2,3}[a-z0-9]{4,})$/i);
+            if (centralOnlyMatch) {
+              pushMapArray(byCentralCode, centralOnlyMatch[1].toLowerCase(), relSub);
+              continue;
+            }
+            const numOnlyMatch = entry.name.match(/^0*([1-9]\d{2,7})$/);
+            if (numOnlyMatch) {
+              const protoNum = parseInt(numOnlyMatch[1], 10);
+              if (Number.isFinite(protoNum) && protoNum > 0) pushMapArray(byProtocolo, protoNum, relSub);
+            }
+          }
+        } catch {
+          // Canal ausente ou inacessível: ignora silenciosamente
+        }
+      }),
+    );
+
+    const built: TitulosOnlineChannelIndex = {
+      canonicalBase,
+      builtAt: Date.now(),
+      byProtocolo,
+      byCentralCode,
+    };
+    titulosOnlineIndexCache.set(canonicalBase, built);
+    return built;
+  })().finally(() => {
+    titulosOnlineIndexInFlight.delete(canonicalBase);
+  });
+
+  titulosOnlineIndexInFlight.set(canonicalBase, task);
+  return task;
+}
+
+const tituloCollator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' });
+
+async function collectValidFilesFromTituloDir(
+  canonicalRoot: string,
+  rootId: string,
+  dirPath: string,
+  maxFiles: number,
+  seenKeys: Set<string>,
+  out: DocumentMatch[],
+): Promise<boolean> {
+  let realDir: string;
+  try {
+    realDir = await fs.realpath(dirPath);
+    if (!isWithinRoot(canonicalRoot, realDir)) return false;
+    const st = await fs.stat(realDir);
+    if (!st.isDirectory()) return false;
+  } catch {
+    return false;
+  }
+
+  const candidateNames: string[] = [];
+  try {
+    const handle = await fs.opendir(realDir);
+    for await (const entry of handle) {
+      if (entry.isSymbolicLink() || entry.isDirectory()) continue;
+      if (isIgnoredTituloFolderOrFile(entry.name, false)) continue;
+      candidateNames.push(entry.name);
+      if (candidateNames.length >= 200) break;
+    }
+  } catch {
+    return false;
+  }
+
+  candidateNames.sort((a, b) => tituloCollator.compare(a, b));
+  let addedAny = false;
+  let addedForDir = 0;
+
+  for (const name of candidateNames) {
+    if (addedForDir >= maxFiles) break;
+    const full = path.join(realDir, name);
+    try {
+      const realFile = await fs.realpath(full);
+      if (!isWithinRoot(canonicalRoot, realFile)) continue;
+      const info = await fs.stat(realFile);
+      if (!info.isFile() || isArquivoBloqueioOffice(name, info.size)) continue;
+      const relativePath = path.relative(canonicalRoot, full);
+      const dedupKey = `${rootId}:${relativePath.toLowerCase()}`;
+      if (seenKeys.has(dedupKey)) continue;
+      seenKeys.add(dedupKey);
+      out.push({
+        rootId,
+        relativePath,
+        name,
+        size: info.size,
+        modifiedAt: info.mtime.toISOString(),
+      });
+      addedForDir++;
+      addedAny = true;
+    } catch {}
+  }
+  return addedAny;
+}
+
+async function tryMatchDirectTituloFile(
+  canonicalRoot: string,
+  rootId: string,
+  fullPath: string,
+  seenKeys: Set<string>,
+  out: DocumentMatch[],
+): Promise<boolean> {
+  const name = path.basename(fullPath);
+  if (isIgnoredTituloFolderOrFile(name, false)) return false;
+  try {
+    const realFile = await fs.realpath(fullPath);
+    if (!isWithinRoot(canonicalRoot, realFile)) return false;
+    const info = await fs.stat(realFile);
+    if (!info.isFile() || isArquivoBloqueioOffice(name, info.size)) return false;
+    const relativePath = path.relative(canonicalRoot, fullPath);
+    const dedupKey = `${rootId}:${relativePath.toLowerCase()}`;
+    if (seenKeys.has(dedupKey)) return false;
+    seenKeys.add(dedupKey);
+    out.push({
+      rootId,
+      relativePath,
+      name,
+      size: info.size,
+      modifiedAt: info.mtime.toISOString(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function checkDirectTitulosFiles(
+  canonicalRoot: string,
+  rootId: string,
+  targets: TituloDirectTarget[],
+  options?: {
+    maxFilesPerProtocol?: number;
+    skipVisualiza?: boolean;
+    skipOnline?: boolean;
+  },
+): Promise<DocumentMatch[]> {
+  if (rootId !== 'titulos_visualiza' && rootId !== 'titulos_online' && rootId !== 'imagens') {
+    return [];
+  }
+  if (!targets || targets.length === 0) return [];
+
+  const maxFilesPerProtocol = Math.max(1, options?.maxFilesPerProtocol ?? 25);
+  const out: DocumentMatch[] = [];
+  const seenKeys = new Set<string>();
+
+  const normalizedTargets: Array<{ protocolo: number | null; protocoloCentral: string | null }> = [];
+  const seenTargets = new Set<string>();
+  for (const t of targets) {
+    const proto = t.protocolo && Number.isFinite(t.protocolo) && t.protocolo > 0 ? Math.trunc(t.protocolo) : null;
+    const central = t.protocoloCentral ? String(t.protocoloCentral).trim() : null;
+    if (!proto && !central) continue;
+    const tKey = `${proto ?? ''}|${(central || '').toLowerCase()}`;
+    if (seenTargets.has(tKey)) continue;
+    seenTargets.add(tKey);
+    normalizedTargets.push({ protocolo: proto, protocoloCentral: central });
+  }
+  if (normalizedTargets.length === 0) return [];
+
+  const resolveSubBase = async (candidate: string): Promise<string | null> => {
+    try {
+      const real = await fs.realpath(candidate);
+      if (!isWithinRoot(canonicalRoot, real)) return null;
+      const st = await fs.stat(real);
+      return st.isDirectory() ? real : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const tvBase =
+    rootId === 'titulos_visualiza'
+      ? await resolveSubBase(canonicalRoot)
+      : rootId === 'imagens' && !options?.skipVisualiza
+      ? await resolveSubBase(path.join(canonicalRoot, 'TITULOS-VISUALIZA'))
+      : null;
+
+  const toBase =
+    rootId === 'titulos_online'
+      ? await resolveSubBase(canonicalRoot)
+      : rootId === 'imagens' && !options?.skipOnline
+      ? await resolveSubBase(path.join(canonicalRoot, 'Titulos_Online'))
+      : null;
+
+  // 1. TÍTULOS VISUALIZA (K:\IMAGENS\TITULOS-VISUALIZA\00BBB000\<pad8>.TIF | <block>\<proto>\*.pdf)
+  if (tvBase) {
+    for (const target of normalizedTargets) {
+      if (!target.protocolo) continue;
+      const p = target.protocolo;
+      const block1000 = String(Math.floor(p / 1000) * 1000).padStart(8, '0');
+      const pad8 = String(p).padStart(8, '0');
+      const raw = String(p);
+      const blockDir = path.join(tvBase, block1000);
+
+      const fileCandidates = process.platform === 'win32'
+        ? [`${pad8}.TIF`, `${pad8}.PDF`, `${raw}.TIF`, `${raw}.PDF`, `${pad8}.KEN`]
+        : [
+            `${pad8}.TIF`, `${pad8}.tif`,
+            `${pad8}.PDF`, `${pad8}.pdf`,
+            `${raw}.TIF`, `${raw}.tif`,
+            `${raw}.PDF`, `${raw}.pdf`,
+            `${pad8}.KEN`, `${pad8}.ken`,
+          ];
+
+      await Promise.all(
+        fileCandidates.map(fname =>
+          tryMatchDirectTituloFile(canonicalRoot, rootId, path.join(blockDir, fname), seenKeys, out),
+        ),
+      );
+
+      const folderCandidates = raw === pad8 ? [raw] : [raw, pad8];
+      for (const fName of folderCandidates) {
+        await collectValidFilesFromTituloDir(
+          canonicalRoot,
+          rootId,
+          path.join(blockDir, fName),
+          maxFilesPerProtocol,
+          seenKeys,
+          out,
+        );
+      }
+    }
+  }
+
+  // 2. TÍTULOS ONLINE (K:\IMAGENS\Titulos_Online\AC|PH|IN|ProcessosDigitais|00BBB000)
+  if (toBase) {
+    const unresolvedTargets: Array<{ protocolo: number | null; protocoloCentral: string | null }> = [];
+
+    for (const target of normalizedTargets) {
+      let matchedDirectCentral = false;
+      if (target.protocolo) {
+        const p = target.protocolo;
+        const block1000 = String(Math.floor(p / 1000) * 1000).padStart(8, '0');
+        const pad8 = String(p).padStart(8, '0');
+        const raw = String(p);
+
+        const onlineFileCandidates = process.platform === 'win32'
+          ? [path.join(toBase, block1000, `${pad8}.PDF`), path.join(toBase, block1000, `${raw}.PDF`)]
+          : [
+              path.join(toBase, block1000, `${pad8}.PDF`),
+              path.join(toBase, block1000, `${pad8}.pdf`),
+              path.join(toBase, block1000, `${raw}.PDF`),
+              path.join(toBase, block1000, `${raw}.pdf`),
+            ];
+        await Promise.all(
+          onlineFileCandidates.map(fp => tryMatchDirectTituloFile(canonicalRoot, rootId, fp, seenKeys, out)),
+        );
+
+        const directDirs = [
+          path.join(toBase, block1000, raw),
+          ...(pad8 !== raw ? [path.join(toBase, block1000, pad8)] : []),
+          path.join(toBase, 'IN', raw),
+          path.join(toBase, 'ProcessosDigitais', pad8),
+          ...(pad8 !== raw ? [path.join(toBase, 'ProcessosDigitais', raw)] : []),
+          path.join(toBase, raw),
+        ];
+        for (const dPath of directDirs) {
+          await collectValidFilesFromTituloDir(canonicalRoot, rootId, dPath, maxFilesPerProtocol, seenKeys, out);
+        }
+
+        if (target.protocoloCentral) {
+          const cUpper = target.protocoloCentral.toUpperCase();
+          const cPrefix = cUpper.slice(0, 2);
+          if (cPrefix === 'AC' || cPrefix === 'PH' || cPrefix === 'IN') {
+            const centralCandidates = [path.join(toBase, cPrefix, `${raw}-${cUpper}`)];
+            if (pad8 !== raw) centralCandidates.push(path.join(toBase, cPrefix, `${pad8}-${cUpper}`));
+            for (const cDir of centralCandidates) {
+              const found = await collectValidFilesFromTituloDir(
+                canonicalRoot,
+                rootId,
+                cDir,
+                maxFilesPerProtocol,
+                seenKeys,
+                out,
+              );
+              if (found) matchedDirectCentral = true;
+            }
+          }
+        }
+      }
+
+      if (!matchedDirectCentral) {
+        unresolvedTargets.push(target);
+      }
+    }
+
+    if (unresolvedTargets.length > 0) {
+      const idx = await getOrBuildTitulosOnlineIndex(toBase);
+      for (const target of unresolvedTargets) {
+        const subPaths = new Set<string>();
+        if (target.protocolo) {
+          for (const relSub of idx.byProtocolo.get(target.protocolo) || []) subPaths.add(relSub);
+        }
+        if (target.protocoloCentral) {
+          for (const relSub of idx.byCentralCode.get(target.protocoloCentral.toLowerCase()) || []) subPaths.add(relSub);
+        }
+        for (const relSub of subPaths) {
+          await collectValidFilesFromTituloDir(
+            canonicalRoot,
+            rootId,
+            path.join(toBase, relSub),
+            maxFilesPerProtocol,
+            seenKeys,
+            out,
+          );
+        }
+      }
+    }
+  }
+
+  return out;
+}
+
+function extractDirectTituloCriterionInfo(texto: string): {
+  isExplicitProtocolo: boolean;
+  skipDirectTitulos: boolean;
+  protocolosDiretos: number[];
+  codigosCentral: string[];
+} {
+  const isExplicitMatriculaOrSetor = /\b(?:matr[ií]cula|transcri[çc][ãa]o|setor|quadra|sql|iptu)\b/i.test(texto);
+  const isExplicitProtocolo =
+    /\b(?:protocolo|prenota[çc][ãa]o|t[íi]tulo)\b/i.test(texto) ||
+    /\b(?:ac|ph|in)[0-9]{5,12}[a-z0-9]?\b/i.test(texto);
+
+  if (isExplicitMatriculaOrSetor && !isExplicitProtocolo) {
+    return { isExplicitProtocolo: false, skipDirectTitulos: true, protocolosDiretos: [], codigosCentral: [] };
+  }
+
+  const semProcesso = removerNumerosDeProcesso(texto);
+  const codigosSet = new Set<string>();
+  const centralMatches = semProcesso.match(/\b(?:ac|ph|in)[0-9]{5,12}[a-z0-9]?\b/gi) || [];
+  for (const code of centralMatches) {
+    codigosSet.add(code.toUpperCase());
+  }
+
+  const protosSet = new Set<number>();
+  const dotted = semProcesso.match(/\b\d{1,3}(?:\.\d{3})+\b/g) || [];
+  for (const d of dotted) {
+    const num = parseInt(d.replace(/\D+/g, ''), 10);
+    if (Number.isFinite(num) && num >= 100 && num <= 99_999_999) protosSet.add(num);
+  }
+  const plain = semProcesso.replace(/\b\d{1,3}(?:\.\d{3})+\b/g, ' ').match(/\b\d{3,8}\b/g) || [];
+  for (const d of plain) {
+    const num = parseInt(d, 10);
+    if (Number.isFinite(num) && num >= 100 && num <= 99_999_999) protosSet.add(num);
+  }
+
+  return {
+    isExplicitProtocolo,
+    skipDirectTitulos: false,
+    protocolosDiretos: Array.from(protosSet),
+    codigosCentral: Array.from(codigosSet),
+  };
+}
+
 /** Pré-aquece em memória o índice das pastas de processos e minutas para buscas sub-segundo. */
 export async function warmDocumentIndex(roots: DocumentRoot[]): Promise<void> {
-  const indexable = roots.filter(r => r.id !== 'imagens' && r.id !== 'livro2');
+  const indexable = roots.filter(
+    r =>
+      r.id !== 'imagens' &&
+      r.id !== 'livro2' &&
+      r.id !== 'titulos_visualiza' &&
+      r.id !== 'titulos_online',
+  );
   await Promise.all(indexable.map(r => buildRootDirectoryIndex(r.path).catch(() => null)));
 }
 
@@ -696,6 +1168,14 @@ export async function warmDocumentIndex(roots: DocumentRoot[]): Promise<void> {
 export async function searchDocuments(
   roots: DocumentRoot[], query: string, limit = 100,
   budget = { maxEntries: 50000, timeoutMs: 25000 },
+  options?: {
+    webriResolver?: (params: {
+      matriculas?: number[];
+      processosCnj?: string[];
+      protocolosDiretos?: number[];
+      codigosCentral?: string[];
+    }) => Promise<ProtocoloVinculadoWebri[]>;
+  },
 ): Promise<DocumentSearchResult> {
   // Busca Cruzada: os campos chegam separados por "|" (ex.: "1124837-38.2022.8.26.0100 | 7987").
   // Cada campo é um critério independente: termos DENTRO do campo precisam casar juntos (E),
@@ -705,7 +1185,10 @@ export async function searchDocuments(
     .map(texto => ({ texto: texto.trim(), termos: normalize(texto).trim().split(/\s+/).filter(Boolean) }))
     .filter(c => c.termos.join(' ').length >= 2);
   const buscaCruzada = criterios.length > 1;
-  if (criterios.length === 0 || query.length > 200 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
+  if (criterios.length === 0 || query.length > 260 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
+
+  const webriResolver = options?.webriResolver ?? consultarProtocolosVinculadosWebriReadOnly;
+  const criteriosEffectiveTerms = criterios.map(c => getEffectiveSearchTerms(c.termos));
 
   const termoCasa = (term: string, normRel: string, cleanRel: string): boolean => {
     if (buscaCruzada) {
@@ -726,21 +1209,48 @@ export async function searchDocuments(
   const result: DocumentSearchResult = { files: [], partial: false, unavailableRoots: [] };
   // Imagens localizadas diretamente pelo nº digitado: o usuário pediu explicitamente, nunca são descartadas
   const chavesExplicitas = new Set<string>();
+  const hasDedicatedTv = roots.some(r => r.id === 'titulos_visualiza');
+  const hasDedicatedTo = roots.some(r => r.id === 'titulos_online');
+
+  const critTituloInfo = criterios.map(c => extractDirectTituloCriterionInfo(c.texto));
+  const allDirectProtos = Array.from(new Set(critTituloInfo.flatMap(i => i.protocolosDiretos)));
+  const allCentralCodes = Array.from(new Set(critTituloInfo.flatMap(i => i.codigosCentral)));
+  const webriDirectTargets =
+    allDirectProtos.length > 0 || allCentralCodes.length > 0
+      ? await webriResolver({
+          protocolosDiretos: allDirectProtos,
+          codigosCentral: allCentralCodes,
+        }).catch(() => [] as ProtocoloVinculadoWebri[])
+      : [];
+
+  const directTituloMatchesByCrit = new Map<number, DocumentMatch[]>();
+  const lv2DirectMatByCrit = new Set<number>();
+
   let visited = 0;
   const deadline = Date.now() + budget.timeoutMs;
   for (const root of roots) {
     let canonical: string;
     try { canonical = await fs.realpath(root.path); }
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
-    const ehAcervoImagens = root.id === 'imagens' || root.id === 'livro2';
+    const ehAcervoImagens =
+      root.id === 'imagens' ||
+      root.id === 'livro2' ||
+      root.id === 'titulos_visualiza' ||
+      root.id === 'titulos_online';
     const ehPastaSemImagens = root.id === 'minutas' || root.id === 'processos';
+    const ehPastaExclusivaTitulos = root.id === 'titulos_visualiza' || root.id === 'titulos_online';
 
-    // 1. Busca direta ultrarrápida para Plantas Fiscais (K:\IMAGENS\SETORES) e Matrículas .KEN (LV2/LV3)
+    // 1. Busca direta ultrarrápida para Plantas Fiscais (K:\IMAGENS\SETORES), Matrículas .KEN (LV2/LV3)
+    //    e Títulos / Prenotações (TITULOS-VISUALIZA / Titulos_Online)
     const criteriosResolvidosDireto = new Set<number>();
     for (let i = 0; i < criterios.length && !ehPastaSemImagens; i++) {
       try {
         const setorMatches = await checkDirectSetorFiles(canonical, root.id, criterios[i].texto);
         for (const sm of setorMatches) {
+          if (result.files.length >= limit) {
+            result.partial = true;
+            break;
+          }
           const key = `${sm.rootId}:${sm.relativePath.toLowerCase()}`;
           chavesExplicitas.add(key);
           criteriosResolvidosDireto.add(i);
@@ -748,18 +1258,58 @@ export async function searchDocuments(
             result.files.push(sm);
           }
         }
+
         const directMatches = await checkDirectMatriculaFiles(canonical, root.id, criterios[i].texto);
         for (const m of directMatches) {
+          lv2DirectMatByCrit.add(i);
+          criteriosResolvidosDireto.add(i);
+          if (result.files.length >= limit) {
+            result.partial = true;
+            break;
+          }
           const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
           // Na busca simples o nº é ambíguo (pode ser processo); só o campo da busca cruzada é explícito
           if (buscaCruzada) chavesExplicitas.add(key);
-          criteriosResolvidosDireto.add(i);
           if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
             result.files.push(m);
           }
         }
+
+        const cTit = critTituloInfo[i];
+        if (
+          !cTit.skipDirectTitulos &&
+          (cTit.protocolosDiretos.length > 0 || cTit.codigosCentral.length > 0) &&
+          (root.id === 'titulos_visualiza' || root.id === 'titulos_online' || root.id === 'imagens')
+        ) {
+          const targetsForCrit: TituloDirectTarget[] = [];
+          for (const p of cTit.protocolosDiretos) {
+            const enriched = webriDirectTargets.find(w => w.protocolo === p);
+            targetsForCrit.push({
+              protocolo: p,
+              protocoloCentral: enriched?.protocoloCentral ?? null,
+            });
+          }
+          for (const code of cTit.codigosCentral) {
+            targetsForCrit.push({ protocoloCentral: code });
+          }
+
+          const titMatches = await checkDirectTitulosFiles(canonical, root.id, targetsForCrit, {
+            maxFilesPerProtocol: 25,
+            skipVisualiza: root.id === 'imagens' && hasDedicatedTv,
+            skipOnline: root.id === 'imagens' && hasDedicatedTo,
+          });
+          if (titMatches.length > 0) {
+            criteriosResolvidosDireto.add(i);
+            const bucket = directTituloMatchesByCrit.get(i) || [];
+            bucket.push(...titMatches);
+            directTituloMatchesByCrit.set(i, bucket);
+          }
+        }
       } catch {}
     }
+
+    // Pastas estruturadas de títulos nunca entram na varredura recursiva SMB
+    if (ehPastaExclusivaTitulos) continue;
 
     const criteriosParaVarrer = criterios.filter((c, i) => {
       if (!ehAcervoImagens) return true;
@@ -788,7 +1338,11 @@ export async function searchDocuments(
           result.partial = true;
           break;
         }
-        const ok = criteriosParaVarrer.some(c => c.termos.every(term => termoCasa(term, item.normRel, item.cleanRel)));
+        const ok = criteriosParaVarrer.some(c => {
+          const idx = criterios.indexOf(c);
+          const terms = idx >= 0 ? criteriosEffectiveTerms[idx] : c.termos;
+          return terms.every(term => termoCasa(term, item.normRel, item.cleanRel));
+        });
         if (ok) matchedEntries.push(item);
       }
       const verified = await Promise.all(
@@ -813,6 +1367,10 @@ export async function searchDocuments(
       );
       for (const v of verified) {
         if (!v) continue;
+        if (result.files.length >= limit) {
+          result.partial = true;
+          break;
+        }
         const key = `${v.rootId}:${v.relativePath.toLowerCase()}`;
         if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
           result.files.push(v);
@@ -833,6 +1391,12 @@ export async function searchDocuments(
           const filePath = path.join(directory, entry.name);
           if (!isWithinRoot(canonical, filePath)) continue;
           if (entry.isDirectory()) {
+            if (
+              ehAcervoImagens &&
+              /^(?:lv2|titulos-visualiza|titulos_online|limpeza|backup|temp|\$recycle\.bin)$/i.test(entry.name)
+            ) {
+              continue;
+            }
             queue.push(filePath);
             continue;
           }
@@ -840,7 +1404,11 @@ export async function searchDocuments(
           const relativePath = path.relative(canonical, filePath);
           const normRel = normalize(relativePath);
           const cleanRel = normRel.replace(/[.\-_/\s]/g, '');
-          const matches = criteriosParaVarrer.some(c => c.termos.every(term => termoCasa(term, normRel, cleanRel)));
+          const matches = criteriosParaVarrer.some(c => {
+            const idx = criterios.indexOf(c);
+            const terms = idx >= 0 ? criteriosEffectiveTerms[idx] : c.termos;
+            return terms.every(term => termoCasa(term, normRel, cleanRel));
+          });
           if (!matches) continue;
 
           const resolved = await fs.realpath(filePath);
@@ -878,40 +1446,104 @@ export async function searchDocuments(
     }
   }
 
-  // Enriquecer os resultados identificando matrículas vinculadas aos arquivos encontrados
-  if (result.files.length > 0) {
-    const matriculasEncontradas = new Set<string>();
-    const matriculasDosProcessos = new Set<string>();
-    let matriculaPrincipalProcesso: string | undefined;
-    let matriculaPrincipal: string | undefined;
+  // Consolida buscas diretas de Títulos (descartando colisão homônima quando nº nu era Matrícula LV2)
+  const discoveredCentralProtos: TituloDirectTarget[] = [];
+  for (const [critIdx, titMatches] of directTituloMatchesByCrit.entries()) {
+    if (lv2DirectMatByCrit.has(critIdx) && !critTituloInfo[critIdx]?.isExplicitProtocolo) {
+      continue;
+    }
+    for (const tm of titMatches) {
+      if (result.files.length >= limit) {
+        result.partial = true;
+        break;
+      }
+      const key = `${tm.rootId}:${tm.relativePath.toLowerCase()}`;
+      chavesExplicitas.add(key);
+      if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+        result.files.push(tm);
+      }
+      const pFolderMatch = tm.relativePath.match(/(?:^|[\\/])0*([1-9]\d{2,7})-(?:ac|ph|in)[a-z0-9]+(?:[\\/]|$)/i);
+      if (pFolderMatch) {
+        const discoveredProto = parseInt(pFolderMatch[1], 10);
+        if (Number.isFinite(discoveredProto) && discoveredProto > 0 && !allDirectProtos.includes(discoveredProto)) {
+          discoveredCentralProtos.push({ protocolo: discoveredProto });
+        }
+      }
+    }
+  }
 
-    const filesToInspect = result.files.slice(0, 20);
+  // Se uma busca direta por código AC/PH/IN revelou o nº do protocolo, cruza automaticamente em TITULOS-VISUALIZA
+  if (discoveredCentralProtos.length > 0 && result.files.length < limit) {
+    for (const root of roots) {
+      if (root.id !== 'titulos_visualiza' && (root.id !== 'imagens' || hasDedicatedTv)) continue;
+      try {
+        const canonical = await fs.realpath(root.path);
+        const tvMatches = await checkDirectTitulosFiles(canonical, root.id, discoveredCentralProtos, {
+          maxFilesPerProtocol: 25,
+          skipOnline: true,
+        });
+        for (const tm of tvMatches) {
+          if (result.files.length >= limit) {
+            result.partial = true;
+            break;
+          }
+          const key = `${tm.rootId}:${tm.relativePath.toLowerCase()}`;
+          chavesExplicitas.add(key);
+          if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+            result.files.push(tm);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Enriquecer os resultados identificando matrículas vinculadas aos arquivos encontrados
+  const matriculasEncontradas = new Set<string>();
+  const matriculasDosProcessos = new Set<string>();
+  let matriculaPrincipalProcesso: string | undefined;
+  let matriculaPrincipal: string | undefined;
+
+  if (result.files.length > 0) {
+    const arquivosNaoTitulo = result.files.filter(f => !isTituloAcervoMatch(f.rootId, f.relativePath));
+    const filesToInspect = [
+      ...arquivosNaoTitulo.filter(f => !/\.(?:ken|tiff?)$/i.test(f.name)),
+      ...arquivosNaoTitulo.filter(f => /\.(?:ken|tiff?)$/i.test(f.name)),
+      ...result.files.filter(f => isTituloAcervoMatch(f.rootId, f.relativePath)),
+    ].slice(0, 20);
+
     await Promise.all(
       filesToInspect.map(async file => {
         try {
           const ext = path.extname(file.name).toLowerCase();
           const isImageFile = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+          const ehArquivoDeTitulo = isTituloAcervoMatch(file.rootId, file.relativePath);
 
           if (file.matricula) {
             matriculasEncontradas.add(file.matricula);
-            if (!isImageFile) {
+            if (!isImageFile && !ehArquivoDeTitulo) {
               matriculasDosProcessos.add(file.matricula);
               if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = file.matricula;
             }
             if (!matriculaPrincipal) matriculaPrincipal = file.matricula;
             return;
           }
+          if (ehArquivoDeTitulo) {
+            // Não extrair nº solto do nome do título/prenotação como se fosse nº de matrícula
+            const explicitTitleMat = file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*[:.\s]*([0-9.\-]+)/i);
+            if (!explicitTitleMat) return;
+          }
           const nameMat = extrairNumeroMatricula(file.name);
           if (nameMat) {
             file.matricula = nameMat;
             matriculasEncontradas.add(nameMat);
-            if (!isImageFile) {
+            if (!isImageFile && !ehArquivoDeTitulo) {
               matriculasDosProcessos.add(nameMat);
               if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = nameMat;
             }
             if (!matriculaPrincipal) matriculaPrincipal = nameMat;
             return;
           }
+          if (ehArquivoDeTitulo) return;
           const canonicalTarget = await resolveAuthorizedFile(roots, file.rootId, file.relativePath);
           const mat = await detectarMatriculaEmArquivo(canonicalTarget);
           if (mat) {
@@ -946,6 +1578,7 @@ export async function searchDocuments(
     for (const m of matriculasDosProcessos) matriculasParaCruzar.add(m);
 
     const temDocumentosProcesso = result.files.some(f => {
+      if (isTituloAcervoMatch(f.rootId, f.relativePath)) return false;
       const ext = path.extname(f.name).toLowerCase();
       return ext !== '.ken' && ext !== '.tif' && ext !== '.tiff';
     });
@@ -969,7 +1602,14 @@ export async function searchDocuments(
       for (const mat of matriculasParaCruzar) {
         const ehTranscricao = /transcri[çc][ãa]o/i.test(mat);
         for (const root of roots) {
-          if (root.id === 'minutas' || root.id === 'processos') continue;
+          if (
+            root.id === 'minutas' ||
+            root.id === 'processos' ||
+            root.id === 'titulos_visualiza' ||
+            root.id === 'titulos_online'
+          ) {
+            continue;
+          }
           if (ehTranscricao && root.id === 'livro2') continue;
           try {
             const canonical = await fs.realpath(root.path);
@@ -988,6 +1628,7 @@ export async function searchDocuments(
       // remover falsos positivos de arquivos de imagem (.KEN) que vieram apenas por colisão
       // de substring ou livro divergente (ex.: não trazer LV2 quando os autos citam apenas Transcrição LV3)
       result.files = result.files.filter(f => {
+        if (isTituloAcervoMatch(f.rootId, f.relativePath)) return true;
         const ext = path.extname(f.name).toLowerCase();
         const isImg = ext === '.ken' || ext === '.tif' || ext === '.tiff';
         if (!isImg) return true; // Preserva todos os arquivos de processo (PDF, DOCX, TXT, etc.)
@@ -1006,6 +1647,10 @@ export async function searchDocuments(
 
       // 3. Adicionar os arquivos .KEN encontrados pela busca cruzada
       for (const cruzado of arquivosCruzados) {
+        if (result.files.length >= limit) {
+          result.partial = true;
+          break;
+        }
         const key = `${cruzado.rootId}:${cruzado.relativePath.toLowerCase()}`;
         if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
           result.files.push(cruzado);
@@ -1018,9 +1663,103 @@ export async function searchDocuments(
     }
   }
 
+  // -------------------------------------------------------------
+  // BUSCA CRUZADA AUTOMÁTICA DE TÍTULOS VIA WEBRI (TITULOS-VISUALIZA + Titulos_Online):
+  // A partir das matrículas confirmadas ou números de processo CNJ da pesquisa, consulta read-only
+  // no SRVSQL\WEBRI os protocolos/prenotações vinculados e anexa os arquivos correspondentes em K:\.
+  // -------------------------------------------------------------
+  const matriculasParaWebri = new Set<number>();
+  for (const mStr of [
+    ...(result.matriculaDetectada ? [result.matriculaDetectada] : []),
+    ...(result.matriculas || []),
+    ...Array.from(matriculasEncontradas),
+  ]) {
+    if (/transcri[çc][ãa]o/i.test(mStr)) continue;
+    const mNum = parseInt(mStr.replace(/\D+/g, ''), 10);
+    if (Number.isFinite(mNum) && mNum > 0) matriculasParaWebri.add(mNum);
+  }
+  for (const c of criterios) {
+    if (/\bmatr[ií]cula\b/i.test(c.texto)) {
+      const semProc = removerNumerosDeProcesso(c.texto);
+      const nums = semProc.replace(/\./g, '').match(/\b\d{2,7}\b/g) || [];
+      for (const n of nums) {
+        const mNum = parseInt(n, 10);
+        if (Number.isFinite(mNum) && mNum > 0) matriculasParaWebri.add(mNum);
+      }
+    }
+  }
+  const processosCnjParaWebri = Array.from(
+    new Set(
+      (query.match(new RegExp(REGEX_PROCESSO_CNJ.source, 'g')) || [])
+        .map(p => p.trim())
+        .filter(p => p.replace(/\D+/g, '').length >= 9),
+    ),
+  );
+
+  if (
+    (matriculasParaWebri.size > 0 || processosCnjParaWebri.length > 0) &&
+    result.files.length < limit
+  ) {
+    const hasTituloRoots = roots.some(
+      r => r.id === 'titulos_visualiza' || r.id === 'titulos_online' || r.id === 'imagens',
+    );
+    if (hasTituloRoots) {
+      const protocolosVinculados = await webriResolver({
+        matriculas: Array.from(matriculasParaWebri),
+        processosCnj: processosCnjParaWebri,
+      }).catch(() => [] as ProtocoloVinculadoWebri[]);
+
+      if (protocolosVinculados.length > 0) {
+        const targets = protocolosVinculados.map(pv => ({
+          protocolo: pv.protocolo,
+          protocoloCentral: pv.protocoloCentral,
+        }));
+        const titulosCruzados: DocumentMatch[] = [];
+        for (const root of roots) {
+          if (root.id !== 'titulos_visualiza' && root.id !== 'titulos_online' && root.id !== 'imagens') {
+            continue;
+          }
+          try {
+            const canonical = await fs.realpath(root.path);
+            const found = await checkDirectTitulosFiles(canonical, root.id, targets, {
+              maxFilesPerProtocol: 8,
+              skipVisualiza: root.id === 'imagens' && hasDedicatedTv,
+              skipOnline: root.id === 'imagens' && hasDedicatedTo,
+            });
+            for (const item of found) {
+              const key = `${item.rootId}:${item.relativePath.toLowerCase()}`;
+              if (!titulosCruzados.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+                titulosCruzados.push(item);
+              }
+            }
+          } catch {}
+        }
+
+        let addedCrossTitulos = 0;
+        for (const item of titulosCruzados) {
+          if (addedCrossTitulos >= 30 || result.files.length >= limit) {
+            result.partial = true;
+            break;
+          }
+          const key = `${item.rootId}:${item.relativePath.toLowerCase()}`;
+          chavesExplicitas.add(key);
+          if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+            result.files.push(item);
+            addedCrossTitulos++;
+          }
+        }
+      }
+    }
+  }
+
   // Deduplica arquivos idênticos quando raízes sobrepostas (ex.: K:\IMAGENS e K:\IMAGENS\LV2) apontam ao mesmo arquivo físico
   if (result.files.length > 1) {
-    const prioridadeRoot = (id: string) => (id === 'livro2' ? 3 : id === 'minutas' || id === 'processos' ? 2 : 1);
+    const prioridadeRoot = (id: string) =>
+      id === 'livro2' || id === 'titulos_visualiza' || id === 'titulos_online'
+        ? 3
+        : id === 'minutas' || id === 'processos'
+        ? 2
+        : 1;
     const porCaminhoCanonico = new Map<string, { idx: number; item: DocumentMatch }>();
     await Promise.all(
       result.files.map(async (item, idx) => {
@@ -2029,6 +2768,8 @@ const ROOT_LABELS: Record<string, string> = {
   processos: 'Processos (H:)',
   imagens: 'Imagens (K:)',
   livro2: 'Livro 2 (K:\\LV2)',
+  titulos_visualiza: 'Título Visualiza (K:\\TITULOS-VISUALIZA)',
+  titulos_online: 'Títulos Online (K:\\Titulos_Online)',
 };
 
 let cachedRootsHealth: { checkedAt: number; key: string; items: DocumentRootHealth[] } | null = null;

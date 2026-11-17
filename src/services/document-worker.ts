@@ -397,6 +397,12 @@ function resolveConfiguredDocumentRoots(): DocumentRoot[] {
   if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
     defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
   }
+  if (fsSync.existsSync('K:\\IMAGENS\\TITULOS-VISUALIZA')) {
+    defaults.push({ id: 'titulos_visualiza', path: 'K:\\IMAGENS\\TITULOS-VISUALIZA' });
+  }
+  if (fsSync.existsSync('K:\\IMAGENS\\Titulos_Online')) {
+    defaults.push({ id: 'titulos_online', path: 'K:\\IMAGENS\\Titulos_Online' });
+  }
   return defaults;
 }
 

@@ -5,7 +5,7 @@ import { Scheduler } from '../src/services/scheduler.js';
 import * as infraBriefing from '../src/services/infra-briefing-telemetry.js';
 import * as api from '../src/services/api.js';
 
-describe('Infra Briefing Telemetry Collector (v2.6.14)', () => {
+describe('Infra Briefing Telemetry Collector (v2.6.15)', () => {
   beforeEach(() => {
     runtimeDirective.resetForTests();
     vi.restoreAllMocks();
@@ -117,7 +117,7 @@ describe('Infra Briefing Telemetry Collector (v2.6.14)', () => {
         fileServerPort: 8765,
         fileServerReachable: true,
         fileServerLatencyMs: 2,
-        connectorVersion: 'v2.6.14',
+        connectorVersion: 'v2.6.15',
         connectorUptimeSeconds: 1200,
         connectorOperationalState: 'ACTIVE',
         queuePending: 0,
