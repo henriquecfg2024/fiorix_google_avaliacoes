@@ -481,7 +481,32 @@ async function resolveConnectorVersionSummary(tenantId: string): Promise<{
 
   try {
     const client = getPrismaClient();
-    if (typeof client?.connector?.findMany === 'function') {
+    if (hasRawSqlSupport()) {
+      try {
+        const rows = await prisma.$queryRawUnsafe<Array<{ version: string | null }>>(
+          `SELECT c."version"
+           FROM "Connector" c
+           LEFT JOIN public.fiorix_connector_ha_nodes h
+             ON h.connector_id = c."id"
+            AND h.tenant_id = c."tenantId"
+           WHERE c."tenantId" = $1
+             AND c."enabled" = true
+             AND c."id" <> 'substituir_pelo_id_fornecido'
+           ORDER BY
+             CASE WHEN h.operational_state = 'ACTIVE' THEN 0 ELSE 1 END,
+             c."lastSeenAt" DESC NULLS LAST
+           LIMIT 1`,
+          tenantId,
+        );
+        if (rows[0]?.version) {
+          installedVersion = rows[0].version;
+        }
+      } catch {
+        // Fallback para findMany caso tabela HA ou SQL bruto indisponível
+      }
+    }
+
+    if (!installedVersion && typeof client?.connector?.findMany === 'function') {
       const nodes = await client.connector.findMany({
         where: { tenantId, enabled: true },
         select: { version: true, lastSeenAt: true },

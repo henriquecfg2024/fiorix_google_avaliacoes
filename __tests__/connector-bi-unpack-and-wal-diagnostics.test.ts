@@ -167,9 +167,9 @@ describe('Correção 42P10 (source=bi), reconciliação HA APPLYING e higieniza�
     expect(haUpdateCall).toBeDefined();
     expect(haUpdateCall?.[7]).toBeNull(); // target_version limpo
     expect(haUpdateCall?.[8]).toBe('SUCCEEDED'); // update_status reconciliado
-    expect(compareConnectorSemver('v2.6.7', 'v2.6.15')).toBeLessThan(0);
-    expect(compareConnectorSemver('v2.6.15', 'v2.6.15')).toBe(0);
-    expect(directive.pendingUpdate?.version).toBe('v2.6.15');
+    expect(compareConnectorSemver('v2.6.7', 'v2.6.16')).toBeLessThan(0);
+    expect(compareConnectorSemver('v2.6.16', 'v2.6.16')).toBe(0);
+    expect(directive.pendingUpdate?.version).toBe('v2.6.16');
   });
 });
 
