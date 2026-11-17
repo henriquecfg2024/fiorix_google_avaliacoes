@@ -317,6 +317,16 @@ export async function ensureAlertTablesExist(force = false): Promise<void> {
         ON public.fiorix_connector_telemetry (tenant_id, connector_id, created_at DESC);
     `);
 
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_conn_telemetry_conn_created
+        ON public.fiorix_connector_telemetry (connector_id, created_at DESC);
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_conn_telemetry_created_at
+        ON public.fiorix_connector_telemetry (created_at);
+    `);
+
     await prisma.$executeRawUnsafe(
       `ALTER TABLE public.fiorix_operations_alert_channels ENABLE ROW LEVEL SECURITY;`
     );
@@ -629,6 +639,9 @@ export async function getRecentAlertLogs(tenantId: string, limit = 15): Promise<
   }
 }
 
+let lastTelemetryPruneMs = 0;
+const TELEMETRY_PRUNE_INTERVAL_MS = 30 * 60_000;
+
 export async function recordConnectorTelemetry(data: ConnectorTelemetryData): Promise<void> {
   await ensureAlertTablesExist();
   await ensureConnectorDetailsColumn();
@@ -672,6 +685,27 @@ export async function recordConnectorTelemetry(data: ConnectorTelemetryData): Pr
         data.queuePending ?? null,
         data.queueFailed ?? null
       );
+    }
+
+    const nowMs = Date.now();
+    if (
+      !process.env.VITEST &&
+      process.env.NODE_ENV !== 'test' &&
+      nowMs - lastTelemetryPruneMs >= TELEMETRY_PRUNE_INTERVAL_MS
+    ) {
+      lastTelemetryPruneMs = nowMs;
+      void prisma
+        .$executeRawUnsafe(
+          `
+          DELETE FROM public.fiorix_connector_telemetry
+          WHERE id IN (
+            SELECT id FROM public.fiorix_connector_telemetry
+            WHERE created_at < NOW() - INTERVAL '7 days'
+            LIMIT 5000
+          );
+        `,
+        )
+        .catch(() => {});
     }
   } catch (err) {
     console.warn('Erro ao gravar telemetria do conector:', err);

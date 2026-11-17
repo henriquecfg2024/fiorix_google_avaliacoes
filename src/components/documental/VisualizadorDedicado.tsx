@@ -498,22 +498,24 @@ export function VisualizadorDedicado({
 
       // Se encontrou processo de usucapião com matrícula conhecida (nos metadados ou cache de extração),
       // traz também o arquivo da imagem (LV2) de K:\IMAGENS\LV2 no resultado da busca
+      const ehNaoMatricula = (v?: string | null) =>
+        !v || /transcri[çc][ãa]o|planta\s+fiscal|setor|protocolo|prenota[çc][ãa]o|t[íi]tulo/i.test(v);
       const matCandidatas = new Set<string>();
-      if (resultado.matriculaDetectada && !/transcri[çc][ãa]o/i.test(resultado.matriculaDetectada)) {
+      if (resultado.matriculaDetectada && !ehNaoMatricula(resultado.matriculaDetectada)) {
         matCandidatas.add(resultado.matriculaDetectada);
       }
       for (const m of resultado.matriculas || []) {
-        if (!/transcri[çc][ãa]o/i.test(m)) matCandidatas.add(m);
+        if (!ehNaoMatricula(m)) matCandidatas.add(m);
       }
       for (const arq of brutos) {
-        if (arq.matricula && !/transcri[çc][ãa]o/i.test(arq.matricula)) {
+        if (arq.matricula && !ehNaoMatricula(arq.matricula)) {
           matCandidatas.add(arq.matricula);
         }
         try {
           const rawExt = sessionStorage.getItem(`fiorix_ext_v2_${arq.rootId}:${arq.relativePath}`);
           if (rawExt) {
             const parsed = JSON.parse(rawExt);
-            if (parsed?.matricula_transcricao && !/transcri[çc][ãa]o/i.test(parsed.matricula_transcricao)) {
+            if (parsed?.matricula_transcricao && !ehNaoMatricula(parsed.matricula_transcricao)) {
               matCandidatas.add(String(parsed.matricula_transcricao));
             }
           }
@@ -548,7 +550,13 @@ export function VisualizadorDedicado({
           ? `${canon.unidade}:${canon.caminhoNaUnidade}`
           : `${item.rootId}:${normalizarCaminho(item.relativePath)}`;
         const atual = mapaCanon.get(chave);
-        if (!atual || item.rootId === 'livro2' || item.rootId === pastaAtual?.rootId) {
+        if (
+          !atual ||
+          item.rootId === 'livro2' ||
+          item.rootId === 'titulos_visualiza' ||
+          item.rootId === 'titulos_online' ||
+          item.rootId === pastaAtual?.rootId
+        ) {
           mapaCanon.set(chave, item);
         }
       }
@@ -640,7 +648,14 @@ export function VisualizadorDedicado({
 
       if (isKen && isLocalHost && !forceFresh) {
         try {
-          const sessao = file.rootId === 'imagens' ? (file.relativePath.split(/[\\/]/)[0] || 'LV2') : 'LV2';
+          const sessao =
+            file.rootId === 'titulos_visualiza'
+              ? 'TITULOS-VISUALIZA'
+              : file.rootId === 'titulos_online'
+              ? 'Titulos_Online'
+              : file.rootId === 'imagens'
+              ? file.relativePath.split(/[\\/]/)[0] || 'LV2'
+              : 'LV2';
           const rel = file.rootId === 'imagens' ? file.relativePath.replace(/^[^\\/]+[\\/]/, '') : file.relativePath;
           const url = `/api/documental/ken?path=${encodeURIComponent(rel)}&sessao=${encodeURIComponent(sessao)}&doc=${encodeURIComponent(file.name)}`;
           const res = await fetch(url, { signal: controller.signal });
@@ -1499,7 +1514,7 @@ export function VisualizadorDedicado({
                       Clique em uma pasta para navegar ou pesquise diretamente no campo acima
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
                     {RAIZES.map(r => {
                       const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
                       return (

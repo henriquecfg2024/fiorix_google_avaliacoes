@@ -620,23 +620,49 @@ export function evaluateInfraMorningBriefing(params: {
       }
 
       if (rawSql.highLogBackupDatabases.length > 0) {
-        const worstPct = Math.max(...rawSql.highLogBackupDatabases.map((d) => d.logUsedPercent));
-        const logStatus = worstPct >= 85 ? 'CRITICAL' : 'WARNING';
-        srvsql.status = elevateServerStatus(srvsql.status, logStatus === 'CRITICAL' ? 'CRITICAL' : 'WARNING');
-        const names = rawSql.highLogBackupDatabases.map((d) => `${d.databaseName} (${d.logUsedPercent}%)`).join(', ');
-        const rec = `Log travado em LOG_BACKUP no SRVSQL: ${names}. Verificar BACKUP LOG ou modelo SIMPLE caso aplicável.`;
-        preventiveActions.push(rec);
-        checks.push({
-          id: 'srvsql-log-backup',
-          server: 'SRVSQL',
-          category: 'Transaction Log',
-          label: 'Bancos com Log retido em LOG_BACKUP',
-          status: logStatus,
-          currentValue: names,
-          previousValue: null,
-          deltaLabel: null,
-          recommendation: rec,
+        const actionableLogs = rawSql.highLogBackupDatabases.filter((d) => {
+          const isWebri = d.databaseName.trim().toUpperCase() === 'WEBRI';
+          const totalMb = d.logTotalMb ?? d.logUsedMb ?? 0;
+          return isWebri ? d.logUsedPercent >= 75 : totalMb >= 1024 && d.logUsedPercent >= 80;
         });
+
+        if (actionableLogs.length > 0) {
+          const hasCritical = actionableLogs.some((d) => {
+            const isWebri = d.databaseName.trim().toUpperCase() === 'WEBRI';
+            const totalMb = d.logTotalMb ?? d.logUsedMb ?? 0;
+            return isWebri
+              ? d.logUsedPercent >= 90 && (d.logTotalMb ?? 512) >= 256
+              : totalMb >= 2048 && d.logUsedPercent >= 92;
+          });
+          const logStatus = hasCritical ? 'CRITICAL' : 'WARNING';
+          srvsql.status = elevateServerStatus(srvsql.status, logStatus);
+          const names = actionableLogs.map((d) => `${d.databaseName} (${d.logUsedPercent}%)`).join(', ');
+          const rec = `Log travado em LOG_BACKUP no SRVSQL: ${names}. Verificar BACKUP LOG ou modelo SIMPLE caso aplicável.`;
+          preventiveActions.push(rec);
+          checks.push({
+            id: 'srvsql-log-backup',
+            server: 'SRVSQL',
+            category: 'Transaction Log',
+            label: 'Bancos com Log retido em LOG_BACKUP',
+            status: logStatus,
+            currentValue: names,
+            previousValue: null,
+            deltaLabel: null,
+            recommendation: rec,
+          });
+        } else {
+          checks.push({
+            id: 'srvsql-log-backup',
+            server: 'SRVSQL',
+            category: 'Transaction Log',
+            label: 'Transaction Log dos Bancos',
+            status: 'OK',
+            currentValue: 'WEBRI normal (auxiliares < 1 GB com autogrowth ativo)',
+            previousValue: null,
+            deltaLabel: null,
+            recommendation: null,
+          });
+        }
       }
 
       if (rawSql.perfIndexesCount !== null) {
@@ -715,7 +741,18 @@ export function evaluateInfraMorningBriefing(params: {
     srvfiles.cimError = rawFiles.cimError;
 
     if (rawFiles.cpuPercent !== null) {
-      const cpuStatus = rawFiles.cpuPercent >= 85 ? 'CRITICAL' : rawFiles.cpuPercent >= 70 ? 'WARNING' : 'OK';
+      const isConnectorWarmup =
+        sample.trigger === 'STARTUP' ||
+        (rawFiles.connectorUptimeSeconds !== null && rawFiles.connectorUptimeSeconds < 180);
+      const cpuStatus = isConnectorWarmup
+        ? rawFiles.cpuPercent >= 96
+          ? 'WARNING'
+          : 'OK'
+        : rawFiles.cpuPercent >= 92
+        ? 'CRITICAL'
+        : rawFiles.cpuPercent >= 80
+        ? 'WARNING'
+        : 'OK';
       if (cpuStatus !== 'OK') {
         srvfiles.status = elevateServerStatus(srvfiles.status, cpuStatus === 'CRITICAL' ? 'CRITICAL' : 'WARNING');
         preventiveActions.push(`CPU alta no SRVFILES (${rawFiles.cpuPercent}%): verificar OCR, Veeam/Acronis ou indexação.`);
@@ -726,7 +763,7 @@ export function evaluateInfraMorningBriefing(params: {
         category: 'Processamento',
         label: 'CPU do Servidor',
         status: cpuStatus,
-        currentValue: `${rawFiles.cpuPercent}% (${rawFiles.vcpuCount ?? '--'} vCPUs)`,
+        currentValue: `${rawFiles.cpuPercent}% (${rawFiles.vcpuCount ?? '--'} vCPUs)${isConnectorWarmup ? ' · startup' : ''}`,
         previousValue:
           previousBriefing?.srvfiles.cpuPercent != null ? `${previousBriefing.srvfiles.cpuPercent}%` : null,
         deltaLabel: null,
@@ -851,20 +888,17 @@ export function evaluateInfraMorningBriefing(params: {
 
     const bothDown = !rawIa.webReachable && !rawIa.postgresReachable;
     const bothUp = rawIa.webReachable && rawIa.postgresReachable;
-    srvsiplania.networkHealthy = bothUp;
+    srvsiplania.networkHealthy = Boolean(rawIa.postgresReachable);
 
     if (bothDown) {
       srvsiplania.status = 'OFFLINE';
       const rec = `SRVSIPLANIA (${rawIa.host}) sem resposta no Portal Web e no PostgreSQL (:${rawIa.postgresPort}). Verificar VM imediatamente.`;
       preventiveActions.push(rec);
-    } else if (!rawIa.webReachable || !rawIa.postgresReachable) {
+    } else if (!rawIa.postgresReachable && rawIa.webReachable) {
       srvsiplania.status = 'CRITICAL';
-      const missing = !rawIa.webReachable
-        ? 'Portal Web SiplanIA não respondeu'
-        : `PostgreSQL (:${rawIa.postgresPort}) não respondeu`;
-      preventiveActions.push(`Falha parcial no SRVSIPLANIA (${rawIa.host}): ${missing}.`);
+      preventiveActions.push(`PostgreSQL (:${rawIa.postgresPort}) não respondeu no SRVSIPLANIA (${rawIa.host}).`);
     } else if (
-      (rawIa.webLatencyMs !== null && rawIa.webLatencyMs > 1500) ||
+      (rawIa.webReachable && rawIa.webLatencyMs !== null && rawIa.webLatencyMs > 1500) ||
       (rawIa.postgresLatencyMs !== null && rawIa.postgresLatencyMs > 1500)
     ) {
       srvsiplania.status = 'WARNING';
@@ -874,7 +908,9 @@ export function evaluateInfraMorningBriefing(params: {
     } else {
       srvsiplania.status = 'HEALTHY';
       highlights.push(
-        `SRVSIPLANIA (${rawIa.host}) acessível: Portal HTTP (:${rawIa.webPort ?? '--'} em ${rawIa.webLatencyMs ?? 0}ms) e PostgreSQL (:${rawIa.postgresPort} em ${rawIa.postgresLatencyMs ?? 0}ms).`,
+        bothUp
+          ? `SRVSIPLANIA (${rawIa.host}) acessível: Portal HTTP (:${rawIa.webPort ?? '--'} em ${rawIa.webLatencyMs ?? 0}ms) e PostgreSQL (:${rawIa.postgresPort} em ${rawIa.postgresLatencyMs ?? 0}ms).`
+          : `SRVSIPLANIA (${rawIa.host}) online com PostgreSQL (:${rawIa.postgresPort}) respondendo em ${rawIa.postgresLatencyMs ?? 0}ms.`,
       );
     }
 
@@ -882,17 +918,28 @@ export function evaluateInfraMorningBriefing(params: {
       id: 'srvsiplania-web',
       server: 'SRVSIPLANIA',
       category: 'Aplicação Web',
-      label: 'Portal SiplanIA (HTTP)',
-      status: !rawIa.webReachable ? 'CRITICAL' : (rawIa.webLatencyMs ?? 0) > 1500 ? 'WARNING' : 'OK',
+      label: !rawIa.webReachable && rawIa.postgresReachable ? 'Portal HTTP na LAN' : 'Portal SiplanIA (HTTP)',
+      status: rawIa.webReachable
+        ? (rawIa.webLatencyMs ?? 0) > 1500
+          ? 'WARNING'
+          : 'OK'
+        : rawIa.postgresReachable
+        ? 'NO_DATA'
+        : 'CRITICAL',
       currentValue: rawIa.webReachable
         ? `Online :${rawIa.webPort} (${rawIa.webLatencyMs ?? 0} ms${rawIa.httpStatusCode ? ` · HTTP ${rawIa.httpStatusCode}` : ''})`
+        : rawIa.postgresReachable
+        ? 'Sem porta HTTP exposta na LAN (PostgreSQL ativo)'
         : 'Inacessível',
       previousValue:
         previousBriefing?.srvsiplania.webLatencyMs != null
           ? `${previousBriefing.srvsiplania.webLatencyMs} ms`
           : null,
       deltaLabel: null,
-      recommendation: rawIa.webReachable ? null : 'Verificar serviço web/IIS do SiplanIA na VM 10.0.0.6.',
+      recommendation:
+        rawIa.webReachable || rawIa.postgresReachable
+          ? null
+          : 'Verificar serviço web/IIS do SiplanIA na VM 10.0.0.6.',
     });
 
     checks.push({
@@ -997,12 +1044,16 @@ export function evaluateInfraMorningBriefing(params: {
       srvsiplania.status === 'OFFLINE'
         ? 'Portal SiplanIA e PostgreSQL inacessíveis em 10.0.0.6'
         : srvsiplania.status === 'CRITICAL'
-        ? 'Falha parcial de rede/serviço no SRVSIPLANIA'
+        ? `PostgreSQL (:${rawIa.postgresPort}) inacessível em 10.0.0.6`
         : !rawIa.cimAvailable
-        ? `Rede OK (Portal :${rawIa.webPort ?? '--'} + PostgreSQL :${rawIa.postgresPort}) · WMI/CIM Pendente`
+        ? rawIa.webReachable
+          ? `Rede OK (Portal :${rawIa.webPort ?? '--'} + PostgreSQL :${rawIa.postgresPort}) · WMI/CIM Pendente`
+          : `PostgreSQL :${rawIa.postgresPort} OK (${rawIa.postgresLatencyMs ?? 0}ms) · WMI/CIM Pendente`
         : srvsiplania.status === 'WARNING'
         ? 'SRVSIPLANIA com atenção preventiva (latência, CPU ou disco)'
-        : `Portal :${rawIa.webPort ?? '--'} & PostgreSQL OK · ${formatRamGb(rawIa.freeRamMb)} RAM livres`;
+        : rawIa.webReachable
+        ? `Portal :${rawIa.webPort ?? '--'} & PostgreSQL OK · ${formatRamGb(rawIa.freeRamMb)} RAM livres`
+        : `PostgreSQL :${rawIa.postgresPort} OK (${rawIa.postgresLatencyMs ?? 0}ms) · ${formatRamGb(rawIa.freeRamMb)} RAM livres`;
   }
 
   // 4. STATUS GLOBAL CONSOLIDADO
@@ -1099,7 +1150,7 @@ export function formatBriefingPlainTextSummary(b: InfraMorningBriefingRecord): s
     `- Discos: ${filesDisks}`,
     '',
     `3) *SRVSIPLANIA (${b.srvsiplania.host})* — ${b.srvsiplania.status}`,
-    `- Portal HTTP (:${b.srvsiplania.webPort ?? '--'}): ${b.srvsiplania.webReachable ? `Online (${b.srvsiplania.webLatencyMs ?? 0}ms)` : 'Offline/Sem dados'} · PostgreSQL (:${b.srvsiplania.postgresPort}): ${b.srvsiplania.postgresReachable ? `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)` : 'Offline/Sem dados'}`,
+    `- Portal HTTP (${b.srvsiplania.webReachable ? `:${b.srvsiplania.webPort ?? '--'}` : 'LAN'}): ${b.srvsiplania.webReachable ? `Online (${b.srvsiplania.webLatencyMs ?? 0}ms)` : b.srvsiplania.postgresReachable ? 'Sem porta HTTP exposta na LAN' : 'Offline/Sem dados'} · PostgreSQL (:${b.srvsiplania.postgresPort}): ${b.srvsiplania.postgresReachable ? `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)` : 'Offline/Sem dados'}`,
     `- SO/Discos: ${b.srvsiplania.cimAvailable ? `CPU ${b.srvsiplania.cpuPercent ?? '--'}% · RAM livre ${formatRamGb(b.srvsiplania.freeRamMb)} · ${iaDisks}` : iaDisks}`,
   ];
 

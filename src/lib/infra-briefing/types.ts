@@ -284,6 +284,7 @@ export interface InfraBriefingHistoryListItem {
 
 export interface InfraBriefingDashboardSnapshot {
   selectedBriefing: InfraMorningBriefingRecord;
+  liveBriefing?: InfraMorningBriefingRecord | null;
   history: InfraBriefingHistoryListItem[];
   liveObservedAt: string | null;
   pendingConnectorRefresh: boolean;

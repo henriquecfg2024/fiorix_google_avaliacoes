@@ -6,6 +6,7 @@ import {
   readDocumentTextInput,
   searchInput,
 } from '../src/lib/documental/contracts';
+import { PASTAS_FAVORITAS_PADRAO, RAIZES_DOCUMENTAL } from '../src/lib/documental/pastasFavoritas';
 
 const file = { rootId: 'judicial', relativePath: 'pasta/teste.pdf', name: 'teste.pdf', size: 10, modifiedAt: '2026-10-28T12:00:00.000Z' };
 describe('documental contracts', () => {
@@ -47,5 +48,31 @@ describe('documental contracts', () => {
     expect(connectorMessage.safeParse({ action: 'claim', connectorId: 'local' }).success).toBe(true);
     expect(connectorMessage.safeParse({ action: 'execute', connectorId: 'local', command: 'anything' }).success).toBe(false);
     expect(documentResult.safeParse({ files: [file], partial: false, unavailableRoots: [] }).success).toBe(true);
+  });
+  it('accepts 5-field cross-search query up to 260 chars and titulos_visualiza / titulos_online roots', () => {
+    const query5Campos =
+      '1037173-83.2024.8.26.0007 | Matrícula 160430 | 012.345.6789-1 | Requerente Nome Completo | Protocolo 645706 AC016401954';
+    expect(query5Campos.length).toBeLessThanOrEqual(260);
+    expect(searchInput.safeParse({ connectorId: '', query: query5Campos }).success).toBe(true);
+    expect(searchInput.safeParse({ connectorId: '', query: 'x'.repeat(260) }).success).toBe(true);
+    expect(searchInput.safeParse({ connectorId: '', query: 'x'.repeat(261) }).success).toBe(false);
+
+    expect(documentJobInput.safeParse({
+      connectorId: 'auto',
+      type: 'list_directory',
+      rootId: 'titulos_visualiza',
+      relativePath: '00645000',
+    }).success).toBe(true);
+    expect(documentJobInput.safeParse({
+      connectorId: 'auto',
+      type: 'read_document_text',
+      rootId: 'titulos_online',
+      relativePath: 'AC\\645706-AC016401954\\titulo.pdf',
+    }).success).toBe(true);
+
+    expect(RAIZES_DOCUMENTAL.some((r) => r.id === 'titulos_visualiza' && r.caminho === 'K:\\IMAGENS\\TITULOS-VISUALIZA')).toBe(true);
+    expect(RAIZES_DOCUMENTAL.some((r) => r.id === 'titulos_online' && r.caminho === 'K:\\IMAGENS\\Titulos_Online')).toBe(true);
+    expect(PASTAS_FAVORITAS_PADRAO.some((f) => f.rootId === 'titulos_visualiza')).toBe(true);
+    expect(PASTAS_FAVORITAS_PADRAO.some((f) => f.rootId === 'titulos_online')).toBe(true);
   });
 });

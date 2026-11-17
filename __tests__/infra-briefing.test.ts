@@ -6,6 +6,8 @@ import {
 } from '@/lib/infra-briefing/engine';
 import {
   consumePendingInfraBriefingDirective,
+  ingestInfraBriefingSample,
+  loadInfraBriefingDashboard,
   resetInfraBriefingMemoryForTests,
 } from '@/lib/infra-briefing/store';
 import type { RawInfraBriefingSample } from '@/lib/infra-briefing/types';
@@ -367,5 +369,61 @@ describe('Módulo Briefing Matinal da Infraestrutura (SRVSQL · SRVFILES · SRVS
     const getJson = await getRes.json();
     expect(getJson.selectedBriefing.srvfiles.host).toBe('SRVFILES');
     expect(getJson.selectedBriefing.srvsiplania.postgresReachable).toBe(true);
+  });
+
+  it('6. Calibração: bancos auxiliares pequenos em LOG_BACKUP, SRVSIPLANIA sem HTTP na LAN e STARTUP do SRVFILES não geram falso Crítico nem congelam briefing', async () => {
+    const calibratedSample = buildHealthySample({ trigger: 'STARTUP' });
+    calibratedSample.srvsql!.highLogBackupDatabases = [
+      { databaseName: 'SPCM_EPP', logUsedPercent: 75.3, logUsedMb: 54.2, logTotalMb: 72 },
+      { databaseName: 'MR', logUsedPercent: 99, logUsedMb: 8.1, logTotalMb: 8.2 },
+    ];
+    calibratedSample.srvfiles!.cpuPercent = 70;
+    calibratedSample.srvfiles!.connectorUptimeSeconds = 20;
+    calibratedSample.srvsiplania!.webReachable = false;
+    calibratedSample.srvsiplania!.webPort = null;
+    calibratedSample.srvsiplania!.webLatencyMs = null;
+    calibratedSample.srvsiplania!.httpStatusCode = null;
+    calibratedSample.srvsiplania!.postgresReachable = true;
+    calibratedSample.srvsiplania!.postgresLatencyMs = 92;
+
+    const evaluated = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-calib',
+      briefingDate: '2026-11-17',
+      generatedAt: '2026-11-17T11:46:54.000Z',
+      trigger: 'STARTUP',
+      sample: calibratedSample,
+    });
+
+    expect(evaluated.overallStatus).toBe('HEALTHY');
+    expect(evaluated.srvsql.status).toBe('HEALTHY');
+    expect(evaluated.srvfiles.status).toBe('HEALTHY');
+    expect(evaluated.srvsiplania.status).toBe('HEALTHY');
+    expect(evaluated.checks.find((c) => c.id === 'srvsql-log-backup')?.status).toBe('OK');
+    expect(evaluated.checks.find((c) => c.id === 'srvsiplania-web')?.status).toBe('NO_DATA');
+    expect(evaluated.preventiveActions).toHaveLength(0);
+
+    // STARTUP não congela o briefing consolidado do dia, e loadInfraBriefingDashboard expõe liveBriefing
+    const ingestStartup = await ingestInfraBriefingSample('tenant-calib', calibratedSample);
+    expect(ingestStartup.savedDailyBriefing).toBe(false);
+
+    const dash = await loadInfraBriefingDashboard('tenant-calib');
+    expect(dash.liveBriefing).toBeTruthy();
+    expect(dash.liveBriefing?.overallStatus).toBe('HEALTHY');
+    expect(dash.selectedBriefing.overallStatus).toBe('HEALTHY');
+
+    // Banco WEBRI ou grande (>= 1 GB) em LOG_BACKUP continua gerando alerta real
+    const webriLogSample = buildHealthySample();
+    webriLogSample.srvsql!.highLogBackupDatabases = [
+      { databaseName: 'WEBRI', logUsedPercent: 92, logUsedMb: 920, logTotalMb: 1000 },
+    ];
+    const webriEval = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-calib',
+      briefingDate: '2026-11-17',
+      generatedAt: '2026-11-17T12:00:00.000Z',
+      trigger: 'PERIODIC',
+      sample: webriLogSample,
+    });
+    expect(webriEval.srvsql.status).toBe('CRITICAL');
+    expect(webriEval.overallStatus).toBe('CRITICAL');
   });
 });

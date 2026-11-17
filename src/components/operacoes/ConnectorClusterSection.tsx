@@ -49,6 +49,8 @@ const DEFAULT_CARTORIO_ROOTS: EditableRoot[] = [
   { id: 'processos', label: 'Processos E-mail', path: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL' },
   { id: 'imagens', label: 'Imagens & Matrículas', path: 'K:\\IMAGENS' },
   { id: 'livro2', label: 'Livro 2 — Transcrições', path: 'K:\\IMAGENS\\LV2' },
+  { id: 'titulos_visualiza', label: 'Título Visualiza', path: 'K:\\IMAGENS\\TITULOS-VISUALIZA' },
+  { id: 'titulos_online', label: 'Títulos Online', path: 'K:\\IMAGENS\\Titulos_Online' },
 ];
 
 const UNC_SRVFILES_ROOTS: EditableRoot[] = [
@@ -56,6 +58,8 @@ const UNC_SRVFILES_ROOTS: EditableRoot[] = [
   { id: 'processos', label: 'Processos E-mail', path: '\\\\srvfiles\\VOL1\\PROCESSOS - ENVIADOS POR E-MAIL' },
   { id: 'imagens', label: 'Imagens & Matrículas', path: '\\\\srvfiles\\IMAGENS\\IMAGENS' },
   { id: 'livro2', label: 'Livro 2 — Transcrições', path: '\\\\srvfiles\\IMAGENS\\IMAGENS\\LV2' },
+  { id: 'titulos_visualiza', label: 'Título Visualiza', path: '\\\\srvfiles\\IMAGENS\\IMAGENS\\TITULOS-VISUALIZA' },
+  { id: 'titulos_online', label: 'Títulos Online', path: '\\\\srvfiles\\IMAGENS\\IMAGENS\\Titulos_Online' },
 ];
 
 export function ConnectorClusterSection({

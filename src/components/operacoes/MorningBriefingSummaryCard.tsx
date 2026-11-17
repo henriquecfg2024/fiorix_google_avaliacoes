@@ -173,7 +173,7 @@ export function MorningBriefingSummaryCard() {
 
   if (!data) return null;
 
-  const b = data.selectedBriefing;
+  const b = data.liveBriefing ?? data.selectedBriefing;
   const style = getOverallStyle(b.overallStatus);
   const HeroIcon = style.Icon;
   const isWaitingConnector = refreshing || data.pendingConnectorRefresh;
@@ -217,7 +217,11 @@ export function MorningBriefingSummaryCard() {
       status: b.srvsiplania.status,
       Icon: Cpu,
       summary: b.srvsiplania.available
-        ? `Portal ${b.srvsiplania.webReachable ? `${b.srvsiplania.webLatencyMs ?? 0}ms` : 'OFF'} · PG ${b.srvsiplania.postgresReachable ? `${b.srvsiplania.postgresLatencyMs ?? 0}ms` : 'OFF'}`
+        ? b.srvsiplania.webReachable
+          ? `Portal ${b.srvsiplania.webLatencyMs ?? 0}ms · PG ${b.srvsiplania.postgresReachable ? `${b.srvsiplania.postgresLatencyMs ?? 0}ms` : 'OFF'}`
+          : b.srvsiplania.postgresReachable
+          ? `PostgreSQL :${b.srvsiplania.postgresPort} Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)`
+          : 'Portal e PostgreSQL indisponíveis'
         : b.srvsiplania.headline,
     },
   ];

@@ -1,8 +1,16 @@
-export type RaizId = 'vol1' | 'imagens' | 'deptos' | 'livro2' | 'processos' | 'minutas';
+export type RaizId =
+  | 'vol1'
+  | 'imagens'
+  | 'deptos'
+  | 'livro2'
+  | 'processos'
+  | 'minutas'
+  | 'titulos_visualiza'
+  | 'titulos_online';
 
 export interface DefinicaoRaizDocumental {
   id: RaizId;
-  sigla: 'VOL1' | 'IMAGENS' | 'DEP' | 'LV2' | 'PROC' | 'USUC';
+  sigla: 'VOL1' | 'IMAGENS' | 'DEP' | 'LV2' | 'PROC' | 'USUC' | 'TVIS' | 'TONL';
   unidade: 'VOL1' | 'IMAGENS' | 'DEP';
   rotulo: string;
   rotuloCurto: string;
@@ -86,6 +94,30 @@ export const RAIZES_DOCUMENTAL: DefinicaoRaizDocumental[] = [
     aliases: ['minutas', 'usucapiao'],
     principal: false,
     prefixoUnidade: 'usucapiao',
+  },
+  {
+    id: 'titulos_visualiza',
+    sigla: 'TVIS',
+    unidade: 'IMAGENS',
+    rotulo: 'Título Visualiza',
+    rotuloCurto: 'Título Visualiza (K:)',
+    caminho: 'K:\\IMAGENS\\TITULOS-VISUALIZA',
+    descricao: 'Títulos e prenotações digitalizados por bloco de 1.000 (.TIF / .PDF)',
+    aliases: ['titulos_visualiza', 'titulos-visualiza', 'titulo-visualiza'],
+    principal: false,
+    prefixoUnidade: 'titulos-visualiza',
+  },
+  {
+    id: 'titulos_online',
+    sigla: 'TONL',
+    unidade: 'IMAGENS',
+    rotulo: 'Títulos Online',
+    rotuloCurto: 'Títulos Online (K:)',
+    caminho: 'K:\\IMAGENS\\Titulos_Online',
+    descricao: 'Títulos eletrônicos AC, PH, IN e Processos Digitais (.PDF)',
+    aliases: ['titulos_online', 'titulos-online'],
+    principal: false,
+    prefixoUnidade: 'titulos_online',
   },
 ];
 
@@ -225,7 +257,27 @@ export const PASTAS_FAVORITAS_PADRAO: PastaFavorita[] = [
     unidade: 'DEP',
     adicionadoEm: 4,
   },
+  {
+    id: gerarIdPastaFavorita('titulos_visualiza', ''),
+    rootId: 'titulos_visualiza',
+    relativePath: '',
+    rotulo: 'TITULOS-VISUALIZA',
+    caminhoExibicao: 'K:\\IMAGENS\\TITULOS-VISUALIZA',
+    unidade: 'IMAGENS',
+    adicionadoEm: 5,
+  },
+  {
+    id: gerarIdPastaFavorita('titulos_online', ''),
+    rootId: 'titulos_online',
+    relativePath: '',
+    rotulo: 'Títulos Online',
+    caminhoExibicao: 'K:\\IMAGENS\\Titulos_Online',
+    unidade: 'IMAGENS',
+    adicionadoEm: 6,
+  },
 ];
+
+const CHAVE_MIGRACAO_TITULOS = 'fiorix_pastas_favoritas_titulos_migrated_v1';
 
 export function lerPastasFavoritas(): PastaFavorita[] {
   if (typeof window === 'undefined') return PASTAS_FAVORITAS_PADRAO;
@@ -233,11 +285,12 @@ export function lerPastasFavoritas(): PastaFavorita[] {
     const raw = window.localStorage.getItem(CHAVE_PASTAS_FAVORITAS);
     if (!raw) {
       window.localStorage.setItem(CHAVE_PASTAS_FAVORITAS, JSON.stringify(PASTAS_FAVORITAS_PADRAO));
+      window.localStorage.setItem(CHAVE_MIGRACAO_TITULOS, '1');
       return PASTAS_FAVORITAS_PADRAO;
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return PASTAS_FAVORITAS_PADRAO;
-    return parsed.filter(
+    const validos = parsed.filter(
       (item): item is PastaFavorita =>
         !!item &&
         typeof item === 'object' &&
@@ -246,6 +299,21 @@ export function lerPastasFavoritas(): PastaFavorita[] {
         typeof item.relativePath === 'string' &&
         typeof item.rotulo === 'string',
     );
+    if (window.localStorage.getItem(CHAVE_MIGRACAO_TITULOS) !== '1') {
+      const novos = [...validos];
+      for (const padrao of PASTAS_FAVORITAS_PADRAO) {
+        if (
+          (padrao.rootId === 'titulos_visualiza' || padrao.rootId === 'titulos_online') &&
+          !novos.some((f) => f.id === padrao.id)
+        ) {
+          novos.push(padrao);
+        }
+      }
+      window.localStorage.setItem(CHAVE_PASTAS_FAVORITAS, JSON.stringify(novos));
+      window.localStorage.setItem(CHAVE_MIGRACAO_TITULOS, '1');
+      return novos;
+    }
+    return validos;
   } catch {
     return PASTAS_FAVORITAS_PADRAO;
   }

@@ -327,7 +327,9 @@ export async function ingestInfraBriefingSample(
   const shouldPersistToday =
     sample.trigger === 'SCHEDULED_0715' ||
     sample.trigger === 'MANUAL_REFRESH' ||
-    (isWorkdayMorningOrLater && !existingToday);
+    (sample.trigger !== 'STARTUP' &&
+      isWorkdayMorningOrLater &&
+      (!existingToday || !existingToday.isOfficial0715));
 
   if (shouldPersistToday) {
     const previous = await getPreviousBriefingRecord(tenantId, clock.dateStr);
@@ -585,22 +587,55 @@ export async function loadInfraBriefingDashboard(
       }));
   }
 
+  const effectiveLiveSample = liveSample ?? (await buildFallbackSrvsqlFromPerfCache(tenantId));
+  const todayPrevious = await getPreviousBriefingRecord(tenantId, todayDateBrt);
+  const liveBriefing = effectiveLiveSample
+    ? evaluateInfraMorningBriefing({
+        tenantId,
+        briefingDate: todayDateBrt,
+        generatedAt: new Date().toISOString(),
+        trigger: effectiveLiveSample.trigger || 'PERIODIC',
+        sample: effectiveLiveSample,
+        previousBriefing: todayPrevious,
+      })
+    : null;
+
   const savedSelected = await getSavedBriefingForDate(tenantId, targetDate);
   let selectedBriefing: InfraMorningBriefingRecord;
 
-  if (savedSelected) {
+  if (savedSelected && (savedSelected.isOfficial0715 || targetDate !== todayDateBrt || !liveBriefing)) {
     selectedBriefing = savedSelected;
   } else if (targetDate === todayDateBrt) {
-    const effectiveSample = liveSample ?? (await buildFallbackSrvsqlFromPerfCache(tenantId));
-    const previous = await getPreviousBriefingRecord(tenantId, todayDateBrt);
-    selectedBriefing = evaluateInfraMorningBriefing({
-      tenantId,
-      briefingDate: todayDateBrt,
-      generatedAt: new Date().toISOString(),
-      trigger: effectiveSample?.trigger || 'PERIODIC',
-      sample: effectiveSample,
-      previousBriefing: previous,
-    });
+    if (liveBriefing) {
+      selectedBriefing = liveBriefing;
+      if (
+        savedSelected &&
+        !savedSelected.isOfficial0715 &&
+        savedSelected.overallStatus !== liveBriefing.overallStatus
+      ) {
+        await upsertMorningBriefing(tenantId, liveBriefing);
+        history = history.map((item) =>
+          item.briefingDate === todayDateBrt
+            ? {
+                ...item,
+                generatedAt: liveBriefing.generatedAt,
+                trigger: liveBriefing.trigger,
+                overallStatus: liveBriefing.overallStatus,
+                executiveHeadline: liveBriefing.executiveHeadline,
+              }
+            : item,
+        );
+      }
+    } else {
+      selectedBriefing = evaluateInfraMorningBriefing({
+        tenantId,
+        briefingDate: todayDateBrt,
+        generatedAt: new Date().toISOString(),
+        trigger: 'PERIODIC',
+        sample: null,
+        previousBriefing: todayPrevious,
+      });
+    }
   } else {
     selectedBriefing = evaluateInfraMorningBriefing({
       tenantId,
@@ -623,6 +658,7 @@ export async function loadInfraBriefingDashboard(
 
   return {
     selectedBriefing,
+    liveBriefing,
     history,
     liveObservedAt: liveSample?.observedAt ?? selectedBriefing.observedAt,
     pendingConnectorRefresh,

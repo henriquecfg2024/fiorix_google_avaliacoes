@@ -14,8 +14,8 @@ export const searchInput = z.object({
   connectorId: connectorIdSchema,
   type: z.literal('search').optional().default('search'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/).optional(),
-  // 200: a Busca Cruzada envia até 4 campos separados por " | "
-  query: z.string().trim().min(2).max(200),
+  // 260: a Busca Cruzada envia até 5 campos separados por " | "
+  query: z.string().trim().min(2).max(260),
   forceFresh: z.boolean().optional(),
 }).strict();
 

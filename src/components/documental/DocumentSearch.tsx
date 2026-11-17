@@ -149,6 +149,7 @@ interface HistoricoNavegacao {
     matricula: string;
     contribuinte: string;
     requerente: string;
+    titulo?: string;
   };
   origemTitulo?: string;
   totalDocumentos?: number;
@@ -185,6 +186,34 @@ export function getRootInfo(rootId: string, relativePath?: string): RootConfigDi
       pathDisplay: 'K:\\IMAGENS\\SETORES',
       badgeClass: 'bg-teal-950/70 text-teal-300 border-teal-500/40 shadow-teal-500/10 hover:bg-teal-900/60',
       dotClass: 'bg-teal-400',
+    };
+  }
+  if (
+    norm === 'titulos_visualiza' ||
+    norm === 'titulos-visualiza' ||
+    ((norm === 'imagens' || norm === 'acervo') && /^titulos-visualiza(?:[\\/]|$)/i.test(relClean))
+  ) {
+    return {
+      label: 'Título Visualiza (K:)',
+      drive: 'K:',
+      fullName: 'Títulos e Prenotações Digitalizados (K:\\IMAGENS\\TITULOS-VISUALIZA)',
+      pathDisplay: 'K:\\IMAGENS\\TITULOS-VISUALIZA',
+      badgeClass: 'bg-sky-950/70 text-sky-300 border-sky-500/40 shadow-sky-500/10 hover:bg-sky-900/60',
+      dotClass: 'bg-sky-400',
+    };
+  }
+  if (
+    norm === 'titulos_online' ||
+    norm === 'titulos-online' ||
+    ((norm === 'imagens' || norm === 'acervo') && /^titulos_online(?:[\\/]|$)/i.test(relClean))
+  ) {
+    return {
+      label: 'Títulos Online (K:)',
+      drive: 'K:',
+      fullName: 'Títulos Eletrônicos AC/PH/IN e Processos Digitais (K:\\IMAGENS\\Titulos_Online)',
+      pathDisplay: 'K:\\IMAGENS\\Titulos_Online',
+      badgeClass: 'bg-indigo-950/70 text-indigo-300 border-indigo-500/40 shadow-indigo-500/10 hover:bg-indigo-900/60',
+      dotClass: 'bg-indigo-400',
     };
   }
   if (norm === 'vol1' || norm === 'h') {
@@ -256,6 +285,12 @@ export function formatCartorioPath(rootId: string, relativePath: string): string
   if (info.pathDisplay.endsWith('\\SETORES') && rel.toLowerCase().startsWith('setores\\')) {
     return `${info.pathDisplay}\\${rel.slice(8)}`;
   }
+  if (info.pathDisplay.endsWith('\\TITULOS-VISUALIZA') && rel.toLowerCase().startsWith('titulos-visualiza\\')) {
+    return `${info.pathDisplay}\\${rel.slice(18)}`;
+  }
+  if (info.pathDisplay.endsWith('\\Titulos_Online') && rel.toLowerCase().startsWith('titulos_online\\')) {
+    return `${info.pathDisplay}\\${rel.slice(15)}`;
+  }
   return `${info.pathDisplay}\\${rel}`;
 }
 
@@ -293,7 +328,11 @@ function normalizarEstadoBusca(state: SearchState | null): SearchState | null {
   if (!state?.result?.files || state.result.files.length <= 1) return state;
   const prioridade = (id: string) => {
     const n = (id || '').toLowerCase();
-    return n === 'livro2' ? 3 : n === 'minutas' || n === 'processos' ? 2 : 1;
+    return n === 'livro2' || n === 'titulos_visualiza' || n === 'titulos_online'
+      ? 3
+      : n === 'minutas' || n === 'processos'
+      ? 2
+      : 1;
   };
   const mapa = new Map<string, { idx: number; item: Match }>();
   state.result.files.forEach((f, idx) => {
@@ -363,6 +402,7 @@ export function DocumentSearch({
   const [cruzadaMatricula, setCruzadaMatricula] = useState('');
   const [cruzadaContribuinte, setCruzadaContribuinte] = useState('');
   const [cruzadaRequerente, setCruzadaRequerente] = useState('');
+  const [cruzadaTitulo, setCruzadaTitulo] = useState('');
 
   // Opções de Intervalo de Páginas do OCR
   const [ocrModoPagina, setOcrModoPagina] = useState<'padrao' | 'personalizado' | 'todas'>('padrao');
@@ -576,7 +616,12 @@ export function DocumentSearch({
 
     // Sempre que houver número de matrícula no processo de usucapião, garante que o arquivo da imagem
     // (LV2 em K:\IMAGENS\LV2) esteja incluído no resultado da busca
-    if (normalizada.matricula_transcricao && !/transcri[çc][ãa]o/i.test(normalizada.matricula_transcricao)) {
+    if (
+      normalizada.matricula_transcricao &&
+      !/transcri[çc][ãa]o|planta\s+fiscal|setor|protocolo|prenota[çc][ãa]o|t[íi]tulo/i.test(
+        normalizada.matricula_transcricao,
+      )
+    ) {
       void anexarImagemLv2AoResultado(normalizada.matricula_transcricao, arquivo);
     }
   }
@@ -1162,6 +1207,7 @@ export function DocumentSearch({
             matricula: cruzadaMatricula,
             contribuinte: cruzadaContribuinte,
             requerente: cruzadaRequerente,
+            titulo: cruzadaTitulo,
           } : undefined,
           origemTitulo: origemTitulo || `Processo / Termo "${query}"`,
           totalDocumentos: job?.result?.files?.length ?? 0,
@@ -1186,15 +1232,22 @@ export function DocumentSearch({
 
   function handleSearchCruzada(event: FormEvent) {
     event.preventDefault();
+    const tituloTrim = cruzadaTitulo.trim();
+    const criterioTitulo = tituloTrim
+      ? /^[0-9.\-]+$/.test(tituloTrim)
+        ? `Protocolo ${tituloTrim}`
+        : tituloTrim
+      : '';
     const termos = [
       cruzadaProcesso.trim(),
       cruzadaMatricula.trim(),
       cruzadaContribuinte.trim(),
       cruzadaRequerente.trim(),
+      criterioTitulo,
     ].filter(Boolean);
 
     if (termos.length === 0) {
-      setError('Preencha ao menos um dos campos da Busca Cruzada (Processo, Matrícula, SQL ou Requerente).');
+      setError('Preencha ao menos um dos campos da Busca Cruzada (Processo, Matrícula, SQL, Requerente ou Protocolo/Título).');
       return;
     }
     // " | " separa os campos: o Connector trata cada um como critério próprio e une os resultados
@@ -1226,7 +1279,12 @@ export function DocumentSearch({
   const extracaoBgTentadaRef = useRef<Set<string>>(new Set());
 
   async function anexarImagemLv2AoResultado(termoMatricula: string, arquivoProcesso?: Match | null) {
-    if (!termoMatricula || /transcri[çc][ãa]o/i.test(termoMatricula)) return;
+    if (
+      !termoMatricula ||
+      /transcri[çc][ãa]o|planta\s+fiscal|setor|protocolo|prenota[çc][ãa]o|t[íi]tulo/i.test(termoMatricula)
+    ) {
+      return;
+    }
     const numeros = termoMatricula.replace(/[^\d]/g, '');
     const numInt = parseInt(numeros, 10);
     if (!numeros || numeros.length < 2 || isNaN(numInt) || numInt <= 0) return;
@@ -1338,12 +1396,21 @@ export function DocumentSearch({
     if (files.length === 0) return;
 
     const ehImagemAcervo = (nome: string) => /\.(?:ken|tiff?)$/i.test(nome);
-    const arquivosProcesso = files.filter(f => !ehImagemAcervo(f.name));
+    const ehArquivoTitulo = (f: Match) =>
+      f.rootId === 'titulos_visualiza' ||
+      f.rootId === 'titulos_online' ||
+      /(?:^|[\\/])(?:titulos-visualiza|titulos_online)[\\/]/i.test(f.relativePath || '');
+    const arquivosProcesso = files.filter(f => !ehImagemAcervo(f.name) && !ehArquivoTitulo(f));
     if (arquivosProcesso.length === 0) return;
 
     const matriculasConhecidas = new Map<number, { texto: string; origem?: Match }>();
     const registrarSeMatricula = (val?: string | null, origem?: Match) => {
-      if (!val || /transcri[çc][ãa]o/i.test(val)) return;
+      if (
+        !val ||
+        /transcri[çc][ãa]o|planta\s+fiscal|setor|protocolo|prenota[çc][ãa]o|t[íi]tulo/i.test(val)
+      ) {
+        return;
+      }
       const num = parseInt(val.replace(/[^\d]/g, ''), 10);
       if (!isNaN(num) && num >= 10 && !matriculasConhecidas.has(num)) {
         matriculasConhecidas.set(num, { texto: val, origem });
@@ -1425,7 +1492,12 @@ export function DocumentSearch({
               if (extraido) {
                 const normalizado = normalizarDadosExtraidos(extraido, candidato);
                 setCachedExtracao(fileKey, normalizado);
-                if (normalizado.matricula_transcricao && !/transcri[çc][ãa]o/i.test(normalizado.matricula_transcricao)) {
+                if (
+                  normalizado.matricula_transcricao &&
+                  !/transcri[çc][ãa]o|planta\s+fiscal|setor|protocolo|prenota[çc][ãa]o|t[íi]tulo/i.test(
+                    normalizado.matricula_transcricao,
+                  )
+                ) {
                   await anexarImagemLv2AoResultado(normalizado.matricula_transcricao, candidato);
                 }
               }
@@ -1452,6 +1524,7 @@ export function DocumentSearch({
       setCruzadaMatricula(anterior.cruzadaParams.matricula);
       setCruzadaContribuinte(anterior.cruzadaParams.contribuinte);
       setCruzadaRequerente(anterior.cruzadaParams.requerente);
+      setCruzadaTitulo(anterior.cruzadaParams.titulo || '');
     }
     if (anterior.job) {
       setJob(anterior.job);
@@ -1702,6 +1775,10 @@ export function DocumentSearch({
     const sessaoInferida =
       rootLower === 'setores' || relUpper.includes('SETORES')
         ? 'SETORES'
+        : rootLower === 'titulos_visualiza' || relUpper.includes('TITULOS-VISUALIZA')
+        ? 'TITULOS-VISUALIZA'
+        : rootLower === 'titulos_online' || relUpper.includes('TITULOS_ONLINE')
+        ? 'Titulos_Online'
         : rootLower === 'lv3' || relUpper.includes('LV3')
         ? 'LV3'
         : rootLower === 'processos'
@@ -1800,6 +1877,10 @@ export function DocumentSearch({
       const sessaoInferida =
         rootLower === 'setores' || relUpper.includes('SETORES')
           ? 'SETORES'
+          : rootLower === 'titulos_visualiza' || relUpper.includes('TITULOS-VISUALIZA')
+          ? 'TITULOS-VISUALIZA'
+          : rootLower === 'titulos_online' || relUpper.includes('TITULOS_ONLINE')
+          ? 'Titulos_Online'
           : rootLower === 'lv3' || relUpper.includes('LV3')
           ? 'LV3'
           : rootLower === 'processos'
@@ -2235,6 +2316,15 @@ export function DocumentSearch({
                 disabled={busy || !!processandoAcao}
                 className="h-10 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
               />
+              <input
+                value={cruzadaTitulo}
+                onChange={event => setCruzadaTitulo(event.target.value)}
+                placeholder="Protocolo / Título (AC, PH)"
+                aria-label="Protocolo, Prenotação ou Título Online (AC, PH)"
+                title="Protocolo, Prenotação ou Código Central (ex.: 645706, AC016401954, PH000633289)"
+                disabled={busy || !!processandoAcao}
+                className="h-10 w-full sm:w-auto sm:min-w-[155px] sm:flex-1 rounded-xl border-2 border-cyan-400/60 bg-[#060C1C] px-3 text-xs sm:text-sm font-medium text-white focus:border-cyan-300 focus:outline-none placeholder:text-slate-300/75"
+              />
               <div className="flex w-full sm:w-auto shrink-0 items-center justify-end gap-2">
                 {historicoBuscas.length > 0 && (
                   <button
@@ -2402,7 +2492,7 @@ export function DocumentSearch({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
                 {RAIZES_DOCUMENTAL.map(r => {
                   const isFav = verificarPastaFavorita(pastasFavoritas, r.id, '');
                   const selecionada = pastaFiltro?.rootId === r.id && !pastaFiltro.relativePath;
@@ -2536,8 +2626,10 @@ export function DocumentSearch({
             <div className="space-y-2 rounded-lg border border-white/10 bg-[#080D1A] px-3 py-2.5 animate-in slide-in-from-top-1 duration-200">
               <p className="text-[11px] leading-relaxed text-white/50">
                 Busca recursiva em <strong className="text-white/75">W:\USUCAPIAO</strong> (minutas dos escreventes),{' '}
-                <strong className="text-white/75">H:\PROCESSOS - ENVIADOS POR E-MAIL</strong> e{' '}
-                <strong className="text-white/75">K:\IMAGENS\LV2</strong>. Processamento local: nenhum arquivo original deixa a rede do cartório.
+                <strong className="text-white/75">H:\PROCESSOS - ENVIADOS POR E-MAIL</strong>,{' '}
+                <strong className="text-white/75">K:\IMAGENS\LV2</strong>,{' '}
+                <strong className="text-white/75">K:\IMAGENS\TITULOS-VISUALIZA</strong> e{' '}
+                <strong className="text-white/75">K:\IMAGENS\Titulos_Online</strong>. Processamento local: nenhum arquivo original deixa a rede do cartório.
               </p>
               <div className="flex flex-wrap items-center gap-4 text-xs">
                 <span className="font-semibold text-white/70">OCR dos PDFs:</span>

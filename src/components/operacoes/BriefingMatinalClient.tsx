@@ -649,9 +649,9 @@ export function BriefingMatinalClient({
                   tone={
                     b.srvfiles.cpuPercent === null
                       ? 'neutral'
-                      : b.srvfiles.cpuPercent >= 85
+                      : b.srvfiles.cpuPercent >= 92
                       ? 'crit'
-                      : b.srvfiles.cpuPercent >= 70
+                      : b.srvfiles.cpuPercent >= 80
                       ? 'warn'
                       : 'ok'
                   }
@@ -752,18 +752,28 @@ export function BriefingMatinalClient({
                       ? 'Sem dados'
                       : b.srvsiplania.webReachable
                       ? `Online :${b.srvsiplania.webPort} (${b.srvsiplania.webLatencyMs ?? 0}ms)`
+                      : b.srvsiplania.postgresReachable
+                      ? 'Porta interna / N/A'
                       : 'Inacessível'
                   }
                   tone={
                     b.srvsiplania.webReachable === null
                       ? 'neutral'
                       : !b.srvsiplania.webReachable
-                      ? 'crit'
+                      ? b.srvsiplania.postgresReachable
+                        ? 'neutral'
+                        : 'crit'
                       : (b.srvsiplania.webLatencyMs ?? 0) > 1500
                       ? 'warn'
                       : 'ok'
                   }
-                  subValue={b.srvsiplania.httpStatusCode ? `HTTP ${b.srvsiplania.httpStatusCode}` : 'Portas HTTP/HTTPS'}
+                  subValue={
+                    b.srvsiplania.httpStatusCode
+                      ? `HTTP ${b.srvsiplania.httpStatusCode}`
+                      : !b.srvsiplania.webReachable && b.srvsiplania.postgresReachable
+                      ? 'Sem HTTP exposto na LAN'
+                      : 'Portas HTTP/HTTPS'
+                  }
                 />
                 <MetricTile
                   label={`PostgreSQL (:${b.srvsiplania.postgresPort})`}

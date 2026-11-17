@@ -13,6 +13,9 @@ const RATE_LIMIT_WINDOW_MS = 60_000; // 60 segundos
 const MAX_REQUESTS_PER_WINDOW = 60;
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
+let lastStagingPruneMs = 0;
+const STAGING_PRUNE_INTERVAL_MS = 30 * 60_000;
+
 function checkConnectorRateLimit(connectorId: string): { allowed: boolean; remaining: number } {
   const now = Date.now();
   const entry = rateLimitMap.get(connectorId);
@@ -318,7 +321,9 @@ export async function POST(req: Request) {
           connectorId: connector_id,
           source,
           batchId: batch_id,
-          records: records as any,
+          // Unpack final e ConnectorSyncRecord já foram concluídos acima;
+          // mantemos [] no marcador de idempotência para evitar duplicação massiva em JSONB.
+          records: [],
           chunkIndex: chunk_index,
           chunkCount: chunk_count,
           syncMode: sync_mode,
@@ -397,6 +402,35 @@ export async function POST(req: Request) {
       });
     } catch (error) {
       console.warn('SYNC_METADATA_WARNING: source status update failed', error);
+    }
+
+    if (completed && !process.env.VITEST && process.env.NODE_ENV !== 'test') {
+      const nowMs = Date.now();
+      if (
+        nowMs - lastStagingPruneMs >= STAGING_PRUNE_INTERVAL_MS &&
+        typeof prisma.$executeRawUnsafe === 'function'
+      ) {
+        lastStagingPruneMs = nowMs;
+        void prisma
+          .$executeRawUnsafe(
+            `
+            DELETE FROM public."ConnectorSyncStaging"
+            WHERE id IN (
+              SELECT s.id
+              FROM public."ConnectorSyncStaging" s
+              INNER JOIN public."ConnectorSyncBatch" b
+                ON b."tenantId" = s."tenantId"
+               AND b."connectorId" = s."connectorId"
+               AND b.source = s.source
+               AND b."batchId" = s."batchId"
+              WHERE b.status = 'completed'
+                AND s."createdAt" < NOW() - INTERVAL '7 days'
+              LIMIT 2000
+            );
+          `,
+          )
+          .catch(() => {});
+      }
     }
 
     if (isConnectorVerboseLogEnabled()) {
