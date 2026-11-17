@@ -31,6 +31,7 @@ import { attachRecordKey } from './recordKey.js';
 import { sendSyncBatch, sendHeartbeat, resetApiClient } from './api.js';
 import { getDocumentWorkerTelemetry } from './document-worker.js';
 import { collectAndSendSrvsqlPerformance } from './srvsql-telemetry.js';
+import { collectAndSendInfraBriefing } from './infra-briefing-telemetry.js';
 import { retryChunkedBatch } from './chunkRetry.js';
 import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
@@ -118,6 +119,8 @@ export class Scheduler {
   private srvsqlTelemetryIntervalId?: NodeJS.Timeout;
   private srvsqlInitialTimeoutId?: NodeJS.Timeout;
   private lastSrvsqlSampleAtMs = 0;
+  private infraBriefingIntervalId?: NodeJS.Timeout;
+  private infraBriefingInitialTimeoutId?: NodeJS.Timeout;
   private isProcessingQueue = false;
   private db: DatabaseSync;
   private activeLocks = new Set<string>();
@@ -126,6 +129,7 @@ export class Scheduler {
   private lastMorningReconnectDate: string | null = null;
   private lastMorningReconnectOk: boolean | null = null;
   private lastMorningPingDate: string | null = null;
+  private lastMorningBriefingDate: string | null = null;
   private startupCatchupScheduledCount = 0;
   private lastCpuUsage = process.cpuUsage();
   private lastCpuSampleTimeMs = Date.now();
@@ -354,6 +358,22 @@ export class Scheduler {
         });
       }, 30_000);
       this.srvsqlTelemetryIntervalId.unref?.();
+
+      this.infraBriefingInitialTimeoutId = setTimeout(() => {
+        if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
+        collectAndSendInfraBriefing('STARTUP', this.db).catch((err) => {
+          logger.warn(`[INFRA_BRIEFING] Falha na coleta inicial: ${err?.message || err}`);
+        });
+      }, 12_000);
+      this.infraBriefingInitialTimeoutId.unref?.();
+
+      this.infraBriefingIntervalId = setInterval(() => {
+        if (!this.isRunning || !runtimeDirective.shouldRunSqlSync()) return;
+        collectAndSendInfraBriefing('PERIODIC', this.db).catch((err) => {
+          logger.warn(`[INFRA_BRIEFING] Falha no ciclo periódico: ${err?.message || err}`);
+        });
+      }, 300_000);
+      this.infraBriefingIntervalId.unref?.();
     }
   }
 
@@ -416,9 +436,13 @@ export class Scheduler {
     if (this.directiveLoopId) clearInterval(this.directiveLoopId);
     if (this.srvsqlTelemetryIntervalId) clearInterval(this.srvsqlTelemetryIntervalId);
     if (this.srvsqlInitialTimeoutId) clearTimeout(this.srvsqlInitialTimeoutId);
+    if (this.infraBriefingIntervalId) clearInterval(this.infraBriefingIntervalId);
+    if (this.infraBriefingInitialTimeoutId) clearTimeout(this.infraBriefingInitialTimeoutId);
     this.directiveLoopId = undefined;
     this.srvsqlTelemetryIntervalId = undefined;
     this.srvsqlInitialTimeoutId = undefined;
+    this.infraBriefingIntervalId = undefined;
+    this.infraBriefingInitialTimeoutId = undefined;
     for (const t of this.catchupTimeouts) clearTimeout(t);
     this.catchupTimeouts = [];
     this.isRunning = false;
@@ -630,6 +654,23 @@ export class Scheduler {
       logger.info(`[MORNING_PING] Disparo imediato de heartbeat matinal às 07:00:00 (${sp.dateStr}).`);
       this.sendTelemetryPing().catch((pingErr) => {
         logger.warn(`[MORNING_PING] Falha no disparo do ping matinal: ${pingErr.message}`);
+      });
+    }
+
+    // 2b. Disparo oficial do Briefing Matinal dos 3 servidores às 07:15:05 BRT (seg-sab)
+    if (
+      sp.dayOfWeek >= 1 &&
+      sp.dayOfWeek <= 6 &&
+      sp.hour === 7 &&
+      sp.minute === 15 &&
+      sp.second === 5 &&
+      this.lastMorningBriefingDate !== sp.dateStr &&
+      runtimeDirective.shouldRunSqlSync()
+    ) {
+      this.lastMorningBriefingDate = sp.dateStr;
+      logger.info(`[INFRA_BRIEFING] Disparando coleta oficial do Briefing Matinal às 07:15:05 (${sp.dateStr}).`);
+      collectAndSendInfraBriefing('SCHEDULED_0715', this.db).catch((briefErr) => {
+        logger.warn(`[INFRA_BRIEFING] Falha na coleta matinal das 07:15: ${briefErr?.message || briefErr}`);
       });
     }
 

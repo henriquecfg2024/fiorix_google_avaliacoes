@@ -75,6 +75,10 @@ const envSchema = z.object({
   RECONCILIATION_LOOKBACK_DAYS: z.coerce.number().int().positive().default(7),
   ZABBIX_API_URL: z.string().optional().default(''),
   ZABBIX_API_TOKEN: z.string().optional().default(''),
+  SIPLANIA_HOST: z.string().default('10.0.0.6'),
+  SIPLANIA_NAME: z.string().default('SRVSIPLANIA'),
+  SIPLANIA_HTTP_PORTS: z.string().default('80,443,8080,3000,5000,8000'),
+  SIPLANIA_POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
 });
 
 const parsedEnv = envSchema.safeParse({

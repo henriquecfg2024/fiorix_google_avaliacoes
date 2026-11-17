@@ -83,6 +83,7 @@ export interface ConnectorDirective {
   latestCheckpoints?: Record<string, CloudCheckpointEntry> | null;
   pendingUpdate?: PendingUpdateDirective | null;
   realtimeWakeup?: RealtimeWakeupDirective | null;
+  forceInfraBriefingAt?: string | null;
 }
 
 const FORBIDDEN_SECRET_KEY_PATTERN = /(password|passwd|secret|token|credential|apikey|api_key|private_key)/i;
@@ -245,6 +246,7 @@ export function advanceCheckpointsFromCloud(
 type ConfigChangeListener = (config: ConnectorRemoteConfig, configVersion: number) => void;
 type UpdateDirectiveListener = (pending: PendingUpdateDirective) => void;
 type RealtimeWakeupListener = (cfg: RealtimeWakeupDirective | null) => void;
+type ForceInfraBriefingListener = (requestedAt: string) => void;
 
 class RuntimeDirectiveManager {
   private state: OperationalState;
@@ -255,9 +257,11 @@ class RuntimeDirectiveManager {
   private remoteConfig: ConnectorRemoteConfig = {};
   private lastDirectiveAt: string | null = null;
   private realtimeWakeup: RealtimeWakeupDirective | null = null;
+  private lastHandledForceInfraBriefingAt: string | null = null;
   private configListeners = new Set<ConfigChangeListener>();
   private updateListeners = new Set<UpdateDirectiveListener>();
   private realtimeWakeupListeners = new Set<RealtimeWakeupListener>();
+  private forceInfraBriefingListeners = new Set<ForceInfraBriefingListener>();
   private cacheFilePath: string;
 
   constructor() {
@@ -322,7 +326,9 @@ class RuntimeDirectiveManager {
     this.remoteConfig = {};
     this.lastDirectiveAt = null;
     this.realtimeWakeup = null;
+    this.lastHandledForceInfraBriefingAt = null;
     this.realtimeWakeupListeners.clear();
+    this.forceInfraBriefingListeners.clear();
   }
 
   public onConfigChanged(listener: ConfigChangeListener): () => void {
@@ -338,6 +344,11 @@ class RuntimeDirectiveManager {
   public onRealtimeWakeupChanged(listener: RealtimeWakeupListener): () => void {
     this.realtimeWakeupListeners.add(listener);
     return () => this.realtimeWakeupListeners.delete(listener);
+  }
+
+  public onForceInfraBriefing(listener: ForceInfraBriefingListener): () => void {
+    this.forceInfraBriefingListeners.add(listener);
+    return () => this.forceInfraBriefingListeners.delete(listener);
   }
 
   public applyDirective(directive: ConnectorDirective | null | undefined, db?: DatabaseSync) {
@@ -440,6 +451,23 @@ class RuntimeDirectiveManager {
           listener(snapshot);
         } catch (err: any) {
           logger.warn(`[REALTIME_WAKEUP] Erro ao notificar listener de wakeup: ${err?.message || err}`);
+        }
+      }
+    }
+
+    if (
+      typeof directive.forceInfraBriefingAt === 'string' &&
+      directive.forceInfraBriefingAt.trim().length > 0 &&
+      directive.forceInfraBriefingAt.trim() !== this.lastHandledForceInfraBriefingAt
+    ) {
+      const requestedAt = directive.forceInfraBriefingAt.trim();
+      this.lastHandledForceInfraBriefingAt = requestedAt;
+      logger.info(`[INFRA_BRIEFING] Diretiva de coleta imediata recebida (requestedAt=${requestedAt}).`);
+      for (const listener of this.forceInfraBriefingListeners) {
+        try {
+          listener(requestedAt);
+        } catch (err: any) {
+          logger.warn(`[INFRA_BRIEFING] Erro ao acionar listener de briefing: ${err?.message || err}`);
         }
       }
     }

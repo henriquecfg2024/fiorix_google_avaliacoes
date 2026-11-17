@@ -439,3 +439,26 @@ export async function sendSrvsqlPerformanceSample(sample: Record<string, unknown
     return false;
   }
 }
+
+export async function sendInfraBriefingSample(sample: Record<string, unknown>): Promise<boolean> {
+  try {
+    const briefingUrl = env.FIORIX_API_URL.replace(/\/connector\/sync\/?$/, '/operacoes/briefing-matinal');
+    if (briefingUrl === env.FIORIX_API_URL) {
+      throw new Error('URL do Briefing Matinal inválida.');
+    }
+    await postWithFallback(
+      briefingUrl,
+      {
+        connectorId: env.CONNECTOR_ID,
+        action: 'ingest_infra_briefing',
+        sample,
+      },
+      { timeout: 20000 }
+    );
+    return true;
+  } catch (err: any) {
+    const errMsg = err?.response ? `HTTP ${err.response.status}` : (err?.message || 'Erro de conexão');
+    logger.warn(`INFRA_BRIEFING: Falha ao enviar amostra do briefing matinal: ${errMsg}`);
+    return false;
+  }
+}

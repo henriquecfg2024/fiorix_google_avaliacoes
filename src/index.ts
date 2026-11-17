@@ -7,6 +7,7 @@ import { AGENT_VERSION } from './config/version.js';
 import { runtimeDirective } from './services/runtime-directive.js';
 import { selfUpdater } from './services/self-updater.js';
 import { SingleInstanceLock } from './utils/instanceLock.js';
+import { collectAndSendInfraBriefing } from './services/infra-briefing-telemetry.js';
 
 const instanceLock = new SingleInstanceLock();
 if (!instanceLock.acquire()) {
@@ -28,6 +29,12 @@ runtimeDirective.onUpdateDirective((pending) => {
     if (applied) {
       void scheduler.sendTelemetryPing();
     }
+  });
+});
+
+runtimeDirective.onForceInfraBriefing(() => {
+  void collectAndSendInfraBriefing('MANUAL_REFRESH', queueManager.getDb()).catch((err) => {
+    logger.warn(`[INFRA_BRIEFING] Erro na coleta sob demanda: ${err?.message || err}`);
   });
 });
 
