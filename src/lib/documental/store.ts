@@ -58,6 +58,15 @@ export interface CreateJobOptions {
   forceFresh?: boolean;
 }
 
+export const SEARCH_CACHE_TTL_SECONDS = 45;
+
+/** Só reaproveita cache recente de busca quando houver ao menos 1 arquivo encontrado. */
+export function isCachedSearchResultValid(rawResult: unknown): boolean {
+  if (!rawResult || typeof rawResult !== 'object' || Array.isArray(rawResult)) return false;
+  const files = (rawResult as Record<string, unknown>).files;
+  return Array.isArray(files) && files.length > 0;
+}
+
 export async function createJob(tenantId: string, userId: string, connectorId: string, options: CreateJobOptions): Promise<JobResponse | null> {
   const type = options.type || 'search';
   const query = options.query ? normalizarTermoPesquisaDocumental(options.query) : null;
@@ -88,17 +97,18 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       }
     }
 
-    // Cache no servidor: se já houver um job idêntico concluído válido (até 24h), retorna imediatamente
+    // Cache no servidor: janela curta de deduplicação para evitar reuso de buscas obsoletas ou vazias
     if (!forceFresh) {
       if (type === 'search' && query) {
         const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
           SELECT id, result FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', '')) AND status = 'complete'
+            AND "createdAt" > NOW() - (${SEARCH_CACHE_TTL_SECONDS} * INTERVAL '1 second')
             AND "expiresAt" > NOW()
           ORDER BY "createdAt" DESC LIMIT 1
         `;
-        if (recent.length) {
+        if (recent.length && isCachedSearchResultValid(recent[0].result)) {
           return {
             response: { id: recent[0].id, status: 'complete' as const, result: recent[0].result, cached: true },
             newlyInserted: false,
@@ -304,7 +314,8 @@ export async function createSearch(tenantId: string, userId: string, connectorId
   return job ? job.id : null;
 }
 
-export async function readSearch(id: string, tenantId: string, userId?: string) {
+export async function readSearch(id: string, tenantId: string, _userId?: string) {
+  void _userId;
   const rows = await prisma.$queryRaw<SearchJob[]>`SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt" FROM "DocumentSearchRequest"
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "expiresAt" > NOW()`;
   const job = rows[0] || null;
@@ -383,6 +394,7 @@ export async function finishSearch(id: string, tenantId: string, connectorId: st
     "expiresAt" = CASE
       WHEN ${failed}::boolean THEN NOW() + INTERVAL '7 days'
       WHEN ${ehChunkEfemero}::boolean THEN NOW() + INTERVAL '2 minutes'
+      WHEN type = 'search' THEN NOW() + INTERVAL '2 minutes'
       ELSE NOW() + INTERVAL '24 hours'
     END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}

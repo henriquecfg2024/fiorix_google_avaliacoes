@@ -10,6 +10,7 @@ import {
   obterRotuloSessaoAcervo,
   ordenarResultadosPesquisaVisualizador,
 } from '@/lib/documental/visualizadorHelpers';
+import { isCachedSearchResultValid, SEARCH_CACHE_TTL_SECONDS } from '@/lib/documental/store';
 
 const raizRepo = path.resolve(__dirname, '..');
 
@@ -194,5 +195,18 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     expect(extrairAlvoDiretoMatriculaLv2('00001')).toBeNull();
     expect(extrairAlvoDiretoMatriculaLv2('649109')).toBeNull();
     expect(extrairAlvoDiretoMatriculaLv2('1124837-38.2022.8.26.0100')).toBeNull();
+  });
+
+  it('evita reuso de cache vazio/obsoleto em buscas e envia forceFresh no Visualizador', () => {
+    expect(SEARCH_CACHE_TTL_SECONDS).toBe(45);
+    expect(isCachedSearchResultValid(null)).toBe(false);
+    expect(isCachedSearchResultValid({ files: [] })).toBe(false);
+    expect(isCachedSearchResultValid({ files: [{ name: '00040000.KEN' }] })).toBe(true);
+
+    const visualizadorSrc = lerArquivoRepo('src/components/documental/VisualizadorDedicado.tsx');
+    expect(visualizadorSrc).toContain("{ type: 'search', query: termoNormalizado, forceFresh: true }");
+
+    const storeSrc = lerArquivoRepo('src/lib/documental/store.ts');
+    expect(storeSrc).toContain("WHEN type = 'search' THEN NOW() + INTERVAL '2 minutes'");
   });
 });

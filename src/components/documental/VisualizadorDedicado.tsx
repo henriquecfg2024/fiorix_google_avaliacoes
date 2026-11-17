@@ -445,7 +445,7 @@ export function VisualizadorDedicado({
       // Se houver pasta selecionada, também varre diretamente a pasta atual e suas subpastas imediatas
       const termoNormalizado = normalizarTermoPesquisaDocumental(termo);
       const promessaBuscaGlobal = executarJob<{ files?: MatchItem[]; partial?: boolean; matriculaDetectada?: string; matriculas?: string[] }>(
-        { type: 'search', query: termoNormalizado },
+        { type: 'search', query: termoNormalizado, forceFresh: true },
         'Falha na busca pelo Connector local.',
         130000,
       ).catch(() => ({ files: [] as MatchItem[], partial: false, matriculaDetectada: undefined, matriculas: undefined }));
