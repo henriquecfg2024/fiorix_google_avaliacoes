@@ -2,9 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  calcularDestaquesOcrDocumento,
   casaTermoPesquisaLocal,
   construirUrlIframePdf,
+  destacarTermoEmHtmlSanitizado,
   extrairAlvoDiretoMatriculaLv2,
+  extrairTokensDestaquePesquisa,
   isAcessoExclusivoVisualizador,
   obterIniciaisUsuario,
   obterRotuloSessaoAcervo,
@@ -69,9 +72,9 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     expect(src).toContain('md:w-[260px]');
     expect(src).not.toContain('md:w-80');
 
-    expect(src).toContain('src={construirUrlIframePdf(documentoAtivo.pdfDataUrl)}');
+    expect(src).toContain('src={construirUrlIframePdf(documentoAtivo.pdfDataUrl, destaqueVisivel ? termoDestaque : undefined)}');
     expect(src).toContain('{isIOSOrIPadOS() && (');
-    expect(src).toContain('max-h-[calc(100dvh-52px)]');
+    expect(src).toContain('max-h-[calc(100dvh-88px)]');
     expect(src).toContain('variant="dark"');
     expect(src).toContain('compact');
   });
@@ -208,5 +211,60 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
 
     const storeSrc = lerArquivoRepo('src/lib/documental/store.ts');
     expect(storeSrc).toContain("WHEN type = 'search' THEN NOW() + INTERVAL '2 minutes'");
+  });
+
+  it('calcula destaques OCR com fronteira numérica, múltiplas páginas e frase multi-palavra', () => {
+    expect(extrairTokensDestaquePesquisa('Matrícula 40.000')).toEqual(['40.000']);
+    expect(extrairTokensDestaquePesquisa('Protocolo nº 649109')).toEqual(['649109']);
+
+    const ocrPorPagina = {
+      1: [
+        ['MATRÍCULA', 0.1, 0.1, 0.15, 0.02] as [string, number, number, number, number],
+        ['40.000', 0.26, 0.1, 0.09, 0.02] as [string, number, number, number, number],
+        ['540.000', 0.4, 0.2, 0.09, 0.02] as [string, number, number, number, number],
+        ['4004', 0.5, 0.2, 0.06, 0.02] as [string, number, number, number, number],
+        ['R.1/40.000', 0.12, 0.5, 0.14, 0.02] as [string, number, number, number, number],
+      ],
+      2: [
+        ['FLÁVIO', 0.15, 0.3, 0.1, 0.02] as [string, number, number, number, number],
+        ['TADEU', 0.26, 0.3, 0.09, 0.02] as [string, number, number, number, number],
+        ['Registro', 0.1, 0.54, 0.1, 0.015] as [string, number, number, number, number],
+        ['40000', 0.1019, 0.5481, 0.055, 0.0102] as [string, number, number, number, number],
+      ],
+    };
+
+    const res40000 = calcularDestaquesOcrDocumento(ocrPorPagina, 'Matrícula 40000');
+    expect(res40000.total).toBe(3);
+    expect(res40000.paginasComOcorrencia).toEqual([
+      { page: 1, count: 2 },
+      { page: 2, count: 1 },
+    ]);
+    expect(res40000.ocorrencias.map((o) => o.text)).toEqual(['40.000', 'R.1/40.000', '40000']);
+
+    const resFrase = calcularDestaquesOcrDocumento(ocrPorPagina, 'flavio tadeu');
+    expect(resFrase.total).toBe(1);
+    expect(resFrase.ocorrencias[0].page).toBe(2);
+    expect(resFrase.ocorrencias[0].text).toBe('FLÁVIO TADEU');
+  });
+
+  it('destaca termos em HTML sanitizado preservando tags e atributos e adiciona #search= no PDF', () => {
+    const htmlSeguro = '<p class="item-40000" data-ref="40000">Imóvel da matrícula 40.000 e área 540.000 de Flávio Tadeu.</p>';
+    const resNum = destacarTermoEmHtmlSanitizado(htmlSeguro, '40000');
+    expect(resNum.total).toBe(1);
+    expect(resNum.html).toContain('class="item-40000" data-ref="40000"');
+    expect(resNum.html).toContain('<mark class="fiorix-doc-highlight');
+    expect(resNum.html).toContain('>40.000</mark>');
+    expect(resNum.html).toContain('540.000');
+
+    const resNome = destacarTermoEmHtmlSanitizado(htmlSeguro, 'flavio tadeu');
+    expect(resNome.total).toBe(1);
+    expect(resNome.html).toContain('>Flávio Tadeu</mark>');
+
+    expect(construirUrlIframePdf('blob:https://fiorix.app/xyz', 'Matrícula 40000')).toBe(
+      'blob:https://fiorix.app/xyz#navpanes=0&view=FitH&search=40000',
+    );
+    expect(construirUrlIframePdf('blob:https://fiorix.app/xyz', '')).toBe(
+      'blob:https://fiorix.app/xyz#navpanes=0&view=FitH',
+    );
   });
 });

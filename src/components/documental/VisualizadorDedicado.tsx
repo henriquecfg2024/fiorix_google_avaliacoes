@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { sanitizeDocumentHtml } from '@/lib/security/html-sanitizer';
 import {
@@ -44,12 +44,16 @@ import {
   LogOut,
 } from 'lucide-react';
 import {
+  calcularDestaquesOcrDocumento,
   casaTermoPesquisaLocal,
   construirUrlIframePdf,
+  destacarTermoEmHtmlSanitizado,
   extrairAlvoDiretoMatriculaLv2,
+  extrairTokensDestaquePesquisa,
   obterRotuloSessaoAcervo,
   obterIniciaisUsuario,
   ordenarResultadosPesquisaVisualizador,
+  type OcrWordTuple,
 } from '@/lib/documental/visualizadorHelpers';
 import { handleSignOut } from '@/app/actions/auth';
 import { clearClientSessionCaches } from '@/lib/navigation/client-data';
@@ -204,6 +208,16 @@ export function VisualizadorDedicado({
   const [errorMessage, setErrorMessage] = useState('');
   const abortDocRef = useRef<AbortController | null>(null);
   const matriculaPendenteLv2Ref = useRef<string>('');
+  const [termoDestaque, setTermoDestaque] = useState('');
+  const [destaqueVisivel, setDestaqueVisivel] = useState(true);
+  const [ocrPorPagina, setOcrPorPagina] = useState<Record<number, OcrWordTuple[]>>({});
+  const ocrPorPaginaRef = useRef<Record<number, OcrWordTuple[]>>({});
+  const [ocrProgresso, setOcrProgresso] = useState<{ lidas: number; total: number } | null>(null);
+  const [ocrConcluido, setOcrConcluido] = useState(false);
+  const [indiceOcorrenciaAtiva, setIndiceOcorrenciaAtiva] = useState(0);
+  const usuarioNavegouPaginaRef = useRef(false);
+  const pedidoOcrRef = useRef(0);
+  const fichasContainersRef = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Controles de navegação e exibição Siplan Image
   const [currentPage, setCurrentPage] = useState(1);
@@ -331,7 +345,8 @@ export function VisualizadorDedicado({
     setPanPosition({ x: panStartRef.current.initialX + (t.clientX - panStartRef.current.x), y: panStartRef.current.initialY + (t.clientY - panStartRef.current.y) });
   };
 
-  const mudarPagina = (novaPagina: number) => {
+  const mudarPagina = (novaPagina: number, manual = true) => {
+    if (manual) usuarioNavegouPaginaRef.current = true;
     setCurrentPage(novaPagina);
     setPanPosition({ x: 0, y: 0 });
   };
@@ -441,6 +456,10 @@ export function VisualizadorDedicado({
     }
     setIsSearching(true);
     setErroPasta('');
+    setTermoDestaque(termo);
+    setDestaqueVisivel(true);
+    setIndiceOcorrenciaAtiva(0);
+    usuarioNavegouPaginaRef.current = false;
     try {
       // Se houver pasta selecionada, também varre diretamente a pasta atual e suas subpastas imediatas
       const termoNormalizado = normalizarTermoPesquisaDocumental(termo);
@@ -682,6 +701,14 @@ export function VisualizadorDedicado({
     const controller = new AbortController();
     abortDocRef.current = controller;
     const pedido = ++pedidoDocRef.current;
+    pedidoOcrRef.current++;
+    usuarioNavegouPaginaRef.current = false;
+    ocrPorPaginaRef.current = {};
+    fichasContainersRef.current = {};
+    setOcrPorPagina({});
+    setOcrProgresso(null);
+    setOcrConcluido(false);
+    setIndiceOcorrenciaAtiva(0);
     setExploradorAberto(false);
     setArquivoAtivo(file);
     setIsLoadingDoc(true);
@@ -834,6 +861,8 @@ export function VisualizadorDedicado({
 
     setPastaAtual({ rootId: 'livro2', relativePath: bloco });
     setFiltroPasta(String(num));
+    setTermoDestaque(String(num));
+    setDestaqueVisivel(true);
     setResultadosBusca(null);
     setErroPasta('');
     setExploradorAberto(false);
@@ -1036,6 +1065,14 @@ export function VisualizadorDedicado({
       size: file.size,
       modifiedAt: new Date(file.lastModified).toISOString(),
     };
+    pedidoOcrRef.current++;
+    usuarioNavegouPaginaRef.current = false;
+    ocrPorPaginaRef.current = {};
+    fichasContainersRef.current = {};
+    setOcrPorPagina({});
+    setOcrProgresso(null);
+    setOcrConcluido(false);
+    setIndiceOcorrenciaAtiva(0);
     setExploradorAberto(false);
     setArquivoAtivo(fakeMatch);
     setIsLoadingDoc(true);
@@ -1092,7 +1129,159 @@ export function VisualizadorDedicado({
   const isDoc = ext === '.docx' || ext === '.doc';
 
   const pages = documentoAtivo?.pages || [];
-  const totalPages = pages.length || documentoAtivo?.pageCount || 1;
+  const totalPages = Math.max(pages.length, documentoAtivo?.pageCount || 0, 1);
+
+  const tokensDestaqueAtivos = useMemo(
+    () => extrairTokensDestaquePesquisa(termoDestaque),
+    [termoDestaque],
+  );
+  const temTermoDestaqueValido = tokensDestaqueAtivos.join('').length >= 2;
+
+  const resumoDestaque = useMemo(
+    () =>
+      isKenOrTif
+        ? calcularDestaquesOcrDocumento(ocrPorPagina, termoDestaque)
+        : { ocorrencias: [], porPagina: {}, paginasComOcorrencia: [], total: 0 },
+    [isKenOrTif, ocrPorPagina, termoDestaque],
+  );
+
+  const idxOcorrenciaSegura =
+    resumoDestaque.total > 0 ? Math.min(indiceOcorrenciaAtiva, resumoDestaque.total - 1) : 0;
+  const ocorrenciaAtiva =
+    resumoDestaque.total > 0 ? resumoDestaque.ocorrencias[idxOcorrenciaSegura] : null;
+
+  const htmlDocProcessado = useMemo(() => {
+    if (!isDoc || !documentoAtivo) return { html: '', total: 0 };
+    const sanitizado = sanitizeDocumentHtml(documentoAtivo.html, documentoAtivo.text);
+    if (!destaqueVisivel || !temTermoDestaqueValido) {
+      return { html: sanitizado, total: 0 };
+    }
+    return destacarTermoEmHtmlSanitizado(sanitizado, termoDestaque);
+  }, [isDoc, documentoAtivo, destaqueVisivel, temTermoDestaqueValido, termoDestaque]);
+
+  const irParaOcorrencia = (novoIdx: number, manual = true) => {
+    if (resumoDestaque.total === 0) return;
+    const clamped = ((novoIdx % resumoDestaque.total) + resumoDestaque.total) % resumoDestaque.total;
+    const alvo = resumoDestaque.ocorrencias[clamped];
+    if (!alvo) return;
+    setIndiceOcorrenciaAtiva(clamped);
+    mudarPagina(alvo.page, manual);
+    if (modoVisualizacao === 'todas') {
+      const container = fichasContainersRef.current[alvo.page];
+      container?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const irParaPaginaComOcorrencia = (pageNum: number) => {
+    const idx = resumoDestaque.ocorrencias.findIndex((o) => o.page === pageNum);
+    if (idx >= 0) {
+      irParaOcorrencia(idx, true);
+    } else {
+      mudarPagina(pageNum, true);
+    }
+  };
+
+  // Dispara OCR progressivo em segundo plano por lotes de 12 páginas sem atrasar a abertura da imagem
+  useEffect(() => {
+    if (
+      !documentoAtivo ||
+      !isKenOrTif ||
+      isLoadingDoc ||
+      !arquivoAtivo ||
+      arquivoAtivo.rootId === 'local' ||
+      !temTermoDestaqueValido ||
+      ocrConcluido
+    ) {
+      setOcrProgresso(null);
+      return;
+    }
+
+    const pedidoAtual = pedidoOcrRef.current;
+    let cancelado = false;
+    const total = totalPages;
+
+    void (async () => {
+      const BATCH_SIZE = 12;
+      for (let inicio = 1; inicio <= total; inicio += BATCH_SIZE) {
+        if (cancelado || pedidoAtual !== pedidoOcrRef.current) return;
+        const fim = Math.min(total, inicio + BATCH_SIZE - 1);
+        let faltandoNoLote = false;
+        for (let p = inicio; p <= fim; p++) {
+          if (!ocrPorPaginaRef.current[p]) {
+            faltandoNoLote = true;
+            break;
+          }
+        }
+        if (!faltandoNoLote) continue;
+
+        setOcrProgresso({ lidas: Math.max(0, inicio - 1), total });
+        try {
+          const ocrRes = await executarJob<{
+            pageCount?: number;
+            pages?: Array<{ page: number; words: OcrWordTuple[] }>;
+          }>(
+            {
+              type: 'ocr_document_pages',
+              rootId: arquivoAtivo.rootId,
+              relativePath: arquivoAtivo.relativePath,
+              pageStart: inicio,
+              pageEnd: fim,
+            },
+            'Falha ao ler texto da imagem.',
+            60000,
+          );
+          if (cancelado || pedidoAtual !== pedidoOcrRef.current) return;
+          const recebidas = ocrRes?.pages || [];
+          if (recebidas.length === 0) break;
+          setOcrPorPagina(prev => {
+            const next = { ...prev };
+            for (const pg of recebidas) {
+              next[pg.page] = pg.words || [];
+            }
+            ocrPorPaginaRef.current = next;
+            return next;
+          });
+          setOcrProgresso({ lidas: fim, total: Math.max(total, ocrRes?.pageCount || total) });
+        } catch {
+          break;
+        }
+      }
+      if (!cancelado && pedidoAtual === pedidoOcrRef.current) {
+        setOcrConcluido(true);
+        setOcrProgresso(null);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    documentoAtivo?.fileName,
+    isKenOrTif,
+    isLoadingDoc,
+    arquivoAtivo?.rootId,
+    arquivoAtivo?.relativePath,
+    temTermoDestaqueValido,
+    ocrConcluido,
+    connectorId,
+    totalPages,
+  ]);
+
+  // Pula automaticamente para a primeira página com ocorrência quando o usuário ainda não folheou manualmente
+  useEffect(() => {
+    if (!isKenOrTif || !destaqueVisivel || resumoDestaque.total === 0) return;
+    if (usuarioNavegouPaginaRef.current) return;
+    const paginasAtuaisTemMatch = Boolean(resumoDestaque.porPagina[currentPage]?.length);
+    if (!paginasAtuaisTemMatch) {
+      const primeira = resumoDestaque.ocorrencias[0];
+      if (primeira) {
+        setIndiceOcorrenciaAtiva(0);
+        mudarPagina(primeira.page, false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isKenOrTif, destaqueVisivel, resumoDestaque.total, termoDestaque]);
   const sessaoRotulo = obterRotuloSessaoAcervo(arquivoAtivo?.rootId, arquivoAtivo?.relativePath);
   const caminhoCanonicoExibicao = arquivoAtivo
     ? arquivoAtivo.rootId === 'local'
@@ -2329,11 +2518,13 @@ export function VisualizadorDedicado({
                     <div className="space-y-1.5">
                       {pages.map((pageSrc, idx) => {
                         const ficha = getFichaRotulo(idx);
-                        const isSelected = currentPage === idx + 1;
+                        const pageNum = idx + 1;
+                        const isSelected = currentPage === pageNum;
+                        const qtdDestaquesPagina = resumoDestaque.porPagina[pageNum]?.length || 0;
                         return (
                           <div
                             key={idx}
-                            onClick={() => mudarPagina(idx + 1)}
+                            onClick={() => mudarPagina(pageNum)}
                             className={`group relative cursor-pointer rounded-xl border p-1.5 transition-all ${
                               isSelected
                                 ? 'border-amber-500 bg-amber-950/40 shadow-lg shadow-amber-950/50 ring-1 ring-amber-500/40'
@@ -2348,6 +2539,11 @@ export function VisualizadorDedicado({
                                 className={`h-full w-full object-contain ${modoNegativo ? 'filter invert contrast-125' : ''}`}
                                 loading="lazy"
                               />
+                              {qtdDestaquesPagina > 0 && (
+                                <div className="absolute top-1 left-1 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-[9px] font-black text-slate-950 shadow-md border border-amber-700/30">
+                                  Pág. {pageNum} • {qtdDestaquesPagina}
+                                </div>
+                              )}
                               {/* Badge Bordô Siplan Image */}
                               <div className="absolute bottom-1 right-1 rounded bg-[#8B1E1E] px-1.5 py-0.5 font-mono text-[10px] font-black text-white shadow-md border border-white/20">
                                 {ficha.codigo}
@@ -2357,7 +2553,7 @@ export function VisualizadorDedicado({
                               <span className={`font-semibold ${isSelected ? 'text-amber-300' : 'text-slate-300 group-hover:text-white'}`}>
                                 {ficha.descricao}
                               </span>
-                              <span className="font-mono text-[10px] text-slate-500">Fl. {idx + 1}</span>
+                              <span className="font-mono text-[10px] text-slate-500">Fl. {pageNum}</span>
                             </div>
                           </div>
                         );
@@ -2565,7 +2761,7 @@ export function VisualizadorDedicado({
                         {filtroPasta && (
                           <button
                             type="button"
-                            onClick={() => { setFiltroPasta(''); setResultadosBusca(null); }}
+                            onClick={() => { setFiltroPasta(''); setResultadosBusca(null); setTermoDestaque(''); }}
                             aria-label="Limpar filtro"
                             className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:text-white"
                           >
@@ -2823,6 +3019,141 @@ export function VisualizadorDedicado({
 
         {/* CANVAS PRINCIPAL DE VISUALIZAÇÃO */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
+          {!exploradorAberto && documentoAtivo && !isLoadingDoc && !errorMessage && (
+            <div className="min-h-[34px] px-2.5 py-1 bg-[#080D1A] border-b border-white/10 flex flex-wrap items-center gap-2 shrink-0 text-[11px]">
+              <div className="relative flex items-center">
+                <Search className="pointer-events-none absolute left-2 h-3 w-3 text-slate-400" />
+                <input
+                  type="text"
+                  id="input-destaque-documento"
+                  value={termoDestaque}
+                  onChange={e => {
+                    setTermoDestaque(e.target.value);
+                    setIndiceOcorrenciaAtiva(0);
+                    setDestaqueVisivel(true);
+                  }}
+                  placeholder="Destacar no documento…"
+                  aria-label="Destacar informação no documento"
+                  className="h-6 w-44 sm:w-52 rounded border border-white/15 bg-slate-900 pl-6 pr-6 text-[11px] text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+                {termoDestaque && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTermoDestaque('');
+                      setIndiceOcorrenciaAtiva(0);
+                    }}
+                    aria-label="Limpar destaque"
+                    className="absolute right-1 rounded p-0.5 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {isKenOrTif && (
+                <>
+                  {resumoDestaque.total > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+                      <div className="inline-flex items-center rounded border border-amber-500/40 bg-amber-950/50 text-amber-200 px-1 py-0.5 gap-0.5 shrink-0">
+                        <span className="px-1 font-semibold">
+                          {resumoDestaque.total} {resumoDestaque.total === 1 ? 'ocorrência' : 'ocorrências'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => irParaOcorrencia(idxOcorrenciaSegura - 1)}
+                          className="p-0.5 rounded hover:bg-amber-500/20 text-amber-300 cursor-pointer"
+                          title="Ocorrência anterior"
+                          aria-label="Ocorrência anterior"
+                        >
+                          <ChevronLeft className="h-3 w-3" />
+                        </button>
+                        <span className="font-mono text-[10px] px-0.5">
+                          {idxOcorrenciaSegura + 1}/{resumoDestaque.total}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => irParaOcorrencia(idxOcorrenciaSegura + 1)}
+                          className="p-0.5 rounded hover:bg-amber-500/20 text-amber-300 cursor-pointer"
+                          title="Próxima ocorrência"
+                          aria-label="Próxima ocorrência"
+                        >
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1 overflow-x-auto max-w-full py-0.5">
+                        {resumoDestaque.paginasComOcorrencia.map(pInfo => {
+                          const fichaCodigo = getFichaRotulo(pInfo.page - 1).codigo;
+                          const ativa = currentPage === pInfo.page;
+                          return (
+                            <button
+                              key={`occ-p-${pInfo.page}`}
+                              type="button"
+                              onClick={() => irParaPaginaComOcorrencia(pInfo.page)}
+                              className={`shrink-0 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] transition cursor-pointer ${
+                                ativa
+                                  ? 'border-amber-400 bg-amber-500/25 text-amber-100 font-bold shadow-sm'
+                                  : 'border-white/15 bg-slate-900 text-slate-300 hover:border-amber-400/50 hover:text-amber-200'
+                              }`}
+                              title={`Ir para Página ${pInfo.page} (Ficha ${fichaCodigo})`}
+                            >
+                              <span>Pág. {pInfo.page} ({fichaCodigo})</span>
+                              {pInfo.count > 1 && (
+                                <span className="text-amber-300">×{pInfo.count}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setDestaqueVisivel(v => !v)}
+                        className={`ml-auto shrink-0 inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${
+                          destaqueVisivel
+                            ? 'border-amber-500/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
+                            : 'border-white/15 bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                        title={destaqueVisivel ? 'Ocultar marcações na imagem' : 'Mostrar marcações na imagem'}
+                      >
+                        {destaqueVisivel ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        <span>Destacar</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {ocrProgresso && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-cyan-300/90 font-mono">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>
+                        Lendo pág. {Math.min(ocrProgresso.lidas + 1, ocrProgresso.total)}/{ocrProgresso.total}…
+                      </span>
+                    </span>
+                  )}
+
+                  {ocrConcluido && !ocrProgresso && temTermoDestaqueValido && resumoDestaque.total === 0 && (
+                    <span className="text-[10px] text-slate-400">
+                      Não encontrado nas {totalPages} página(s).
+                    </span>
+                  )}
+                </>
+              )}
+
+              {isDoc && temTermoDestaqueValido && (
+                <span className="text-[10px] font-medium text-amber-200">
+                  {htmlDocProcessado.total} {htmlDocProcessado.total === 1 ? 'ocorrência destacada' : 'ocorrências destacadas'} no texto
+                </span>
+              )}
+
+              {isPdf && temTermoDestaqueValido && (
+                <span className="text-[10px] text-slate-400">
+                  Busca enviada ao leitor de PDF (“{termoDestaque.trim()}”) • Use Ctrl+F no leitor se necessário
+                </span>
+              )}
+            </div>
+          )}
+
           {exploradorAberto ? (
             renderExploradorPrincipal()
           ) : isLoadingDoc ? (
@@ -2880,71 +3211,130 @@ export function VisualizadorDedicado({
                 <span>Tentar Novamente</span>
               </button>
             </div>
-          ) : isKenOrTif && pages.length > 0 ? (
-            /* CASO 1: IMAGEM DIGITALIZADA .KEN / TIFF */
-            <div className="flex-1 overflow-auto flex flex-col">
-              {modoVisualizacao === 'pagina' ? (
-                <div
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleMouseUp}
-                  className="flex-1 overflow-auto flex items-center justify-center p-1 sm:p-1.5 bg-slate-950 select-none relative"
-                  style={{
-                    cursor: isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
-                  }}
-                >
-                  {/* Dica flutuante para Arrastar */}
-                  {zoom > 100 && (
-                    <div className="absolute top-3 right-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/80 backdrop-blur px-2.5 py-1 text-[10px] text-slate-400 pointer-events-none">
-                      <Hand className="h-3 w-3 text-cyan-400" />
-                      <span>Clique e arraste para mover</span>
-                    </div>
-                  )}
-
-                  {/* Imagem com Transformações */}
+          ) : isKenOrTif && pages.length > 0 ? (() => {
+            const renderDestaquesPagina = (pageNum: number) => {
+              if (!destaqueVisivel) return null;
+              const caixas = resumoDestaque.porPagina[pageNum] || [];
+              if (caixas.length === 0) return null;
+              const fichaCodigo = getFichaRotulo(pageNum - 1).codigo;
+              return caixas.map(box => {
+                const isAtivo = ocorrenciaAtiva?.id === box.id;
+                return (
                   <div
-                    className="transition-transform duration-100 ease-out"
+                    key={box.id}
+                    aria-label={`Destaque na página ${box.page}: ${box.text}`}
+                    className={`pointer-events-none absolute rounded-[2px] transition-all ${
+                      isAtivo
+                        ? 'z-20 bg-yellow-300/45 ring-2 ring-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.85)]'
+                        : 'z-10 bg-amber-300/35 ring-1 ring-amber-400/90'
+                    }`}
                     style={{
-                      transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
-                      transformOrigin: 'center center',
-                      filter: modoNegativo ? 'invert(1) contrast(1.3) brightness(1.1)' : 'none',
+                      left: `${box.x * 100}%`,
+                      top: `${box.y * 100}%`,
+                      width: `${box.w * 100}%`,
+                      height: `${box.h * 100}%`,
                     }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={pages[currentPage - 1]}
-                      alt={`Ficha ${getFichaRotulo(currentPage - 1).codigo}`}
-                      className="rounded shadow-2xl border border-slate-700 bg-white max-w-full max-h-[calc(100dvh-52px)] object-contain pointer-events-none"
-                      draggable={false}
-                    />
+                    {isAtivo && (
+                      <span
+                        className={`absolute left-0 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-sans text-[10px] font-extrabold leading-none whitespace-nowrap shadow-md ${
+                          box.y < 0.05 ? 'top-full mt-1' : 'bottom-full mb-1'
+                        }`}
+                      >
+                        Pág. {box.page} ({fichaCodigo})
+                      </span>
+                    )}
                   </div>
-                </div>
-              ) : (
-                /* Exibição Contínua de Todas as Fichas */
-                <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-4 max-w-5xl mx-auto w-full">
-                  {pages.map((pageSrc, idx) => {
-                    const ficha = getFichaRotulo(idx);
-                    return (
-                      <div key={idx} className="flex flex-col items-center space-y-2 border-b border-slate-800/80 pb-6 last:border-b-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={pageSrc}
-                          alt={ficha.descricao}
-                          className={`rounded-lg shadow-2xl border border-slate-700 bg-white max-w-full object-contain ${
-                            modoNegativo ? 'filter invert contrast-125' : ''
-                          }`}
-                        />
+                );
+              });
+            };
+
+            return (
+              /* CASO 1: IMAGEM DIGITALIZADA .KEN / TIFF */
+              <div className="flex-1 overflow-auto flex flex-col">
+                {modoVisualizacao === 'pagina' ? (
+                  <div
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleMouseUp}
+                    className="flex-1 overflow-auto flex items-center justify-center p-1 sm:p-1.5 bg-slate-950 select-none relative"
+                    style={{
+                      cursor: isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
+                    }}
+                  >
+                    {/* Dica flutuante para Arrastar */}
+                    {zoom > 100 && (
+                      <div className="absolute top-3 right-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-900/80 backdrop-blur px-2.5 py-1 text-[10px] text-slate-400 pointer-events-none">
+                        <Hand className="h-3 w-3 text-cyan-400" />
+                        <span>Clique e arraste para mover</span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : isPdf && documentoAtivo?.pdfDataUrl ? (
+                    )}
+
+                    {/* Imagem com Transformações e Sobreposição de Destaques */}
+                    {pages[currentPage - 1] ? (
+                      <div
+                        className="transition-transform duration-100 ease-out"
+                        style={{
+                          transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
+                          transformOrigin: 'center center',
+                        }}
+                      >
+                        <div className="relative inline-block rounded shadow-2xl border border-slate-700 bg-white overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={pages[currentPage - 1]}
+                            alt={`Ficha ${getFichaRotulo(currentPage - 1).codigo}`}
+                            className="block max-w-full max-h-[calc(100dvh-88px)] w-auto h-auto pointer-events-none"
+                            style={{
+                              filter: modoNegativo ? 'invert(1) contrast(1.3) brightness(1.1)' : 'none',
+                            }}
+                            draggable={false}
+                          />
+                          {renderDestaquesPagina(currentPage)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 text-xs text-slate-300">
+                        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                        <span>Carregando imagem da Página {currentPage}…</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Exibição Contínua de Todas as Fichas */
+                  <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-4 max-w-5xl mx-auto w-full">
+                    {pages.map((pageSrc, idx) => {
+                      const ficha = getFichaRotulo(idx);
+                      const pageNum = idx + 1;
+                      return (
+                        <div
+                          key={idx}
+                          ref={el => { fichasContainersRef.current[pageNum] = el; }}
+                          className="flex flex-col items-center space-y-2 border-b border-slate-800/80 pb-6 last:border-b-0"
+                        >
+                          <div className="relative inline-block rounded-lg shadow-2xl border border-slate-700 bg-white overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={pageSrc}
+                              alt={ficha.descricao}
+                              className={`block max-w-full w-auto h-auto ${
+                                modoNegativo ? 'filter invert contrast-125' : ''
+                              }`}
+                            />
+                            {renderDestaquesPagina(pageNum)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })() : isPdf && documentoAtivo?.pdfDataUrl ? (
             /* CASO 2: VISUALIZADOR PDF INTERATIVO (Safari, Chrome, Edge, Firefox) */
             <div className="flex-1 min-h-0 w-full flex flex-col bg-slate-900">
               {isIOSOrIPadOS() && (
@@ -2965,7 +3355,7 @@ export function VisualizadorDedicado({
               )}
               <div className="relative flex-1 min-h-0 w-full bg-white">
                 <iframe
-                  src={construirUrlIframePdf(documentoAtivo.pdfDataUrl)}
+                  src={construirUrlIframePdf(documentoAtivo.pdfDataUrl, destaqueVisivel ? termoDestaque : undefined)}
                   className="absolute inset-0 w-full h-full border-0 bg-white"
                   title={documentoAtivo.fileName}
                 />
@@ -3011,7 +3401,7 @@ export function VisualizadorDedicado({
                 <div
                   className="font-serif text-[14px] sm:text-[16px] leading-relaxed text-slate-900 space-y-4 prose-p:text-justify prose-p:indent-6 sm:prose-p:indent-8 prose-headings:font-sans prose-headings:text-slate-900"
                   dangerouslySetInnerHTML={{
-                    __html: sanitizeDocumentHtml(documentoAtivo.html, documentoAtivo.text),
+                    __html: htmlDocProcessado.html,
                   }}
                 />
               </div>

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 import { documentJobInput } from '@/lib/documental/contracts';
 import { isSameOriginRequest } from '@/lib/documental/origin';
-import { createJob, readSearch } from '@/lib/documental/store';
+import { createJob, readSearch, type JobResponse } from '@/lib/documental/store';
 import {
   isSignedStorageDocumentalEnabled,
   STORAGE_MIN_CONNECTOR_VERSION,
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
 
     const targetConnectorId = effective.connectorId;
 
-    let jobResult: any = null;
+    let jobResult: JobResponse | string | null = null;
     if (jobData.type === 'list_directory') {
       // Sem cache no servidor: a listagem precisa refletir o disco no momento da navegação
       jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
@@ -111,18 +111,23 @@ export async function POST(req: Request) {
     } else if (
       jobData.type === 'extract_petition' ||
       jobData.type === 'analyze_signatures' ||
-      jobData.type === 'read_document_text'
+      jobData.type === 'read_document_text' ||
+      jobData.type === 'ocr_document_pages'
     ) {
       jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
         type: jobData.type,
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
         pageStart:
-          jobData.type === 'extract_petition' || jobData.type === 'read_document_text'
+          jobData.type === 'extract_petition' ||
+          jobData.type === 'read_document_text' ||
+          jobData.type === 'ocr_document_pages'
             ? jobData.pageStart
             : undefined,
         pageEnd:
-          jobData.type === 'extract_petition' || jobData.type === 'read_document_text'
+          jobData.type === 'extract_petition' ||
+          jobData.type === 'read_document_text' ||
+          jobData.type === 'ocr_document_pages'
             ? jobData.pageEnd
             : undefined,
         forceFresh: jobData.forceFresh,

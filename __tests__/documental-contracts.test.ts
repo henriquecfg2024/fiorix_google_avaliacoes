@@ -69,6 +69,14 @@ describe('documental contracts', () => {
       rootId: 'titulos_online',
       relativePath: 'AC\\645706-AC016401954\\titulo.pdf',
     }).success).toBe(true);
+    expect(documentJobInput.safeParse({
+      connectorId: 'auto',
+      type: 'ocr_document_pages',
+      rootId: 'titulos_visualiza',
+      relativePath: '00428000\\00428370.TIF',
+      pageStart: 1,
+      pageEnd: 12,
+    }).success).toBe(true);
 
     expect(RAIZES_DOCUMENTAL.some((r) => r.id === 'titulos_visualiza' && r.caminho === 'K:\\IMAGENS\\TITULOS-VISUALIZA')).toBe(true);
     expect(RAIZES_DOCUMENTAL.some((r) => r.id === 'titulos_online' && r.caminho === 'K:\\IMAGENS\\Titulos_Online')).toBe(true);

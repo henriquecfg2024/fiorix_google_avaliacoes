@@ -1,8 +1,11 @@
 /** Ajusta URL de PDF (blob:/https:) para recolher painel de miniaturas nativo e ajustar à largura. */
-export function construirUrlIframePdf(rawUrl: string): string {
+export function construirUrlIframePdf(rawUrl: string, termoDestaque?: string): string {
   if (!rawUrl || rawUrl.startsWith('data:')) return rawUrl;
   const base = rawUrl.split('#')[0];
-  return `${base}#navpanes=0&view=FitH`;
+  const tokens = termoDestaque ? extrairTokensDestaquePesquisa(termoDestaque) : [];
+  const termoLimpo = tokens.join(' ').trim() || (termoDestaque || '').trim();
+  const suffix = termoLimpo.length >= 2 ? `&search=${encodeURIComponent(termoLimpo)}` : '';
+  return `${base}#navpanes=0&view=FitH${suffix}`;
 }
 
 /** Retorna o rótulo legível da sessão/origem do acervo para um arquivo ativo. */
@@ -231,4 +234,302 @@ export function extrairAlvoDiretoMatriculaLv2(termoBruto: string): {
   const pad8 = String(num).padStart(8, '0');
   const bloco = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
   return { num, pad8, bloco, fileName: `${pad8}.KEN` };
+}
+
+export type OcrWordTuple = [text: string, x: number, y: number, w: number, h: number];
+
+export interface OcrHighlightBox {
+  id: string;
+  page: number;
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface ResumoDestaqueDocumento {
+  ocorrencias: OcrHighlightBox[];
+  porPagina: Record<number, OcrHighlightBox[]>;
+  paginasComOcorrencia: Array<{ page: number; count: number }>;
+  total: number;
+}
+
+const ROTULOS_GENERICOS_DESTAQUE = new Set([
+  'matricula',
+  'matr',
+  'mat',
+  'protocolo',
+  'prenotacao',
+  'transcricao',
+  'transcr',
+  'titulo',
+  'n',
+  'no',
+  'numero',
+]);
+
+/** Extrai tokens significativos para destaque na imagem/documento, removendo rótulos genéricos quando houver valor principal. */
+export function extrairTokensDestaquePesquisa(termoBruto: string): string[] {
+  const limpo = normalizarTextoVisualizador(termoBruto)
+    .replace(/n[ºo°]\.?/gi, ' ')
+    .replace(/[|]/g, ' ')
+    .trim();
+  if (!limpo) return [];
+  const brutoTokens = limpo
+    .split(/\s+/)
+    .map((t) => t.replace(/^[.,;:()\[\]"']+|[,;:()\[\]"']+$/g, ''))
+    .filter(Boolean);
+  if (brutoTokens.length === 0) return [];
+  const significativos = brutoTokens.filter((t) => !ROTULOS_GENERICOS_DESTAQUE.has(t.replace(/\.+$/, '')));
+  return significativos.length > 0 ? significativos : brutoTokens;
+}
+
+function limparPontuacaoBordaOcr(normWord: string): string {
+  return normWord.replace(/^[.,;:()\[\]"'\/\\\-]+|[.,;:()\[\]"'\/\\\-]+$/g, '');
+}
+
+function casaTokenOcrUnico(token: string, wordText: string): boolean {
+  const normWord = normalizarTextoVisualizador(wordText);
+  if (!normWord) return false;
+  if (/^[0-9.]+$/.test(token)) {
+    const rawDigits = token.replace(/\./g, '');
+    if (/^\d{1,8}$/.test(rawDigits)) {
+      const semZeros = rawDigits.replace(/^0+/, '') || '0';
+      const normMilhares = unirSeparadoresMilhar(normWord);
+      return new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(normMilhares);
+    }
+  }
+  const limpoWord = limparPontuacaoBordaOcr(normWord);
+  const limpoTok = limparPontuacaoBordaOcr(token);
+  if (limpoWord === limpoTok) return true;
+  return limpoTok.length >= 2 && normWord.includes(limpoTok);
+}
+
+function criarCaixaComMargem(
+  id: string,
+  page: number,
+  text: string,
+  rawX: number,
+  rawY: number,
+  rawW: number,
+  rawH: number,
+): OcrHighlightBox {
+  const padX = 0.003;
+  const padY = 0.002;
+  const x = Math.max(0, rawX - padX);
+  const y = Math.max(0, rawY - padY);
+  const maxX = Math.min(1, rawX + rawW + padX);
+  const maxY = Math.min(1, rawY + rawH + padY);
+  return {
+    id,
+    page,
+    text,
+    x: Number(x.toFixed(4)),
+    y: Number(y.toFixed(4)),
+    w: Number(Math.max(0.004, maxX - x).toFixed(4)),
+    h: Number(Math.max(0.004, maxY - y).toFixed(4)),
+  };
+}
+
+/** Localiza caixas de destaque por página e contabiliza ocorrências a partir do índice OCR retornado pelo Connector. */
+export function calcularDestaquesOcrDocumento(
+  ocrPorPagina: Record<number, OcrWordTuple[]>,
+  termoBruto: string,
+): ResumoDestaqueDocumento {
+  const tokens = extrairTokensDestaquePesquisa(termoBruto);
+  const porPagina: Record<number, OcrHighlightBox[]> = {};
+  const ocorrencias: OcrHighlightBox[] = [];
+  const paginasComOcorrencia: Array<{ page: number; count: number }> = [];
+
+  if (tokens.length === 0 || tokens.join('').length < 2) {
+    return { ocorrencias, porPagina, paginasComOcorrencia, total: 0 };
+  }
+
+  const paginasOrdenadas = Object.keys(ocrPorPagina)
+    .map((k) => parseInt(k, 10))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  for (const pageNum of paginasOrdenadas) {
+    const words = ocrPorPagina[pageNum] || [];
+    if (words.length === 0) continue;
+
+    const boxesPagina: OcrHighlightBox[] = [];
+    if (tokens.length === 1) {
+      const tok = tokens[0];
+      for (let i = 0; i < words.length; i++) {
+        const [txt, x, y, w, h] = words[i];
+        if (!casaTokenOcrUnico(tok, txt)) continue;
+        boxesPagina.push(criarCaixaComMargem(`p${pageNum}-i${i}`, pageNum, txt, x, y, w, h));
+      }
+    } else {
+      const m = tokens.length;
+      for (let k = 0; k <= words.length - m; k++) {
+        let matched = true;
+        for (let offset = 0; offset < m; offset++) {
+          if (!casaTokenOcrUnico(tokens[offset], words[k + offset][0])) {
+            matched = false;
+            break;
+          }
+        }
+        if (!matched) continue;
+
+        const slice = words.slice(k, k + m);
+        const mesmaLinha = slice.every((w) => Math.abs(w[2] - slice[0][2]) < 0.025);
+        if (mesmaLinha) {
+          const minX = Math.min(...slice.map((w) => w[1]));
+          const minY = Math.min(...slice.map((w) => w[2]));
+          const maxX = Math.max(...slice.map((w) => w[1] + w[3]));
+          const maxY = Math.max(...slice.map((w) => w[2] + w[4]));
+          const frase = slice.map((w) => w[0]).join(' ');
+          boxesPagina.push(criarCaixaComMargem(`p${pageNum}-seq${k}`, pageNum, frase, minX, minY, maxX - minX, maxY - minY));
+        } else {
+          // Quando a frase quebra de linha no documento, cria um retângulo para cada palavra encontrada
+          for (let offset = 0; offset < slice.length; offset++) {
+            const [txt, x, y, w, h] = slice[offset];
+            boxesPagina.push(criarCaixaComMargem(`p${pageNum}-seq${k}-w${offset}`, pageNum, txt, x, y, w, h));
+          }
+        }
+        k += m - 1;
+      }
+    }
+
+    if (boxesPagina.length > 0) {
+      boxesPagina.sort((a, b) => a.y - b.y || a.x - b.x);
+      porPagina[pageNum] = boxesPagina;
+      ocorrencias.push(...boxesPagina);
+      paginasComOcorrencia.push({ page: pageNum, count: boxesPagina.length });
+    }
+  }
+
+  return {
+    ocorrencias,
+    porPagina,
+    paginasComOcorrencia,
+    total: ocorrencias.length,
+  };
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function construirMapaNormalizadoTextoPlano(text: string): {
+  normStr: string;
+  normStartToOrig: number[];
+  normEndToOrig: number[];
+} {
+  let normStr = '';
+  const normStartToOrig: number[] = [];
+  const normEndToOrig: number[] = [];
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i) ?? text.charCodeAt(i);
+    const charLen = cp > 0xffff ? 2 : 1;
+    const base = text
+      .slice(i, i + charLen)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    for (const ch of base) {
+      normStr += ch;
+      normStartToOrig.push(i);
+      normEndToOrig.push(i + charLen);
+    }
+    i += charLen;
+  }
+  return { normStr, normStartToOrig, normEndToOrig };
+}
+
+function buildPatternForHighlightToken(tok: string): { pattern: string; numeric: boolean } {
+  if (/^[0-9.]+$/.test(tok)) {
+    const rawDigits = tok.replace(/\./g, '');
+    if (/^\d{1,8}$/.test(rawDigits)) {
+      const semZeros = rawDigits.replace(/^0+/, '') || '0';
+      const interleaved = semZeros.split('').map(escapeRegExp).join('\\.?');
+      return { pattern: `0*${interleaved}`, numeric: true };
+    }
+  }
+  return { pattern: escapeRegExp(limparPontuacaoBordaOcr(tok)), numeric: false };
+}
+
+function temFronteiraNumericaValida(normStr: string, start: number, end: number): boolean {
+  if (start > 0) {
+    const prev = normStr[start - 1];
+    if (/\d/.test(prev)) return false;
+    if (prev === '.' && start >= 2 && /\d/.test(normStr[start - 2])) return false;
+  }
+  if (end < normStr.length) {
+    const next = normStr[end];
+    if (/\d/.test(next)) return false;
+    if (next === '.' && end + 1 < normStr.length && /\d/.test(normStr[end + 1])) return false;
+  }
+  return true;
+}
+
+function destacarTextoPlanoSeguro(text: string, tokens: string[]): { out: string; count: number } {
+  if (!text) return { out: text, count: 0 };
+  const specs = tokens.map(buildPatternForHighlightToken).filter((s) => Boolean(s.pattern));
+  if (specs.length === 0) return { out: text, count: 0 };
+
+  const temNumerico = specs.some((s) => s.numeric);
+  const patternStr = specs.length === 1 ? specs[0].pattern : specs.map((s) => s.pattern).join('[\\s.,;:/\\-]+');
+  const rx = new RegExp(patternStr, 'g');
+  const { normStr, normStartToOrig, normEndToOrig } = construirMapaNormalizadoTextoPlano(text);
+
+  const ranges: Array<[number, number]> = [];
+  for (const m of normStr.matchAll(rx)) {
+    const mIdx = m.index ?? -1;
+    if (mIdx < 0 || !m[0]) continue;
+    const mEnd = mIdx + m[0].length;
+    if (temNumerico && specs.length === 1 && !temFronteiraNumericaValida(normStr, mIdx, mEnd)) {
+      continue;
+    }
+    const origStart = normStartToOrig[mIdx];
+    const origEnd = normEndToOrig[mEnd - 1];
+    if (origStart === undefined || origEnd === undefined || origEnd <= origStart) continue;
+    const last = ranges[ranges.length - 1];
+    if (!last || origStart >= last[1]) {
+      ranges.push([origStart, origEnd]);
+    }
+  }
+
+  if (ranges.length === 0) return { out: text, count: 0 };
+
+  let cursor = 0;
+  let out = '';
+  for (const [start, end] of ranges) {
+    out += text.slice(cursor, start);
+    out += `<mark class="fiorix-doc-highlight bg-amber-300/85 text-slate-950 px-0.5 rounded ring-1 ring-amber-500 font-semibold">${text.slice(start, end)}</mark>`;
+    cursor = end;
+  }
+  out += text.slice(cursor);
+  return { out, count: ranges.length };
+}
+
+/**
+ * Destaca termos pesquisados apenas nos nós de texto de HTML já sanitizado, preservando todas as tags e entidades HTML.
+ */
+export function destacarTermoEmHtmlSanitizado(html: string, termoBruto: string): { html: string; total: number } {
+  const tokens = extrairTokensDestaquePesquisa(termoBruto);
+  if (!html || tokens.length === 0 || tokens.join('').length < 2) {
+    return { html, total: 0 };
+  }
+
+  const partes = html.split(/(<[^>]+>)/g);
+  let total = 0;
+  const processadas = partes.map((parte, idx) => {
+    if (!parte || idx % 2 === 1) return parte; // Mantém tags HTML intactas
+    const segmentosEntidade = parte.split(/(&[a-zA-Z0-9#]+;)/g);
+    return segmentosEntidade
+      .map((seg, segIdx) => {
+        if (!seg || segIdx % 2 === 1) return seg; // Mantém entidades HTML intactas
+        const { out, count } = destacarTextoPlanoSeguro(seg, tokens);
+        total += count;
+        return out;
+      })
+      .join('');
+  });
+
+  return { html: processadas.join(''), total };
 }

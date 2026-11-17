@@ -47,6 +47,16 @@ export const readDocumentTextInput = z.object({
   forceFresh: z.boolean().optional(),
 }).strict();
 
+export const ocrDocumentPagesInput = z.object({
+  connectorId: connectorIdSchema,
+  type: z.literal('ocr_document_pages'),
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+  relativePath: relativePathSchema,
+  pageStart: z.number().int().min(1).max(9999).optional().nullable(),
+  pageEnd: z.number().int().min(1).max(9999).optional().nullable(),
+  forceFresh: z.boolean().optional(),
+}).strict();
+
 // Transferência segura em blocos via HTTPS (para Safari, Mac, iPad e estações fora da máquina do Connector)
 export const readDocumentChunkInput = z.object({
   connectorId: connectorIdSchema,
@@ -78,6 +88,7 @@ export const documentJobInput = z.union([
   extractPetitionInput,
   analyzeSignaturesInput,
   readDocumentTextInput,
+  ocrDocumentPagesInput,
   readDocumentChunkInput,
   listDirectoryInput,
   stageDocumentFileInput,

@@ -89,7 +89,15 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND status = 'complete'
             AND type = 'search' AND (query = ${query} OR translate(LOWER(COALESCE(query, '')), '.-', '') = translate(LOWER(${query}), '.-', ''))`;
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'stage_document_file' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
+      } else if (
+        (type === 'extract_petition' ||
+          type === 'analyze_signatures' ||
+          type === 'stage_document_file' ||
+          type === 'ocr_document_pages' ||
+          (type === 'read_document_text' && pageStart === null && pageEnd === null)) &&
+        rootId &&
+        relativePath
+      ) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND status = 'complete'
@@ -114,7 +122,15 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             newlyInserted: false,
           };
         }
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text' || type === 'stage_document_file') && rootId && relativePath) {
+      } else if (
+        (type === 'extract_petition' ||
+          type === 'analyze_signatures' ||
+          type === 'read_document_text' ||
+          type === 'stage_document_file' ||
+          type === 'ocr_document_pages') &&
+        rootId &&
+        relativePath
+      ) {
         const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue; pageStart: number | null; pageEnd: number | null }>>`
           SELECT id, result, "pageStart", "pageEnd" FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
@@ -200,6 +216,34 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           } else if (type === 'stage_document_file') {
             const hasStoragePath = typeof res?.storagePath === 'string' && res.storagePath.length > 0;
             if (!hasStoragePath) ehValido = false;
+          } else if (type === 'ocr_document_pages') {
+            const paginasOcr = Array.isArray(res?.pages) ? (res.pages as Array<{ page?: number }>) : null;
+            if (!paginasOcr) {
+              ehValido = false;
+            } else if (
+              pageStart !== null &&
+              pageEnd !== null &&
+              row.pageStart === null &&
+              row.pageEnd === null
+            ) {
+              const totalDoc = Number(res?.pageCount) || paginasOcr.length;
+              const fatiaOcr = paginasOcr.filter(
+                (p) => typeof p?.page === 'number' && p.page >= pageStart && p.page <= pageEnd,
+              );
+              const endEfetivo = Math.min(pageEnd, totalDoc);
+              if (totalDoc > 0 && pageStart <= totalDoc && fatiaOcr.length > 0) {
+                resultadoFinal = {
+                  ...res,
+                  pages: fatiaOcr,
+                  pageCount: totalDoc,
+                  loadedPageStart: pageStart,
+                  loadedPageEnd: fatiaOcr[fatiaOcr.length - 1]?.page ?? endEfetivo,
+                  hasMorePages: (fatiaOcr[fatiaOcr.length - 1]?.page ?? endEfetivo) < totalDoc,
+                };
+              } else {
+                ehValido = false;
+              }
+            }
           } else if (type === 'analyze_signatures') {
             if (res?.versao_motor !== 2) {
               ehValido = false;
