@@ -8,7 +8,7 @@ import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/acc
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Pesquisa Registral Integrada | FIORIX',
+  title: 'Pesquisa Registral Integrada — Gestão Documental | FIORIX',
 };
 
 export default async function PesquisaRegistralPage() {
@@ -35,35 +35,32 @@ export default async function PesquisaRegistralPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#070A12] text-slate-100 overflow-x-hidden">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-amber-500/10 blur-[120px]" />
-        <div className="absolute top-1/3 right-1/5 h-96 w-96 rounded-full bg-sky-500/10 blur-[130px]" />
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-16 font-sans">
+      {/* Ambient Glow (Padrão FIORIX) */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500/8 via-indigo-500/8 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <main className="relative z-10 mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-        <header className="flex flex-col gap-4 border-b border-slate-800/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-amber-400">
-              <span>Gestão Documental</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-sky-400">WEBRI + SiplanIA</span>
-            </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
-              Pesquisa Registral Integrada
-            </h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Consulta híbrida somente leitura no Indicador Real, Indicador Pessoal e índice OCR completo das matrículas.
-            </p>
-          </div>
+      <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 pb-3 border-b border-white/10">
           <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">GESTÃO DOCUMENTAL</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">PESQUISA REGISTRAL</span>
+              <h1 className="sr-only">Pesquisa Registral Integrada</h1>
+            </div>
+
             <GestaoDocumentalAbas ativa="pesquisa" />
-            <BotaoVoltarTelaAnterior />
           </div>
-        </header>
+
+          <BotaoVoltarTelaAnterior />
+        </div>
 
         <PesquisaRegistralClient />
-      </main>
+      </div>
     </div>
   );
 }

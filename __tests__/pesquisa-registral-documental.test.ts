@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   documentJobInput,
@@ -130,5 +132,21 @@ describe('Pesquisa Registral — contratos, navegação e integração com Visua
         allowedItemIds: ['visualizador_documental', 'pesquisa_registral_documental'],
       }),
     ).toBe(false);
+  });
+
+  it('garante cabeçalho compacto sem tag <header> na Pesquisa Registral e rótulo padrão "Voltar" em BotaoVoltarTelaAnterior', () => {
+    const pageSrc = readFileSync(
+      path.resolve(process.cwd(), 'src/app/(dashboard)/gestao-documental/pesquisa/page.tsx'),
+      'utf8',
+    );
+    expect(pageSrc).not.toContain('<header');
+    expect(pageSrc).toContain('GESTÃO DOCUMENTAL');
+    expect(pageSrc).toContain('PESQUISA REGISTRAL');
+
+    const voltarSrc = readFileSync(
+      path.resolve(process.cwd(), 'src/components/ui/BotaoVoltarTelaAnterior.tsx'),
+      'utf8',
+    );
+    expect(voltarSrc).toContain("label = 'Voltar'");
   });
 });

@@ -80,11 +80,12 @@ beforeEach(() => {
 });
 
 describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS', () => {
-  it('mantém a ordem exata: MANIFESTAÇÕES | VISUALIZADOR | EM CONFERÊNCIA | ARQUIVO | ANDAMENTOS', () => {
+  it('mantém a ordem exata: MANIFESTAÇÕES | PESQUISA REGISTRAL | VISUALIZADOR | EM CONFERÊNCIA | ARQUIVO | ANDAMENTOS', () => {
     const grupoDoc = navigationGroups.documental;
     expect(grupoDoc).toBeDefined();
     expect(grupoDoc.items.map(i => ({ label: i.label, href: i.href }))).toEqual([
       { label: 'MANIFESTAÇÕES', href: '/gestao-documental' },
+      { label: 'PESQUISA REGISTRAL', href: '/gestao-documental/pesquisa' },
       { label: 'VISUALIZADOR', href: '/gestao-documental/visualizador' },
       { label: 'EM CONFERÊNCIA', href: '/gestao-documental/conferencia' },
       { label: 'ARQUIVO', href: '/gestao-documental/arquivo' },
@@ -95,6 +96,7 @@ describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS',
     expect(catalogoDoc).toBeDefined();
     expect(catalogoDoc!.items.map(i => i.href)).toEqual([
       '/gestao-documental',
+      '/gestao-documental/pesquisa',
       '/gestao-documental/visualizador',
       '/gestao-documental/conferencia',
       '/gestao-documental/arquivo',
