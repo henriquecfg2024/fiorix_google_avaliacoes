@@ -447,6 +447,12 @@ export async function checkDirectMatriculaFiles(
     return [];
   }
 
+  // Pesquisa de conteúdo textual (ex.: "Jerônimo de Mendonça 75", "Rua Bruna 390") sem rótulo de Matrícula/Transcrição:
+  // o "75" é nº predial do endereço e NÃO deve buscar Matrícula nº 75 nem Transcrição nº 75 por colisão numérica.
+  if (deveConsultarFullTextSiplanIa(query) && !ehMatriculaExplicita && !ehTranscricao) {
+    return [];
+  }
+
   // Transcrição pertence ao Livro 3 (LV3), nunca ao Livro 2 (LV2 / Matrículas)
   if (ehTranscricao && rootId === 'livro2') {
     return [];
@@ -1143,6 +1149,10 @@ function extractDirectTituloCriterionInfo(texto: string): {
     /\b(?:ac|ph|in)[0-9]{5,12}[a-z0-9]?\b/i.test(texto);
 
   if (isExplicitMatriculaOrSetor && !isExplicitProtocolo) {
+    return { isExplicitProtocolo: false, skipDirectTitulos: true, protocolosDiretos: [], codigosCentral: [] };
+  }
+  // Pesquisa textual de endereço/nome (ex.: "Rua Bruna 390") sem pedido de Protocolo não deve puxar Protocolo nº 390
+  if (deveConsultarFullTextSiplanIa(texto) && !isExplicitProtocolo) {
     return { isExplicitProtocolo: false, skipDirectTitulos: true, protocolosDiretos: [], codigosCentral: [] };
   }
 
@@ -1864,7 +1874,16 @@ export async function searchDocuments(
     ),
   );
 
+  // Evita que busca exclusivamente de endereço/nome/CPF (sem nº de matrícula/protocolo/CNJ) traga 30 .TIFs de TITULOS-VISUALIZA acima das matrículas reais
+  const ehBuscaApenasConteudoTextual =
+    criterios.every(
+      c =>
+        deveConsultarFullTextSiplanIa(c.texto) &&
+        !/\b(?:matr[ií]cula|protocolo|prenota[çc][ãa]o|processo)\b/i.test(c.texto),
+    ) && processosCnjParaWebri.length === 0;
+
   if (
+    !ehBuscaApenasConteudoTextual &&
     (matriculasParaWebri.size > 0 || processosCnjParaWebri.length > 0) &&
     result.files.length < limit
   ) {
@@ -1951,6 +1970,12 @@ export async function searchDocuments(
   if (result.files.length > 1) {
     const queryNums = new Set<number>();
     for (const c of criterios) {
+      if (
+        deveConsultarFullTextSiplanIa(c.texto) &&
+        !/\b(?:matr[ií]cula|transcri[çc][ãa]o|protocolo|prenota[çc][ãa]o)\b/i.test(c.texto)
+      ) {
+        continue;
+      }
       const semProc = removerNumerosDeProcesso(c.texto);
       const dotted = semProc.match(/\b\d{1,3}(?:\.\d{3})+\b/g) || [];
       for (const d of dotted) {

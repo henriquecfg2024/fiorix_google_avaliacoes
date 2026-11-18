@@ -508,26 +508,97 @@ export async function pesquisarMatriculasTextoSiplanIaReadOnly(
   if (!pool) return [];
 
   try {
-    const res = await pool.query<{ numero: number }>(
+    // 1. Primeiro tenta busca por proximidade léxica (tokens válidos dentro de até 4 posições entre si no GIN)
+    //    Evita falsos positivos como "Jerônimo ... ficha 75" em matrículas de condomínio grandes.
+    const nearRes = await pool.query<{ numero: number }>(
       `
-      WITH q AS (
-        SELECT websearch_to_tsquery('portuguese', unaccent($1)) AS tsq
+      WITH RECURSIVE valid_toks AS (
+        SELECT tok, phraseto_tsquery('portuguese', tok) AS pq, ord
+        FROM unnest(regexp_split_to_array(trim(unaccent($1)), '\\s+')) WITH ORDINALITY AS u(tok, ord)
+        WHERE length(tok) > 0
+          AND phraseto_tsquery('portuguese', tok) <> ''::tsquery
+      ),
+      toks AS (
+        SELECT row_number() OVER (ORDER BY ord) AS rn, tok, pq
+        FROM valid_toks
+      ),
+      chain AS (
+        SELECT rn, pq AS acc FROM toks WHERE rn = 1
+        UNION ALL
+        SELECT t.rn,
+               (
+                 tsquery_phrase(c.acc, t.pq, 1) ||
+                 tsquery_phrase(c.acc, t.pq, 2) ||
+                 tsquery_phrase(c.acc, t.pq, 3) ||
+                 tsquery_phrase(c.acc, t.pq, 4)
+               )
+        FROM chain c
+        JOIN toks t ON t.rn = c.rn + 1
+        WHERE t.rn <= 6
+      ),
+      q AS (
+        SELECT
+          (SELECT COUNT(*)::int FROM toks) AS tok_cnt,
+          (SELECT acc FROM chain ORDER BY rn DESC LIMIT 1) AS near_q
       )
       SELECT m.numero::int AS numero
       FROM public.matricula m, q
-      WHERE q.tsq <> ''::tsquery
-        AND m.textotsvector @@ q.tsq
+      WHERE q.tok_cnt >= 2
+        AND q.near_q IS NOT NULL
+        AND m.textotsvector @@ q.near_q
         AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
         AND m.numero BETWEEN 1 AND 99999999
-      ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.numero ASC
+      ORDER BY ts_rank_cd(m.textotsvector, q.near_q, 32) DESC,
+               m.qtdpaginas ASC,
+               m.numero ASC
       LIMIT $2
       `,
       [preparedQuery, limit],
     );
 
-    const numeros = (res.rows || [])
+    let numeros = (nearRes.rows || [])
       .map((r) => Math.trunc(Number(r.numero)))
       .filter((n) => Number.isFinite(n) && n > 0);
+
+    // 2. Fallback para consultas não-contíguas (ex.: "Nome Completo + CPF/Condomínio" na mesma página) ou termo único
+    if (numeros.length === 0) {
+      const res = await pool.query<{ numero: number }>(
+        `
+        WITH q AS (
+          SELECT websearch_to_tsquery('portuguese', unaccent($1)) AS tsq
+        ),
+        cands AS (
+          SELECT m.id,
+                 m.numero::int AS numero,
+                 m.qtdpaginas,
+                 ts_rank_cd(m.textotsvector, q.tsq, 32) AS base_rank
+          FROM public.matricula m, q
+          WHERE q.tsq <> ''::tsquery
+            AND m.textotsvector @@ q.tsq
+            AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+            AND m.numero BETWEEN 1 AND 99999999
+            AND (m.qtdpaginas IS NULL OR m.qtdpaginas <= 120)
+          ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC
+          LIMIT 40
+        )
+        SELECT c.numero
+        FROM cands c, q
+        WHERE EXISTS (
+          SELECT 1
+          FROM public.matricula_pagina mp
+          WHERE mp.matricula_id = c.id
+            AND to_tsvector('portuguese', unaccent(COALESCE(mp.texto, ''))) @@ q.tsq
+        )
+        ORDER BY c.base_rank DESC, c.qtdpaginas ASC, c.numero ASC
+        LIMIT $2
+        `,
+        [preparedQuery, limit],
+      );
+
+      numeros = (res.rows || [])
+        .map((r) => Math.trunc(Number(r.numero)))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    }
 
     setCachedFts(cacheKey, numeros);
     return numeros;
