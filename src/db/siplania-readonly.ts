@@ -554,17 +554,23 @@ export async function pesquisarMatriculasTextoSiplanIaReadOnly(
         SELECT
           (SELECT COUNT(*)::int FROM toks) AS tok_cnt,
           (SELECT acc FROM chain ORDER BY rn DESC LIMIT 1) AS near_q
+      ),
+      raw_cands AS MATERIALIZED (
+        SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+        FROM public.matricula m, q
+        WHERE q.tok_cnt >= 2
+          AND q.near_q IS NOT NULL
+          AND m.textotsvector @@ q.near_q
+          AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+          AND m.numero BETWEEN 1 AND 99999999
+        LIMIT 250
       )
-      SELECT m.numero::int AS numero
-      FROM public.matricula m, q
-      WHERE q.tok_cnt >= 2
-        AND q.near_q IS NOT NULL
-        AND m.textotsvector @@ q.near_q
-        AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
-        AND m.numero BETWEEN 1 AND 99999999
-      ORDER BY ts_rank_cd(m.textotsvector, q.near_q, 32) DESC,
-               m.qtdpaginas ASC,
-               m.numero ASC
+      SELECT rc.numero
+      FROM raw_cands rc
+      JOIN public.matricula m2 ON m2.id = rc.id, q
+      ORDER BY ts_rank_cd(m2.textotsvector, q.near_q, 32) DESC,
+               rc.qtdpaginas ASC,
+               rc.numero ASC
       LIMIT $2
       `,
       [preparedQuery, limit],
@@ -581,18 +587,24 @@ export async function pesquisarMatriculasTextoSiplanIaReadOnly(
         WITH q AS (
           SELECT websearch_to_tsquery('portuguese', unaccent($1)) AS tsq
         ),
-        cands AS (
-          SELECT m.id,
-                 m.numero::int AS numero,
-                 m.qtdpaginas,
-                 ts_rank_cd(m.textotsvector, q.tsq, 32) AS base_rank
+        raw_cands AS MATERIALIZED (
+          SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
           FROM public.matricula m, q
           WHERE q.tsq <> ''::tsquery
             AND m.textotsvector @@ q.tsq
             AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
             AND m.numero BETWEEN 1 AND 99999999
             AND (m.qtdpaginas IS NULL OR m.qtdpaginas <= 120)
-          ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC
+          LIMIT 250
+        ),
+        cands AS (
+          SELECT rc.id,
+                 rc.numero,
+                 rc.qtdpaginas,
+                 ts_rank_cd(m2.textotsvector, q.tsq, 32) AS base_rank
+          FROM raw_cands rc
+          JOIN public.matricula m2 ON m2.id = rc.id, q
+          ORDER BY base_rank DESC, rc.qtdpaginas ASC
           LIMIT 40
         )
         SELECT c.numero
@@ -748,14 +760,20 @@ export async function pesquisarMatriculasComTrechoSiplanIaReadOnly(
         `
         WITH q AS (
           SELECT phraseto_tsquery('portuguese', unaccent($1)) AS tsq
+        ),
+        raw_cands AS MATERIALIZED (
+          SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+          FROM public.matricula m, q
+          WHERE q.tsq <> ''::tsquery
+            AND m.textotsvector @@ q.tsq
+            AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+            AND m.numero BETWEEN 1 AND 99999999
+          LIMIT 250
         )
-        SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
-        FROM public.matricula m, q
-        WHERE q.tsq <> ''::tsquery
-          AND m.textotsvector @@ q.tsq
-          AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
-          AND m.numero BETWEEN 1 AND 99999999
-        ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC, m.numero ASC
+        SELECT rc.id, rc.numero, rc.qtdpaginas
+        FROM raw_cands rc
+        JOIN public.matricula m2 ON m2.id = rc.id, q
+        ORDER BY ts_rank_cd(m2.textotsvector, q.tsq, 32) DESC, rc.qtdpaginas ASC, rc.numero ASC
         LIMIT $2
         `,
         [preparedQuery, limit],
@@ -792,17 +810,23 @@ export async function pesquisarMatriculasComTrechoSiplanIaReadOnly(
           SELECT
             (SELECT COUNT(*)::int FROM toks) AS tok_cnt,
             (SELECT acc FROM chain ORDER BY rn DESC LIMIT 1) AS near_q
+        ),
+        raw_cands AS MATERIALIZED (
+          SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+          FROM public.matricula m, q
+          WHERE q.tok_cnt >= 2
+            AND q.near_q IS NOT NULL
+            AND m.textotsvector @@ q.near_q
+            AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+            AND m.numero BETWEEN 1 AND 99999999
+          LIMIT 250
         )
-        SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
-        FROM public.matricula m, q
-        WHERE q.tok_cnt >= 2
-          AND q.near_q IS NOT NULL
-          AND m.textotsvector @@ q.near_q
-          AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
-          AND m.numero BETWEEN 1 AND 99999999
-        ORDER BY ts_rank_cd(m.textotsvector, q.near_q, 32) DESC,
-                 m.qtdpaginas ASC,
-                 m.numero ASC
+        SELECT rc.id, rc.numero, rc.qtdpaginas
+        FROM raw_cands rc
+        JOIN public.matricula m2 ON m2.id = rc.id, q
+        ORDER BY ts_rank_cd(m2.textotsvector, q.near_q, 32) DESC,
+                 rc.qtdpaginas ASC,
+                 rc.numero ASC
         LIMIT $2
         `,
         [preparedQuery, limit],
@@ -815,18 +839,24 @@ export async function pesquisarMatriculasComTrechoSiplanIaReadOnly(
           WITH q AS (
             SELECT websearch_to_tsquery('portuguese', unaccent($1)) AS tsq
           ),
-          cands AS (
-            SELECT m.id::bigint AS id,
-                   m.numero::int AS numero,
-                   m.qtdpaginas::int AS qtdpaginas,
-                   ts_rank_cd(m.textotsvector, q.tsq, 32) AS base_rank
+          raw_cands AS MATERIALIZED (
+            SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
             FROM public.matricula m, q
             WHERE q.tsq <> ''::tsquery
               AND m.textotsvector @@ q.tsq
               AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
               AND m.numero BETWEEN 1 AND 99999999
               AND (m.qtdpaginas IS NULL OR m.qtdpaginas <= 120)
-            ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC
+            LIMIT 250
+          ),
+          cands AS (
+            SELECT rc.id,
+                   rc.numero,
+                   rc.qtdpaginas,
+                   ts_rank_cd(m2.textotsvector, q.tsq, 32) AS base_rank
+            FROM raw_cands rc
+            JOIN public.matricula m2 ON m2.id = rc.id, q
+            ORDER BY base_rank DESC, rc.qtdpaginas ASC
             LIMIT 40
           )
           SELECT c.id, c.numero, c.qtdpaginas

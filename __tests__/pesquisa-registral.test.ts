@@ -65,6 +65,9 @@ describe('Pesquisa Registral Híbrida Somente-Leitura (WEBRI + SiplanIA)', () =>
       }),
     ).toBe('Jerônimo de Mendonça 165 Conjunto Residencial da Mooca');
 
+    expect(
+      montarCriterioSiplanIaParaImovel({ contribuinte: '03110801450', edificioCondominio: 'MOOCA' }),
+    ).toBe('031.108.0145-0 MOOCA');
     expect(montarCriterioSiplanIaParaImovel({ contribuinte: '03110801450' })).toBe('031.108.0145-0');
     expect(montarCriterioSiplanIaParaImovel({ cep: '03189050' })).toBe('03189-050');
   });
@@ -76,10 +79,11 @@ describe('Pesquisa Registral Híbrida Somente-Leitura (WEBRI + SiplanIA)', () =>
     expect(isSqlPermissionDenied229({ number: 1222, message: 'Lock request time out period exceeded' })).toBe(false);
   });
 
-  it('retorna catálogos canônicos padrão fora do banco e exige ao menos um filtro na busca', async () => {
+  it('retorna catálogos canônicos padrão fora do banco, exige filtro na busca e aceita somenteContraditorioIndisponibilidade isolado', async () => {
     const cat = await listarCatalogosPesquisaRegistralReadOnly();
     expect(cat.origemBanco).toBe('padrao');
     expect(cat.livros.some((l) => l.id === 2 && l.sigla === 'LV2')).toBe(true);
+    expect(cat.livros.some((l) => l.id === 1 && l.sigla === 'TRA')).toBe(true);
     expect(cat.tiposImovel.length).toBeGreaterThan(3);
 
     await expect(
@@ -88,5 +92,12 @@ describe('Pesquisa Registral Híbrida Somente-Leitura (WEBRI + SiplanIA)', () =>
     await expect(
       executarPesquisaRegistralHibridaReadOnly({ aba: 'propriedade', filtrosPropriedade: {} }),
     ).rejects.toThrow(/Informe ao menos o nº do livro/);
+
+    const contradRes = await executarPesquisaRegistralHibridaReadOnly({
+      aba: 'propriedade',
+      filtrosPropriedade: { somenteContraditorioIndisponibilidade: true },
+    });
+    expect(contradRes.aba).toBe('propriedade');
+    expect(Array.isArray(contradRes.itens)).toBe(true);
   });
 });

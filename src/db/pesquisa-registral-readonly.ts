@@ -161,7 +161,7 @@ const CATALOGOS_PADRAO: Omit<CatalogosPesquisaRegistral, 'origemBanco' | 'avisoP
     { id: 0, sigla: 'TODOS', descricao: 'Todos os Livros' },
     { id: 2, sigla: 'LV2', descricao: 'Matrícula (Livro 2)' },
     { id: 3, sigla: 'LV3', descricao: 'Registro Auxiliar (Livro 3)' },
-    { id: 4, sigla: 'TR', descricao: 'Transcrição (Livro Anterior)' },
+    { id: 1, sigla: 'TRA', descricao: 'Transcrição (Livro Anterior)' },
   ],
   tiposImovel: [
     { id: 2, descricao: 'Apartamento' },
@@ -400,9 +400,9 @@ export function montarCriterioSiplanIaParaImovel(filtros: FiltrosPesquisaImovel)
   if (filtros.confrontante?.trim()) partes.push(filtros.confrontante.trim());
   if (filtros.descricaoImovel?.trim()) partes.push(filtros.descricaoImovel.trim());
 
-  if (partes.length === 0 && filtros.contribuinte?.trim()) {
+  if (filtros.contribuinte?.trim()) {
     const sqlFmt = formatarContribuinteSp(filtros.contribuinte);
-    if (sqlFmt) partes.push(sqlFmt);
+    if (sqlFmt) partes.unshift(sqlFmt);
   }
   if (partes.length === 0 && filtros.car?.trim()) partes.push(filtros.car.trim());
   if (partes.length === 0 && filtros.incra?.trim()) partes.push(filtros.incra.trim());
@@ -420,12 +420,12 @@ function getLabelLivro(livroId: number | null | undefined, catalogs?: CatalogosP
   const id = Number(livroId || 0);
   const encontrado = catalogs?.livros.find((l) => l.id === id);
   if (encontrado) {
-    const sess = encontrado.sigla || (id === 2 ? 'LV2' : id === 3 ? 'LV3' : `LV${id}`);
+    const sess = encontrado.sigla || (id === 2 ? 'LV2' : id === 3 ? 'LV3' : id === 1 ? 'TRA' : `LV${id}`);
     return { sessao: sess, rotulo: encontrado.descricao };
   }
   if (id === 2) return { sessao: 'LV2', rotulo: 'Matrícula' };
   if (id === 3) return { sessao: 'LV3', rotulo: 'Registro Auxiliar' };
-  if (id === 4) return { sessao: 'TR', rotulo: 'Transcrição' };
+  if (id === 1) return { sessao: 'TRA', rotulo: 'Transcrição' };
   if (id > 0) return { sessao: `LV${id}`, rotulo: `Livro ${id}` };
   return { sessao: '', rotulo: '(S/Vínculo)' };
 }
@@ -753,6 +753,7 @@ function hasAnyImovelFilter(f: FiltrosPesquisaImovel): boolean {
 
 function hasAnyPropriedadeFilter(f: FiltrosPesquisaPropriedade): boolean {
   return Boolean(
+    f.somenteContraditorioIndisponibilidade ||
     (f.numeroLivro && f.numeroLivro > 0) ||
     (f.livroAntigo && f.livroAntigo > 0) ||
     (f.folha && f.folha > 0) ||
@@ -1167,16 +1168,25 @@ async function pesquisarPropriedadeWebri(
   permissionDenied229: boolean;
 }> {
   const results: ItemResultadoPesquisaRegistral[] = [];
+  const seenResultIds = new Set<string>();
   let permissionDenied229 = false;
   let webriOk = true;
 
-  // 1. Consulta direta por Livro / Nº / Livro Antigo / Folha em tblWRIReal (já possui SELECT)
+  // 1. Consulta direta por Livro / Nº / Livro Antigo / Folha ou filtro isolado Contraditório/Indisponibilidade em tblWRIReal
   const temFiltroLivroNumero = Boolean(
     (filtros.numeroLivro && filtros.numeroLivro > 0) ||
     (filtros.livroAntigo && filtros.livroAntigo > 0) ||
     (filtros.folha && filtros.folha > 0),
   );
-  if (temFiltroLivroNumero) {
+  const somenteContrStandalone = Boolean(
+    filtros.somenteContraditorioIndisponibilidade &&
+    !temFiltroLivroNumero &&
+    !filtros.nome?.trim() &&
+    !filtros.documento1?.trim() &&
+    !filtros.documento2?.trim(),
+  );
+
+  if (temFiltroLivroNumero || somenteContrStandalone) {
     try {
       const req = pool.request();
       req.input('TopN', sql.Int, Math.max(10, Math.min(100, limite)));
@@ -1185,30 +1195,40 @@ async function pesquisarPropriedadeWebri(
         req.input('LivroId', sql.SmallInt, filtros.livroId);
         conds.push('r.FK_tblWRILivro_Id = @LivroId');
       }
-      if (filtros.numeroLivro && filtros.numeroLivro > 0) {
-        req.input('NumLivro', sql.Int, filtros.numeroLivro);
-        conds.push('r.PK_Num_Livro = @NumLivro');
+      if (temFiltroLivroNumero) {
+        if (filtros.numeroLivro && filtros.numeroLivro > 0) {
+          req.input('NumLivro', sql.Int, filtros.numeroLivro);
+          conds.push('r.PK_Num_Livro = @NumLivro');
+        }
+        if (filtros.livroCompl?.trim()) {
+          req.input('ComplLivro', sql.VarChar(50), filtros.livroCompl.trim());
+          conds.push('r.PK_Compl_Num_Livro = @ComplLivro');
+        }
+        if (filtros.livroAntigo && filtros.livroAntigo > 0) {
+          req.input('LivroAnt', sql.Int, filtros.livroAntigo);
+          conds.push('r.PK_Livro_Antigo = @LivroAnt');
+        }
+        if (filtros.livroAntigoCompl?.trim()) {
+          req.input('ComplLivroAnt', sql.VarChar(50), filtros.livroAntigoCompl.trim());
+          conds.push('r.PK_Compl_Livro_Antigo = @ComplLivroAnt');
+        }
+        if (filtros.folha && filtros.folha > 0) {
+          req.input('FolhaAnt', sql.Int, filtros.folha);
+          conds.push('r.PK_Folha_Antigo = @FolhaAnt');
+        }
+        if (filtros.folhaCompl?.trim()) {
+          req.input('ComplFolhaAnt', sql.VarChar(50), filtros.folhaCompl.trim());
+          conds.push('r.PK_Compl_Folha_Antigo = @ComplFolhaAnt');
+        }
+      } else if (somenteContrStandalone) {
+        conds.push(
+          '(r.DataBloqueio IS NOT NULL OR (ISNULL(r.TemContrLivro, 0) = 1 AND r.DataCancelIndisponibilidade IS NULL) OR prot.numRecepcao IS NOT NULL)',
+        );
       }
-      if (filtros.livroCompl?.trim()) {
-        req.input('ComplLivro', sql.VarChar(50), filtros.livroCompl.trim());
-        conds.push('r.PK_Compl_Num_Livro = @ComplLivro');
-      }
-      if (filtros.livroAntigo && filtros.livroAntigo > 0) {
-        req.input('LivroAnt', sql.Int, filtros.livroAntigo);
-        conds.push('r.PK_Livro_Antigo = @LivroAnt');
-      }
-      if (filtros.livroAntigoCompl?.trim()) {
-        req.input('ComplLivroAnt', sql.VarChar(50), filtros.livroAntigoCompl.trim());
-        conds.push('r.PK_Compl_Livro_Antigo = @ComplLivroAnt');
-      }
-      if (filtros.folha && filtros.folha > 0) {
-        req.input('FolhaAnt', sql.Int, filtros.folha);
-        conds.push('r.PK_Folha_Antigo = @FolhaAnt');
-      }
-      if (filtros.folhaCompl?.trim()) {
-        req.input('ComplFolhaAnt', sql.VarChar(50), filtros.folhaCompl.trim());
-        conds.push('r.PK_Compl_Folha_Antigo = @ComplFolhaAnt');
-      }
+
+      const orderClause = somenteContrStandalone
+        ? 'ORDER BY r.PK_Id DESC'
+        : 'ORDER BY r.FK_tblWRILivro_Id ASC, r.PK_Num_Livro ASC';
 
       const realRes = await req.query(`
         ${SQL_PREFIX}
@@ -1262,7 +1282,7 @@ async function pesquisarPropriedadeWebri(
         LEFT JOIN dbo.tblWRITipoPrenotacao protTp WITH (NOLOCK)
           ON protTp.PK_ID = prot.tipoPrenotacao
         WHERE ${conds.join(' AND ')}
-        ORDER BY r.FK_tblWRILivro_Id ASC, r.PK_Num_Livro ASC;
+        ${orderClause};
       `);
 
       for (const row of realRes.recordset || []) {
@@ -1284,9 +1304,12 @@ async function pesquisarPropriedadeWebri(
           row.livroAntigo && Number(row.livroAntigo) > 0
             ? `Liv.Antigo ${row.livroAntigo}${row.folhaAntigo ? ` Fls. ${row.folhaAntigo}` : ''}`
             : null;
+        const rowId = `webri:${livroInfo.sessao}:${numLivro}:${row.complLivro || ''}`;
+        if (seenResultIds.has(rowId)) continue;
+        seenResultIds.add(rowId);
 
         results.push({
-          id: `webri:${livroInfo.sessao}:${numLivro}:${row.complLivro || ''}`,
+          id: rowId,
           origem: 'webri',
           sessao: livroInfo.sessao,
           livroRotulo: livroInfo.rotulo,
@@ -1300,6 +1323,8 @@ async function pesquisarPropriedadeWebri(
             ? `Prenotação ${row.protoContraditorio}${row.tipoPrenotacaoDesc ? ` (${row.tipoPrenotacaoDesc})` : ''}`
             : isIndisp
             ? 'Indisponibilidade / Bloqueio'
+            : isContr
+            ? 'Contraditório sinalizado no livro'
             : null,
           contribuinte: contrib,
           tipoImovel,
@@ -1511,9 +1536,12 @@ async function pesquisarPropriedadeWebri(
         const nomeP = row.pessoaNome ? String(row.pessoaNome).trim() : null;
         const docsP = row.pessoaDocs ? String(row.pessoaDocs).trim() : null;
         const qualP = row.participacao ? String(row.participacao).trim() : null;
+        const rowId = `webri:${livroInfo.sessao}:${numLivro}:${row.complLivro || ''}:${row.pessoaId}:${row.seqAto || 0}:${qualP || ''}`;
+        if (seenResultIds.has(rowId)) continue;
+        seenResultIds.add(rowId);
 
         results.push({
-          id: `webri:${livroInfo.sessao}:${numLivro}:${row.pessoaId}:${row.seqAto || 0}`,
+          id: rowId,
           origem: 'webri',
           sessao: livroInfo.sessao,
           livroRotulo: livroInfo.rotulo,
