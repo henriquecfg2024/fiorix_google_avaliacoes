@@ -334,6 +334,15 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         structuralRoles: ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE'],
       },
       {
+        id: 'memorial_infraestrutura_7ri',
+        label: 'Memorial dos Servidores',
+        href: '/master/memorial-infraestrutura',
+        groupId: 'sistema',
+        groupLabel: 'SISTEMA & TECNOLOGIA',
+        description: 'Documentação viva de SRVSQL, SRVFILES e SRVSIPLANIA (Exclusivo MASTER)',
+        isMasterOnly: true,
+      },
+      {
         id: 'importacao_contingencia',
         label: 'Importação de Contingência',
         href: '/bi/importacoes',

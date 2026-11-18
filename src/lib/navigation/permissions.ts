@@ -17,8 +17,9 @@ export function filterNavigationByRole(
     for (const [key, group] of Object.entries(navigationGroups)) {
       if (key === "master" && !isMaster) continue;
 
-      const visibleItems = group.items.filter((item: any) => {
+      const visibleItems = group.items.filter((item: { id?: string; isMasterOnly?: boolean }) => {
         if (!item.id) return false;
+        if (item.isMasterOnly && !isMaster) return false;
         return allowedSet.has(item.id);
       });
 
@@ -76,6 +77,9 @@ export function filterNavigationByRole(
     if (isUser && (key === "sistema" || key === "governancaIts" || key === "trabalho")) continue;
 
     const visibleItems = group.items.filter((item) => {
+      if ((item as { isMasterOnly?: boolean }).isMasterOnly && role !== "MASTER") {
+        return false;
+      }
       // Itens de gestão em RECURSOS HUMANOS ('trabalho')
       if (key === "trabalho") {
         if (isRH || role === "ADMIN" || role === "MASTER" || role === "GESTOR") {

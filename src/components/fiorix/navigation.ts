@@ -272,6 +272,14 @@ export const navigationGroups = {
         description: "WEBRI · SQL Server · serviços do Windows",
       },
       {
+        id: "memorial_infraestrutura_7ri",
+        label: "Memorial dos Servidores",
+        href: "/master/memorial-infraestrutura",
+        icon: ShieldCheck,
+        description: "Documentação viva • SRVSQL, SRVFILES e SRVSIPLANIA",
+        isMasterOnly: true,
+      },
+      {
         id: "importacao_contingencia",
         label: "Importação de Contingência",
         href: "/bi/importacoes",

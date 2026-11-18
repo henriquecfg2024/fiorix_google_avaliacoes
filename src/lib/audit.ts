@@ -13,7 +13,8 @@ export type AuditModulo =
   | 'PERMISSOES_MENU'
   | 'OPERACOES_CONNECTOR'
   | 'CARTORIO_VIRTUAL'
-  | 'GESTAO_DOCUMENTAL';
+  | 'GESTAO_DOCUMENTAL'
+  | 'MEMORIAL_INFRAESTRUTURA';
 
 export type AuditAcao =
   | 'INCLUSAO'
