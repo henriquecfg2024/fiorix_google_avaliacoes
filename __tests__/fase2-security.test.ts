@@ -18,7 +18,7 @@ describe('Fase 2 Security — Connector Hardening (MED-09 & v2.6.9)', () => {
   });
 
   it('atualiza AGENT_VERSION para v2.6.9+', () => {
-    expect(AGENT_VERSION).toMatch(/^v2\.6\.(9|1\d)$/);
+    expect(AGENT_VERSION).toMatch(/^v2\.6\.(9|[1-9]\d+)$/);
   });
 
   it('resolveDocumentCliPath resolve relativo ao diretório do conector e nunca referencia B:\\henrique-dev\\fiorix-gestao-documental', () => {

@@ -182,9 +182,36 @@ export function sanitizeBriefingErrorText(err: unknown): string {
   return raw
     .replace(/password\s*=[^;\s]+/gi, 'password=[redacted]')
     .replace(/pwd\s*=[^;\s]+/gi, 'pwd=[redacted]')
+    .replace(/Command failed:\s*powershell\.exe[^\r\n]*?(?::\s*|$)/gi, '')
+    .replace(/-EncodedCommand\s+[A-Za-z0-9+/=]+/gi, '-EncodedCommand [oculto]')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 220);
+}
+
+async function sampleLocalCpuPercent(windowMs = 450): Promise<number | null> {
+  const effectiveMs =
+    process.env.NODE_ENV === 'test' || process.env.VITEST ? Math.min(windowMs, 5) : windowMs;
+  const start = os.cpus();
+  if (!start || start.length === 0) return null;
+
+  await new Promise((resolve) => setTimeout(resolve, effectiveMs));
+  const end = os.cpus();
+  if (!end || end.length !== start.length) return null;
+
+  let idleDelta = 0;
+  let totalDelta = 0;
+  for (let i = 0; i < start.length; i++) {
+    const t1 = start[i].times;
+    const t2 = end[i].times;
+    const tot1 = t1.user + t1.nice + t1.sys + t1.idle + t1.irq;
+    const tot2 = t2.user + t2.nice + t2.sys + t2.idle + t2.irq;
+    idleDelta += Math.max(0, t2.idle - t1.idle);
+    totalDelta += Math.max(0, tot2 - tot1);
+  }
+  if (totalDelta <= 0) return null;
+  const busyPct = ((totalDelta - idleDelta) / totalDelta) * 100;
+  return Math.round(Math.max(0, Math.min(100, busyPct)) * 10) / 10;
 }
 
 function getLocalLanIpv4(): string | null {
@@ -568,7 +595,7 @@ async function collectSrvsqlSection(host: string, database: string): Promise<Inf
           ) AS buffer_cache_hit_ratio_pct,
           (SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE is_user_process = 1) AS user_sessions_count,
           (SELECT COUNT(*) FROM sys.dm_exec_requests WHERE session_id > 50 AND session_id <> @@SPID) AS active_requests_count,
-          (SELECT COUNT(*) FROM sys.dm_exec_requests WHERE blocking_session_id > 0) AS blocked_requests_count,
+          (SELECT COUNT(*) FROM sys.dm_exec_requests WHERE blocking_session_id > 0 AND wait_time >= 5000) AS blocked_requests_count,
           (SELECT COUNT(*) FROM sys.dm_exec_requests WHERE session_id > 50 AND session_id <> @@SPID AND total_elapsed_time > 120000) AS zombie_queries_count,
           (SELECT COUNT(*) FROM sys.dm_exec_query_memory_grants WHERE grant_time IS NULL) AS memory_grants_pending
         FROM sys.dm_os_sys_info osi
@@ -577,16 +604,21 @@ async function collectSrvsqlSection(host: string, database: string): Promise<Inf
       pool.request().query(`
         SET NOCOUNT ON;
         SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-        SELECT TOP (1)
-          record.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS sql_cpu_percent,
-          100 - record.value('(./Record/SchedulerMonitorEvent/SystemHealth/SystemIdle)[1]', 'int') AS total_cpu_percent
+        SELECT
+          CAST(ROUND(AVG(CAST(sql_cpu_percent AS FLOAT)), 0) AS INT) AS sql_cpu_percent,
+          CAST(ROUND(AVG(CAST(total_cpu_percent AS FLOAT)), 0) AS INT) AS total_cpu_percent
         FROM (
-          SELECT [timestamp], CONVERT(xml, record) AS [record]
-          FROM sys.dm_os_ring_buffers WITH (NOLOCK)
-          WHERE ring_buffer_type = N'RING_BUFFER_SCHEDULER_MONITOR'
-            AND record LIKE N'%<SystemHealth>%'
-        ) AS x
-        ORDER BY [timestamp] DESC;
+          SELECT TOP (3)
+            record.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS sql_cpu_percent,
+            100 - record.value('(./Record/SchedulerMonitorEvent/SystemHealth/SystemIdle)[1]', 'int') AS total_cpu_percent
+          FROM (
+            SELECT [timestamp], CONVERT(xml, record) AS [record]
+            FROM sys.dm_os_ring_buffers WITH (NOLOCK)
+            WHERE ring_buffer_type = N'RING_BUFFER_SCHEDULER_MONITOR'
+              AND record LIKE N'%<SystemHealth>%'
+          ) AS x
+          ORDER BY [timestamp] DESC
+        ) AS recent_cpu;
       `).catch(() => ({ recordset: [] as any[] })),
       pool.request().query(`
         SET NOCOUNT ON;
@@ -774,6 +806,9 @@ async function collectSrvfilesSection(db?: DatabaseSync): Promise<InfraBriefingS
   const freeRamMb = Math.round((os.freemem() / 1024 / 1024) * 10) / 10;
   const usedRamPercent = totalRamMb > 0 ? Math.round(((totalRamMb - freeRamMb) / totalRamMb) * 1000) / 10 : 0;
 
+  // Amostra CPU local via os.cpus() antes do spawn de PowerShell para não distorcer a leitura com pico de boot
+  const localCpuPct = await sampleLocalCpuPercent(450);
+
   const [cim, mysqlTcp, fileSrvTcp] = await Promise.all([
     probeWindowsHostViaCim({
       host: 'localhost',
@@ -803,7 +838,7 @@ async function collectSrvfilesSection(db?: DatabaseSync): Promise<InfraBriefingS
     lanIp: getLocalLanIpv4(),
     osUptimeSeconds: Math.floor(os.uptime()),
     vcpuCount: Math.max(1, os.cpus()?.length || 1),
-    cpuPercent: cim.cpuPercent,
+    cpuPercent: localCpuPct ?? cim.cpuPercent,
     totalRamMb: cim.totalRamMb ?? totalRamMb,
     freeRamMb: cim.freeRamMb ?? freeRamMb,
     usedRamPercent: cim.usedRamPercent ?? usedRamPercent,

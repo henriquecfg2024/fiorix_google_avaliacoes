@@ -11,7 +11,7 @@ describe('Infra Briefing Telemetry Collector (v2.6.16)', () => {
     vi.restoreAllMocks();
   });
 
-  it('1. sanitizeBriefingErrorText mascara credenciais e limita tamanho', () => {
+  it('1. sanitizeBriefingErrorText mascara credenciais e limpa EncodedCommand PowerShell', () => {
     const cleaned = infraBriefing.sanitizeBriefingErrorText(
       new Error('Falha ao autenticar password=SuperSecret123; pwd=OutraSenha em 10.0.0.6'),
     );
@@ -19,6 +19,12 @@ describe('Infra Briefing Telemetry Collector (v2.6.16)', () => {
     expect(cleaned).not.toContain('OutraSenha');
     expect(cleaned).toContain('password=[redacted]');
     expect(cleaned).toContain('pwd=[redacted]');
+
+    const psErr = infraBriefing.sanitizeBriefingErrorText(
+      new Error('Command failed: powershell.exe -NoProfile -NonInteractive -EncodedCommand JABfAGIA\nAccess denied'),
+    );
+    expect(psErr).not.toContain('JABfAGIA');
+    expect(psErr).toContain('Access denied');
   });
 
   it('2. parseCandidatePorts normaliza lista de portas HTTP válidas com fallback seguro', () => {
