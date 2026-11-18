@@ -35,6 +35,11 @@ import {
   type DocumentSearchTelemetry,
 } from './document-search.js';
 import { iniciarServidorArquivosLocal, type EstatisticasServidorArquivos, type ServidorArquivosLocal } from './document-file-server.js';
+import {
+  executarPesquisaRegistralHibridaReadOnly,
+  listarCatalogosPesquisaRegistralReadOnly,
+  type InputPesquisaRegistral,
+} from '../db/pesquisa-registral-readonly.js';
 
 interface ClaimedJob {
   id: string;
@@ -86,6 +91,8 @@ export interface DocumentWorkerTelemetry {
     inspect_matricula_acervo: number;
     stage_document_file: number;
     ocr_document_pages: number;
+    pesquisa_registral: number;
+    pesquisa_registral_catalogos: number;
   };
   fileServer: EstatisticasServidorArquivos | null;
   searchEngine: DocumentSearchTelemetry | null;
@@ -260,6 +267,12 @@ const MAX_RECENT_FAILURES = 50;
 
 function buildJobTargetIdentity(job: ClaimedJob): { key: string; label: string } {
   const jobType = job.type || 'search';
+  if (jobType === 'pesquisa_registral' || jobType === 'pesquisa_registral_catalogos') {
+    return {
+      key: `${jobType}::registral`,
+      label: jobType === 'pesquisa_registral' ? 'Pesquisa Registral Híbrida' : 'Catálogos Pesquisa Registral',
+    };
+  }
   if (job.rootId && job.relativePath) {
     const cleanRel = job.relativePath.replace(/\\/g, '/').trim();
     const base = path.basename(cleanRel) || cleanRel;
@@ -320,6 +333,8 @@ const workerRuntime = {
     inspect_matricula_acervo: 0,
     stage_document_file: 0,
     ocr_document_pages: 0,
+    pesquisa_registral: 0,
+    pesquisa_registral_catalogos: 0,
   },
 };
 
@@ -729,6 +744,25 @@ export function startDocumentWorker(): () => void {
                 sha256,
               };
             }
+          } else if (job.type === 'pesquisa_registral_catalogos') {
+            result = await listarCatalogosPesquisaRegistralReadOnly();
+          } else if (job.type === 'pesquisa_registral') {
+            let parsedInput: InputPesquisaRegistral;
+            try {
+              const rawObj = JSON.parse(job.query || '{}') as Partial<InputPesquisaRegistral>;
+              parsedInput = {
+                aba: rawObj?.aba === 'propriedade' ? 'propriedade' : 'imovel',
+                filtrosImovel: rawObj?.filtrosImovel && typeof rawObj.filtrosImovel === 'object' ? rawObj.filtrosImovel : {},
+                filtrosPropriedade:
+                  rawObj?.filtrosPropriedade && typeof rawObj.filtrosPropriedade === 'object'
+                    ? rawObj.filtrosPropriedade
+                    : {},
+                limite: typeof rawObj?.limite === 'number' ? rawObj.limite : 80,
+              };
+            } catch {
+              throw new Error('Parâmetros da Pesquisa Registral inválidos.');
+            }
+            result = await executarPesquisaRegistralHibridaReadOnly(parsedInput);
           } else {
             result = await searchDocuments(activeRoots, job.query || '');
           }

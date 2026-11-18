@@ -5,6 +5,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   deveConsultarFullTextSiplanIa,
+  extrairTrechoOcrLimpo,
   parseSiplaniaOcrPosicoesJson,
 } from '../src/db/siplania-readonly.js';
 import { extractDocumentOcrPages, searchDocuments } from '../src/services/document-search.js';
@@ -150,25 +151,22 @@ describe('Integração Read-Only SiplanIA (OCR Instantâneo LV2 + Full-Text GIN)
     }
   });
 
-  it('4. searchDocuments inclui matrículas LV2 (.KEN) localizadas via Full-Text SiplanIA sem colidir nº de endereço com Matrícula', async () => {
+  it('4. searchDocuments (Visualizador) mantém foco em nº/nome sem FTS e evita colisão nº predial x Matrícula', async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'fiorix-siplania-fts-'));
     try {
       const procDir = path.join(tmpDir, 'PROCESSOS');
       const lv2Block0 = path.join(tmpDir, 'IMAGENS', 'LV2', '00000000');
       const lv2Block21 = path.join(tmpDir, 'IMAGENS', 'LV2', '00021000');
-      const lv2Block40 = path.join(tmpDir, 'IMAGENS', 'LV2', '00040000');
       const lv3Block0 = path.join(tmpDir, 'IMAGENS', 'LV3', '00000000');
       await fs.mkdir(procDir, { recursive: true });
       await fs.mkdir(lv2Block0, { recursive: true });
       await fs.mkdir(lv2Block21, { recursive: true });
-      await fs.mkdir(lv2Block40, { recursive: true });
       await fs.mkdir(lv3Block0, { recursive: true });
       await fs.writeFile(path.join(lv2Block0, '00000075.KEN'), Buffer.from('FAKEKEN75'));
       await fs.writeFile(path.join(lv3Block0, '00000075.KEN'), Buffer.from('FAKELV3_75'));
       await fs.writeFile(path.join(lv2Block21, '00021757.KEN'), Buffer.from('FAKEKEN21757'));
-      await fs.writeFile(path.join(lv2Block40, '00040000.KEN'), Buffer.from('FAKEKEN40000'));
+      await fs.writeFile(path.join(procDir, 'Rua Jeronimo de Mendonca 75.pdf'), Buffer.from('PDF'));
 
-      const ftsMock = vi.fn(async () => [21757, 40000]);
       const res = await searchDocuments(
         [
           { id: 'processos', path: procDir },
@@ -178,15 +176,19 @@ describe('Integração Read-Only SiplanIA (OCR Instantâneo LV2 + Full-Text GIN)
         'Jerônimo de Mendonça 75',
         50,
         { maxEntries: 1000, timeoutMs: 5000 },
-        { siplaniaTextSearchResolver: ftsMock },
       );
 
-      expect(ftsMock).toHaveBeenCalledTimes(1);
+      // Visualizador NÃO traz 00000075.KEN por colisão do número predial 75 e NÃO dispara FTS de texto
       expect(res.files.some((f) => f.name === '00000075.KEN')).toBe(false);
-      expect(res.files[0]?.name).toBe('00021757.KEN');
-      expect(res.files.some((f) => f.rootId === 'livro2' && f.name === '00040000.KEN')).toBe(true);
-      expect(res.matriculas).toContain('Matrícula nº 21.757');
-      expect(res.matriculas).toContain('Matrícula nº 40.000');
+      expect(res.files.some((f) => f.name === '00021757.KEN')).toBe(false);
+      expect(res.files.some((f) => f.name === 'Rua Jeronimo de Mendonca 75.pdf')).toBe(true);
+
+      // Mas extrairTrechoOcrLimpo continua extraindo trechos precisos para a nova tela Pesquisa Registral
+      const trecho = extrairTrechoOcrLimpo(
+        'REGISTRO GERAL — Imóvel situado nesta Capital, na rua Jerônimo de Mendonça nº 165, bloco A-6, ap. 402, Conjunto Residencial da Moóca.',
+        'Jerônimo de Mendonça 165',
+      );
+      expect(trecho).toContain('Jerônimo de Mendonça nº 165');
     } finally {
       fsSync.rmSync(tmpDir, { recursive: true, force: true });
     }

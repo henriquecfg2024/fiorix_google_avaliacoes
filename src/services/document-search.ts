@@ -17,7 +17,6 @@ import {
 import {
   consultarPaginasOcrMatriculaSiplanIaReadOnly,
   deveConsultarFullTextSiplanIa,
-  pesquisarMatriculasTextoSiplanIaReadOnly,
   type SiplaniaOcrMatriculaResult,
 } from '../db/siplania-readonly.js';
 // @ts-ignore
@@ -1207,7 +1206,6 @@ export async function searchDocuments(
       protocolosDiretos?: number[];
       codigosCentral?: string[];
     }) => Promise<ProtocoloVinculadoWebri[]>;
-    siplaniaTextSearchResolver?: (criterion: string, maxResults?: number) => Promise<number[]>;
   },
 ): Promise<DocumentSearchResult> {
   // Busca Cruzada: os campos chegam separados por "|" (ex.: "1124837-38.2022.8.26.0100 | 7987").
@@ -1221,7 +1219,6 @@ export async function searchDocuments(
   if (criterios.length === 0 || query.length > 260 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
 
   const webriResolver = options?.webriResolver ?? consultarProtocolosVinculadosWebriReadOnly;
-  const siplaniaTextSearchResolver = options?.siplaniaTextSearchResolver ?? pesquisarMatriculasTextoSiplanIaReadOnly;
   const criteriosEffectiveTerms = criterios.map(c => getEffectiveSearchTerms(c.termos));
 
   const termoCasa = (term: string, normRel: string, cleanRel: string): boolean => {
@@ -1572,78 +1569,6 @@ export async function searchDocuments(
           }
         }
       } catch {}
-    }
-  }
-
-  // Busca Full-Text no acervo de 269 mil matrículas LV2 já OCRizadas no SiplanIA (endereço, condomínio, CPF/CNPJ, nomes)
-  const criteriosTextoIa = criterios.filter(c => deveConsultarFullTextSiplanIa(c.texto));
-  if (criteriosTextoIa.length > 0 && result.files.length < limit) {
-    const lv2Roots = roots.filter(r => r.id === 'livro2');
-    const imagensRoots = roots.filter(r => r.id === 'imagens');
-    const targetLv2Roots = lv2Roots.length > 0 ? lv2Roots : imagensRoots;
-    if (targetLv2Roots.length > 0) {
-      const ftsLimit = Math.min(25, Math.max(1, limit - result.files.length));
-      const encontradosPorCrit = await Promise.all(
-        criteriosTextoIa.map(c => siplaniaTextSearchResolver(c.texto, ftsLimit).catch(() => [] as number[])),
-      );
-      const numerosIaOrdenados: number[] = [];
-      const seenIaNums = new Set<number>();
-      for (const lista of encontradosPorCrit) {
-        for (const n of lista) {
-          if (Number.isFinite(n) && n > 0 && !seenIaNums.has(n)) {
-            seenIaNums.add(n);
-            numerosIaOrdenados.push(n);
-          }
-        }
-      }
-
-      if (numerosIaOrdenados.length > 0) {
-        const candidatosIa = numerosIaOrdenados.slice(0, ftsLimit);
-        const resolvedRoots = await Promise.all(
-          targetLv2Roots.map(async root => {
-            try {
-              return { rootId: root.id, canonical: await fs.realpath(root.path) };
-            } catch {
-              return null;
-            }
-          }),
-        );
-        const validRoots = resolvedRoots.filter((r): r is { rootId: string; canonical: string } => r !== null);
-
-        if (validRoots.length > 0) {
-          const matchesPerNum = await Promise.all(
-            candidatosIa.map(async num => {
-              const allForNum: DocumentMatch[] = [];
-              for (const vr of validRoots) {
-                try {
-                  const found = await checkDirectMatriculaFiles(vr.canonical, vr.rootId, String(num));
-                  for (const m of found) {
-                    const ehDoLivro2 = m.rootId === 'livro2' || /^lv2[\\/]/i.test(m.relativePath);
-                    if (!ehDoLivro2) continue;
-                    m.matricula = `Matrícula nº ${formatarMilharCartorio(num)}`;
-                    allForNum.push(m);
-                  }
-                } catch {}
-              }
-              return allForNum;
-            }),
-          );
-
-          for (const group of matchesPerNum) {
-            for (const item of group) {
-              if (result.files.length >= limit) {
-                result.partial = true;
-                break;
-              }
-              const key = `${item.rootId}:${item.relativePath.toLowerCase()}`;
-              chavesExplicitas.add(key);
-              if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
-                result.files.push(item);
-              }
-            }
-          }
-        }
-      }
     }
   }
 

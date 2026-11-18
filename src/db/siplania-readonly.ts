@@ -7,6 +7,13 @@ export interface SiplaniaOcrMatriculaResult {
   pages: Map<number, SiplaniaOcrWordTuple[]>;
 }
 
+export interface SiplanIaRichMatch {
+  numero: number;
+  qtdPaginas: number | null;
+  paginaEncontrada: number | null;
+  trechoOcr: string | null;
+}
+
 export interface SiplanIaPostgresTelemetry {
   postgresSqlAuthenticated: boolean;
   postgresSqlLatencyMs: number | null;
@@ -44,8 +51,14 @@ interface FtsDbCacheEntry {
   numeros: number[];
 }
 
+interface RichFtsDbCacheEntry {
+  expiresAt: number;
+  matches: SiplanIaRichMatch[];
+}
+
 const ocrDbCache = new Map<number, OcrDbCacheEntry>();
 const ftsDbCache = new Map<string, FtsDbCacheEntry>();
+const richFtsDbCache = new Map<string, RichFtsDbCacheEntry>();
 
 let sharedPool: Pool | null = null;
 let sharedPoolKey = '';
@@ -55,6 +68,7 @@ let connectCooldownUntil = 0;
 export function resetSiplaniaReadOnlyForTests(): void {
   ocrDbCache.clear();
   ftsDbCache.clear();
+  richFtsDbCache.clear();
   connectCooldownUntil = 0;
   if (sharedPool) {
     void sharedPool.end().catch(() => {});
@@ -608,6 +622,406 @@ export async function pesquisarMatriculasTextoSiplanIaReadOnly(
     }
     return [];
   }
+}
+
+const STOPWORDS_SNIPPET = new Set([
+  'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'na', 'no', 'nas', 'nos', 'a', 'o', 'ao', 'rua', 'av', 'avenida',
+]);
+
+/**
+ * Extrai um trecho legível (~200 caracteres) da página OCRizada ao redor dos termos pesquisados.
+ */
+export function extrairTrechoOcrLimpo(textoPagina: string | null | undefined, queryText: string): string | null {
+  const limpo = String(textoPagina || '').replace(/\r\n/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!limpo) return null;
+
+  const normTexto = limpo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const tokens = String(queryText || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9./-]+/)
+    .map((t) => t.replace(/^[-./]+|[-./]+$/g, ''))
+    .filter((t) => t.length >= 2 && !STOPWORDS_SNIPPET.has(t));
+
+  let melhorIdx = -1;
+  for (const tok of tokens) {
+    const idx = normTexto.indexOf(tok);
+    if (idx >= 0) {
+      melhorIdx = idx;
+      break;
+    }
+  }
+
+  if (melhorIdx < 0) {
+    // Tenta buscar prefixos numéricos (ex.: radical do CPF/Contribuinte antes do hífen)
+    for (const tok of tokens) {
+      const raiz = tok.split('-')[0];
+      if (raiz && raiz.length >= 5) {
+        const idx = normTexto.indexOf(raiz);
+        if (idx >= 0) {
+          melhorIdx = idx;
+          break;
+        }
+      }
+    }
+  }
+
+  const maxLen = 210;
+  if (melhorIdx < 0) {
+    return limpo.length > maxLen ? `${limpo.slice(0, maxLen).trim()}…` : limpo;
+  }
+
+  const start = Math.max(0, melhorIdx - 55);
+  const end = Math.min(limpo.length, start + maxLen);
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < limpo.length ? '…' : '';
+  return `${prefix}${limpo.slice(start, end).trim()}${suffix}`;
+}
+
+function getCachedRichFts(key: string): SiplanIaRichMatch[] | null {
+  const hit = richFtsDbCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    richFtsDbCache.delete(key);
+    return null;
+  }
+  return hit.matches.map((m) => ({ ...m }));
+}
+
+function setCachedRichFts(key: string, matches: SiplanIaRichMatch[]): void {
+  if (richFtsDbCache.size >= FTS_CACHE_MAX_ENTRIES) {
+    const oldestKey = richFtsDbCache.keys().next().value;
+    if (oldestKey !== undefined) richFtsDbCache.delete(oldestKey);
+  }
+  richFtsDbCache.set(key, {
+    expiresAt: Date.now() + FTS_CACHE_TTL_MS,
+    matches: matches.map((m) => ({ ...m })),
+  });
+}
+
+function podeConsultarRichFtsSiplanIa(rawCriterion: string, permitirNumericoPuro: boolean): boolean {
+  const trimmed = String(rawCriterion || '').trim();
+  if (trimmed.length < 3 || trimmed.length > 240) return false;
+  if (!permitirNumericoPuro) {
+    return deveConsultarFullTextSiplanIa(trimmed);
+  }
+  const hasLetters = /[a-z]{3,}/i.test(trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const digits = trimmed.replace(/\D+/g, '');
+  return hasLetters || digits.length >= 5;
+}
+
+/**
+ * Pesquisa Full-Text no SiplanIA retornando matrícula, total de páginas,
+ * nº da página onde o termo foi localizado e o trecho OCRizado correspondente.
+ */
+export async function pesquisarMatriculasComTrechoSiplanIaReadOnly(
+  rawCriterion: string,
+  options?: {
+    maxResults?: number;
+    modoExatoOuFrase?: boolean;
+    permitirNumericoPuro?: boolean;
+  },
+): Promise<SiplanIaRichMatch[]> {
+  const permitirNumerico = Boolean(options?.permitirNumericoPuro);
+  if (!podeConsultarRichFtsSiplanIa(rawCriterion, permitirNumerico)) {
+    return [];
+  }
+
+  const limit = Math.max(1, Math.min(50, Math.trunc(options?.maxResults ?? 35)));
+  const modoExato = Boolean(options?.modoExatoOuFrase);
+  const preparedQuery = prepareFullTextQueryInput(rawCriterion);
+  if (preparedQuery.length < 3) return [];
+
+  const cacheKey = `${modoExato ? 'exact' : 'near'}|${preparedQuery.toLowerCase()}|${limit}`;
+  const cached = getCachedRichFts(cacheKey);
+  if (cached) return cached;
+
+  const pool = await getSiplaniaReadOnlyPool();
+  if (!pool) return [];
+
+  try {
+    let baseCandidates: Array<{ id: number; numero: number; qtdpaginas: number | null }> = [];
+
+    if (modoExato) {
+      const exactRes = await pool.query<{ id: number; numero: number; qtdpaginas: number | null }>(
+        `
+        WITH q AS (
+          SELECT phraseto_tsquery('portuguese', unaccent($1)) AS tsq
+        )
+        SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+        FROM public.matricula m, q
+        WHERE q.tsq <> ''::tsquery
+          AND m.textotsvector @@ q.tsq
+          AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+          AND m.numero BETWEEN 1 AND 99999999
+        ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC, m.numero ASC
+        LIMIT $2
+        `,
+        [preparedQuery, limit],
+      );
+      baseCandidates = exactRes.rows || [];
+    } else {
+      const nearRes = await pool.query<{ id: number; numero: number; qtdpaginas: number | null }>(
+        `
+        WITH RECURSIVE valid_toks AS (
+          SELECT tok, phraseto_tsquery('portuguese', tok) AS pq, ord
+          FROM unnest(regexp_split_to_array(trim(unaccent($1)), '\\s+')) WITH ORDINALITY AS u(tok, ord)
+          WHERE length(tok) > 0
+            AND phraseto_tsquery('portuguese', tok) <> ''::tsquery
+        ),
+        toks AS (
+          SELECT row_number() OVER (ORDER BY ord) AS rn, tok, pq
+          FROM valid_toks
+        ),
+        chain AS (
+          SELECT rn, pq AS acc FROM toks WHERE rn = 1
+          UNION ALL
+          SELECT t.rn,
+                 (
+                   tsquery_phrase(c.acc, t.pq, 1) ||
+                   tsquery_phrase(c.acc, t.pq, 2) ||
+                   tsquery_phrase(c.acc, t.pq, 3) ||
+                   tsquery_phrase(c.acc, t.pq, 4)
+                 )
+          FROM chain c
+          JOIN toks t ON t.rn = c.rn + 1
+          WHERE t.rn <= 6
+        ),
+        q AS (
+          SELECT
+            (SELECT COUNT(*)::int FROM toks) AS tok_cnt,
+            (SELECT acc FROM chain ORDER BY rn DESC LIMIT 1) AS near_q
+        )
+        SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+        FROM public.matricula m, q
+        WHERE q.tok_cnt >= 2
+          AND q.near_q IS NOT NULL
+          AND m.textotsvector @@ q.near_q
+          AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+          AND m.numero BETWEEN 1 AND 99999999
+        ORDER BY ts_rank_cd(m.textotsvector, q.near_q, 32) DESC,
+                 m.qtdpaginas ASC,
+                 m.numero ASC
+        LIMIT $2
+        `,
+        [preparedQuery, limit],
+      );
+      baseCandidates = nearRes.rows || [];
+
+      if (baseCandidates.length === 0) {
+        const fallbackRes = await pool.query<{ id: number; numero: number; qtdpaginas: number | null }>(
+          `
+          WITH q AS (
+            SELECT websearch_to_tsquery('portuguese', unaccent($1)) AS tsq
+          ),
+          cands AS (
+            SELECT m.id::bigint AS id,
+                   m.numero::int AS numero,
+                   m.qtdpaginas::int AS qtdpaginas,
+                   ts_rank_cd(m.textotsvector, q.tsq, 32) AS base_rank
+            FROM public.matricula m, q
+            WHERE q.tsq <> ''::tsquery
+              AND m.textotsvector @@ q.tsq
+              AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+              AND m.numero BETWEEN 1 AND 99999999
+              AND (m.qtdpaginas IS NULL OR m.qtdpaginas <= 120)
+            ORDER BY ts_rank_cd(m.textotsvector, q.tsq, 32) DESC, m.qtdpaginas ASC
+            LIMIT 40
+          )
+          SELECT c.id, c.numero, c.qtdpaginas
+          FROM cands c, q
+          WHERE EXISTS (
+            SELECT 1
+            FROM public.matricula_pagina mp
+            WHERE mp.matricula_id = c.id
+              AND to_tsvector('portuguese', unaccent(COALESCE(mp.texto, ''))) @@ q.tsq
+          )
+          ORDER BY c.base_rank DESC, c.qtdpaginas ASC, c.numero ASC
+          LIMIT $2
+          `,
+          [preparedQuery, limit],
+        );
+        baseCandidates = fallbackRes.rows || [];
+      }
+    }
+
+    if (baseCandidates.length === 0) {
+      setCachedRichFts(cacheKey, []);
+      return [];
+    }
+
+    const ids = baseCandidates.map((c) => Number(c.id)).filter((n) => Number.isFinite(n) && n > 0);
+    const pageHitsRes = await pool.query<{
+      matricula_id: number;
+      pagina_num: number;
+      texto: string;
+    }>(
+      `
+      WITH q AS (
+        SELECT COALESCE(
+          NULLIF(websearch_to_tsquery('portuguese', unaccent($2)), ''::tsquery),
+          plainto_tsquery('portuguese', unaccent($2))
+        ) AS tsq
+      )
+      SELECT DISTINCT ON (mp.matricula_id)
+        mp.matricula_id::bigint AS matricula_id,
+        CASE WHEN mp.pagina ~ '^[0-9]+$' THEN mp.pagina::int ELSE 1 END AS pagina_num,
+        COALESCE(mp.texto, '') AS texto
+      FROM public.matricula_pagina mp, q
+      WHERE mp.matricula_id = ANY($1::bigint[])
+        AND mp.texto IS NOT NULL
+        AND q.tsq IS NOT NULL
+        AND q.tsq <> ''::tsquery
+        AND to_tsvector('portuguese', unaccent(mp.texto)) @@ q.tsq
+      ORDER BY mp.matricula_id,
+               CASE WHEN mp.pagina ~ '^[0-9]+$' THEN mp.pagina::int ELSE 999999 END ASC
+      `,
+      [ids, preparedQuery],
+    );
+
+    const hitByMatId = new Map<number, { pagina: number; snippet: string | null }>();
+    for (const row of pageHitsRes.rows || []) {
+      const mId = Number(row.matricula_id);
+      if (!hitByMatId.has(mId)) {
+        hitByMatId.set(mId, {
+          pagina: Math.max(1, Math.trunc(Number(row.pagina_num) || 1)),
+          snippet: extrairTrechoOcrLimpo(row.texto, preparedQuery),
+        });
+      }
+    }
+
+    const finalMatches: SiplanIaRichMatch[] = [];
+    const seenNums = new Set<number>();
+    for (const cand of baseCandidates) {
+      const num = Math.trunc(Number(cand.numero));
+      if (!Number.isFinite(num) || num <= 0 || seenNums.has(num)) continue;
+      seenNums.add(num);
+      const hit = hitByMatId.get(Number(cand.id));
+      finalMatches.push({
+        numero: num,
+        qtdPaginas: cand.qtdpaginas !== null && cand.qtdpaginas !== undefined ? Math.trunc(Number(cand.qtdpaginas)) : null,
+        paginaEncontrada: hit ? hit.pagina : 1,
+        trechoOcr: hit ? hit.snippet : null,
+      });
+    }
+
+    setCachedRichFts(cacheKey, finalMatches);
+    return finalMatches;
+  } catch (err) {
+    if (isNetworkOrTransientConnectError(err)) {
+      connectCooldownUntil = Date.now() + CONNECT_COOLDOWN_MS;
+    }
+    return [];
+  }
+}
+
+/**
+ * Busca rápida de resumo OCR (total de páginas + trecho/página opcional) para números de matrícula conhecidos.
+ */
+export async function consultarSnippetsMatriculasSiplanIaReadOnly(
+  numeros: number[],
+  queryHint?: string,
+): Promise<Map<number, { qtdPaginas: number | null; paginaEncontrada: number | null; trechoOcr: string | null }>> {
+  const out = new Map<number, { qtdPaginas: number | null; paginaEncontrada: number | null; trechoOcr: string | null }>();
+  const limpos = Array.from(
+    new Set(numeros.map((n) => Math.trunc(Number(n))).filter((n) => Number.isFinite(n) && n > 0 && n <= 99_999_999)),
+  ).slice(0, 60);
+  if (limpos.length === 0) return out;
+
+  const pool = await getSiplaniaReadOnlyPool();
+  if (!pool) return out;
+
+  try {
+    const matsRes = await pool.query<{ id: number; numero: number; qtdpaginas: number | null }>(
+      `
+      SELECT m.id::bigint AS id, m.numero::int AS numero, m.qtdpaginas::int AS qtdpaginas
+      FROM public.matricula m
+      WHERE m.numero = ANY($1::int[])
+        AND (m.tipos_de_documentos_id = 1 OR m.tipos_de_documentos_id IS NULL)
+      `,
+      [limpos],
+    );
+
+    const idToNum = new Map<number, number>();
+    for (const row of matsRes.rows || []) {
+      const id = Number(row.id);
+      const num = Math.trunc(Number(row.numero));
+      idToNum.set(id, num);
+      out.set(num, {
+        qtdPaginas: row.qtdpaginas !== null && row.qtdpaginas !== undefined ? Math.trunc(Number(row.qtdpaginas)) : null,
+        paginaEncontrada: null,
+        trechoOcr: null,
+      });
+    }
+
+    const preparedHint = queryHint ? prepareFullTextQueryInput(queryHint) : '';
+    const ids = Array.from(idToNum.keys());
+    if (ids.length > 0 && preparedHint.length >= 3) {
+      const pagesRes = await pool.query<{ matricula_id: number; pagina_num: number; texto: string }>(
+        `
+        WITH q AS (
+          SELECT COALESCE(
+            NULLIF(websearch_to_tsquery('portuguese', unaccent($2)), ''::tsquery),
+            plainto_tsquery('portuguese', unaccent($2))
+          ) AS tsq
+        )
+        SELECT DISTINCT ON (mp.matricula_id)
+          mp.matricula_id::bigint AS matricula_id,
+          CASE WHEN mp.pagina ~ '^[0-9]+$' THEN mp.pagina::int ELSE 1 END AS pagina_num,
+          COALESCE(mp.texto, '') AS texto
+        FROM public.matricula_pagina mp, q
+        WHERE mp.matricula_id = ANY($1::bigint[])
+          AND mp.texto IS NOT NULL
+          AND q.tsq IS NOT NULL
+          AND q.tsq <> ''::tsquery
+          AND to_tsvector('portuguese', unaccent(mp.texto)) @@ q.tsq
+        ORDER BY mp.matricula_id,
+                 CASE WHEN mp.pagina ~ '^[0-9]+$' THEN mp.pagina::int ELSE 999999 END ASC
+        `,
+        [ids, preparedHint],
+      );
+      for (const row of pagesRes.rows || []) {
+        const num = idToNum.get(Number(row.matricula_id));
+        if (!num) continue;
+        const atual = out.get(num);
+        if (atual) {
+          atual.paginaEncontrada = Math.max(1, Math.trunc(Number(row.pagina_num) || 1));
+          atual.trechoOcr = extrairTrechoOcrLimpo(row.texto, preparedHint);
+        }
+      }
+    } else if (ids.length > 0 && ids.length <= 25) {
+      // Quando consultado diretamente pelo nº da matrícula sem termo textual, retorna prévia da Pág. 1
+      const p1Res = await pool.query<{ matricula_id: number; texto: string }>(
+        `
+        SELECT DISTINCT ON (mp.matricula_id)
+          mp.matricula_id::bigint AS matricula_id,
+          left(COALESCE(mp.texto, ''), 600) AS texto
+        FROM public.matricula_pagina mp
+        WHERE mp.matricula_id = ANY($1::bigint[])
+          AND mp.pagina IN ('1', '01')
+          AND mp.texto IS NOT NULL
+        ORDER BY mp.matricula_id
+        `,
+        [ids],
+      );
+      for (const row of p1Res.rows || []) {
+        const num = idToNum.get(Number(row.matricula_id));
+        if (!num) continue;
+        const atual = out.get(num);
+        if (atual) {
+          atual.paginaEncontrada = 1;
+          atual.trechoOcr = extrairTrechoOcrLimpo(row.texto, '');
+        }
+      }
+    }
+  } catch (err) {
+    if (isNetworkOrTransientConnectError(err)) {
+      connectCooldownUntil = Date.now() + CONNECT_COOLDOWN_MS;
+    }
+  }
+
+  return out;
 }
 
 function emptyTelemetry(errorMsg: string | null): SiplanIaPostgresTelemetry {
