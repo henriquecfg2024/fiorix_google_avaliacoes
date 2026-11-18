@@ -184,6 +184,18 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
       '00229534.KEN',
       '00649999.TIF',
     ]);
+
+    // Busca textual com nº predial ("Jerônimo de Mendonça 75"): não promove "00000075.KEN" acima da ordem do FTS
+    const ordenadoEndereco = ordenarResultadosPesquisaVisualizador('Jerônimo de Mendonça 75', [
+      { rootId: 'livro2', relativePath: '00021000\\00021757.KEN', name: '00021757.KEN' },
+      { rootId: 'livro2', relativePath: '00040000\\00040000.KEN', name: '00040000.KEN' },
+      { rootId: 'livro2', relativePath: '00000000\\00000075.KEN', name: '00000075.KEN' },
+    ]);
+    expect(ordenadoEndereco.map((f) => f.name)).toEqual([
+      '00021757.KEN',
+      '00040000.KEN',
+      '00000075.KEN',
+    ]);
   });
 
   it('calcula alvo direto de bloco no LV2 apenas para candidatas válidas de matrícula', () => {
@@ -264,6 +276,19 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     const resFtsPagina = calcularDestaquesOcrDocumento(ocrEndereco, 'JERONIMO DE MENDONCA 75');
     expect(resFtsPagina.total).toBe(3);
     expect(resFtsPagina.paginasComOcorrencia).toEqual([{ page: 3, count: 3 }]);
+
+    const ocrEnderecoNumeroInline = {
+      4: [
+        ['Jerônimo', 0.1, 0.25, 0.1, 0.02] as [string, number, number, number, number],
+        ['de', 0.21, 0.25, 0.03, 0.02] as [string, number, number, number, number],
+        ['Mendonça,', 0.25, 0.25, 0.12, 0.02] as [string, number, number, number, number],
+        ['nº', 0.38, 0.25, 0.03, 0.02] as [string, number, number, number, number],
+        ['75', 0.42, 0.25, 0.03, 0.02] as [string, number, number, number, number],
+      ],
+    };
+    const resInlineNo = calcularDestaquesOcrDocumento(ocrEnderecoNumeroInline, 'Jerônimo de Mendonça 75');
+    expect(resInlineNo.total).toBe(1);
+    expect(resInlineNo.ocorrencias[0].text).toBe('Jerônimo de Mendonça, nº 75');
   });
 
   it('destaca termos em HTML sanitizado preservando tags e atributos e adiciona #search= no PDF', () => {

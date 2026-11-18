@@ -1501,7 +1501,7 @@ export function VisualizadorDedicado({
                   placeholder={
                     raizAtual
                       ? `Digite matrícula, processo ou arquivo em ${segmentos[segmentos.length - 1] || raizAtual.sigla}…`
-                      : 'Digite o nº da matrícula, processo ou nome do arquivo para pesquisar…'
+                      : 'Digite matrícula, protocolo, endereço, nome ou CPF/CNPJ…'
                   }
                   aria-label="Filtrar ou pesquisar arquivos"
                   className="w-full h-full bg-transparent pl-2.5 pr-8 text-xs sm:text-sm font-medium text-white placeholder:text-slate-300/75 focus:outline-none"

@@ -115,8 +115,49 @@ export function casaTermoPesquisaLocal(termoBruto: string, caminhoOuNome: string
   return termos.every((t) => casaTermoUnicoVisualizador(t, normAlvo, normMilhares, limpoAlvo));
 }
 
+const ROTULOS_GENERICOS_PESQUISA_TEXTUAL = new Set([
+  'matricula',
+  'matr',
+  'mat',
+  'protocolo',
+  'prenotacao',
+  'processo',
+  'transcricao',
+  'transcr',
+  'titulo',
+  'livro',
+  'lv2',
+  'lv3',
+  'setor',
+  'quadra',
+  'planta',
+  'numero',
+  'no',
+]);
+
+function ehConsultaConteudoTextualVisualizador(termoBruto: string): boolean {
+  const trimmed = (termoBruto || '').trim();
+  if (!trimmed) return false;
+  if (/\b(?:matr[ií]cula|transcri[çc][ãa]o|transcr|protocolo|prenota[çc][ãa]o)\b/i.test(trimmed)) {
+    return false;
+  }
+  const normSemIds = normalizarTextoVisualizador(trimmed)
+    .replace(REGEX_CNJ_PESQUISA, ' ')
+    .replace(/\b(?:ac|ph|in)[0-9a-z]{5,}\b/gi, ' ')
+    .replace(/n[ºo°ª]\.?/gi, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ');
+  for (const tok of normSemIds.split(/\s+/).filter(Boolean)) {
+    if (ROTULOS_GENERICOS_PESQUISA_TEXTUAL.has(tok) || /^\d+$/.test(tok)) continue;
+    if (/[a-z]{3,}/.test(tok)) return true;
+  }
+  return false;
+}
+
 function extrairNumerosQueryVisualizador(termoBruto: string): Set<number> {
   const nums = new Set<number>();
+  if (ehConsultaConteudoTextualVisualizador(termoBruto)) {
+    return nums;
+  }
   const semProc = (termoBruto || '').replace(REGEX_CNJ_PESQUISA, ' ');
   const dotted = semProc.match(/\b\d{1,3}(?:\.\d{3})+\b/g) || [];
   for (const d of dotted) {
@@ -344,12 +385,19 @@ const CONECTORES_CURTOS_OCR = new Set([
   'n',
   'n.',
   'no.',
+  'nr',
+  'nr.',
+  'num',
+  'num.',
+  'numero',
   '-',
 ]);
 
 function ehConectorCurtoOcr(wordText: string): boolean {
-  const norm = normalizarTextoVisualizador(wordText).replace(/[.,;:()\[\]"']+$/g, '');
-  return CONECTORES_CURTOS_OCR.has(norm);
+  const norm = normalizarTextoVisualizador(wordText)
+    .replace(/[º°ª]/g, 'o')
+    .replace(/[,;:()\[\]"']+$/g, '');
+  return CONECTORES_CURTOS_OCR.has(norm) || CONECTORES_CURTOS_OCR.has(norm.replace(/\.+$/, ''));
 }
 
 /** Localiza caixas de destaque por página e contabiliza ocorrências a partir do índice OCR retornado pelo Connector. */
