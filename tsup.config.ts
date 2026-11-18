@@ -9,6 +9,7 @@ export default defineConfig({
   target: 'node22',
   platform: 'node',
   noExternal: [/.*/],
+  external: ['pg-native', 'cloudflare:sockets'],
   banner: {
     js: [
       'import { createRequire as __fiorixCreateRequire } from "node:module";',

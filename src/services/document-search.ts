@@ -14,6 +14,12 @@ import {
   consultarProtocolosVinculadosWebriReadOnly,
   type ProtocoloVinculadoWebri,
 } from '../db/titulos-cruzados-readonly.js';
+import {
+  consultarPaginasOcrMatriculaSiplanIaReadOnly,
+  deveConsultarFullTextSiplanIa,
+  pesquisarMatriculasTextoSiplanIaReadOnly,
+  type SiplaniaOcrMatriculaResult,
+} from '../db/siplania-readonly.js';
 // @ts-ignore
 import * as UTIFImport from 'utif';
 // @ts-ignore
@@ -1191,6 +1197,7 @@ export async function searchDocuments(
       protocolosDiretos?: number[];
       codigosCentral?: string[];
     }) => Promise<ProtocoloVinculadoWebri[]>;
+    siplaniaTextSearchResolver?: (criterion: string, maxResults?: number) => Promise<number[]>;
   },
 ): Promise<DocumentSearchResult> {
   // Busca Cruzada: os campos chegam separados por "|" (ex.: "1124837-38.2022.8.26.0100 | 7987").
@@ -1204,6 +1211,7 @@ export async function searchDocuments(
   if (criterios.length === 0 || query.length > 260 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
 
   const webriResolver = options?.webriResolver ?? consultarProtocolosVinculadosWebriReadOnly;
+  const siplaniaTextSearchResolver = options?.siplaniaTextSearchResolver ?? pesquisarMatriculasTextoSiplanIaReadOnly;
   const criteriosEffectiveTerms = criterios.map(c => getEffectiveSearchTerms(c.termos));
 
   const termoCasa = (term: string, normRel: string, cleanRel: string): boolean => {
@@ -1554,6 +1562,78 @@ export async function searchDocuments(
           }
         }
       } catch {}
+    }
+  }
+
+  // Busca Full-Text no acervo de 269 mil matrículas LV2 já OCRizadas no SiplanIA (endereço, condomínio, CPF/CNPJ, nomes)
+  const criteriosTextoIa = criterios.filter(c => deveConsultarFullTextSiplanIa(c.texto));
+  if (criteriosTextoIa.length > 0 && result.files.length < limit) {
+    const lv2Roots = roots.filter(r => r.id === 'livro2');
+    const imagensRoots = roots.filter(r => r.id === 'imagens');
+    const targetLv2Roots = lv2Roots.length > 0 ? lv2Roots : imagensRoots;
+    if (targetLv2Roots.length > 0) {
+      const ftsLimit = Math.min(25, Math.max(1, limit - result.files.length));
+      const encontradosPorCrit = await Promise.all(
+        criteriosTextoIa.map(c => siplaniaTextSearchResolver(c.texto, ftsLimit).catch(() => [] as number[])),
+      );
+      const numerosIaOrdenados: number[] = [];
+      const seenIaNums = new Set<number>();
+      for (const lista of encontradosPorCrit) {
+        for (const n of lista) {
+          if (Number.isFinite(n) && n > 0 && !seenIaNums.has(n)) {
+            seenIaNums.add(n);
+            numerosIaOrdenados.push(n);
+          }
+        }
+      }
+
+      if (numerosIaOrdenados.length > 0) {
+        const candidatosIa = numerosIaOrdenados.slice(0, ftsLimit);
+        const resolvedRoots = await Promise.all(
+          targetLv2Roots.map(async root => {
+            try {
+              return { rootId: root.id, canonical: await fs.realpath(root.path) };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        const validRoots = resolvedRoots.filter((r): r is { rootId: string; canonical: string } => r !== null);
+
+        if (validRoots.length > 0) {
+          const matchesPerNum = await Promise.all(
+            candidatosIa.map(async num => {
+              const allForNum: DocumentMatch[] = [];
+              for (const vr of validRoots) {
+                try {
+                  const found = await checkDirectMatriculaFiles(vr.canonical, vr.rootId, String(num));
+                  for (const m of found) {
+                    const ehDoLivro2 = m.rootId === 'livro2' || /^lv2[\\/]/i.test(m.relativePath);
+                    if (!ehDoLivro2) continue;
+                    m.matricula = `Matrícula nº ${formatarMilharCartorio(num)}`;
+                    allForNum.push(m);
+                  }
+                } catch {}
+              }
+              return allForNum;
+            }),
+          );
+
+          for (const group of matchesPerNum) {
+            for (const item of group) {
+              if (result.files.length >= limit) {
+                result.partial = true;
+                break;
+              }
+              const key = `${item.rootId}:${item.relativePath.toLowerCase()}`;
+              chavesExplicitas.add(key);
+              if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+                result.files.push(item);
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -2191,22 +2271,41 @@ async function runWinRtOcrScript(
 }
 
 /**
- * Extrai texto com coordenadas normalizadas (`0..1`) de páginas de imagens digitalizadas (.KEN, .TIF, .PNG, .JPG)
- * usando Windows.Media.Ocr (pt-BR) localmente e com fallback automático UTIF+UPNG caso o decoder nativo falhe.
+ * Extrai texto com coordenadas normalizadas (`0..1`) de páginas de imagens digitalizadas (.KEN, .TIF, .PNG, .JPG).
+ * Para matrículas LV2 (`.KEN`), consulta primeiro as posições já OCRizadas no SiplanIA (< 20 ms),
+ * usando `Windows.Media.Ocr` (pt-BR) + `UTIF+UPNG` como fallback apenas nas páginas ausentes ou outros formatos.
  */
 export async function extractDocumentOcrPages(
   filePath: string,
-  options?: { pageStart?: number; pageEnd?: number; maxPages?: number },
+  options?: {
+    pageStart?: number;
+    pageEnd?: number;
+    maxPages?: number;
+    siplaniaOcrResolver?: (params: {
+      numeroMatricula: number;
+      pageStart: number;
+      pageEnd: number;
+    }) => Promise<SiplaniaOcrMatriculaResult | null>;
+  },
 ): Promise<DocumentOcrPayload> {
   const stat = await fs.stat(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const fileName = path.basename(filePath);
 
-  if (!OCR_SUPPORTED_EXTENSIONS.has(ext) || process.platform !== 'win32') {
+  const baseNameNoExt = ext ? fileName.slice(0, -ext.length) : fileName;
+  const ehLv2Ken =
+    ext === '.ken' &&
+    /(?:^|[\\/])lv2[\\/]/i.test(filePath) &&
+    /^\d{1,8}$/.test(baseNameNoExt);
+  const numeroMatriculaLv2 = ehLv2Ken ? parseInt(baseNameNoExt, 10) : 0;
+
+  if (!OCR_SUPPORTED_EXTENSIONS.has(ext) || (process.platform !== 'win32' && !options?.siplaniaOcrResolver && !ehLv2Ken)) {
     return { fileName, pageCount: 0, loadedPageStart: 0, loadedPageEnd: 0, hasMorePages: false, pages: [] };
   }
 
-  const maxPages = Math.max(1, Math.min(20, Math.trunc(options?.maxPages ?? 12)));
+  const maxCap = ehLv2Ken ? 80 : 20;
+  const defaultBatch = ehLv2Ken ? 60 : 12;
+  const maxPages = Math.max(1, Math.min(maxCap, Math.trunc(options?.maxPages ?? defaultBatch)));
   const startPage = Math.max(1, Math.trunc(options?.pageStart ?? 1));
   const requestedEnd = options?.pageEnd ? Math.max(startPage, Math.trunc(options.pageEnd)) : startPage + maxPages - 1;
   const endPage = Math.min(requestedEnd, startPage + maxPages - 1);
@@ -2247,21 +2346,137 @@ export async function extractDocumentOcrPages(
     }
   }
 
+  // Caminho rápido via SiplanIA (PostgreSQL 18 read-only) para matrículas LV2
+  let siplanTotalDiskPages = 0;
+  const siplanPagesMap = new Map<number, OcrWordTuple[]>();
+  let fallbackStartPage = startPage;
+  let fallbackEndPage = Math.min(endPage, startPage + 11);
+
+  if (ehLv2Ken && numeroMatriculaLv2 > 0) {
+    try {
+      const buf = await fs.readFile(filePath);
+      const ifds = UTIF.decode(buf);
+      siplanTotalDiskPages = ifds.length;
+    } catch {
+      siplanTotalDiskPages = 0;
+    }
+
+    if (siplanTotalDiskPages > 0) {
+      if (startPage > siplanTotalDiskPages) {
+        return {
+          fileName,
+          pageCount: siplanTotalDiskPages,
+          loadedPageStart: 0,
+          loadedPageEnd: 0,
+          hasMorePages: false,
+          pages: [],
+        };
+      }
+
+      const effectiveReqEnd = Math.min(endPage, siplanTotalDiskPages);
+      const siplaniaResolver = options?.siplaniaOcrResolver ?? consultarPaginasOcrMatriculaSiplanIaReadOnly;
+      const siplanRes = await siplaniaResolver({
+        numeroMatricula: numeroMatriculaLv2,
+        pageStart: startPage,
+        pageEnd: effectiveReqEnd,
+      }).catch(() => null);
+
+      if (siplanRes && siplanRes.pages.size > 0) {
+        for (const [pgNum, words] of siplanRes.pages.entries()) {
+          if (pgNum >= startPage && pgNum <= effectiveReqEnd) {
+            siplanPagesMap.set(pgNum, words);
+          }
+        }
+
+        const missingPages: number[] = [];
+        for (let p = startPage; p <= effectiveReqEnd; p++) {
+          if (!siplanPagesMap.has(p)) missingPages.push(p);
+        }
+
+        if (missingPages.length === 0) {
+          const pages = Array.from(siplanPagesMap.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([page, words]) => ({ page, words }));
+          storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, siplanTotalDiskPages, pages);
+          return {
+            fileName,
+            pageCount: siplanTotalDiskPages,
+            loadedPageStart: pages[0].page,
+            loadedPageEnd: pages[pages.length - 1].page,
+            hasMorePages: pages[pages.length - 1].page < siplanTotalDiskPages,
+            pages,
+          };
+        }
+
+        // Se o SiplanIA já tem o bloco inicial contíguo, entrega-o de imediato; caso contrário completa via WinRT até 12 páginas
+        if (missingPages[0] > startPage) {
+          const prefixPages = Array.from(siplanPagesMap.entries())
+            .filter(([pg]) => pg >= startPage && pg < missingPages[0])
+            .sort((a, b) => a[0] - b[0])
+            .map(([page, words]) => ({ page, words }));
+          if (prefixPages.length > 0) {
+            storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, siplanTotalDiskPages, prefixPages);
+            return {
+              fileName,
+              pageCount: siplanTotalDiskPages,
+              loadedPageStart: prefixPages[0].page,
+              loadedPageEnd: prefixPages[prefixPages.length - 1].page,
+              hasMorePages: prefixPages[prefixPages.length - 1].page < siplanTotalDiskPages,
+              pages: prefixPages,
+            };
+          }
+        }
+
+        // Híbrido: completa apenas as páginas novas/ausentes respeitando limite de 12 páginas no WinRT
+        fallbackStartPage = missingPages[0];
+        fallbackEndPage = Math.min(missingPages[missingPages.length - 1], fallbackStartPage + 11);
+      } else {
+        fallbackStartPage = startPage;
+        fallbackEndPage = Math.min(effectiveReqEnd, startPage + 11);
+      }
+    }
+  }
+
   let extracted: { pageCount: number; pages: DocumentOcrPage[] } | null = null;
-  try {
-    extracted = await runWinRtOcrScript({ mode: 'file', filePath, startPage, endPage });
-  } catch {
-    extracted = null;
+  if (process.platform === 'win32') {
+    try {
+      extracted = await runWinRtOcrScript({
+        mode: 'file',
+        filePath,
+        startPage: fallbackStartPage,
+        endPage: fallbackEndPage,
+      });
+    } catch {
+      extracted = null;
+    }
   }
 
   // Fallback automático com UTIF + UPNG quando o BitmapDecoder do Windows não decodifica frames do .KEN/.TIF
-  if ((!extracted || (extracted.pageCount === 0 && extracted.pages.length === 0)) && (ext === '.ken' || ext === '.tif' || ext === '.tiff')) {
+  if (
+    process.platform === 'win32' &&
+    (!extracted || (extracted.pageCount === 0 && extracted.pages.length === 0)) &&
+    (ext === '.ken' || ext === '.tif' || ext === '.tiff')
+  ) {
     const rendered = await renderKenPagesAsPngBuffers(filePath, {
-      pageStart: startPage,
-      pageEnd: endPage,
-      maxPages,
+      pageStart: fallbackStartPage,
+      pageEnd: fallbackEndPage,
+      maxPages: 12,
     });
     if (rendered.pageCount === 0 || rendered.pages.length === 0) {
+      if (siplanPagesMap.size > 0 && siplanTotalDiskPages > 0) {
+        const mergedOnlySiplan = Array.from(siplanPagesMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([page, words]) => ({ page, words }));
+        storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, siplanTotalDiskPages, mergedOnlySiplan);
+        return {
+          fileName,
+          pageCount: siplanTotalDiskPages,
+          loadedPageStart: mergedOnlySiplan[0].page,
+          loadedPageEnd: mergedOnlySiplan[mergedOnlySiplan.length - 1].page,
+          hasMorePages: mergedOnlySiplan[mergedOnlySiplan.length - 1].page < siplanTotalDiskPages,
+          pages: mergedOnlySiplan,
+        };
+      }
       return {
         fileName,
         pageCount: rendered.pageCount,
@@ -2292,10 +2507,18 @@ export async function extractDocumentOcrPages(
     }
   }
 
-  if (!extracted || extracted.pageCount === 0 || extracted.pages.length === 0) {
+  const finalPageCount = Math.max(siplanTotalDiskPages, extracted?.pageCount ?? 0);
+  const mergedMap = new Map<number, OcrWordTuple[]>(siplanPagesMap);
+  for (const p of extracted?.pages || []) {
+    if (!mergedMap.has(p.page)) {
+      mergedMap.set(p.page, p.words);
+    }
+  }
+
+  if (finalPageCount === 0 || mergedMap.size === 0) {
     return {
       fileName,
-      pageCount: extracted?.pageCount ?? 0,
+      pageCount: finalPageCount,
       loadedPageStart: 0,
       loadedPageEnd: 0,
       hasMorePages: false,
@@ -2303,16 +2526,20 @@ export async function extractDocumentOcrPages(
     };
   }
 
-  storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, extracted.pageCount, extracted.pages);
-  const loadedPageStart = extracted.pages[0].page;
-  const loadedPageEnd = extracted.pages[extracted.pages.length - 1].page;
+  const finalPages = Array.from(mergedMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .filter(([pg]) => pg >= fallbackStartPage || siplanPagesMap.has(pg))
+    .map(([page, words]) => ({ page, words }));
+  storeOcrPagesInCache(cacheKey, mtimeMs, stat.size, finalPageCount, finalPages);
+  const loadedPageStart = finalPages[0].page;
+  const loadedPageEnd = finalPages[finalPages.length - 1].page;
   return {
     fileName,
-    pageCount: extracted.pageCount,
+    pageCount: finalPageCount,
     loadedPageStart,
     loadedPageEnd,
-    hasMorePages: loadedPageEnd < extracted.pageCount,
-    pages: extracted.pages,
+    hasMorePages: loadedPageEnd < finalPageCount,
+    pages: finalPages,
   };
 }
 

@@ -12,6 +12,10 @@ import { logger } from '../utils/logger.js';
 import { healthManager } from './health.js';
 import { runtimeDirective } from './runtime-directive.js';
 import { sendInfraBriefingSample } from './api.js';
+import {
+  coletarTelemetriaPostgresSiplanIaReadOnly,
+  type SiplanIaPostgresTelemetry,
+} from '../db/siplania-readonly.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -115,6 +119,23 @@ export interface InfraBriefingSrvsiplaniaRaw {
   postgresPort: number;
   postgresReachable: boolean;
   postgresLatencyMs: number | null;
+  postgresSqlAuthenticated?: boolean;
+  postgresSqlLatencyMs?: number | null;
+  postgresVersion?: string | null;
+  postgresUptimeSeconds?: number | null;
+  postgresDbSizeMb?: number | null;
+  postgresCacheHitPercent?: number | null;
+  postgresTotalConnections?: number | null;
+  postgresActiveQueries?: number | null;
+  postgresIdleInTxCount?: number | null;
+  postgresWaitingLocks?: number | null;
+  postgresLongQueries?: number | null;
+  postgresDeadlocks?: number | null;
+  postgresSharedBuffersMb?: number | null;
+  postgresMatriculasCount?: number | null;
+  postgresPaginasOcrCount?: number | null;
+  postgresDistinctClients?: number | null;
+  postgresSqlError?: string | null;
   cimAvailable: boolean;
   cimError: string | null;
   osCaption: string | null;
@@ -820,6 +841,7 @@ async function collectSrvsiplaniaSection(
   name: string,
   candidatePorts: number[],
   postgresPort: number,
+  collectPostgresSql?: () => Promise<SiplanIaPostgresTelemetry>,
 ): Promise<InfraBriefingSrvsiplaniaRaw> {
   const [pgTcp, webTcpResults, cim] = await Promise.all([
     probeTcpPort(host, postgresPort, 2200),
@@ -830,6 +852,10 @@ async function collectSrvsiplaniaSection(
       timeoutMs: 6500,
     }),
   ]);
+
+  const pgSqlStats: SiplanIaPostgresTelemetry | null = pgTcp.reachable
+    ? await (collectPostgresSql ?? coletarTelemetriaPostgresSiplanIaReadOnly)().catch(() => null)
+    : null;
 
   const activeWeb = webTcpResults.find((r) => r.reachable) ?? null;
   let webReachable = Boolean(activeWeb);
@@ -858,6 +884,7 @@ async function collectSrvsiplaniaSection(
     postgresPort,
     postgresReachable: pgTcp.reachable,
     postgresLatencyMs: pgTcp.latencyMs,
+    ...(pgSqlStats ?? { postgresSqlAuthenticated: false }),
     cimAvailable: cim.cimAvailable,
     cimError: cim.cimError,
     osCaption: cim.osCaption,
@@ -880,6 +907,7 @@ export async function collectAndSendInfraBriefing(
     collectSrvsql?: () => Promise<InfraBriefingSrvsqlRaw>;
     collectSrvfiles?: () => Promise<InfraBriefingSrvfilesRaw>;
     collectSrvsiplania?: () => Promise<InfraBriefingSrvsiplaniaRaw>;
+    collectSiplaniaPg?: () => Promise<SiplanIaPostgresTelemetry>;
   },
 ): Promise<boolean> {
   if (isCollectingInfraBriefing || env.SHADOW_MODE) {
@@ -905,7 +933,7 @@ export async function collectAndSendInfraBriefing(
       overrides?.collectSrvfiles ? overrides.collectSrvfiles() : collectSrvfilesSection(db),
       overrides?.collectSrvsiplania
         ? overrides.collectSrvsiplania()
-        : collectSrvsiplaniaSection(siplaniaHost, siplaniaName, candidatePorts, pgPort),
+        : collectSrvsiplaniaSection(siplaniaHost, siplaniaName, candidatePorts, pgPort, overrides?.collectSiplaniaPg),
     ]);
 
     const payload: RawInfraBriefingSample = {

@@ -79,6 +79,10 @@ const envSchema = z.object({
   SIPLANIA_NAME: z.string().default('SRVSIPLANIA'),
   SIPLANIA_HTTP_PORTS: z.string().default('80,443,8080,3000,5000,8000'),
   SIPLANIA_POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
+  SIPLANIA_POSTGRES_ENABLED: z.enum(['true', 'false']).transform((val) => val === 'true').default('true'),
+  SIPLANIA_POSTGRES_DB: z.string().default('SiplanIA'),
+  SIPLANIA_POSTGRES_USER: z.string().default('fiorix_reader'),
+  SIPLANIA_POSTGRES_PASSWORD: z.string().optional().default(''),
 });
 
 const parsedEnv = envSchema.safeParse({
