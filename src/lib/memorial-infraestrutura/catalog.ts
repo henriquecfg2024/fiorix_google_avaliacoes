@@ -26,7 +26,7 @@ export const SERVERS_TOPOLOGY_7RI: ServerTopologySummary[] = [
     ip: '10.0.0.40',
     roleTitle: 'Servidor de Imagens (.KEN/PDF), File Server & FIORIX Connector',
     specs: 'Windows Server · 4 vCPUs · 19,5 GB RAM · C: (120 GB), D: (2 TB), E: (2 TB)',
-    engines: 'FIORIX Connector v2.6.23 (NSSM + SQLite WAL + LAN :8765) + MySQL (:3306)',
+    engines: 'FIORIX Connector v2.6.24 (NSSM + SQLite WAL + LAN :8765) + MySQL (:3306)',
     currentHealthSummary: 'Saudável · CPU reduzida de 93%–100% para ~33,6%–36% · 0 falhas na fila',
     keyMetrics: [
       { label: 'CPU Local (Expediente)', value: '~33,6%–36% (era 93%–100%)' },
@@ -99,6 +99,34 @@ export const GOVERNANCE_BOUNDARIES_7RI: GovernanceBoundaryItem[] = [
 ];
 
 export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
+  {
+    id: 'imp-2026-11-18-srvfiles-briefing-cpu-isolation',
+    source: 'OFICIAL_CODIGO',
+    server: 'SRVFILES',
+    category: 'OBSERVABILIDADE',
+    status: 'ATIVO',
+    title: 'Isolamento da Medição de CPU do SRVFILES no Briefing Matinal & Reconciliação Ao Vivo (OTA v2.6.24)',
+    implementedAt: '2026-11-18',
+    connectorVersion: 'v2.6.24',
+    summarySimple:
+      'Mesmo depois de controlar o rsync.exe no servidor de arquivos, o painel do Briefing Matinal ainda mostrava falso alerta de 97,5% de CPU porque o próprio conector media a CPU exatamente no milissegundo em que disparava dois comandos PowerShell em paralelo. Separamos essa leitura para rodar antes dos comandos e atualizamos a reconciliação automática do painel.',
+    problemBefore:
+      'Em collectAndSendInfraBriefing(), SRVSQL, SRVFILES e SRVSIPLANIA iniciavam juntos em Promise.all. Os dois powershell.exe -EncodedCommand locais abertos no SRVFILES somavam carga momentânea de spawn + antivírus Kaspersky/Acronis sobre os 450 ms de sampleLocalCpuPercent(), produzindo falsos 97,5%–100% mesmo com o servidor real em ~34%. Além disso, o briefing oficial das 07:15 preservava o status CRITICAL antigo no card principal durante o restante do dia.',
+    solutionApplied:
+      '1) No FIORIX Connector v2.6.24 (infra-briefing-telemetry.ts), criada sampleIsolatedLocalCpuPercent(600) com 2 janelas consecutivas (mínimo filtrado) executada estritamente ANTES do Promise.all dos probes PowerShell; 2) No FIORIX SaaS (infra-briefing/store.ts), ingestInfraBriefingSample e loadInfraBriefingDashboard passaram a reconciliar automaticamente o overallStatus do dia corrente quando telemetria mais recente altera a severidade, preservando o selo Briefing Oficial 07:15.',
+    metricBefore: 'Leitura pontual 97,5%–100% (falso crítico no Briefing Matinal)',
+    metricAfter: 'Leitura isolada ~33%–36% em janela limpa pré-PowerShell (Status Saudável)',
+    impactBadge: 'Fim de falso crítico de CPU no SRVFILES',
+    technicalDetails:
+      'Em SRVFILES (4 vCPUs) com rsync.exe em teto de 2 vCPUs (~34% global), spawns simultâneos de powershell.exe consomem o restante das 2 vCPUs livres por ~500 ms sob inspeção AMSI/AV. O pré-sampling antes de Promise.all elimina a interferência cruzada entre seções do coletor.',
+    commandsSnippet: `# Ordem garantida no coletor v2.6.24 (src/services/infra-briefing-telemetry.ts):
+# 1) preSampledSrvfilesCpu = await sampleIsolatedLocalCpuPercent(600)
+# 2) Promise.all([collectSrvsqlSection(), collectSrvfilesSection(db, preSampledSrvfilesCpu), collectSrvsiplaniaSection()])`,
+    rollbackPlan:
+      'Reverter o manifesto OTA no repositório fiorix para v2.6.23 caso necessário retornar ao comportamento anterior de coleta paralela.',
+    authorName: 'Henrique C. F. Gama + Antigravity',
+    updatedAtIso: '2026-11-18T16:30:00.000Z',
+  },
   {
     id: 'imp-2026-11-18-supabase-ddl-telemetry-tuning',
     source: 'OFICIAL_CODIGO',

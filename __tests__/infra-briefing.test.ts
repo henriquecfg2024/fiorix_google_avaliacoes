@@ -520,4 +520,39 @@ describe('Módulo Briefing Matinal da Infraestrutura (SRVSQL · SRVFILES · SRVS
     expect(eval1008.srvfiles.status).toBe('HEALTHY');
     expect(eval1008.overallStatus).toBe('HEALTHY');
   });
+
+  it('7. Reconcilia automaticamente o briefing oficial de hoje quando telemetria PERIODIC mais recente normaliza SRVFILES', async () => {
+    const now = new Date();
+    const earlierObs = new Date(now.getTime() - 10 * 60_000).toISOString();
+    const newerObs = new Date(now.getTime() - 60_000).toISOString();
+
+    const criticalOfficialSample = buildHealthySample({
+      observedAt: earlierObs,
+      trigger: 'SCHEDULED_0715',
+    });
+    criticalOfficialSample.srvsql!.w3wpFirstConnIso = earlierObs;
+    criticalOfficialSample.srvfiles!.cpuPercent = 97.5;
+
+    const firstIngest = await ingestInfraBriefingSample('tenant-reconcile-7ri', criticalOfficialSample);
+    expect(firstIngest.savedDailyBriefing).toBe(true);
+
+    const healthyPeriodicSample = buildHealthySample({
+      observedAt: newerObs,
+      trigger: 'PERIODIC',
+    });
+    healthyPeriodicSample.srvsql!.w3wpFirstConnIso = earlierObs;
+    healthyPeriodicSample.srvfiles!.cpuPercent = 34;
+
+    const secondIngest = await ingestInfraBriefingSample('tenant-reconcile-7ri', healthyPeriodicSample);
+    // Mesmo fora da janela 07:15 (ex.: domingo), loadInfraBriefingDashboard reconcilia hoje pelo liveBriefing mais recente;
+    // em dia útil após 07:15 também atualiza o registro oficial preservando isOfficial0715: true.
+    expect(typeof secondIngest.savedDailyBriefing).toBe('boolean');
+
+    const dash = await loadInfraBriefingDashboard('tenant-reconcile-7ri');
+    expect(dash.liveBriefing?.overallStatus).toBe('HEALTHY');
+    expect(dash.selectedBriefing.overallStatus).toBe('HEALTHY');
+    expect(dash.selectedBriefing.srvfiles.status).toBe('HEALTHY');
+    expect(dash.selectedBriefing.srvfiles.cpuPercent).toBe(34);
+    expect(dash.selectedBriefing.isOfficial0715).toBe(true);
+  });
 });

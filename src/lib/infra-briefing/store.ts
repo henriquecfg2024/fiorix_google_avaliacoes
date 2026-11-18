@@ -329,16 +329,17 @@ export async function ingestInfraBriefingSample(
     clock.dayOfWeek <= 6 &&
     (clock.hour > 7 || (clock.hour === 7 && clock.minute >= 15));
 
-  const shouldPersistToday =
-    sample.trigger === 'SCHEDULED_0715' ||
-    sample.trigger === 'MANUAL_REFRESH' ||
-    (sample.trigger !== 'STARTUP' &&
-      isWorkdayMorningOrLater &&
-      (!existingToday || !existingToday.isOfficial0715));
-
-  if (shouldPersistToday) {
+  let evaluatedToday: InfraMorningBriefingRecord | null = null;
+  let statusChangedToday = false;
+  if (
+    sample.trigger !== 'STARTUP' &&
+    sample.trigger !== 'SCHEDULED_0715' &&
+    sample.trigger !== 'MANUAL_REFRESH' &&
+    isWorkdayMorningOrLater &&
+    existingToday
+  ) {
     const previous = await getPreviousBriefingRecord(tenantId, clock.dateStr);
-    const evaluated = evaluateInfraMorningBriefing({
+    evaluatedToday = evaluateInfraMorningBriefing({
       tenantId,
       briefingDate: clock.dateStr,
       generatedAt: now.toISOString(),
@@ -346,6 +347,28 @@ export async function ingestInfraBriefingSample(
       sample,
       previousBriefing: previous,
     });
+    statusChangedToday = existingToday.overallStatus !== evaluatedToday.overallStatus;
+  }
+
+  const shouldPersistToday =
+    sample.trigger === 'SCHEDULED_0715' ||
+    sample.trigger === 'MANUAL_REFRESH' ||
+    statusChangedToday ||
+    (sample.trigger !== 'STARTUP' &&
+      isWorkdayMorningOrLater &&
+      (!existingToday || !existingToday.isOfficial0715));
+
+  if (shouldPersistToday) {
+    const evaluated =
+      evaluatedToday ??
+      evaluateInfraMorningBriefing({
+        tenantId,
+        briefingDate: clock.dateStr,
+        generatedAt: now.toISOString(),
+        trigger: sample.trigger,
+        sample,
+        previousBriefing: await getPreviousBriefingRecord(tenantId, clock.dateStr),
+      });
     // Preserva selo oficial se o briefing oficial das 07:15 já foi registrado hoje
     if (existingToday?.isOfficial0715 && !evaluated.isOfficial0715) {
       evaluated.isOfficial0715 = true;
@@ -633,7 +656,25 @@ export async function loadInfraBriefingDashboard(
   const savedSelected = await getSavedBriefingForDate(tenantId, targetDate);
   let selectedBriefing: InfraMorningBriefingRecord;
 
-  if (savedSelected && (savedSelected.isOfficial0715 || targetDate !== todayDateBrt || !liveBriefing)) {
+  const liveObsMs = effectiveLiveSample?.observedAt ? Date.parse(effectiveLiveSample.observedAt) : Number.NaN;
+  const savedObsMs = savedSelected?.observedAt ? Date.parse(savedSelected.observedAt) : Number.NaN;
+  const liveIsNewerThanSaved =
+    Boolean(effectiveLiveSample) &&
+    Number.isFinite(liveObsMs) &&
+    (!Number.isFinite(savedObsMs) || liveObsMs > savedObsMs);
+
+  if (
+    targetDate === todayDateBrt &&
+    savedSelected &&
+    liveBriefing &&
+    liveIsNewerThanSaved &&
+    savedSelected.overallStatus !== liveBriefing.overallStatus
+  ) {
+    selectedBriefing = {
+      ...liveBriefing,
+      isOfficial0715: savedSelected.isOfficial0715 || liveBriefing.isOfficial0715,
+    };
+  } else if (savedSelected && (savedSelected.isOfficial0715 || targetDate !== todayDateBrt || !liveBriefing)) {
     selectedBriefing = savedSelected;
   } else if (targetDate === todayDateBrt) {
     if (liveBriefing) {

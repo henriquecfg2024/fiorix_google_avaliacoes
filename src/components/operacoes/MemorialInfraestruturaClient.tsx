@@ -137,7 +137,7 @@ function buildEmptyForm(): FormState {
     status: 'ATIVO',
     title: '',
     implementedAt: todayIso,
-    connectorVersion: 'v2.6.23',
+    connectorVersion: 'v2.6.24',
     impactBadge: '',
     summarySimple: '',
     metricBefore: '',
@@ -439,7 +439,7 @@ export function MemorialInfraestruturaClient({
             </h2>
             <p className="text-xs text-slate-300 max-w-4xl leading-relaxed">
               Histórico completo em linguagem simples e técnica desde a implantação do FIORIX até a versão{' '}
-              <strong className="text-amber-300">v2.6.23</strong>. Toda nova melhoria realizada nos servidores é registrada aqui automaticamente no código e pode receber apontamentos manuais do MASTER.
+              <strong className="text-amber-300">v2.6.24</strong>. Toda nova melhoria realizada nos servidores é registrada aqui automaticamente no código e pode receber apontamentos manuais do MASTER.
             </p>
           </div>
 
@@ -1190,7 +1190,7 @@ export function MemorialInfraestruturaClient({
                     onChange={(e) =>
                       setFormState((p) => ({ ...p, connectorVersion: e.target.value }))
                     }
-                    placeholder="Ex: v2.6.23"
+                    placeholder="Ex: v2.6.24"
                     className={INPUT_CLASS}
                   />
                 </div>
