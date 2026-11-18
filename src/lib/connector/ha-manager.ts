@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import { generateConnectorSecret, hashConnectorSecret } from '@/lib/connectorAuth';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 import type { AuthenticatedUser } from '@/lib/auth-helpers';
@@ -324,6 +325,18 @@ export async function ensureConnectorHaSchema(): Promise<void> {
 
   schemaInitPromise = (async () => {
     try {
+      if (
+        await allPublicTablesExist([
+          'fiorix_connector_ha_nodes',
+          'fiorix_tenant_connector_settings',
+          'fiorix_connector_enrollment_tokens',
+          'fiorix_tenant_sync_checkpoints',
+        ])
+      ) {
+        schemaInitialized = true;
+        return;
+      }
+
       await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS public.fiorix_connector_ha_nodes (
           connector_id TEXT PRIMARY KEY REFERENCES "Connector"("id") ON DELETE CASCADE,

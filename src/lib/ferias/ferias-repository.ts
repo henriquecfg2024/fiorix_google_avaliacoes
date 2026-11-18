@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import { MOCK_COLABORADORES_45 } from '@/components/rh/mockColaboradores45';
 import {
   limparCpfReal,
@@ -147,6 +148,17 @@ let tablesEnsured = false;
 
 export async function ensureFeriasTablesExist() {
   if (tablesEnsured) return;
+  if (
+    await allPublicTablesExist([
+      'fiorix_ferias_publicacao',
+      'fiorix_ferias_escala',
+      'fiorix_rh_colaboradores_gestor',
+      'fiorix_ferias_colaboradores_excluidos',
+    ])
+  ) {
+    tablesEnsured = true;
+    return;
+  }
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS public.fiorix_ferias_publicacao (

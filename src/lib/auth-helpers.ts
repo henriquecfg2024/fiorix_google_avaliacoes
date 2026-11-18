@@ -29,7 +29,7 @@ const validTenantCache = new Map<string, number>();
 const TENANT_CACHE_TTL_MS = 60_000; // 60 segundos
 const USER_META_CACHE_TTL_MS = 30_000; // 30 segundos
 const USER_META_CACHE_MAX_SIZE = 500;
-let revocationTableEnsured = false;
+let revocationTableEnsured = true;
 
 export function invalidateUserMetaCache(userId?: string): void {
   if (userId) {
@@ -39,10 +39,10 @@ export function invalidateUserMetaCache(userId?: string): void {
   }
 }
 
-async function ensureSessionRevocationTable(): Promise<boolean> {
+async function ensureSessionRevocationTable(force = false): Promise<boolean> {
   const isTestEnv = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
   if (isTestEnv) return false;
-  if (revocationTableEnsured) return true;
+  if (revocationTableEnsured && !force) return true;
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS public.fiorix_session_revocations (
@@ -72,8 +72,8 @@ export async function revokeAllUserSessions(
   invalidateUserMetaCache(userId);
 
   if (await ensureSessionRevocationTable()) {
-    try {
-      await prisma.$executeRawUnsafe(
+    const upsertRevocation = () =>
+      prisma.$executeRawUnsafe(
         `INSERT INTO public.fiorix_session_revocations (user_id, revoked_before, reason)
          VALUES ($1, $2::timestamptz, $3)
          ON CONFLICT (user_id) DO UPDATE SET
@@ -83,7 +83,16 @@ export async function revokeAllUserSessions(
         effectiveDate.toISOString(),
         options?.reason || 'security_revocation'
       );
-    } catch {
+    try {
+      await upsertRevocation();
+    } catch (err) {
+      if (String(err ?? '').includes('fiorix_session_revocations') && (await ensureSessionRevocationTable(true))) {
+        try {
+          await upsertRevocation();
+        } catch {
+          // Fallback em memória local mantido
+        }
+      }
       // Fallback em memória local mantido
     }
   }
@@ -154,7 +163,10 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
          LIMIT 1`,
         userId
       );
-    } catch {
+    } catch (joinErr) {
+      if (String(joinErr ?? '').includes('fiorix_session_revocations')) {
+        void ensureSessionRevocationTable(true);
+      }
       try {
         rawUser = await prisma.$queryRawUnsafe<any[]>(
           `SELECT role::text as role, COALESCE(status, 'ativo') as status, "tenantId", departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,

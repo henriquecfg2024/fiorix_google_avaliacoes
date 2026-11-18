@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import {
   decryptFieldSecret,
   encryptFieldSecret,
@@ -203,12 +204,13 @@ export function restoreMaskedAlertSecrets<T extends Record<string, any>>(
   return restored as T;
 }
 
-// As tabelas já existem no PostgreSQL em produção. Evita rodar 13 comandos DDL pesados em cada invocação serverless.
+// As tabelas e colunas de telemetria já existem no PostgreSQL em produção.
+// Evita rodar DDLs pesados e locks ACCESS EXCLUSIVE em cada invocação serverless.
 let tablesInitialized = true;
-let detailsColumnInitialized = false;
+let detailsColumnInitialized = true;
 
-async function ensureConnectorDetailsColumn(): Promise<void> {
-  if (detailsColumnInitialized) return;
+async function ensureConnectorDetailsColumn(force = false): Promise<void> {
+  if (detailsColumnInitialized && !force) return;
   try {
     await prisma.$executeRawUnsafe(`
       ALTER TABLE public.fiorix_connector_telemetry
@@ -222,6 +224,18 @@ async function ensureConnectorDetailsColumn(): Promise<void> {
 
 export async function ensureAlertTablesExist(force = false): Promise<void> {
   if (tablesInitialized && !force) return;
+  if (
+    !force &&
+    (await allPublicTablesExist([
+      'fiorix_operations_alert_channels',
+      'fiorix_operations_alert_logs',
+      'fiorix_connector_telemetry',
+    ]))
+  ) {
+    tablesInitialized = true;
+    detailsColumnInitialized = true;
+    return;
+  }
 
   try {
     await prisma.$executeRawUnsafe(`
@@ -337,6 +351,9 @@ export async function ensureAlertTablesExist(force = false): Promise<void> {
       `ALTER TABLE public.fiorix_connector_telemetry ENABLE ROW LEVEL SECURITY;`
     );
     tablesInitialized = true;
+    if (force) {
+      await ensureConnectorDetailsColumn(true);
+    }
   } catch (err) {
     console.error('Falha ao inicializar tabelas de telemetria e alertas:', err);
   }
@@ -640,7 +657,13 @@ export async function getRecentAlertLogs(tenantId: string, limit = 15): Promise<
 }
 
 let lastTelemetryPruneMs = 0;
-const TELEMETRY_PRUNE_INTERVAL_MS = 30 * 60_000;
+export const TELEMETRY_PRUNE_INTERVAL_MS = 10 * 60_000;
+export const TELEMETRY_RETENTION_HOURS = 48;
+export const TELEMETRY_PRUNE_BATCH_LIMIT = 1000;
+
+export function resetTelemetryPruneStateForTests(): void {
+  lastTelemetryPruneMs = 0;
+}
 
 export async function recordConnectorTelemetry(data: ConnectorTelemetryData): Promise<void> {
   await ensureAlertTablesExist();
@@ -700,8 +723,9 @@ export async function recordConnectorTelemetry(data: ConnectorTelemetryData): Pr
           DELETE FROM public.fiorix_connector_telemetry
           WHERE id IN (
             SELECT id FROM public.fiorix_connector_telemetry
-            WHERE created_at < NOW() - INTERVAL '7 days'
-            LIMIT 5000
+            WHERE created_at < NOW() - INTERVAL '48 hours'
+            ORDER BY created_at ASC
+            LIMIT 1000
           );
         `,
         )

@@ -14,6 +14,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import {
   buildBlockingChains,
   buildProcessInstanceKey,
@@ -236,8 +237,19 @@ export const REAL_VERIFIED_ZABBIX_PROBE: ZabbixIntegrationProbe = {
 const runtimeStateByTenant = new Map<string, TenantMonitorRuntimeState>();
 let ddlInitialized = false;
 
+export const SRVSQL_PERF_DB_PRUNE_INTERVAL_MS = 15 * 60_000;
+const lastDbPruneMsByTenant = new Map<string, number>();
+
+export function resetSrvsqlPerfDbPruneStateForTests(): void {
+  lastDbPruneMsByTenant.clear();
+}
+
 async function ensureMonitoringTables(): Promise<void> {
   if (ddlInitialized) return;
+  if (await allPublicTablesExist(['srvsql_perf_incidents', 'srvsql_perf_samples', 'srvsql_perf_config'])) {
+    ddlInitialized = true;
+    return;
+  }
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS srvsql_perf_incidents (
@@ -447,22 +459,32 @@ export async function persistAndIngestCollectorSample(
       observedIso,
       JSON.stringify(normalizedPayload),
     );
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM srvsql_perf_samples
-       WHERE tenant_id = $1
-         AND (
-           observed_at < NOW() - ($2::int * INTERVAL '1 day')
-           OR id IN (
-             SELECT id FROM srvsql_perf_samples
+    const nowMs = Date.now();
+    const lastPruneMs = lastDbPruneMsByTenant.get(tenantId) ?? 0;
+    if (nowMs - lastPruneMs >= SRVSQL_PERF_DB_PRUNE_INTERVAL_MS) {
+      lastDbPruneMsByTenant.set(tenantId, nowMs);
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM srvsql_perf_samples
+         WHERE tenant_id = $1
+           AND observed_at < NOW() - ($2::int * INTERVAL '1 day')`,
+        tenantId,
+        retentionDays,
+      );
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM srvsql_perf_samples
+         WHERE tenant_id = $1
+           AND observed_at < (
+             SELECT observed_at
+             FROM srvsql_perf_samples
              WHERE tenant_id = $1
              ORDER BY observed_at DESC
-             OFFSET $3::int
-           )
-         )`,
-      tenantId,
-      retentionDays,
-      maxStoredSnapshots,
-    );
+             OFFSET ($2::int - 1)
+             LIMIT 1
+           )`,
+        tenantId,
+        maxStoredSnapshots,
+      );
+    }
   } catch {
     // Mantém amostra em memória se escrita SQL falhar momentaneamente
   }

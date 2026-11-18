@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import { getLatestReleaseManifest } from '@/lib/connector/ha-manager';
 import { loadSrvsqlPerformanceSnapshot } from '@/lib/srvsql-performance/store';
 import {
@@ -72,6 +73,10 @@ function hasRawSqlSupport(): boolean {
 
 async function ensureInfraBriefingTables(): Promise<void> {
   if (ddlInitialized || !hasRawSqlSupport()) return;
+  if (await allPublicTablesExist(['infra_briefing_live_state', 'infra_morning_briefings'])) {
+    ddlInitialized = true;
+    return;
+  }
   try {
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS public.infra_briefing_live_state (

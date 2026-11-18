@@ -100,6 +100,47 @@ export const GOVERNANCE_BOUNDARIES_7RI: GovernanceBoundaryItem[] = [
 
 export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
   {
+    id: 'imp-2026-11-18-supabase-ddl-telemetry-tuning',
+    source: 'OFICIAL_CODIGO',
+    server: 'GERAL',
+    category: 'PERFORMANCE',
+    status: 'ATIVO',
+    title: 'Blindagem de DDLs em Cold Start, Índice no Expurgo SQL e Retenção de 48h no Supabase (fiorix-db)',
+    implementedAt: '2026-11-18',
+    connectorVersion: 'v2.6.23',
+    summarySimple:
+      'A cada inicialização rápida na nuvem (Vercel), o sistema repetia comandos de criação de estrutura no banco mesmo quando as tabelas já existiam, gerando recargas desnecessárias e varreduras pesadas ao limpar gráficos antigos. Passamos a checar antes se as tabelas já existem e otimizamos a limpeza automática, reduzindo travamentos e consumo de espaço no Supabase.',
+    problemBefore:
+      'Em 24h no Supabase Observability (fiorix-db): 63 slow queries (>1s) e 2,4% de erros pontuais no PostgreSQL causados por ~330 cold starts repetindo CREATE/ALTER TABLE IF NOT EXISTS (incluindo ALTER TABLE details JSONB com lock ACCESS EXCLUSIVE de até 20,47s), acionando pgrst_ddl_watch 1.153 vezes (~160s gastos em pg_timezone_names/base_types), além de 7.029 Sequential Scans no DELETE com OR em srvsql_perf_samples e 488 MB acumulados em fiorix_connector_telemetry.',
+    solutionApplied:
+      '1) Criada guarda somente leitura allPublicTablesExist() via pg_class nos 8 módulos de bootstrap para pular DDLs quando as tabelas já existem; 2) Flag detailsColumnInitialized corrigida para evitar ALTER TABLE em cold starts; 3) Expurgo de srvsql_perf_samples passou a rodar a cada 15 min com 2 DELETEs separados indexados por (tenant_id, observed_at DESC), e fiorix_operations_health_samples passou a filtrar tenant_id; 4) Retenção de fiorix_connector_telemetry ajustada para 48h em lotes ordenados de 1.000 linhas com limpeza em lotes e ANALYZE em produção.',
+    metricBefore: '63 slow queries/24h · 1.153 reloads PostgREST · 7.029 Seq Scans em srvsql_perf_samples · telemetria 488 MB',
+    metricAfter: 'Cold starts sem DDL/lock nem reload PostgREST · expurgo 100% indexado · histórico enxugado em lotes (janela 48h)',
+    impactBadge: 'Zero locks DDL e Seq Scans no expurgo',
+    technicalDetails:
+      'Implementado helper central em src/lib/db/ddl-guard.ts consultando pg_class + pg_namespace sem disparar o event trigger ddl_command_end (pgrst_ddl_watch). Aplicado em alert-storage, ha-manager, auth-helpers, health-samples, srvsql-performance, infra-briefing, ferias-repository e memorial-infraestrutura. Em srvsql_perf_samples a remoção do filtro OR id IN (...) libera o índice composto idx_srvsql_perf_samples_tenant_observed.',
+    commandsSnippet: `-- Verificação somente leitura usada pela guarda allPublicTablesExist():
+SELECT COUNT(*)::int AS cnt
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+  AND c.relkind IN ('r', 'p')
+  AND c.relname = ANY($1::text[]);
+
+-- Limpeza em lote indexado de telemetria antiga (> 48h):
+DELETE FROM public.fiorix_connector_telemetry
+WHERE id IN (
+  SELECT id FROM public.fiorix_connector_telemetry
+  WHERE created_at < NOW() - INTERVAL '48 hours'
+  ORDER BY created_at ASC
+  LIMIT 1000
+);`,
+    rollbackPlan:
+      'Reverter as alterações em src/lib/db/ddl-guard.ts e nos 8 módulos que chamam allPublicTablesExist() caso alguma migração futura dependa de DDL automático em runtime.',
+    authorName: 'Henrique C. F. Gama + Antigravity',
+    updatedAtIso: '2026-11-18T15:35:00.000Z',
+  },
+  {
     id: 'imp-2026-11-18-srvfiles-rsync-cpu',
     source: 'OFICIAL_CODIGO',
     server: 'SRVFILES',

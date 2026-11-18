@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 import {
   GOVERNANCE_BOUNDARIES_7RI,
   OFFICIAL_INFRA_MEMORIAL_ENTRIES,
@@ -84,6 +85,11 @@ async function ensureMemorialInfraTable(): Promise<boolean> {
   if (ddlInitialized) return true;
   if (!prisma || typeof prisma.$executeRawUnsafe !== 'function') {
     return false;
+  }
+
+  if (await allPublicTablesExist(['fiorix_infra_memorial_entries'])) {
+    ddlInitialized = true;
+    return true;
   }
 
   try {

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { allPublicTablesExist } from '@/lib/db/ddl-guard';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AMOSTRAS REAIS DE SAÚDE (TEMPO DE RESPOSTA E DISPONIBILIDADE)
@@ -55,6 +56,9 @@ function ensureHealthSamplesTable(): Promise<boolean> {
   if (!tableReady) {
     tableReady = (async () => {
       try {
+        if (await allPublicTablesExist(['fiorix_operations_health_samples'])) {
+          return true;
+        }
         await prisma.$executeRawUnsafe(`
           CREATE TABLE IF NOT EXISTS public.fiorix_operations_health_samples (
             id BIGSERIAL PRIMARY KEY,
@@ -125,11 +129,12 @@ export async function recordHealthSample(sample: HealthSample): Promise<void> {
       gravadas++;
     }
 
-    // Limpeza ocasional das amostras antigas
+    // Limpeza ocasional das amostras antigas usando índice composto (tenant_id, checked_at DESC)
     if (Math.random() < 0.02) {
       const limite = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
       await prisma.$executeRaw`
-        DELETE FROM public.fiorix_operations_health_samples WHERE checked_at < ${limite}
+        DELETE FROM public.fiorix_operations_health_samples
+        WHERE tenant_id = ${item.tenantId} AND checked_at < ${limite}
       `.catch(() => 0);
     }
   } catch {
