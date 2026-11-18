@@ -1,11 +1,11 @@
 {
-  "version": "v2.6.18",
-  "publishedAt": "2026-11-17T20:33:53.837Z",
+  "version": "v2.6.19",
+  "publishedAt": "2026-11-18T11:57:42.552Z",
   "bundle": {
     "fileName": "index.js",
-    "sha256": "53c66b02a232b32586d7ca20696c715036f3c02fee4de508940edede9d44e4c0",
-    "sizeBytes": 5873193,
-    "gzipBytes": 1155339
+    "sha256": "f0f8ee912ae21f4a14688e8732792783f7bfc8674af5c3c2e1d441ccb2a67e6d",
+    "sizeBytes": 6081524,
+    "gzipBytes": 1198622
   },
   "nssm": {
     "sha256": "eee9c44c29c2be011f1f1e43bb8c3fca888cb81053022ec5a0060035de16d848",

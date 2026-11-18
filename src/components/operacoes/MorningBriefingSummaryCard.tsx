@@ -217,7 +217,9 @@ export function MorningBriefingSummaryCard() {
       status: b.srvsiplania.status,
       Icon: Cpu,
       summary: b.srvsiplania.available
-        ? b.srvsiplania.webReachable
+        ? b.srvsiplania.postgresSqlAuthenticated && b.srvsiplania.postgresDbSizeMb != null
+          ? `${b.srvsiplania.postgresVersion || 'PG 18'} · ${(b.srvsiplania.postgresDbSizeMb / 1024).toFixed(1)}GB · Hit ${b.srvsiplania.postgresCacheHitPercent ?? '--'}% · ${b.srvsiplania.postgresTotalConnections ?? 0} conns`
+          : b.srvsiplania.webReachable
           ? `Portal ${b.srvsiplania.webLatencyMs ?? 0}ms · PG ${b.srvsiplania.postgresReachable ? `${b.srvsiplania.postgresLatencyMs ?? 0}ms` : 'OFF'}`
           : b.srvsiplania.postgresReachable
           ? `PostgreSQL :${b.srvsiplania.postgresPort} Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)`

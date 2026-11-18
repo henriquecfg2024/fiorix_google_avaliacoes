@@ -776,26 +776,69 @@ export function BriefingMatinalClient({
                   }
                 />
                 <MetricTile
-                  label={`PostgreSQL (:${b.srvsiplania.postgresPort})`}
+                  label={
+                    b.srvsiplania.postgresVersion
+                      ? `${b.srvsiplania.postgresVersion} (:${b.srvsiplania.postgresPort})`
+                      : `PostgreSQL (:${b.srvsiplania.postgresPort})`
+                  }
                   value={
                     b.srvsiplania.postgresReachable === null
                       ? 'Sem dados'
                       : b.srvsiplania.postgresReachable
-                      ? `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)`
+                      ? b.srvsiplania.postgresSqlAuthenticated && b.srvsiplania.postgresDbSizeMb != null
+                        ? `${(b.srvsiplania.postgresDbSizeMb / 1024).toFixed(1)} GB (${b.srvsiplania.postgresSqlLatencyMs ?? b.srvsiplania.postgresLatencyMs ?? 0}ms)`
+                        : `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)`
                       : 'Porta fechada'
                   }
                   tone={
                     b.srvsiplania.postgresReachable === null
                       ? 'neutral'
-                      : !b.srvsiplania.postgresReachable
+                      : !b.srvsiplania.postgresReachable || (b.srvsiplania.postgresWaitingLocks ?? 0) >= 3
                       ? 'crit'
-                      : (b.srvsiplania.postgresLatencyMs ?? 0) > 1500
+                      : (b.srvsiplania.postgresLatencyMs ?? 0) > 1500 || (b.srvsiplania.postgresWaitingLocks ?? 0) > 0
                       ? 'warn'
                       : 'ok'
                   }
-                  subValue="Banco da aplicação IA"
+                  subValue={
+                    b.srvsiplania.postgresSqlAuthenticated
+                      ? `Cache ${b.srvsiplania.postgresCacheHitPercent ?? '--'}% · ${b.srvsiplania.postgresTotalConnections ?? 0} conns`
+                      : 'Banco da aplicação IA'
+                  }
                 />
               </div>
+
+              {b.srvsiplania.postgresSqlAuthenticated && (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <MetricTile
+                    label="Base SiplanIA (Cache & Conexões)"
+                    value={
+                      b.srvsiplania.postgresCacheHitPercent != null
+                        ? `${b.srvsiplania.postgresCacheHitPercent}% hit`
+                        : 'Conectado RO'
+                    }
+                    tone={
+                      (b.srvsiplania.postgresWaitingLocks ?? 0) > 0 || (b.srvsiplania.postgresIdleInTxCount ?? 0) >= 5
+                        ? 'warn'
+                        : 'ok'
+                    }
+                    subValue={`${b.srvsiplania.postgresTotalConnections ?? 0} sessões · ${b.srvsiplania.postgresDistinctClients ?? 0} estações · ${b.srvsiplania.postgresWaitingLocks ?? 0} locks`}
+                  />
+                  <MetricTile
+                    label="Acervo OCR LV2"
+                    value={
+                      b.srvsiplania.postgresMatriculasCount != null
+                        ? `${b.srvsiplania.postgresMatriculasCount.toLocaleString('pt-BR')} mat.`
+                        : '--'
+                    }
+                    tone="ok"
+                    subValue={
+                      b.srvsiplania.postgresPaginasOcrCount != null
+                        ? `${b.srvsiplania.postgresPaginasOcrCount.toLocaleString('pt-BR')} págs${b.srvsiplania.postgresSharedBuffersMb ? ` · buf ${b.srvsiplania.postgresSharedBuffersMb}MB` : ''}`
+                        : 'Coordenadas OCR'
+                    }
+                  />
+                </div>
+              )}
 
               {b.srvsiplania.cimAvailable ? (
                 <>

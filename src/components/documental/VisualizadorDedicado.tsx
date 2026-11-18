@@ -1201,8 +1201,11 @@ export function VisualizadorDedicado({
     const total = totalPages;
 
     void (async () => {
-      const BATCH_SIZE = 12;
-      for (let inicio = 1; inicio <= total; inicio += BATCH_SIZE) {
+      const ehLv2Ken =
+        arquivoAtivo.rootId === 'livro2' || /(?:^|[\\/])lv2[\\/]/i.test(arquivoAtivo.relativePath);
+      const BATCH_SIZE = ehLv2Ken ? 60 : 12;
+      let inicio = 1;
+      while (inicio <= total) {
         if (cancelado || pedidoAtual !== pedidoOcrRef.current) return;
         const fim = Math.min(total, inicio + BATCH_SIZE - 1);
         let faltandoNoLote = false;
@@ -1212,12 +1215,16 @@ export function VisualizadorDedicado({
             break;
           }
         }
-        if (!faltandoNoLote) continue;
+        if (!faltandoNoLote) {
+          inicio = fim + 1;
+          continue;
+        }
 
         setOcrProgresso({ lidas: Math.max(0, inicio - 1), total });
         try {
           const ocrRes = await executarJob<{
             pageCount?: number;
+            loadedPageEnd?: number;
             pages?: Array<{ page: number; words: OcrWordTuple[] }>;
           }>(
             {
@@ -1241,7 +1248,9 @@ export function VisualizadorDedicado({
             ocrPorPaginaRef.current = next;
             return next;
           });
-          setOcrProgresso({ lidas: fim, total: Math.max(total, ocrRes?.pageCount || total) });
+          const ultimaPagina = ocrRes?.loadedPageEnd || recebidas[recebidas.length - 1]?.page || fim;
+          setOcrProgresso({ lidas: ultimaPagina, total: Math.max(total, ocrRes?.pageCount || total) });
+          inicio = Math.max(inicio + 1, ultimaPagina + 1);
         } catch {
           break;
         }

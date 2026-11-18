@@ -332,6 +332,26 @@ function criarCaixaComMargem(
   };
 }
 
+const CONECTORES_CURTOS_OCR = new Set([
+  'de',
+  'da',
+  'do',
+  'dos',
+  'das',
+  'e',
+  'no',
+  'na',
+  'n',
+  'n.',
+  'no.',
+  '-',
+]);
+
+function ehConectorCurtoOcr(wordText: string): boolean {
+  const norm = normalizarTextoVisualizador(wordText).replace(/[.,;:()\[\]"']+$/g, '');
+  return CONECTORES_CURTOS_OCR.has(norm);
+}
+
 /** Localiza caixas de destaque por página e contabiliza ocorrências a partir do índice OCR retornado pelo Connector. */
 export function calcularDestaquesOcrDocumento(
   ocrPorPagina: Record<number, OcrWordTuple[]>,
@@ -364,18 +384,48 @@ export function calcularDestaquesOcrDocumento(
         boxesPagina.push(criarCaixaComMargem(`p${pageNum}-i${i}`, pageNum, txt, x, y, w, h));
       }
     } else {
-      const m = tokens.length;
-      for (let k = 0; k <= words.length - m; k++) {
+      const tokensSignificativos = tokens.filter((t) => !ehConectorCurtoOcr(t));
+      const tokensFrase = tokens;
+      for (let k = 0; k < words.length; k++) {
+        if (!casaTokenOcrUnico(tokensFrase[0], words[k][0])) continue;
+        let wi = k + 1;
+        let ti = 1;
+        const slice: OcrWordTuple[] = [words[k]];
         let matched = true;
-        for (let offset = 0; offset < m; offset++) {
-          if (!casaTokenOcrUnico(tokens[offset], words[k + offset][0])) {
+
+        while (ti < tokensFrase.length) {
+          if (wi >= words.length) {
             matched = false;
             break;
           }
+          // Se o próximo token da busca for um conector curto e o OCR já vier com ou sem ele
+          if (ehConectorCurtoOcr(tokensFrase[ti]) && !casaTokenOcrUnico(tokensFrase[ti], words[wi][0])) {
+            ti++;
+            continue;
+          }
+          if (casaTokenOcrUnico(tokensFrase[ti], words[wi][0])) {
+            slice.push(words[wi]);
+            wi++;
+            ti++;
+            continue;
+          }
+          // Permite até 1 palavra conectora intermediária no OCR (ex.: "JERONIMO [DE] MENDONCA")
+          if (
+            ehConectorCurtoOcr(words[wi][0]) &&
+            wi + 1 < words.length &&
+            casaTokenOcrUnico(tokensFrase[ti], words[wi + 1][0])
+          ) {
+            slice.push(words[wi], words[wi + 1]);
+            wi += 2;
+            ti++;
+            continue;
+          }
+          matched = false;
+          break;
         }
+
         if (!matched) continue;
 
-        const slice = words.slice(k, k + m);
         const mesmaLinha = slice.every((w) => Math.abs(w[2] - slice[0][2]) < 0.025);
         if (mesmaLinha) {
           const minX = Math.min(...slice.map((w) => w[1]));
@@ -391,7 +441,36 @@ export function calcularDestaquesOcrDocumento(
             boxesPagina.push(criarCaixaComMargem(`p${pageNum}-seq${k}-w${offset}`, pageNum, txt, x, y, w, h));
           }
         }
-        k += m - 1;
+        k = Math.max(k, wi - 1);
+      }
+
+      // Fallback para buscas Full-Text: se todos os tokens principais ocorrem na mesma página em posições distintas
+      if (boxesPagina.length === 0) {
+        const termosPagina = (tokensSignificativos.length > 0 ? tokensSignificativos : tokens).filter(
+          (tok) => tok.length >= 3 || /\d/.test(tok),
+        );
+        if (termosPagina.length >= 2) {
+          const hitsPorTermo = termosPagina.map((tok) => {
+            const found: Array<{ idx: number; tuple: OcrWordTuple }> = [];
+            for (let i = 0; i < words.length; i++) {
+              if (casaTokenOcrUnico(tok, words[i][0])) {
+                found.push({ idx: i, tuple: words[i] });
+              }
+            }
+            return found;
+          });
+          if (hitsPorTermo.every((h) => h.length > 0)) {
+            const seenIdx = new Set<number>();
+            for (const grupo of hitsPorTermo) {
+              for (const item of grupo) {
+                if (seenIdx.has(item.idx)) continue;
+                seenIdx.add(item.idx);
+                const [txt, x, y, w, h] = item.tuple;
+                boxesPagina.push(criarCaixaComMargem(`p${pageNum}-all${item.idx}`, pageNum, txt, x, y, w, h));
+              }
+            }
+          }
+        }
       }
     }
 

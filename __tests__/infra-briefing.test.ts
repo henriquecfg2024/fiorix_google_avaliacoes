@@ -425,5 +425,60 @@ describe('Módulo Briefing Matinal da Infraestrutura (SRVSQL · SRVFILES · SRVS
     });
     expect(webriEval.srvsql.status).toBe('CRITICAL');
     expect(webriEval.overallStatus).toBe('CRITICAL');
+
+    // Telemetria PostgreSQL 18 autenticada do SRVSIPLANIA (fiorix_reader) enriquece o check e acervo OCR
+    const pgAuthedSample = buildHealthySample();
+    pgAuthedSample.srvsiplania = {
+      ...pgAuthedSample.srvsiplania!,
+      postgresSqlAuthenticated: true,
+      postgresSqlLatencyMs: 9,
+      postgresVersion: 'PostgreSQL 18.7',
+      postgresUptimeSeconds: 180000,
+      postgresDbSizeMb: 18432,
+      postgresCacheHitPercent: 96.5,
+      postgresTotalConnections: 18,
+      postgresActiveQueries: 1,
+      postgresIdleInTxCount: 0,
+      postgresWaitingLocks: 0,
+      postgresLongQueries: 0,
+      postgresDeadlocks: 0,
+      postgresSharedBuffersMb: 128,
+      postgresMatriculasCount: 268949,
+      postgresPaginasOcrCount: 867185,
+      postgresDistinctClients: 4,
+      postgresSqlError: null,
+    };
+    const pgEval = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-pg-ia',
+      briefingDate: '2026-11-18',
+      generatedAt: '2026-11-18T11:30:00.000Z',
+      trigger: 'PERIODIC',
+      sample: pgAuthedSample,
+    });
+    expect(pgEval.srvsiplania.status).toBe('HEALTHY');
+    expect(pgEval.srvsiplania.postgresSqlAuthenticated).toBe(true);
+    expect(pgEval.srvsiplania.postgresMatriculasCount).toBe(268949);
+    const pgCheck = pgEval.checks.find((c) => c.id === 'srvsiplania-postgres');
+    const acervoCheck = pgEval.checks.find((c) => c.id === 'srvsiplania-acervo-ia');
+    expect(pgCheck?.status).toBe('OK');
+    expect(pgCheck?.currentValue).toContain('Cache 96.5%');
+    expect(acervoCheck?.status).toBe('OK');
+    expect(acervoCheck?.currentValue).toContain('268.949 matrículas');
+    expect(acervoCheck?.recommendation).toContain('shared_buffers');
+
+    // Contenção crítica (locks em espera) no PostgreSQL eleva severidade
+    const pgLockSample = buildHealthySample();
+    pgLockSample.srvsiplania = {
+      ...pgAuthedSample.srvsiplania!,
+      postgresWaitingLocks: 4,
+    };
+    const pgLockEval = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-pg-lock',
+      briefingDate: '2026-11-18',
+      generatedAt: '2026-11-18T11:35:00.000Z',
+      trigger: 'PERIODIC',
+      sample: pgLockSample,
+    });
+    expect(pgLockEval.srvsiplania.status).toBe('CRITICAL');
   });
 });

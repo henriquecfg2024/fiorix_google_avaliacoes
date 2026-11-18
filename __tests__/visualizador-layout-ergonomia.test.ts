@@ -245,6 +245,25 @@ describe('Ergonomia e Layout Full-Bleed do Visualizador de Documentos', () => {
     expect(resFrase.total).toBe(1);
     expect(resFrase.ocorrencias[0].page).toBe(2);
     expect(resFrase.ocorrencias[0].text).toBe('FLÁVIO TADEU');
+
+    // Conector curto opcional ("de"/"do") e fallback de página com todos os termos significativos (busca FTS SiplanIA)
+    const ocrEndereco = {
+      3: [
+        ['RUA', 0.1, 0.2, 0.05, 0.02] as [string, number, number, number, number],
+        ['JERONIMO', 0.16, 0.2, 0.12, 0.02] as [string, number, number, number, number],
+        ['DE', 0.29, 0.2, 0.04, 0.02] as [string, number, number, number, number],
+        ['MENDONÇA', 0.34, 0.2, 0.14, 0.02] as [string, number, number, number, number],
+        ['apartamento', 0.1, 0.4, 0.12, 0.02] as [string, number, number, number, number],
+        ['75', 0.23, 0.4, 0.04, 0.02] as [string, number, number, number, number],
+      ],
+    };
+    const resConector = calcularDestaquesOcrDocumento(ocrEndereco, 'jeronimo mendonca');
+    expect(resConector.total).toBe(1);
+    expect(resConector.ocorrencias[0].text).toBe('JERONIMO DE MENDONÇA');
+
+    const resFtsPagina = calcularDestaquesOcrDocumento(ocrEndereco, 'JERONIMO DE MENDONCA 75');
+    expect(resFtsPagina.total).toBe(3);
+    expect(resFtsPagina.paginasComOcorrencia).toEqual([{ page: 3, count: 3 }]);
   });
 
   it('destaca termos em HTML sanitizado preservando tags e atributos e adiciona #search= no PDF', () => {

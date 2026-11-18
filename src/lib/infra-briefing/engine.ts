@@ -225,6 +225,23 @@ function createEmptySrvsiplania(host = '10.0.0.6', name = 'SRVSIPLANIA'): Srvsip
     postgresPort: 5432,
     postgresReachable: null,
     postgresLatencyMs: null,
+    postgresSqlAuthenticated: null,
+    postgresSqlLatencyMs: null,
+    postgresVersion: null,
+    postgresUptimeSeconds: null,
+    postgresDbSizeMb: null,
+    postgresCacheHitPercent: null,
+    postgresTotalConnections: null,
+    postgresActiveQueries: null,
+    postgresIdleInTxCount: null,
+    postgresWaitingLocks: null,
+    postgresLongQueries: null,
+    postgresDeadlocks: null,
+    postgresSharedBuffersMb: null,
+    postgresMatriculasCount: null,
+    postgresPaginasOcrCount: null,
+    postgresDistinctClients: null,
+    postgresSqlError: null,
     cimAvailable: false,
     cimError: null,
     osCaption: null,
@@ -875,6 +892,23 @@ export function evaluateInfraMorningBriefing(params: {
     srvsiplania.postgresPort = rawIa.postgresPort;
     srvsiplania.postgresReachable = rawIa.postgresReachable;
     srvsiplania.postgresLatencyMs = rawIa.postgresLatencyMs;
+    srvsiplania.postgresSqlAuthenticated = rawIa.postgresSqlAuthenticated ?? null;
+    srvsiplania.postgresSqlLatencyMs = rawIa.postgresSqlLatencyMs ?? null;
+    srvsiplania.postgresVersion = rawIa.postgresVersion ?? null;
+    srvsiplania.postgresUptimeSeconds = rawIa.postgresUptimeSeconds ?? null;
+    srvsiplania.postgresDbSizeMb = rawIa.postgresDbSizeMb ?? null;
+    srvsiplania.postgresCacheHitPercent = rawIa.postgresCacheHitPercent ?? null;
+    srvsiplania.postgresTotalConnections = rawIa.postgresTotalConnections ?? null;
+    srvsiplania.postgresActiveQueries = rawIa.postgresActiveQueries ?? null;
+    srvsiplania.postgresIdleInTxCount = rawIa.postgresIdleInTxCount ?? null;
+    srvsiplania.postgresWaitingLocks = rawIa.postgresWaitingLocks ?? null;
+    srvsiplania.postgresLongQueries = rawIa.postgresLongQueries ?? null;
+    srvsiplania.postgresDeadlocks = rawIa.postgresDeadlocks ?? null;
+    srvsiplania.postgresSharedBuffersMb = rawIa.postgresSharedBuffersMb ?? null;
+    srvsiplania.postgresMatriculasCount = rawIa.postgresMatriculasCount ?? null;
+    srvsiplania.postgresPaginasOcrCount = rawIa.postgresPaginasOcrCount ?? null;
+    srvsiplania.postgresDistinctClients = rawIa.postgresDistinctClients ?? null;
+    srvsiplania.postgresSqlError = rawIa.postgresSqlError ?? null;
     srvsiplania.cimAvailable = rawIa.cimAvailable;
     srvsiplania.cimError = rawIa.cimError;
     srvsiplania.osCaption = rawIa.osCaption;
@@ -942,24 +976,87 @@ export function evaluateInfraMorningBriefing(params: {
           : 'Verificar serviço web/IIS do SiplanIA na VM 10.0.0.6.',
     });
 
+    const pgSqlAuthed = rawIa.postgresSqlAuthenticated === true;
+    const pgWaitLocks = rawIa.postgresWaitingLocks ?? 0;
+    const pgIdleTx = rawIa.postgresIdleInTxCount ?? 0;
+    const pgLongQ = rawIa.postgresLongQueries ?? 0;
+    const pgConns = rawIa.postgresTotalConnections ?? 0;
+    const pgAnomaliaCrit = pgSqlAuthed && (pgWaitLocks >= 3 || pgConns >= 95);
+    const pgAnomaliaWarn =
+      pgSqlAuthed && (pgWaitLocks > 0 || pgIdleTx >= 5 || pgLongQ >= 3 || pgConns >= 85);
+
+    if (pgAnomaliaCrit) {
+      srvsiplania.status = elevateServerStatus(srvsiplania.status, 'CRITICAL');
+      preventiveActions.push(
+        `Contenção crítica no PostgreSQL SiplanIA (${pgWaitLocks} lock(s) em espera, ${pgConns} conexões).`,
+      );
+    } else if (pgAnomaliaWarn) {
+      srvsiplania.status = elevateServerStatus(srvsiplania.status, 'WARNING');
+      preventiveActions.push(
+        `Atenção preventiva no PostgreSQL SiplanIA (${pgWaitLocks} lock(s), ${pgIdleTx} idle-in-tx, ${pgLongQ} query longa, ${pgConns} conexões).`,
+      );
+    }
+
+    const pgDbGbLabel =
+      rawIa.postgresDbSizeMb != null ? `${(rawIa.postgresDbSizeMb / 1024).toFixed(1)} GB` : null;
+    const pgCheckStatus: 'OK' | 'WARNING' | 'CRITICAL' = !rawIa.postgresReachable
+      ? 'CRITICAL'
+      : pgAnomaliaCrit
+      ? 'CRITICAL'
+      : pgAnomaliaWarn || (rawIa.postgresLatencyMs ?? 0) > 1500
+      ? 'WARNING'
+      : 'OK';
+
     checks.push({
       id: 'srvsiplania-postgres',
       server: 'SRVSIPLANIA',
       category: 'Banco PostgreSQL',
-      label: `PostgreSQL (:${rawIa.postgresPort})`,
-      status: !rawIa.postgresReachable ? 'CRITICAL' : (rawIa.postgresLatencyMs ?? 0) > 1500 ? 'WARNING' : 'OK',
-      currentValue: rawIa.postgresReachable
-        ? `Online (${rawIa.postgresLatencyMs ?? 0} ms)`
-        : `Porta ${rawIa.postgresPort} fechada`,
+      label: rawIa.postgresVersion ? `${rawIa.postgresVersion} (:${rawIa.postgresPort})` : `PostgreSQL (:${rawIa.postgresPort})`,
+      status: pgCheckStatus,
+      currentValue: !rawIa.postgresReachable
+        ? `Porta ${rawIa.postgresPort} fechada`
+        : pgSqlAuthed
+        ? `${pgDbGbLabel ?? '--'} · Cache ${rawIa.postgresCacheHitPercent ?? '--'}% · ${pgConns} conns · ${rawIa.postgresSqlLatencyMs ?? rawIa.postgresLatencyMs ?? 0} ms`
+        : `Online (${rawIa.postgresLatencyMs ?? 0} ms)`,
       previousValue:
         previousBriefing?.srvsiplania.postgresLatencyMs != null
           ? `${previousBriefing.srvsiplania.postgresLatencyMs} ms`
           : null,
-      deltaLabel: null,
-      recommendation: rawIa.postgresReachable
-        ? null
-        : 'Verificar serviço postgresql e pg_hba/firewall em 10.0.0.6.',
+      deltaLabel:
+        pgSqlAuthed && rawIa.postgresDistinctClients != null
+          ? `${rawIa.postgresDistinctClients} estação(ões)`
+          : null,
+      recommendation: !rawIa.postgresReachable
+        ? 'Verificar serviço postgresql e pg_hba/firewall em 10.0.0.6.'
+        : pgAnomaliaCrit || pgAnomaliaWarn
+        ? 'Inspecionar pg_stat_activity no SiplanIA (10.0.0.6) para sessões travadas ou excesso de conexões.'
+        : null,
     });
+
+    if (pgSqlAuthed && rawIa.postgresMatriculasCount != null) {
+      const matsLabel = rawIa.postgresMatriculasCount.toLocaleString('pt-BR');
+      const pagsLabel =
+        rawIa.postgresPaginasOcrCount != null
+          ? rawIa.postgresPaginasOcrCount.toLocaleString('pt-BR')
+          : '--';
+      const sbLow = rawIa.postgresSharedBuffersMb !== null && rawIa.postgresSharedBuffersMb !== undefined && rawIa.postgresSharedBuffersMb <= 256;
+      checks.push({
+        id: 'srvsiplania-acervo-ia',
+        server: 'SRVSIPLANIA',
+        category: 'Acervo OCR SiplanIA',
+        label: 'Matrículas LV2 & Páginas Indexadas',
+        status: 'OK',
+        currentValue: `${matsLabel} matrículas · ${pagsLabel} páginas OCR`,
+        previousValue: null,
+        deltaLabel:
+          rawIa.postgresSharedBuffersMb != null
+            ? `shared_buffers ${rawIa.postgresSharedBuffersMb} MB`
+            : null,
+        recommendation: sbLow
+          ? `Informativo: shared_buffers atual em ${rawIa.postgresSharedBuffersMb} MB para ${pgDbGbLabel ?? '18 GB'} de base (ajustável futuramente com Siplan para 4 GB).`
+          : null,
+      });
+    }
 
     if (rawIa.cimAvailable) {
       if (rawIa.cpuPercent !== null) {
@@ -1040,20 +1137,25 @@ export function evaluateInfraMorningBriefing(params: {
       });
     }
 
+    const pgResumido =
+      rawIa.postgresSqlAuthenticated && rawIa.postgresDbSizeMb != null
+        ? `${rawIa.postgresVersion || 'PostgreSQL 18'} OK (${(rawIa.postgresDbSizeMb / 1024).toFixed(1)} GB · ${rawIa.postgresCacheHitPercent ?? '--'}% hit · ${rawIa.postgresTotalConnections ?? 0} conns)`
+        : `PostgreSQL :${rawIa.postgresPort} OK (${rawIa.postgresLatencyMs ?? 0}ms)`;
+
     srvsiplania.headline =
       srvsiplania.status === 'OFFLINE'
         ? 'Portal SiplanIA e PostgreSQL inacessíveis em 10.0.0.6'
         : srvsiplania.status === 'CRITICAL'
-        ? `PostgreSQL (:${rawIa.postgresPort}) inacessível em 10.0.0.6`
+        ? `PostgreSQL (:${rawIa.postgresPort}) com falha ou contenção crítica em 10.0.0.6`
         : !rawIa.cimAvailable
         ? rawIa.webReachable
-          ? `Rede OK (Portal :${rawIa.webPort ?? '--'} + PostgreSQL :${rawIa.postgresPort}) · WMI/CIM Pendente`
-          : `PostgreSQL :${rawIa.postgresPort} OK (${rawIa.postgresLatencyMs ?? 0}ms) · WMI/CIM Pendente`
+          ? `Rede OK (Portal :${rawIa.webPort ?? '--'} + ${pgResumido}) · WMI/CIM Pendente`
+          : `${pgResumido} · WMI/CIM Pendente`
         : srvsiplania.status === 'WARNING'
-        ? 'SRVSIPLANIA com atenção preventiva (latência, CPU ou disco)'
+        ? 'SRVSIPLANIA com atenção preventiva (latência, CPU, PostgreSQL ou disco)'
         : rawIa.webReachable
-        ? `Portal :${rawIa.webPort ?? '--'} & PostgreSQL OK · ${formatRamGb(rawIa.freeRamMb)} RAM livres`
-        : `PostgreSQL :${rawIa.postgresPort} OK (${rawIa.postgresLatencyMs ?? 0}ms) · ${formatRamGb(rawIa.freeRamMb)} RAM livres`;
+        ? `Portal :${rawIa.webPort ?? '--'} & ${pgResumido} · ${formatRamGb(rawIa.freeRamMb)} RAM livres`
+        : `${pgResumido} · ${formatRamGb(rawIa.freeRamMb)} RAM livres`;
   }
 
   // 4. STATUS GLOBAL CONSOLIDADO
@@ -1150,7 +1252,7 @@ export function formatBriefingPlainTextSummary(b: InfraMorningBriefingRecord): s
     `- Discos: ${filesDisks}`,
     '',
     `3) *SRVSIPLANIA (${b.srvsiplania.host})* — ${b.srvsiplania.status}`,
-    `- Portal HTTP (${b.srvsiplania.webReachable ? `:${b.srvsiplania.webPort ?? '--'}` : 'LAN'}): ${b.srvsiplania.webReachable ? `Online (${b.srvsiplania.webLatencyMs ?? 0}ms)` : b.srvsiplania.postgresReachable ? 'Sem porta HTTP exposta na LAN' : 'Offline/Sem dados'} · PostgreSQL (:${b.srvsiplania.postgresPort}): ${b.srvsiplania.postgresReachable ? `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)` : 'Offline/Sem dados'}`,
+    `- Portal HTTP (${b.srvsiplania.webReachable ? `:${b.srvsiplania.webPort ?? '--'}` : 'LAN'}): ${b.srvsiplania.webReachable ? `Online (${b.srvsiplania.webLatencyMs ?? 0}ms)` : b.srvsiplania.postgresReachable ? 'Sem porta HTTP exposta na LAN' : 'Offline/Sem dados'} · PostgreSQL (:${b.srvsiplania.postgresPort}): ${b.srvsiplania.postgresReachable ? (b.srvsiplania.postgresSqlAuthenticated && b.srvsiplania.postgresDbSizeMb != null ? `${(b.srvsiplania.postgresDbSizeMb / 1024).toFixed(1)} GB · ${b.srvsiplania.postgresCacheHitPercent ?? '--'}% hit · ${b.srvsiplania.postgresTotalConnections ?? 0} conns (${b.srvsiplania.postgresSqlLatencyMs ?? b.srvsiplania.postgresLatencyMs ?? 0}ms)` : `Online (${b.srvsiplania.postgresLatencyMs ?? 0}ms)`) : 'Offline/Sem dados'}`,
     `- SO/Discos: ${b.srvsiplania.cimAvailable ? `CPU ${b.srvsiplania.cpuPercent ?? '--'}% · RAM livre ${formatRamGb(b.srvsiplania.freeRamMb)} · ${iaDisks}` : iaDisks}`,
   ];
 
