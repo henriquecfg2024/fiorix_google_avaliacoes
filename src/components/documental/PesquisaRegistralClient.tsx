@@ -178,7 +178,7 @@ const CATALOGOS_INICIAIS: CatalogosPesquisaRegistral = {
     { id: 0, sigla: 'TODOS', descricao: 'Todos os Livros' },
     { id: 2, sigla: 'LV2', descricao: 'Matrícula (Livro 2)' },
     { id: 3, sigla: 'LV3', descricao: 'Registro Auxiliar (Livro 3)' },
-    { id: 4, sigla: 'TR', descricao: 'Transcrição (Livro Anterior)' },
+    { id: 1, sigla: 'TRA', descricao: 'Transcrição (Livro Anterior)' },
   ],
   tiposImovel: [
     { id: 2, descricao: 'Apartamento' },
@@ -1952,8 +1952,9 @@ export function PesquisaRegistralClient() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/70 bg-[#0B101E]">
-                  {itensFiltrados.map(item => {
+                  {itensFiltrados.map((item, idx) => {
                     const numLivro = item.numeroLivro && item.numeroLivro > 0 ? item.numeroLivro : null;
+                    const sessaoImagemDireta = item.sessao === 'LV2' || item.sessao === 'LV3';
                     const paginaAlvo =
                       item.paginaOcrEncontrada && item.paginaOcrEncontrada > 0
                         ? item.paginaOcrEncontrada
@@ -1962,7 +1963,7 @@ export function PesquisaRegistralClient() {
                       ? getFichaRotulo(paginaAlvo - 1).codigo
                       : null;
 
-                    const urlMesmaGuia = numLivro
+                    const urlMesmaGuia = numLivro && sessaoImagemDireta
                       ? construirUrlVisualizadorMatriculaLv2(numLivro, {
                           sessao: item.sessao || 'LV2',
                           termoDestaque: item.termoDestaqueSugerido,
@@ -1972,7 +1973,7 @@ export function PesquisaRegistralClient() {
                       : null;
 
                     return (
-                      <tr key={item.id} className="align-top hover:bg-slate-800/35 transition-colors">
+                      <tr key={`${item.id}-${idx}`} className="align-top hover:bg-slate-800/35 transition-colors">
                         {/* Origem */}
                         <td className="px-3 py-3 whitespace-nowrap">
                           {item.origem === 'ambos' ? (
@@ -2144,6 +2145,10 @@ export function PesquisaRegistralClient() {
                                 </a>
                               </div>
                             </div>
+                          ) : numLivro ? (
+                            <span className="inline-block rounded-lg border border-slate-700/80 bg-slate-800/60 px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                              Livro {item.sessao || item.livroRotulo} (acervo físico)
+                            </span>
                           ) : (
                             <span className="inline-block rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-500">
                               Sem imagem vinculada
