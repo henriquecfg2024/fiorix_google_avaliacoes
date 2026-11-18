@@ -138,18 +138,36 @@ function MetricTile({
   );
 }
 
+function sanitizeClientWmiErrorText(raw: string): string {
+  const cleaned = raw
+    .replace(/Command failed:\s*powershell\.exe[\s\S]*$/gi, '')
+    .replace(/-EncodedCommand\s+[A-Za-z0-9+/=]+/gi, '')
+    .trim();
+  return cleaned || 'WinRM/WMI bloqueado pelo firewall em 10.0.0.6';
+}
+
 function RamProgressBar({
   usedPercent,
   freeMb,
   totalMb,
+  variant = 'default',
 }: {
   usedPercent: number | null;
   freeMb: number | null;
   totalMb: number | null;
+  variant?: 'default' | 'sql_server';
 }) {
   const pct = usedPercent !== null ? Math.max(0, Math.min(100, usedPercent)) : null;
   const barColor =
-    pct === null
+    variant === 'sql_server'
+      ? freeMb === null
+        ? 'bg-slate-600'
+        : freeMb < 2560
+        ? 'bg-rose-500'
+        : freeMb < 4608
+        ? 'bg-amber-400'
+        : 'bg-emerald-400'
+      : pct === null
       ? 'bg-slate-600'
       : pct >= 90
       ? 'bg-rose-500'
@@ -172,7 +190,7 @@ function RamProgressBar({
       </div>
       <div className="flex items-center justify-between text-[11px] text-slate-500">
         <span>Uso atual: {pct !== null ? `${pct.toLocaleString('pt-BR')}%` : '--'}</span>
-        <span>Meta: &lt; 85%</span>
+        <span>{variant === 'sql_server' ? 'Reserva SO: >= 4,5 GB (Buffer SQL 48 GB)' : 'Meta: < 85%'}</span>
       </div>
     </div>
   );
@@ -585,6 +603,7 @@ export function BriefingMatinalClient({
                 usedPercent={b.srvsql.usedRamPercent}
                 freeMb={b.srvsql.freeRamMb}
                 totalMb={b.srvsql.totalRamMb}
+                variant="sql_server"
               />
 
               <div className="rounded-xl border border-white/10 bg-[#070B16]/85 p-3 space-y-1.5 text-xs">
@@ -879,7 +898,7 @@ export function BriefingMatinalClient({
                   </div>
                   <p className="text-slate-300 leading-relaxed">
                     A conectividade de Portal Web e PostgreSQL em <code className="font-mono text-indigo-200">{b.srvsiplania.host}</code> já é testada ao vivo a partir do SrvFiles.
-                    {b.srvsiplania.cimError ? ` Motivo WMI: ${b.srvsiplania.cimError}` : ''}
+                    {b.srvsiplania.cimError ? ` Motivo WMI: ${sanitizeClientWmiErrorText(b.srvsiplania.cimError)}` : ''}
                   </p>
                   <details className="rounded-lg border border-white/10 bg-[#070B16]/80 p-2.5 text-[11px] text-slate-300">
                     <summary className="cursor-pointer font-semibold text-cyan-300 inline-flex items-center gap-1">

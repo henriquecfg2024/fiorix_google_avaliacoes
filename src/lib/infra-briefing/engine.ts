@@ -476,7 +476,18 @@ export function evaluateInfraMorningBriefing(params: {
       }
 
       if (rawSql.freeRamMb !== null) {
-        const ramStatus = rawSql.freeRamMb < 4096 ? 'CRITICAL' : rawSql.freeRamMb < 8192 ? 'WARNING' : 'OK';
+        const osMemLow = typeof rawSql.memoryStateDesc === 'string' && /low/i.test(rawSql.memoryStateDesc);
+        const ramStatus = osMemLow
+          ? rawSql.freeRamMb < 4096
+            ? 'CRITICAL'
+            : rawSql.freeRamMb < 6144
+            ? 'WARNING'
+            : 'OK'
+          : rawSql.freeRamMb < 2560
+          ? 'CRITICAL'
+          : rawSql.freeRamMb < 4608
+          ? 'WARNING'
+          : 'OK';
         if (ramStatus !== 'OK') {
           srvsql.status = elevateServerStatus(srvsql.status, ramStatus === 'CRITICAL' ? 'CRITICAL' : 'WARNING');
           preventiveActions.push(
@@ -492,7 +503,7 @@ export function evaluateInfraMorningBriefing(params: {
           currentValue: `${formatRamGb(rawSql.freeRamMb)} livres de ${formatRamGb(rawSql.totalRamMb)}`,
           previousValue:
             previousBriefing?.srvsql.freeRamMb != null ? `${formatRamGb(previousBriefing.srvsql.freeRamMb)} livres` : null,
-          deltaLabel: null,
+          deltaLabel: rawSql.memoryStateDesc ? rawSql.memoryStateDesc : null,
           recommendation: ramStatus === 'OK' ? null : 'Avaliar processos Java/IIS ou limite Max Server Memory no SRVSQL.',
         });
       }
@@ -529,23 +540,24 @@ export function evaluateInfraMorningBriefing(params: {
       }
 
       if (rawSql.blockedRequestsCount !== null) {
-        const blockStatus = rawSql.blockedRequestsCount > 0 ? 'CRITICAL' : 'OK';
-        if (blockStatus === 'CRITICAL') {
-          srvsql.status = elevateServerStatus(srvsql.status, 'CRITICAL');
+        const blockStatus =
+          rawSql.blockedRequestsCount >= 3 ? 'CRITICAL' : rawSql.blockedRequestsCount >= 1 ? 'WARNING' : 'OK';
+        if (blockStatus !== 'OK') {
+          srvsql.status = elevateServerStatus(srvsql.status, blockStatus === 'CRITICAL' ? 'CRITICAL' : 'WARNING');
           preventiveActions.push(
-            `Há ${rawSql.blockedRequestsCount} sessão(ões) bloqueada(s) neste instante no SRVSQL (verificar Bloqueador Principal).`,
+            `Há ${rawSql.blockedRequestsCount} sessão(ões) bloqueada(s) (>= 5s) no SRVSQL (verificar Bloqueador Principal).`,
           );
         }
         checks.push({
           id: 'srvsql-blocks',
           server: 'SRVSQL',
           category: 'Concorrência',
-          label: 'Cadeias de Bloqueio Ativas',
+          label: 'Cadeias de Bloqueio Ativas (>= 5s)',
           status: blockStatus,
           currentValue:
             rawSql.blockedRequestsCount === 0
               ? '0 bloqueios'
-              : `${rawSql.blockedRequestsCount} sessão(ões) bloqueada(s)`,
+              : `${rawSql.blockedRequestsCount} sessão(ões) bloqueada(s) (>= 5s)`,
           previousValue:
             previousBriefing?.srvsql.blockedRequestsCount != null
               ? `${previousBriefing.srvsql.blockedRequestsCount} bloqueios`
@@ -757,6 +769,7 @@ export function evaluateInfraMorningBriefing(params: {
     srvfiles.cimAvailable = rawFiles.cimAvailable;
     srvfiles.cimError = rawFiles.cimError;
 
+    let filesCpuStatus: 'OK' | 'WARNING' | 'CRITICAL' = 'OK';
     if (rawFiles.cpuPercent !== null) {
       const isConnectorWarmup =
         sample.trigger === 'STARTUP' ||
@@ -765,14 +778,17 @@ export function evaluateInfraMorningBriefing(params: {
         ? rawFiles.cpuPercent >= 96
           ? 'WARNING'
           : 'OK'
-        : rawFiles.cpuPercent >= 92
+        : rawFiles.cpuPercent >= 96
         ? 'CRITICAL'
-        : rawFiles.cpuPercent >= 80
+        : rawFiles.cpuPercent >= 82
         ? 'WARNING'
         : 'OK';
+      filesCpuStatus = cpuStatus;
       if (cpuStatus !== 'OK') {
         srvfiles.status = elevateServerStatus(srvfiles.status, cpuStatus === 'CRITICAL' ? 'CRITICAL' : 'WARNING');
-        preventiveActions.push(`CPU alta no SRVFILES (${rawFiles.cpuPercent}%): verificar OCR, Veeam/Acronis ou indexação.`);
+        preventiveActions.push(
+          `CPU alta no SRVFILES (${rawFiles.cpuPercent}%): verificar rsync/DeltaCopy, Veeam/Acronis ou OCR.`,
+        );
       }
       checks.push({
         id: 'srvfiles-cpu',
@@ -784,7 +800,7 @@ export function evaluateInfraMorningBriefing(params: {
         previousValue:
           previousBriefing?.srvfiles.cpuPercent != null ? `${previousBriefing.srvfiles.cpuPercent}%` : null,
         deltaLabel: null,
-        recommendation: cpuStatus === 'OK' ? null : 'Verificar processos em execução no SrvFiles.',
+        recommendation: cpuStatus === 'OK' ? null : 'Verificar rsync/DeltaCopy, backup ou OCR em execução no SrvFiles.',
       });
     }
 
@@ -874,9 +890,15 @@ export function evaluateInfraMorningBriefing(params: {
 
     srvfiles.headline =
       srvfiles.status === 'CRITICAL'
-        ? 'Alerta crítico de disco ou fila no SRVFILES'
+        ? qQuarantined > 0
+          ? 'Alerta crítico: lotes em quarentena na fila do Connector'
+          : filesDiskStatus === 'CRITICAL'
+          ? 'Alerta crítico de espaço em disco no SRVFILES'
+          : 'Sobrecarga crítica de CPU no SRVFILES (verificar rsync/backup)'
         : srvfiles.status === 'WARNING'
-        ? 'SRVFILES com atenção preventiva (espaço/RAM/serviços)'
+        ? filesCpuStatus === 'WARNING'
+          ? 'SRVFILES com atenção preventiva (CPU/rsync, espaço ou serviços)'
+          : 'SRVFILES com atenção preventiva (espaço/RAM/serviços)'
         : `Connector ${srvfiles.connectorVersion ?? ''} · ${formatRamGb(srvfiles.freeRamMb)} livres · Filas zeradas`;
   }
 

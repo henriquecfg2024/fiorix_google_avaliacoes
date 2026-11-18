@@ -480,5 +480,44 @@ describe('Módulo Briefing Matinal da Infraestrutura (SRVSQL · SRVFILES · SRVS
       sample: pgLockSample,
     });
     expect(pgLockEval.srvsiplania.status).toBe('CRITICAL');
+
+    // Cenário real 10:03: SRVSQL com 6,6 GB livres (Buffer Pool 48GB saudável) e 1 bloqueio >=5s é WARNING (não CRITICAL),
+    // e SRVFILES com CPU 97% mas discos/filas OK gera headline real de CPU (sem falsos "disco ou fila")
+    const scenario1003 = buildHealthySample();
+    scenario1003.srvsql!.totalRamMb = 73999;
+    scenario1003.srvsql!.freeRamMb = 6758;
+    scenario1003.srvsql!.usedRamPercent = 90.9;
+    scenario1003.srvsql!.memoryStateDesc = 'Available physical memory is high';
+    scenario1003.srvsql!.blockedRequestsCount = 1;
+    scenario1003.srvsql!.cpuTotalPercent = 23;
+    scenario1003.srvfiles!.cpuPercent = 97;
+    const eval1003 = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-1003',
+      briefingDate: '2026-11-18',
+      generatedAt: '2026-11-18T13:03:00.000Z',
+      trigger: 'PERIODIC',
+      sample: scenario1003,
+    });
+    expect(eval1003.srvsql.status).toBe('WARNING');
+    expect(eval1003.checks.find((c) => c.id === 'srvsql-ram')?.status).toBe('OK');
+    expect(eval1003.checks.find((c) => c.id === 'srvsql-blocks')?.status).toBe('WARNING');
+    expect(eval1003.srvfiles.status).toBe('CRITICAL');
+    expect(eval1003.srvfiles.headline).toContain('CPU');
+    expect(eval1003.srvfiles.headline).not.toContain('disco ou fila');
+
+    // Normalizado às 10:08 (0 bloqueios, 8,3 GB livres, CPU 23%, SRVFILES 70%): tudo HEALTHY
+    scenario1003.srvsql!.blockedRequestsCount = 0;
+    scenario1003.srvsql!.freeRamMb = 8499;
+    scenario1003.srvfiles!.cpuPercent = 70;
+    const eval1008 = evaluateInfraMorningBriefing({
+      tenantId: 'tenant-1008',
+      briefingDate: '2026-11-18',
+      generatedAt: '2026-11-18T13:08:00.000Z',
+      trigger: 'PERIODIC',
+      sample: scenario1003,
+    });
+    expect(eval1008.srvsql.status).toBe('HEALTHY');
+    expect(eval1008.srvfiles.status).toBe('HEALTHY');
+    expect(eval1008.overallStatus).toBe('HEALTHY');
   });
 });
