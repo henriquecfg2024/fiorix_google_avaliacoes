@@ -194,4 +194,99 @@ describe('Infra Briefing Telemetry Collector (v2.6.16)', () => {
 
     scheduler.stop();
   });
+
+  it('6. sampleLocalCpu conclui estritamente antes do início de collectSrvsql e collectSrvsiplania (sem auto-pico PowerShell)', async () => {
+    const events: string[] = [];
+    const sentPayloads: any[] = [];
+
+    runtimeDirective.applyDirective({
+      operationalState: 'ACTIVE',
+      shouldRunSqlSync: true,
+      shouldRunDocumentWorker: true,
+      configVersion: 2,
+    });
+
+    const ok = await infraBriefing.collectAndSendInfraBriefing('PERIODIC', undefined, {
+      sampleLocalCpu: async () => {
+        events.push('cpu:start');
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        events.push('cpu:end');
+        return 34.2;
+      },
+      collectSrvsql: async () => {
+        events.push('srvsql:start');
+        return {
+          host: '10.0.0.25',
+          sqlReachable: true,
+          sqlLatencyMs: 8,
+          sqlStartTimeIso: null,
+          windowsBootTimeIso: null,
+          osUptimeSeconds: 1000,
+          vcpuCount: 10,
+          cpuTotalPercent: 20,
+          sqlCpuPercent: 12,
+          totalRamMb: 73999,
+          freeRamMb: 12000,
+          usedRamPercent: 83.8,
+          memoryStateDesc: 'Available physical memory is high',
+          pleSeconds: 9000,
+          bufferCacheHitRatioPercent: 99.9,
+          userSessionsCount: 250,
+          activeRequestsCount: 1,
+          blockedRequestsCount: 0,
+          zombieQueriesCount: 0,
+          memoryGrantsPending: 0,
+          iisReachable: true,
+          iisLatencyMs: 5,
+          w3wpPid: null,
+          w3wpFirstConnIso: null,
+          w3wpConnectionsCount: null,
+          w3wpWorkingSetMb: null,
+          perfIndexesCount: null,
+          perfIndexesSeeks: null,
+          openCdsTasksCount: null,
+          nonOnlineDatabases: [],
+          highLogBackupDatabases: [],
+          volumes: [],
+          services: [],
+          error: null,
+        };
+      },
+      collectSrvsiplania: async () => {
+        events.push('srvsiplania:start');
+        return {
+          host: '10.0.0.6',
+          name: 'SRVSIPLANIA',
+          webReachable: false,
+          webPort: null,
+          webLatencyMs: null,
+          httpStatusCode: null,
+          postgresPort: 5432,
+          postgresReachable: true,
+          postgresLatencyMs: 12,
+          cimAvailable: false,
+          cimError: null,
+          osCaption: null,
+          osUptimeSeconds: null,
+          vcpuCount: null,
+          cpuPercent: null,
+          totalRamMb: null,
+          freeRamMb: null,
+          usedRamPercent: null,
+          volumes: [],
+          services: [],
+        };
+      },
+      sendSample: async (payload) => {
+        sentPayloads.push(payload);
+        return true;
+      },
+    });
+
+    expect(ok).toBe(true);
+    expect(events.slice(0, 2)).toEqual(['cpu:start', 'cpu:end']);
+    expect(events.indexOf('cpu:end')).toBeLessThan(events.indexOf('srvsql:start'));
+    expect(events.indexOf('cpu:end')).toBeLessThan(events.indexOf('srvsiplania:start'));
+    expect(sentPayloads[0]?.srvfiles?.cpuPercent).toBe(34.2);
+  });
 });

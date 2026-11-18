@@ -214,6 +214,19 @@ async function sampleLocalCpuPercent(windowMs = 450): Promise<number | null> {
   return Math.round(Math.max(0, Math.min(100, busyPct)) * 10) / 10;
 }
 
+/**
+ * Mede a CPU local em 2 janelas consecutivas isoladas e usa o menor patamar
+ * observado para filtrar picos momentâneos de antivírus/spawn sem mascarar carga sustentada.
+ */
+export async function sampleIsolatedLocalCpuPercent(windowMs = 600): Promise<number | null> {
+  const first = await sampleLocalCpuPercent(windowMs);
+  const second = await sampleLocalCpuPercent(windowMs);
+  if (typeof first === 'number' && typeof second === 'number') {
+    return Math.round(Math.min(first, second) * 10) / 10;
+  }
+  return first ?? second ?? null;
+}
+
 function getLocalLanIpv4(): string | null {
   const nets = os.networkInterfaces();
   for (const entries of Object.values(nets)) {
@@ -798,7 +811,10 @@ async function collectSrvsqlSection(host: string, database: string): Promise<Inf
   return result;
 }
 
-async function collectSrvfilesSection(db?: DatabaseSync): Promise<InfraBriefingSrvfilesRaw> {
+async function collectSrvfilesSection(
+  db?: DatabaseSync,
+  preSampledCpuPct?: number | null,
+): Promise<InfraBriefingSrvfilesRaw> {
   const remoteCfg = runtimeDirective.getRemoteConfig();
   const fileServerPort = Number(remoteCfg.fileServerPort || process.env.DOCUMENTAL_FILE_SERVER_PORT || 8765);
 
@@ -806,8 +822,9 @@ async function collectSrvfilesSection(db?: DatabaseSync): Promise<InfraBriefingS
   const freeRamMb = Math.round((os.freemem() / 1024 / 1024) * 10) / 10;
   const usedRamPercent = totalRamMb > 0 ? Math.round(((totalRamMb - freeRamMb) / totalRamMb) * 1000) / 10 : 0;
 
-  // Amostra CPU local via os.cpus() antes do spawn de PowerShell para não distorcer a leitura com pico de boot
-  const localCpuPct = await sampleLocalCpuPercent(450);
+  // Usa leitura isolada pré-coletada antes dos spawns paralelos de powershell.exe
+  const localCpuPct =
+    preSampledCpuPct !== undefined ? preSampledCpuPct : await sampleIsolatedLocalCpuPercent(600);
 
   const [cim, mysqlTcp, fileSrvTcp] = await Promise.all([
     probeWindowsHostViaCim({
@@ -939,6 +956,7 @@ export async function collectAndSendInfraBriefing(
   db?: DatabaseSync,
   overrides?: {
     sendSample?: (payload: Record<string, unknown>) => Promise<boolean>;
+    sampleLocalCpu?: () => Promise<number | null>;
     collectSrvsql?: () => Promise<InfraBriefingSrvsqlRaw>;
     collectSrvfiles?: () => Promise<InfraBriefingSrvfilesRaw>;
     collectSrvsiplania?: () => Promise<InfraBriefingSrvsiplaniaRaw>;
@@ -963,9 +981,14 @@ export async function collectAndSendInfraBriefing(
     const candidatePorts = parseCandidatePorts(env.SIPLANIA_HTTP_PORTS);
     const pgPort = env.SIPLANIA_POSTGRES_PORT || 5432;
 
+    // Mede CPU local do SRVFILES antes do Promise.all para evitar auto-interferência dos powershell.exe paralelos
+    const preSampledSrvfilesCpu = overrides?.collectSrvfiles
+      ? undefined
+      : await (overrides?.sampleLocalCpu ? overrides.sampleLocalCpu() : sampleIsolatedLocalCpuPercent(600));
+
     const [srvsql, srvfiles, srvsiplania] = await Promise.all([
       overrides?.collectSrvsql ? overrides.collectSrvsql() : collectSrvsqlSection(sqlHost, sqlDatabase),
-      overrides?.collectSrvfiles ? overrides.collectSrvfiles() : collectSrvfilesSection(db),
+      overrides?.collectSrvfiles ? overrides.collectSrvfiles() : collectSrvfilesSection(db, preSampledSrvfilesCpu),
       overrides?.collectSrvsiplania
         ? overrides.collectSrvsiplania()
         : collectSrvsiplaniaSection(siplaniaHost, siplaniaName, candidatePorts, pgPort, overrides?.collectSiplaniaPg),
