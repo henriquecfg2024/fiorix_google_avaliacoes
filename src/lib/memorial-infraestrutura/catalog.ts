@@ -100,6 +100,37 @@ export const GOVERNANCE_BOUNDARIES_7RI: GovernanceBoundaryItem[] = [
 
 export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
   {
+    id: 'imp-2026-11-18-srvsql-planguide-indices-arisp-indisp',
+    source: 'OFICIAL_CODIGO',
+    server: 'SRVSQL',
+    category: 'PERFORMANCE',
+    status: 'ATIVO',
+    title: 'Plan Guide em Endereços (WEBRI) e 5 Índices Nonclustered em Tokens ARISP (ECKSISTEMAS) e Indisponibilidade CNIB',
+    implementedAt: '2026-11-18',
+    connectorVersion: 'v2.6.24',
+    summarySimple:
+      'Sem alterar uma única linha do sistema Siplan ou do integrador ARISP, destravamos a consulta de endereços mais pesada do WEBRI usando um guia nativo do SQL Server (Plan Guide) e criamos 5 índices cirúrgicos em tabelas de milhões de linhas de Tokens ARISP e Indisponibilidade CNIB que antes liam as tabelas inteiras do início ao fim.',
+    problemBefore:
+      '1) WEBRI.dbo.pr_PesquisarEnderecosPessoa (0xF76CC746F3E97A60) consumia 5,04 bilhões de leituras lógicas (869.649 páginas e 1.148 ms por chamada em 5.798 execuções = 6.391 s de CPU) por usar filtros catch-all CASE sem OPTION (RECOMPILE), ignorando o índice coberto IX_Perf_EnderecosPessoa_Cover; 2) ECKSISTEMAS.dbo.TOKENS_ARISP_RESPOSTAS (~6,55M linhas) estava em HEAP sem nenhum índice, forçando Table Scans de 23.021 páginas (192 ms a 1.085 ms por chamada, > 7.980 s de CPU acumulada); 3) WEBRI.ind.tblWRIProcessaIndisponibilidade (3,15M linhas) não possuía índice em FK_tblWRIAtualizacoesRecepcao_Id (472 ms e 31.431 páginas por chamada em 4.637 execuções).',
+    solutionApplied:
+      'Aplicado fora do horário de pico em 59 segundos (18:28 BRT) sem alterar procedures da Siplan: 1) Plan Guide PG_Perf_PesquisarEnderecosPessoa_Recompile (OBJECT, OPTION (RECOMPILE)) validado via sys.fn_validate_plan_guide; 2) Três índices Nonclustered em ECKSISTEMAS.dbo.TOKENS_ARISP_RESPOSTAS (IX_Perf_TokensArisp_Token, IX_Perf_TokensArisp_SnUtilizado, IX_Perf_TokensArisp_IdTabela); 3) Dois índices Nonclustered em WEBRI.ind (IX_Perf_ProcessaIndisp_FK_AtualizacoesRecepcao e IX_Perf_AtualizacoesRecepcao_Protocolo) com SORT_IN_TEMPDB = ON e MAXDOP = 2.',
+    metricBefore: 'Endereços: 1.148 ms (869k págs) · ARISP: 192–1.085 ms (HEAP 6,55M) · CNIB: 472 ms (31k págs)',
+    metricAfter: 'Plan Guide VALIDADO + 5 índices IX_Perf_* ATIVOS (Index Seek direto < 1–3 ms; plano genérico expurgado)',
+    impactBadge: '1 Plan Guide + 5 Índices em 59s',
+    technicalDetails:
+      'Diagnóstico executado por query_hash e XML de planos em sys.dm_exec_query_stats / sys.dm_db_missing_index_details. Script versionado em fiorix-connector/sql/otimizacao_srvsql_queries_arisp_enderecos_indisp.sql. Em WEBRI, a extração exata com CRLF final foi validada byte a byte em sys.fn_validate_plan_guide (create_date 2026-11-18 18:26:36), expurgando imediatamente o plano genérico anterior do cache; em ind.tblWRIProcessaIndisponibilidade a coluna ExecutarProcedure (tipo TEXT) foi mantida fora de INCLUDE por compatibilidade SQL Server.',
+    commandsSnippet: `-- Conferência do Plan Guide e índices IX_Perf_* em SRVSQL (somente leitura):
+USE [WEBRI];
+SELECT pg.name, pg.is_disabled, (SELECT COUNT(*) FROM sys.fn_validate_plan_guide(pg.plan_guide_id)) AS erros_validacao
+FROM sys.plan_guides pg WHERE pg.name = N'PG_Perf_PesquisarEnderecosPessoa_Recompile';
+SELECT OBJECT_SCHEMA_NAME(object_id) + '.' + OBJECT_NAME(object_id) AS tabela, name, type_desc
+FROM sys.indexes WHERE name LIKE N'IX_Perf_%';`,
+    rollbackPlan:
+      'Remover o Plan Guide via sp_control_plan_guide @operation = N\'DROP\', @name = N\'PG_Perf_PesquisarEnderecosPessoa_Recompile\' e executar DROP INDEX nas 5 estruturas IX_Perf_* (bloco comentado em otimizacao_srvsql_queries_arisp_enderecos_indisp.sql; reversão instantânea em < 1s).',
+    authorName: 'Henrique C. F. Gama + Antigravity',
+    updatedAtIso: '2026-11-18T18:30:00.000Z',
+  },
+  {
     id: 'imp-2026-11-18-srvsql-spcm-epp-log-simple',
     source: 'OFICIAL_CODIGO',
     server: 'SRVSQL',
