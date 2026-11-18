@@ -100,6 +100,36 @@ export const GOVERNANCE_BOUNDARIES_7RI: GovernanceBoundaryItem[] = [
 
 export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
   {
+    id: 'imp-2026-11-18-srvsql-spcm-epp-log-simple',
+    source: 'OFICIAL_CODIGO',
+    server: 'SRVSQL',
+    category: 'PERFORMANCE',
+    status: 'ATIVO',
+    title: 'Saneamento do Transaction Log do Banco SPCM_EPP (75,3% LOG_BACKUP → 1,0% SIMPLE/NOTHING)',
+    implementedAt: '2026-11-18',
+    connectorVersion: 'v2.6.24',
+    summarySimple:
+      'O banco auxiliar SPCM_EPP (de apenas 8 MB) estava configurado para guardar todo o histórico detalhado de alterações esperando um backup de log que não existia na rotina noturna, o que mantinha o arquivo de log em 75,3% de ocupação. Fizemos um backup prévio de segurança e alinhamos o banco ao modo simples (igual ao WEBRI e ao GESTOR), baixando o uso para 1,0% em menos de 1 segundo e sem travar nenhuma estação.',
+    problemBefore:
+      'Banco auxiliar SPCM_EPP (8 MB de dados, 72 MB de log) criado em 11/08/2023 com RECOVERY FULL herdado do model, enquanto a política do SRVSQL executa apenas Backup FULL diário às 20:00 em E:\\Backup_SQL\\Diario\\SPCM_EPP.BAK (zero backups tipo L no msdb), mantendo log_reuse_wait = LOG_BACKUP e 75,3% (54,2 MB) do log preso.',
+    solutionApplied:
+      '1) Backup completo COPY_ONLY prévio (SPCM_EPP_PreAjuste_20261118.BAK) e BACKUP LOG final (SPCM_EPP_LogFinal_20261118.TRN) em E:\\Backup_SQL\\Diario\\; 2) ALTER DATABASE [SPCM_EPP] SET RECOVERY SIMPLE WITH NO_WAIT seguido de CHECKPOINT, preservando os 72 MB alocados sem DBCC SHRINKFILE para evitar fragmentação de VLFs.',
+    metricBefore: 'Log em uso: 75,3% (54,2 / 72 MB) · FULL · LOG_BACKUP',
+    metricAfter: 'Log em uso: 1,0% (0,82 / 71,99 MB) · SIMPLE · NOTHING',
+    impactBadge: 'Log 75,3% → 1,0% em 1s',
+    technicalDetails:
+      'Inspeção somente leitura em sys.databases, sys.master_files e msdb.dbo.backupset confirmou rotina diária exclusivamente tipo D (20:00) em SRVSQL sem job de BACKUP LOG. A conversão para SIMPLE com backup prévio COPY_ONLY + LOG preservou integralmente a cadeia de recuperação anterior e liberou os VLFs internos via CHECKPOINT instantâneo.',
+    commandsSnippet: `-- Executado com segurança no SSMS (SRVSQL):
+BACKUP DATABASE [SPCM_EPP] TO DISK = N'E:\\Backup_SQL\\Diario\\SPCM_EPP_PreAjuste_20261118.BAK' WITH COPY_ONLY, INIT, STATS = 25;
+BACKUP LOG [SPCM_EPP] TO DISK = N'E:\\Backup_SQL\\Diario\\SPCM_EPP_LogFinal_20261118.TRN' WITH INIT;
+ALTER DATABASE [SPCM_EPP] SET RECOVERY SIMPLE WITH NO_WAIT;
+USE [SPCM_EPP]; CHECKPOINT;`,
+    rollbackPlan:
+      'ALTER DATABASE [SPCM_EPP] SET RECOVERY FULL WITH NO_WAIT; seguido de BACKUP DATABASE completo caso futuramente seja implantada rotina agendada de BACKUP LOG.',
+    authorName: 'Henrique C. F. Gama + Antigravity',
+    updatedAtIso: '2026-11-18T17:08:00.000Z',
+  },
+  {
     id: 'imp-2026-11-18-srvfiles-briefing-cpu-isolation',
     source: 'OFICIAL_CODIGO',
     server: 'SRVFILES',
