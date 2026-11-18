@@ -173,6 +173,8 @@ export function VisualizadorDedicado({
   initialMatricula = "",
   initialSessao = "",
   modoJanelaSeparada = false,
+  initialTermoDestaque = "",
+  initialPagina,
   abasNavegacao = [],
   acessoExclusivoVisualizador = false,
   usuarioAtual,
@@ -180,6 +182,8 @@ export function VisualizadorDedicado({
   initialMatricula?: string;
   initialSessao?: string;
   modoJanelaSeparada?: boolean;
+  initialTermoDestaque?: string;
+  initialPagina?: number;
   abasNavegacao?: AbaGestaoDocumentalLink[];
   acessoExclusivoVisualizador?: boolean;
   usuarioAtual?: UsuarioVisualizadorResumo;
@@ -208,6 +212,7 @@ export function VisualizadorDedicado({
   const [errorMessage, setErrorMessage] = useState('');
   const abortDocRef = useRef<AbortController | null>(null);
   const matriculaPendenteLv2Ref = useRef<string>('');
+  const matriculaPendenteOpcoesRef = useRef<{ sessao?: string; termoDestaque?: string; paginaInicial?: number }>({});
   const [termoDestaque, setTermoDestaque] = useState('');
   const [destaqueVisivel, setDestaqueVisivel] = useState(true);
   const [ocrPorPagina, setOcrPorPagina] = useState<Record<number, OcrWordTuple[]>>({});
@@ -696,7 +701,7 @@ export function VisualizadorDedicado({
   }
 
   // Abre e lê o arquivo pelo conector do cartório
-  async function abrirDocumento(file: MatchItem, forceFresh = false) {
+  async function abrirDocumento(file: MatchItem, forceFresh = false, paginaInicial?: number) {
     abortDocRef.current?.abort();
     const controller = new AbortController();
     abortDocRef.current = controller;
@@ -716,6 +721,10 @@ export function VisualizadorDedicado({
     setErrorMessage('');
     setPanPosition({ x: 0, y: 0 });
     setCurrentPage(1);
+
+    const paginaAlvo = paginaInicial && Number.isFinite(paginaInicial) && paginaInicial > 1
+      ? Math.floor(paginaInicial)
+      : 1;
 
     try {
       // 1. Acesso direto ultrarrápido para imagens .KEN / TIFF quando rodando localmente na máquina com K:\IMAGENS
@@ -750,6 +759,10 @@ export function VisualizadorDedicado({
                 pageCount: data.pages.length,
                 pages: data.pages,
               });
+              if (paginaAlvo > 1) {
+                setCurrentPage(Math.min(data.pages.length, paginaAlvo));
+                usuarioNavegouPaginaRef.current = true;
+              }
               setErrorMessage('');
               setIsLoadingDoc(false);
               return;
@@ -760,14 +773,15 @@ export function VisualizadorDedicado({
         }
       }
 
-      // Para matrículas .KEN / .TIFF, carrega imediatamente as primeiras 4 fichas (< 1s)
+      // Para matrículas .KEN / .TIFF, carrega imediatamente as primeiras 4 fichas (ou até a ficha solicitada em deep link)
       // e busca as fichas adicionais em segundo plano sem travar a tela do escrevente.
+      const pageEndInicial = paginaAlvo > 4 ? Math.min(24, paginaAlvo) : 4;
       const bruto = await executarJob<DocumentTextResult>(
         {
           type: 'read_document_text',
           rootId: file.rootId,
           relativePath: file.relativePath,
-          ...(isKen ? { pageStart: 1, pageEnd: 4 } : {}),
+          ...(isKen ? { pageStart: 1, pageEnd: pageEndInicial } : {}),
           ...(forceFresh ? { forceFresh: true } : {}),
         },
         'Falha ao renderizar documento no Connector.',
@@ -783,11 +797,18 @@ export function VisualizadorDedicado({
       }
       if (pronto.pdfDataUrl?.startsWith('blob:')) pdfBlobUrlRef.current = pronto.pdfDataUrl;
       setDocumentoAtivo(pronto);
+      if (paginaAlvo > 1) {
+        const carregadasInicial = pronto.pages?.length || 0;
+        if (carregadasInicial >= paginaAlvo) {
+          setCurrentPage(paginaAlvo);
+          usuarioNavegouPaginaRef.current = true;
+        }
+      }
       setErrorMessage('');
       setIsLoadingDoc(false);
       setProgressoPdf(null);
 
-      // Se a matrícula .KEN tiver mais de 4 páginas, carrega o restante das fichas em segundo plano em lotes
+      // Se a matrícula .KEN tiver mais páginas do que o lote inicial, carrega o restante em segundo plano
       const paginasIniciais = pronto.pages?.length || 0;
       const totalFichas = Math.min(pronto.pageCount || paginasIniciais, 120);
       if (isKen && totalFichas > paginasIniciais) {
@@ -818,6 +839,15 @@ export function VisualizadorDedicado({
                     pages: [...(prev.pages || []), ...lote.pages!],
                   };
                 });
+                if (
+                  paginaAlvo > paginasIniciais &&
+                  paginaAlvo >= inicio &&
+                  paginaAlvo <= fim &&
+                  !usuarioNavegouPaginaRef.current
+                ) {
+                  setCurrentPage(Math.min(totalFichas, paginaAlvo));
+                  usuarioNavegouPaginaRef.current = true;
+                }
               }
             } catch {
               break;
@@ -830,7 +860,7 @@ export function VisualizadorDedicado({
       if (pedido !== pedidoDocRef.current || controller.signal.aborted || isAbort) return;
       // Link do servidor de arquivos expirou: pede um novo ao Connector uma única vez
       if (err instanceof LinkLocalExpiradoError && !forceFresh) {
-        await abrirDocumento(file, true);
+        await abrirDocumento(file, true, paginaInicial);
         return;
       }
       const msg =
@@ -848,20 +878,34 @@ export function VisualizadorDedicado({
     }
   }
 
-  // Abre diretamente uma matrícula do Livro 2 (LV2) vinda de hiperlink do Cartório Virtual
-  async function carregarMatriculaLv2Direto(rawMatricula: string) {
+  // Abre diretamente uma matrícula do Livro 2 (LV2) ou Transcrição do Livro 3 (LV3)
+  async function carregarMatriculaLv2Direto(
+    rawMatricula: string,
+    opcoes?: { sessao?: string; termoDestaque?: string; paginaInicial?: number },
+  ) {
     const digitos = String(rawMatricula || '').replace(/\D+/g, '');
     const num = parseInt(digitos, 10);
     if (!num || num <= 0) return;
     const pad8 = String(num).padStart(8, '0');
     const bloco = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
     const fileName = `${pad8}.KEN`;
-    const relativePath = `${bloco}\\${fileName}`;
-    const alvo: MatchItem = { name: fileName, relativePath, rootId: 'livro2' };
 
-    setPastaAtual({ rootId: 'livro2', relativePath: bloco });
+    const sessaoUpper = (opcoes?.sessao || 'LV2').trim().toUpperCase();
+    const isLv3 = sessaoUpper === 'LV3' || sessaoUpper === 'LIVRO3';
+    const raizAlvo: RaizId = isLv3 ? 'imagens' : 'livro2';
+    const pastaRelativa = isLv3 ? `LV3\\${bloco}` : bloco;
+    const relativePath = isLv3 ? `LV3\\${bloco}\\${fileName}` : `${bloco}\\${fileName}`;
+    const alvo: MatchItem = { name: fileName, relativePath, rootId: raizAlvo };
+
+    const termoFinal = opcoes?.termoDestaque?.trim() || String(num);
+    const paginaInicial =
+      opcoes?.paginaInicial && Number.isFinite(opcoes.paginaInicial) && opcoes.paginaInicial > 1
+        ? Math.floor(opcoes.paginaInicial)
+        : undefined;
+
+    setPastaAtual({ rootId: raizAlvo, relativePath: pastaRelativa });
     setFiltroPasta(String(num));
-    setTermoDestaque(String(num));
+    setTermoDestaque(termoFinal);
     setDestaqueVisivel(true);
     setResultadosBusca(null);
     setErroPasta('');
@@ -870,25 +914,26 @@ export function VisualizadorDedicado({
     setArquivoAtivo(alvo);
     setIsLoadingDoc(true);
     if (typeof document !== 'undefined') {
-      document.title = `${fileName} (Matrícula ${num}) — Visualizador LV2 FIORIX`;
+      document.title = `${fileName} (${isLv3 ? 'Transcrição LV3' : 'Matrícula'} ${num}) — Visualizador ${isLv3 ? 'LV3' : 'LV2'} FIORIX`;
     }
 
     matriculaPendenteLv2Ref.current = '';
+    matriculaPendenteOpcoesRef.current = {};
 
-    // Prioridade máxima: abre a imagem .KEN da matrícula PRIMEIRO (primeiras 4 fichas em < 1s)
-    const chaveCache = `livro2:${normalizarCaminho(bloco)}`;
+    // Prioridade máxima: abre a imagem .KEN da matrícula PRIMEIRO (primeiras 4 fichas ou até a página destacada)
+    const chaveCache = `${raizAlvo}:${normalizarCaminho(pastaRelativa)}`;
     const cacheBloco = listagemCacheRef.current.get(chaveCache);
     if (cacheBloco) {
       setListagem(cacheBloco);
     }
 
-    await abrirDocumento(alvo);
+    await abrirDocumento(alvo, false, paginaInicial);
 
     // Só lista o diretório do bloco em segundo plano DEPOIS que o documento principal já abriu
     if (!cacheBloco) {
       executarJob<DirectoryListing>(
-        { type: 'list_directory', rootId: 'livro2', relativePath: bloco },
-        'Não foi possível listar o bloco no Livro 2.',
+        { type: 'list_directory', rootId: raizAlvo, relativePath: pastaRelativa },
+        `Não foi possível listar o bloco no ${isLv3 ? 'Livro 3' : 'Livro 2'}.`,
         30000,
       )
         .then((resLista) => {
@@ -947,16 +992,24 @@ export function VisualizadorDedicado({
       return;
     }
     if (initialMatricula) {
-      void carregarMatriculaLv2Direto(initialMatricula);
+      const opcoes = {
+        sessao: initialSessao || undefined,
+        termoDestaque: initialTermoDestaque || undefined,
+        paginaInicial: initialPagina,
+      };
+      matriculaPendenteOpcoesRef.current = opcoes;
+      void carregarMatriculaLv2Direto(initialMatricula, opcoes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMatricula, initialSessao]);
+  }, [initialMatricula, initialSessao, initialTermoDestaque, initialPagina]);
 
   useEffect(() => {
     if (connectorId && matriculaPendenteLv2Ref.current) {
       const mat = matriculaPendenteLv2Ref.current;
+      const opcoes = matriculaPendenteOpcoesRef.current;
       matriculaPendenteLv2Ref.current = '';
-      void carregarMatriculaLv2Direto(mat);
+      matriculaPendenteOpcoesRef.current = {};
+      void carregarMatriculaLv2Direto(mat, opcoes);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectorId]);
@@ -966,7 +1019,11 @@ export function VisualizadorDedicado({
     const bc = new BroadcastChannel(CANAL_VISUALIZADOR_LV2);
     bc.onmessage = (ev: MessageEvent<MensagemVisualizadorLv2>) => {
       if (ev.data?.tipo === 'abrir_matricula_lv2' && ev.data.matricula) {
-        void carregarMatriculaLv2Direto(ev.data.matricula);
+        void carregarMatriculaLv2Direto(ev.data.matricula, {
+          sessao: ev.data.sessao,
+          termoDestaque: ev.data.termoDestaque,
+          paginaInicial: ev.data.pagina,
+        });
         try {
           window.focus();
         } catch {
@@ -1501,7 +1558,7 @@ export function VisualizadorDedicado({
                   placeholder={
                     raizAtual
                       ? `Digite matrícula, processo ou arquivo em ${segmentos[segmentos.length - 1] || raizAtual.sigla}…`
-                      : 'Digite matrícula, protocolo, endereço, nome ou CPF/CNPJ…'
+                      : 'Digite nº da matrícula, protocolo, processo ou nome do arquivo…'
                   }
                   aria-label="Filtrar ou pesquisar arquivos"
                   className="w-full h-full bg-transparent pl-2.5 pr-8 text-xs sm:text-sm font-medium text-white placeholder:text-slate-300/75 focus:outline-none"

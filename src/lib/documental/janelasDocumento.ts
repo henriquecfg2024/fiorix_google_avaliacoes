@@ -251,29 +251,69 @@ export function abrirDocumentoEmJanela(item: DocumentoJanela, monitor?: MonitorD
 
 export const CANAL_VISUALIZADOR_LV2 = 'fiorix-visualizador-lv2';
 
+export interface OpcoesUrlVisualizadorMatricula {
+  sessao?: string;
+  termoDestaque?: string;
+  pagina?: number;
+  janela?: boolean;
+}
+
 export interface MensagemVisualizadorLv2 {
   tipo: 'abrir_matricula_lv2';
   matricula: string;
   sessao?: string;
+  termoDestaque?: string;
+  pagina?: number;
 }
 
 let janelaLv2AbertaRef: Window | null = null;
 
-/** Constrói a URL oficial do Visualizador FIORIX apontando para a matrícula no Livro 2 (LV2). */
-export function construirUrlVisualizadorMatriculaLv2(numeroMatricula: string | number): string {
+/** Constrói a URL oficial do Visualizador FIORIX apontando para a matrícula (LV2/LV3) com destaque e página opcionais. */
+export function construirUrlVisualizadorMatriculaLv2(
+  numeroMatricula: string | number,
+  opcoes?: OpcoesUrlVisualizadorMatricula,
+): string {
   const limpo = String(numeroMatricula).replace(/\D+/g, '');
-  return `/gestao-documental/visualizador?matricula=${encodeURIComponent(limpo)}&sessao=LV2&janela=1`;
+  const sessao = (opcoes?.sessao || 'LV2').trim().toUpperCase() || 'LV2';
+  const params = new URLSearchParams();
+  params.set('matricula', limpo);
+  params.set('sessao', sessao);
+  if (opcoes?.janela !== false) {
+    params.set('janela', '1');
+  }
+  const termo = opcoes?.termoDestaque?.trim();
+  if (termo) {
+    params.set('q', termo);
+  }
+  if (opcoes?.pagina && Number.isFinite(opcoes.pagina) && opcoes.pagina > 1) {
+    params.set('pagina', String(Math.floor(opcoes.pagina)));
+  }
+  return `/gestao-documental/visualizador?${params.toString()}`;
 }
 
 /**
- * Abre a matrícula do Livro 2 (LV2) diretamente no Visualizador do FIORIX em janela separada / outro monitor,
- * permitindo ao escrevente conferir o Pedido lado a lado com a imagem .KEN da matrícula.
+ * Abre a matrícula do Livro 2 ou Livro 3 diretamente no Visualizador do FIORIX em janela separada / outro monitor,
+ * permitindo ao escrevente conferir o Pedido ou Pesquisa Registral lado a lado com a imagem .KEN da matrícula.
  */
-export function abrirMatriculaLv2EmOutroMonitor(numeroMatricula: string | number): boolean {
+export function abrirMatriculaLv2EmOutroMonitor(
+  numeroMatricula: string | number,
+  opcoes?: Omit<OpcoesUrlVisualizadorMatricula, 'janela'>,
+): boolean {
   const limpo = String(numeroMatricula).replace(/\D+/g, '');
   if (!limpo || typeof window === 'undefined') return false;
 
-  const url = construirUrlVisualizadorMatriculaLv2(limpo);
+  const sessao = (opcoes?.sessao || 'LV2').trim().toUpperCase() || 'LV2';
+  const termoDestaque = opcoes?.termoDestaque?.trim() || undefined;
+  const pagina = opcoes?.pagina && Number.isFinite(opcoes.pagina) && opcoes.pagina > 1
+    ? Math.floor(opcoes.pagina)
+    : undefined;
+
+  const url = construirUrlVisualizadorMatriculaLv2(limpo, {
+    sessao,
+    termoDestaque,
+    pagina,
+    janela: true,
+  });
 
   // Se a janela destacada do Visualizador já estiver aberta em outro monitor, envia o comando instantâneo via BroadcastChannel
   if (janelaLv2AbertaRef && !janelaLv2AbertaRef.closed) {
@@ -283,7 +323,9 @@ export function abrirMatriculaLv2EmOutroMonitor(numeroMatricula: string | number
         bc.postMessage({
           tipo: 'abrir_matricula_lv2',
           matricula: limpo,
-          sessao: 'LV2',
+          sessao,
+          ...(termoDestaque ? { termoDestaque } : {}),
+          ...(pagina ? { pagina } : {}),
         } satisfies MensagemVisualizadorLv2);
         setTimeout(() => bc.close(), 500);
       } else {
@@ -330,7 +372,9 @@ export function abrirMatriculaLv2EmOutroMonitor(numeroMatricula: string | number
       bc.postMessage({
         tipo: 'abrir_matricula_lv2',
         matricula: limpo,
-        sessao: 'LV2',
+        sessao,
+        ...(termoDestaque ? { termoDestaque } : {}),
+        ...(pagina ? { pagina } : {}),
       } satisfies MensagemVisualizadorLv2);
       setTimeout(() => bc.close(), 800);
     }

@@ -18,14 +18,17 @@ export default async function VisualizadorPage({
   searchParams,
 }: {
   searchParams:
-    | Promise<{ id?: string; matricula?: string; sessao?: string; janela?: string }>
-    | { id?: string; matricula?: string; sessao?: string; janela?: string };
+    | Promise<{ id?: string; matricula?: string; sessao?: string; janela?: string; q?: string; pagina?: string }>
+    | { id?: string; matricula?: string; sessao?: string; janela?: string; q?: string; pagina?: string };
 }) {
   const sp = searchParams ? await Promise.resolve(searchParams) : {};
   const janelaId = sp?.id?.trim();
   const initialMatricula = sp?.matricula?.trim() || '';
   const initialSessao = sp?.sessao?.trim() || '';
   const modoJanelaSeparada = sp?.janela === '1';
+  const initialTermoDestaque = sp?.q?.trim() || '';
+  const paginaParsed = sp?.pagina ? Number.parseInt(sp.pagina, 10) : NaN;
+  const initialPagina = Number.isFinite(paginaParsed) && paginaParsed > 1 ? paginaParsed : undefined;
 
   let user: AuthenticatedUser;
   try {
@@ -66,6 +69,8 @@ export default async function VisualizadorPage({
         initialMatricula={initialMatricula}
         initialSessao={initialSessao}
         modoJanelaSeparada={modoJanelaSeparada}
+        initialTermoDestaque={initialTermoDestaque}
+        initialPagina={initialPagina}
         abasNavegacao={abasNavegacao}
         acessoExclusivoVisualizador={acessoExclusivoVisualizador}
         usuarioAtual={usuarioAtual}

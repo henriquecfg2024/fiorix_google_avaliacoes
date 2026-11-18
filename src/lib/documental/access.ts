@@ -47,6 +47,7 @@ export function canUserConferirManifestacao(role?: string | null): boolean {
 export async function requireDocumentAccess(
   requiredRoute?:
     | '/gestao-documental'
+    | '/gestao-documental/pesquisa'
     | '/gestao-documental/visualizador'
     | '/gestao-documental/historico'
     | '/gestao-documental/conferencia'
@@ -58,21 +59,25 @@ export async function requireDocumentAccess(
     const allowed =
       requiredRoute === '/gestao-documental'
         ? await isRouteAllowedForUser('/gestao-documental', user)
-        : requiredRoute === '/gestao-documental/conferencia'
-          ? (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+        : requiredRoute === '/gestao-documental/pesquisa'
+          ? (await isRouteAllowedForUser('/gestao-documental/pesquisa', user)) ||
             (await isRouteAllowedForUser('/gestao-documental', user))
-          : requiredRoute === '/gestao-documental/arquivo'
-            ? (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
-              (await isRouteAllowedForUser('/gestao-documental', user)) ||
-              (await isRouteAllowedForUser('/gestao-documental/historico', user))
-            : requiredRoute === '/gestao-documental/historico'
-              ? await isRouteAllowedForUser('/gestao-documental/historico', user)
-              : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+          : requiredRoute === '/gestao-documental/conferencia'
+            ? (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+              (await isRouteAllowedForUser('/gestao-documental', user))
+            : requiredRoute === '/gestao-documental/arquivo'
+              ? (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
                 (await isRouteAllowedForUser('/gestao-documental', user)) ||
-                (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
-                (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
-                (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
-                (await isRouteAllowedForUser('/cartorio-virtual', user));
+                (await isRouteAllowedForUser('/gestao-documental/historico', user))
+              : requiredRoute === '/gestao-documental/historico'
+                ? await isRouteAllowedForUser('/gestao-documental/historico', user)
+                : (await isRouteAllowedForUser('/gestao-documental/visualizador', user)) ||
+                  (await isRouteAllowedForUser('/gestao-documental/pesquisa', user)) ||
+                  (await isRouteAllowedForUser('/gestao-documental', user)) ||
+                  (await isRouteAllowedForUser('/gestao-documental/conferencia', user)) ||
+                  (await isRouteAllowedForUser('/gestao-documental/arquivo', user)) ||
+                  (await isRouteAllowedForUser('/gestao-documental/historico', user)) ||
+                  (await isRouteAllowedForUser('/cartorio-virtual', user));
 
     if (!allowed) {
       throw new DocumentAccessError(403, 'Acesso não autorizado.');

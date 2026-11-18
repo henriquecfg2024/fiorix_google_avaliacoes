@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { FileText, Eye, Archive, Clock, FolderArchive } from 'lucide-react';
+import { FileText, Eye, Archive, Clock, FolderArchive, Search } from 'lucide-react';
 import { requireAuth } from '@/lib/auth-helpers';
 import { isNavPermissionsFeatureEnabled, isRouteAllowedForUser } from '@/lib/nav-permissions/service';
 
-export type AbaGestaoDocumentalId = 'manifestacoes' | 'visualizador' | 'historico' | 'conferencia' | 'arquivo';
+export type AbaGestaoDocumentalId = 'manifestacoes' | 'pesquisa' | 'visualizador' | 'historico' | 'conferencia' | 'arquivo';
 
 export interface AbaGestaoDocumentalLink {
   id: AbaGestaoDocumentalId;
@@ -13,6 +13,7 @@ export interface AbaGestaoDocumentalLink {
 
 const ABAS: { id: AbaGestaoDocumentalId; href: string; rotulo: string; Icone: typeof FileText }[] = [
   { id: 'manifestacoes', href: '/gestao-documental', rotulo: 'MANIFESTAÇÕES', Icone: FileText },
+  { id: 'pesquisa', href: '/gestao-documental/pesquisa', rotulo: 'PESQUISA REGISTRAL', Icone: Search },
   { id: 'visualizador', href: '/gestao-documental/visualizador', rotulo: 'VISUALIZADOR', Icone: Eye },
   { id: 'conferencia', href: '/gestao-documental/conferencia', rotulo: 'EM CONFERÊNCIA', Icone: Clock },
   { id: 'arquivo', href: '/gestao-documental/arquivo', rotulo: 'ARQUIVO', Icone: FolderArchive },
@@ -28,6 +29,7 @@ export async function listarAbasGestaoDocumentalVisiveis(
   ativa: AbaGestaoDocumentalId,
 ): Promise<AbaGestaoDocumentalLink[]> {
   let podeManifestacoes = true;
+  let podePesquisa = true;
   let podeVisualizador = true;
   let podeHistorico = true;
   let podeConferencia = true;
@@ -36,14 +38,16 @@ export async function listarAbasGestaoDocumentalVisiveis(
   try {
     const user = await requireAuth();
     if (isNavPermissionsFeatureEnabled()) {
-      const [allowManif, allowVis, allowHist, allowConf, allowArq] = await Promise.all([
+      const [allowManif, allowPesq, allowVis, allowHist, allowConf, allowArq] = await Promise.all([
         isRouteAllowedForUser('/gestao-documental', user),
+        isRouteAllowedForUser('/gestao-documental/pesquisa', user),
         isRouteAllowedForUser('/gestao-documental/visualizador', user),
         isRouteAllowedForUser('/gestao-documental/historico', user),
         isRouteAllowedForUser('/gestao-documental/conferencia', user),
         isRouteAllowedForUser('/gestao-documental/arquivo', user),
       ]);
       podeManifestacoes = allowManif;
+      podePesquisa = allowPesq || allowManif;
       podeVisualizador = allowVis;
       podeHistorico = allowHist;
       podeConferencia = allowConf || allowManif;
@@ -56,6 +60,7 @@ export async function listarAbasGestaoDocumentalVisiveis(
   return ABAS.filter((aba) => {
     if (aba.id === ativa) return true;
     if (aba.id === 'manifestacoes') return podeManifestacoes;
+    if (aba.id === 'pesquisa') return podePesquisa;
     if (aba.id === 'visualizador') return podeVisualizador;
     if (aba.id === 'historico') return podeHistorico;
     if (aba.id === 'conferencia') return podeConferencia;

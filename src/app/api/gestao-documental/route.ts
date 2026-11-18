@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     if (!isSameOriginRequest(req)) return reply({ error: 'Origem inválida.' }, 403);
     const user = await requireDocumentAccess();
     const raw = await req.text();
-    if (raw.length > 4096) return reply({ error: 'Requisição inválida.' }, 400);
+    if (raw.length > 8192) return reply({ error: 'Requisição inválida.' }, 400);
     let body: unknown;
     try {
       body = JSON.parse(raw);
@@ -148,6 +148,23 @@ export async function POST(req: Request) {
         type: 'stage_document_file',
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
+      });
+    } else if (jobData.type === 'pesquisa_registral_catalogos') {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
+        type: 'pesquisa_registral_catalogos',
+        query: 'catalogos_v1',
+        forceFresh: jobData.forceFresh,
+      });
+    } else if (jobData.type === 'pesquisa_registral') {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
+        type: 'pesquisa_registral',
+        query: JSON.stringify({
+          aba: jobData.aba,
+          filtrosImovel: jobData.filtrosImovel || {},
+          filtrosPropriedade: jobData.filtrosPropriedade || {},
+          limite: jobData.limite ?? 80,
+        }),
+        forceFresh: jobData.forceFresh,
       });
     } else {
       jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {

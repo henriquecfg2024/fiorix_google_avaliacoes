@@ -69,7 +69,11 @@ export function isCachedSearchResultValid(rawResult: unknown): boolean {
 
 export async function createJob(tenantId: string, userId: string, connectorId: string, options: CreateJobOptions): Promise<JobResponse | null> {
   const type = options.type || 'search';
-  const query = options.query ? normalizarTermoPesquisaDocumental(options.query) : null;
+  const query = options.query
+    ? (type === 'pesquisa_registral' || type === 'pesquisa_registral_catalogos'
+        ? options.query.trim()
+        : normalizarTermoPesquisaDocumental(options.query))
+    : null;
   const rootId = options.rootId ?? null;
   const relativePath = options.relativePath ?? null;
   const pageStart = options.pageStart ?? null;
@@ -117,6 +121,38 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           ORDER BY "createdAt" DESC LIMIT 1
         `;
         if (recent.length && isCachedSearchResultValid(recent[0].result)) {
+          return {
+            response: { id: recent[0].id, status: 'complete' as const, result: recent[0].result, cached: true },
+            newlyInserted: false,
+          };
+        }
+      } else if (type === 'pesquisa_registral' && query) {
+        const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
+          SELECT id, result FROM "DocumentSearchRequest"
+          WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
+            AND type = 'pesquisa_registral' AND query = ${query} AND status = 'complete'
+            AND "createdAt" > NOW() - (30 * INTERVAL '1 second')
+            AND "expiresAt" > NOW()
+          ORDER BY "createdAt" DESC LIMIT 1
+        `;
+        const recObj = recent[0]?.result as Record<string, unknown> | undefined;
+        if (recent.length && recObj && Array.isArray(recObj.itens)) {
+          return {
+            response: { id: recent[0].id, status: 'complete' as const, result: recent[0].result, cached: true },
+            newlyInserted: false,
+          };
+        }
+      } else if (type === 'pesquisa_registral_catalogos' && query) {
+        const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
+          SELECT id, result FROM "DocumentSearchRequest"
+          WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
+            AND type = 'pesquisa_registral_catalogos' AND query = ${query} AND status = 'complete'
+            AND "createdAt" > NOW() - (600 * INTERVAL '1 second')
+            AND "expiresAt" > NOW()
+          ORDER BY "createdAt" DESC LIMIT 1
+        `;
+        const recObj = recent[0]?.result as Record<string, unknown> | undefined;
+        if (recent.length && recObj && Array.isArray(recObj.livros) && !recObj.avisoPermissaoWebri) {
           return {
             response: { id: recent[0].id, status: 'complete' as const, result: recent[0].result, cached: true },
             newlyInserted: false,
@@ -439,6 +475,7 @@ export async function finishSearch(id: string, tenantId: string, connectorId: st
       WHEN ${failed}::boolean THEN NOW() + INTERVAL '7 days'
       WHEN ${ehChunkEfemero}::boolean THEN NOW() + INTERVAL '2 minutes'
       WHEN type = 'search' THEN NOW() + INTERVAL '2 minutes'
+      WHEN type = 'pesquisa_registral' THEN NOW() + INTERVAL '2 minutes'
       ELSE NOW() + INTERVAL '24 hours'
     END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}

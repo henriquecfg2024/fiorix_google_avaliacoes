@@ -306,6 +306,7 @@ describe('FIORIX — Gestão Documental liberada para todos os grupos via Permis
     const falangaRules = [
       { item_id: 'inicio', override: 'DENY' },
       { item_id: 'gestao_documental', override: 'ALLOW' },
+      { item_id: 'pesquisa_registral_documental', override: 'DENY' },
       { item_id: 'visualizador_documental', override: 'ALLOW' },
       { item_id: 'conferencia_documental', override: 'DENY' },
       { item_id: 'arquivo_documental', override: 'DENY' },

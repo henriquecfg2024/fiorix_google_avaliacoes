@@ -29,6 +29,7 @@ import {
   History,
   FolderArchive,
   Sunrise,
+  Search,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -71,6 +72,7 @@ export const navigationGroups = {
     icon: FileText,
     items: [
       { id: "gestao_documental", label: "MANIFESTAÇÕES", href: "/gestao-documental", icon: FileText },
+      { id: "pesquisa_registral_documental", label: "PESQUISA REGISTRAL", href: "/gestao-documental/pesquisa", icon: Search },
       { id: "visualizador_documental", label: "VISUALIZADOR", href: "/gestao-documental/visualizador", icon: Eye },
       { id: "conferencia_documental", label: "EM CONFERÊNCIA", href: "/gestao-documental/conferencia", icon: Clock3 },
       { id: "arquivo_documental", label: "ARQUIVO", href: "/gestao-documental/arquivo", icon: FolderArchive },

@@ -70,6 +70,9 @@ export async function getRoleRulesFromDb(
     if (!map.has('historico_documental') && map.has('gestao_documental')) {
       map.set('historico_documental', map.get('gestao_documental')!);
     }
+    if (!map.has('pesquisa_registral_documental') && map.has('gestao_documental')) {
+      map.set('pesquisa_registral_documental', map.get('gestao_documental')!);
+    }
     if (!map.has('conferencia_documental') && map.has('gestao_documental')) {
       map.set('conferencia_documental', map.get('gestao_documental')!);
     }
@@ -118,6 +121,9 @@ export async function getDepartmentRulesFromDb(
     if (!map.has('historico_documental') && map.has('gestao_documental')) {
       map.set('historico_documental', map.get('gestao_documental')!);
     }
+    if (!map.has('pesquisa_registral_documental') && map.has('gestao_documental')) {
+      map.set('pesquisa_registral_documental', map.get('gestao_documental')!);
+    }
     if (!map.has('conferencia_documental') && map.has('gestao_documental')) {
       map.set('conferencia_documental', map.get('gestao_documental')!);
     }
@@ -156,6 +162,9 @@ export async function getUserRulesFromDb(
     }
     if (!map.has('historico_documental') && map.has('gestao_documental')) {
       map.set('historico_documental', map.get('gestao_documental')!);
+    }
+    if (!map.has('pesquisa_registral_documental') && map.has('gestao_documental')) {
+      map.set('pesquisa_registral_documental', map.get('gestao_documental')!);
     }
     if (!map.has('conferencia_documental') && map.has('gestao_documental')) {
       map.set('conferencia_documental', map.get('gestao_documental')!);

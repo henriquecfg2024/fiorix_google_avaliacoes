@@ -101,6 +101,7 @@ export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> 
   'app/(dashboard)/gestao-documental/conferencia/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao' }),
   'app/(dashboard)/gestao-documental/historico/page.tsx': page('PENDING_CATALOG', 'MEDIUM', { suggestedModuleId: 'documental.gestao' }),
   'app/(dashboard)/gestao-documental/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao' }),
+  'app/(dashboard)/gestao-documental/pesquisa/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao' }),
   'app/(dashboard)/gestao-documental/visualizador/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao' }),
   'app/(dashboard)/gestao-documental/visualizador-janela/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao' }),
   'app/(dashboard)/gestao/rh/instrucoes-trabalho-monitoramento/page.tsx': page('REDIRECT_ONLY', 'LOW', { suggestedModuleId: 'its.gestao' }),

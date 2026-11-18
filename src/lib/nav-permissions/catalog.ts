@@ -45,6 +45,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         description: 'Pesquisa de arquivos locais pelo Connector',
       },
       {
+        id: 'pesquisa_registral_documental',
+        label: 'PESQUISA REGISTRAL',
+        href: '/gestao-documental/pesquisa',
+        groupId: 'documental',
+        groupLabel: 'GESTÃO DOCUMENTAL',
+        description: 'Pesquisa completa por Indicador Real, Indicador Pessoal, Livros e OCR IA',
+      },
+      {
         id: 'visualizador_documental',
         label: 'VISUALIZADOR',
         href: '/gestao-documental/visualizador',
