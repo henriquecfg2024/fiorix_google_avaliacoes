@@ -101,6 +101,7 @@ describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS',
       '/gestao-documental/conferencia',
       '/gestao-documental/arquivo',
       '/gestao-documental/historico',
+      '/gestao-documental#validacao-autenticidade',
     ]);
   });
 });
