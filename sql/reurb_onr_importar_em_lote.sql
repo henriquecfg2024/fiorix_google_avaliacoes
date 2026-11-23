@@ -596,6 +596,52 @@ FROM #Reg g
 JOIN #OcrMatriz om ON om.Prenotacao = g.Prenotacao AND om.Matricula = g.Matricula AND om.NegId = g.NegId
 WHERE g.Agente IS NULL AND NULLIF(LTRIM(RTRIM(om.AgenteOcr)), '') IS NOT NULL;
 
+/* Fallback de Agente via dbo.tblWRIRecepcao.Outorgante (somente entes públicos comprovados) */
+;WITH outorgante_pub AS (
+  SELECT
+    g.RealId,
+    g.Prenotacao,
+    UPPER(LTRIM(RTRIM(rc.Outorgante))) AS OutUp,
+    LEFT(LTRIM(RTRIM(rc.Outorgante)), 100) AS OutRaw
+  FROM #Reg g
+  JOIN dbo.tblWRIRecepcao rc WITH (NOLOCK) ON rc.PK_FlagRecepcao = g.Flag AND rc.PK_Recepcao = g.Prenotacao
+  WHERE g.Agente IS NULL
+    AND NULLIF(LTRIM(RTRIM(rc.Outorgante)), '') IS NOT NULL
+)
+UPDATE g
+SET Agente = CASE
+      WHEN o.OutUp LIKE N'%SEHAB%' OR o.OutUp LIKE N'%SECRETARIA%HABITA%S_O PAULO%' OR o.OutUp LIKE N'%SECRET_RIA%HABITA%'
+        THEN N'SECRETARIA MUNICIPAL DA HABITAÇÃO DA PREFEITURA DE SÃO PAULO - SEHAB'
+      WHEN o.OutUp LIKE N'%CDHU%' OR o.OutUp LIKE N'%COMPANHIA%DESENVOL%HABITA%'
+        THEN N'COMPANHIA DE DESENVOLVIMENTO HABITACIONAL E URBANO DO ESTADO DE SÃO PAULO - CDHU'
+      WHEN o.OutUp LIKE N'%COHAB%' OR o.OutUp LIKE N'%COMPANHIA METROPOLITANA%HABITA%'
+        THEN N'COMPANHIA METROPOLITANA DE HABITAÇÃO DE SÃO PAULO - COHAB/SP'
+      WHEN o.OutUp LIKE N'%MUNICIPALIDADE DE S_O PAULO%' OR o.OutUp LIKE N'%MUNIC_PIO DE S_O PAULO%' OR o.OutUp = N'PMSP'
+        THEN N'MUNICIPALIDADE DE SÃO PAULO'
+      ELSE o.OutRaw
+    END,
+    FonteAgente = 'WEBRI_RECEPCAO_OUTORGANTE',
+    TipoAgente = 1,
+    FonteTipoAgente = 'WEBRI_RECEPCAO_OUTORGANTE'
+FROM #Reg g
+JOIN outorgante_pub o ON o.RealId = g.RealId AND o.Prenotacao = g.Prenotacao
+WHERE o.OutUp LIKE N'%SEHAB%'
+   OR o.OutUp LIKE N'%SECRETARIA%HABITA%'
+   OR o.OutUp LIKE N'%SECRET_RIA%HABITA%'
+   OR o.OutUp LIKE N'%CDHU%'
+   OR o.OutUp LIKE N'%COMPANHIA%DESENVOL%HABITA%'
+   OR o.OutUp LIKE N'%COHAB%'
+   OR o.OutUp LIKE N'%COMPANHIA METROPOLITANA%HABITA%'
+   OR o.OutUp LIKE N'%MUNICIPALIDADE DE S_O PAULO%'
+   OR o.OutUp LIKE N'%MUNIC_PIO DE S_O PAULO%'
+   OR o.OutUp = N'PMSP'
+   OR o.OutUp LIKE N'%PREFEITURA%'
+   OR o.OutUp LIKE N'%COORDENADORIA DE REGULARIZA%'
+   OR o.OutUp LIKE N'%CORDENADORIA DE REGULARIZA%'
+   OR o.OutUp LIKE N'%GOVERNO DO ESTADO%'
+   OR o.OutUp LIKE N'%FAZENDA DO ESTADO%'
+   OR o.OutUp LIKE N'%UNI_O FEDERAL%';
+
 CREATE TABLE #Cli (Flag INT, Prenotacao INT, Nome NVARCHAR(300));
 IF @UsarClienteRecepcao = 1
 BEGIN TRY
@@ -869,6 +915,113 @@ WHERE d.MatrizRealId IS NULL
       AND f.OrigemId IN (SELECT RealId FROM #Reg)
   );
 
+/* 3e.1) Fallback de Distrito via derivadas vinculadas (unânime) ou matrículas anteriores da prenotação */
+;WITH der_dist AS (
+  SELECT
+    d.Flag,
+    d.Prenotacao,
+    d.MatrizRealId,
+    COUNT(DISTINCT NULLIF(LTRIM(RTRIM(dt.Distrito)), '')) AS QtdDistritos,
+    MIN(NULLIF(LTRIM(RTRIM(dt.Distrito)), '')) AS DistritoUnico
+  FROM #Der d
+  JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
+  JOIN dbo.tblWRIImovel i WITH (NOLOCK) ON i.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
+       AND i.PK_Versao = (SELECT MAX(i2.PK_Versao) FROM dbo.tblWRIImovel i2 WITH (NOLOCK) WHERE i2.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id)
+  JOIN dbo.tblWRIDistritos dt WITH (NOLOCK) ON dt.PK_ID = i.FK_tblWRIDistritos_Id
+  WHERE d.MatrizRealId IS NOT NULL
+    AND NULLIF(LTRIM(RTRIM(dt.Distrito)), '') IS NOT NULL
+  GROUP BY d.Flag, d.Prenotacao, d.MatrizRealId
+)
+UPDATE g
+SET Distrito = dd.DistritoUnico,
+    FonteDistrito = 'WEBRI_DERIVADAS_DISTRITO'
+FROM #Reg g
+JOIN der_dist dd ON dd.Flag = g.Flag AND dd.Prenotacao = g.Prenotacao AND dd.MatrizRealId = g.RealId
+WHERE NULLIF(LTRIM(RTRIM(g.Distrito)), '') IS NULL
+  AND dd.QtdDistritos = 1
+  AND dd.DistritoUnico IS NOT NULL;
+
+;WITH orig_dist AS (
+  SELECT
+    g.Flag,
+    g.Prenotacao,
+    g.RealId,
+    COUNT(DISTINCT NULLIF(LTRIM(RTRIM(dt.Distrito)), '')) AS QtdDistritos,
+    MIN(NULLIF(LTRIM(RTRIM(dt.Distrito)), '')) AS DistritoUnico
+  FROM #Reg g
+  JOIN dbo.tblWRIAtosTitulos at WITH (NOLOCK) ON at.FK_tblWRIRecepcaoFlagRecepcao = g.Flag AND at.FK_tblWRIRecepcaoRecepcao = g.Prenotacao
+  JOIN dbo.tblWRIAtos a WITH (NOLOCK) ON a.PK_Id = at.FK_tblWRIAtos_Id AND a.PK_SeqAto > 0
+  JOIN dbo.tblWRIReal r WITH (NOLOCK) ON r.PK_Id = a.FK_tblWRIReal_Id AND r.FK_tblWRILivro_Id = 2 AND r.PK_Num_Livro < g.Matricula
+  JOIN dbo.tblWRIImovel i WITH (NOLOCK) ON i.FK_tblWRIImovelBase_Id = r.FK_tblWRIImovelBase_Id
+       AND i.PK_Versao = ISNULL(a.FK_tblWRIImovel_Versao, (SELECT MAX(i2.PK_Versao) FROM dbo.tblWRIImovel i2 WITH (NOLOCK) WHERE i2.FK_tblWRIImovelBase_Id = r.FK_tblWRIImovelBase_Id))
+  JOIN dbo.tblWRIDistritos dt WITH (NOLOCK) ON dt.PK_ID = i.FK_tblWRIDistritos_Id
+  WHERE NULLIF(LTRIM(RTRIM(g.Distrito)), '') IS NULL
+    AND NULLIF(LTRIM(RTRIM(dt.Distrito)), '') IS NOT NULL
+  GROUP BY g.Flag, g.Prenotacao, g.RealId
+)
+UPDATE g
+SET Distrito = od.DistritoUnico,
+    FonteDistrito = 'WEBRI_ORIGEM_DISTRITO'
+FROM #Reg g
+JOIN orig_dist od ON od.Flag = g.Flag AND od.Prenotacao = g.Prenotacao AND od.RealId = g.RealId
+WHERE NULLIF(LTRIM(RTRIM(g.Distrito)), '') IS NULL
+  AND od.QtdDistritos = 1
+  AND od.DistritoUnico IS NOT NULL;
+
+/* Regra ONR para Guaianases: quando distrito é GUAIANAZES/GUAIANASES e subdistrito está vazio */
+UPDATE #Reg
+SET Subdistrito = N'GUAIANASES',
+    FonteSubdistrito = 'REGRA_ONR_GUAIANASES'
+WHERE NULLIF(LTRIM(RTRIM(Subdistrito)), '') IS NULL
+  AND UPPER(LTRIM(RTRIM(Distrito))) IN (N'GUAIANAZES', N'GUAIANASES');
+
+/* 3e.2) Fallback de Empreendimento via tblWRIRecepcao.Outorgado e loteamento majoritário das derivadas */
+UPDATE g
+SET Empreendimento = NULLIF(LTRIM(RTRIM(rc.Outorgado)), ''),
+    FonteEmpreendimento = 'WEBRI_RECEPCAO_OUTORGADO'
+FROM #Reg g
+JOIN dbo.tblWRIRecepcao rc WITH (NOLOCK) ON rc.PK_FlagRecepcao = g.Flag AND rc.PK_Recepcao = g.Prenotacao
+WHERE NULLIF(LTRIM(RTRIM(g.Empreendimento)), '') IS NULL
+  AND NULLIF(LTRIM(RTRIM(rc.Outorgado)), '') IS NOT NULL
+  AND UPPER(LTRIM(RTRIM(rc.Outorgado))) <> UPPER(LTRIM(RTRIM(ISNULL(rc.Outorgante, ''))))
+  AND UPPER(rc.Outorgado) NOT LIKE N'%PREFEIT%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%MUNICIP%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%SECRETAR%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%SEHAB%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%CDHU%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%COHAB%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%COMPANHIA%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%FAZENDA%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%ESTADO%'
+  AND UPPER(rc.Outorgado) NOT LIKE N'%UNI_O%';
+
+;WITH lot_cnt AS (
+  SELECT
+    d.Flag,
+    d.Prenotacao,
+    d.MatrizRealId,
+    NULLIF(LTRIM(RTRIM(lt.Loteamento)), '') AS LoteamentoNome,
+    COUNT(*) AS Qtd
+  FROM #Der d
+  JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
+  JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
+  JOIN dbo.tblWRILoteamento lt WITH (NOLOCK) ON lt.PK_Id = l.FK_tblWRILoteamento_Id
+  WHERE d.MatrizRealId IS NOT NULL
+    AND NULLIF(LTRIM(RTRIM(lt.Loteamento)), '') IS NOT NULL
+  GROUP BY d.Flag, d.Prenotacao, d.MatrizRealId, NULLIF(LTRIM(RTRIM(lt.Loteamento)), '')
+), lot_ranked AS (
+  SELECT
+    Flag, Prenotacao, MatrizRealId, LoteamentoNome,
+    ROW_NUMBER() OVER (PARTITION BY Flag, Prenotacao, MatrizRealId ORDER BY Qtd DESC, LoteamentoNome ASC) AS rn
+  FROM lot_cnt
+)
+UPDATE g
+SET Empreendimento = lr.LoteamentoNome,
+    FonteEmpreendimento = 'WEBRI_DERIVADAS_LOTEAMENTO'
+FROM #Reg g
+JOIN lot_ranked lr ON lr.Flag = g.Flag AND lr.Prenotacao = g.Prenotacao AND lr.MatrizRealId = g.RealId AND lr.rn = 1
+WHERE NULLIF(LTRIM(RTRIM(g.Empreendimento)), '') IS NULL;
+
 /* 3f) Classificação de APMs, vias públicas, áreas institucionais/verdes/remanescentes via #OcrDerivada */
 UPDATE d
 SET Categoria      = od.Categoria,
@@ -1080,6 +1233,30 @@ INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'agente', 'INFO',
   ISNULL(DocumentoOcr, N'SiplanIA.matricula') + N': ' + ISNULL(TrechoAgenteOcr, N''),
   N'Informativo — confirmar com CRF se necessário'
 FROM #Reg WHERE FonteAgente = 'OCR_ATO_REGISTRO';
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'agente', 'INFO',
+  N'Agente obtido do Outorgante do protocolo no WEBRI: ' + Agente,
+  N'WEBRI tblWRIRecepcao.Outorgante',
+  N'Informativo — ente público identificado na prenotação'
+FROM #Reg WHERE FonteAgente = 'WEBRI_RECEPCAO_OUTORGANTE';
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'distrito', 'INFO',
+  N'Distrito obtido de forma unânime nas matrículas derivadas/origem da prenotação: ' + Distrito,
+  FonteDistrito,
+  N'Informativo — matriz recém-aberta sem distrito preenchido diretamente'
+FROM #Reg WHERE FonteDistrito IN ('WEBRI_DERIVADAS_DISTRITO', 'WEBRI_ORIGEM_DISTRITO');
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'subdistrito', 'INFO',
+  N'Subdistrito preenchido automaticamente como GUAIANASES (regra ONR para distrito Guaianases)',
+  N'REGRA_ONR_GUAIANASES',
+  N'Informativo — exigência do validador do Ofício Eletrônico ONR'
+FROM #Reg WHERE FonteSubdistrito = 'REGRA_ONR_GUAIANASES';
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'ocr_origem', 'INFO',
+  N'Matriz recém-aberta ainda sem texto no SiplanIA; metadados complementados via OCR da matrícula de origem vinculada à prenotação',
+  ISNULL(DocumentoOcr, N'SiplanIA'),
+  N'Informativo — conferência automática por documentação de origem'
+FROM #Reg WHERE DocumentoOcr LIKE N'%(origem na prot.%';
 
 INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'agente', 'MEDIA',
   N'Agente inferido do cliente da prenotação (pode ser apresentante): ' + Agente,

@@ -347,7 +347,7 @@ export function extractBairroFromOcr(texto: string, prenText: string): {
   const clause = imovelMatch ? imovelMatch[1] : head.slice(0, 450);
 
   const explicit = `${clause} ${prenText || ''}`.match(
-    /\bno\s+bairro\s+(?:d[eao]\s+)?["“]?([A-Za-zÀ-ÿ0-9\s\.\-\/]{3,60}?)(?:["”]|,|\.|;|\s+n[oa]\s+distrito|\s+em\s+Guaianazes|\s+desta)/i,
+    /(?:\bno\s+|,\s*)bairro\s+(?:d[eao]\s+)?["“]?([A-Za-zÀ-ÿ0-9\s\.\-\/]{3,60}?)(?:["”]|,|\.|;|\s+n[oa]\s+distrito|\s+em\s+Guaianazes|\s+desta)/i,
   );
   const bairroExpresso = explicit ? explicit[1].trim() : null;
 
@@ -452,6 +452,7 @@ function extractOpenedRangesFromOcr(
 export function classifyMatrixOcr(
   row: { Prenotacao: number; Matricula: number; NegId: number; Tem71: number; QtdSeq0: number },
   texto: string,
+  originInfo?: { matricula: number; texto: string } | null,
 ) {
   const prenText = extractPrenContext(texto, row.Prenotacao);
   const interest = extractInterestFromOcr(prenText, texto);
@@ -463,6 +464,36 @@ export function classifyMatrixOcr(
   if (row.NegId === 947) {
     if (!texto) {
       const fallbackInd = row.Tem71 > 0 && row.QtdSeq0 === 0;
+      if (originInfo?.texto && !fallbackInd) {
+        const origBairro = extractBairroFromOcr(originInfo.texto, '');
+        const origEmpreend = extractEmpreendimentoFromOcr(originInfo.texto, '');
+        const origAgentRaw = extractAgentFromOcr(originInfo.texto);
+        const origAgent =
+          origAgentRaw.tipoAgente === 1
+            ? origAgentRaw
+            : { agente: null as string | null, tipoAgente: null as number | null, trecho: null as string | null };
+        return {
+          Prenotacao: row.Prenotacao,
+          Matricula: row.Matricula,
+          NegId: 947,
+          Classificacao: 'MATRIZ_947',
+          TemReurb: false,
+          TemCrf: false,
+          TemArt69: false,
+          TipoInteresseOcr: null as number | null,
+          AgenteOcr: origAgent.agente,
+          TipoAgenteOcr: origAgent.tipoAgente,
+          BairroExpressoOcr: origBairro.bairroExpresso,
+          BairroSugestaoOcr: origBairro.bairroSugestao,
+          MotivoClassificacao: `Matriz ainda sem OCR no SiplanIA; metadados complementados pelo OCR da matrícula de origem ${originInfo.matricula} vinculada à mesma prenotação`,
+          DocumentoOcr: `SiplanIA.matricula ${originInfo.matricula} (origem na prot. ${row.Prenotacao})`,
+          TrechoAgente: origAgent.trecho,
+          TrechoBairro: origBairro.trechoBairro,
+          TrechoClassificacao: `Sem OCR próprio na matrícula ${row.Matricula}; origem consultada: SiplanIA.matricula ${originInfo.matricula}`,
+          EmpreendimentoOcr: origEmpreend.empreendimentoOcr,
+          TrechoEmpreendimento: origEmpreend.trechoEmpreendimento,
+        };
+      }
       return {
         Prenotacao: row.Prenotacao,
         Matricula: row.Matricula,
@@ -982,13 +1013,94 @@ export async function extrairLoteReurbReadOnly(
           for (const row of r.rows) matrixTextMap.set(Number(row.mat), row.texto || '');
         }
 
+        const missingOcrMats = candMatrizes.filter(
+          (r: any) => Number(r.NegId) === 947 && !matrixTextMap.get(Number(r.Matricula)),
+        );
+        const originInfoByKey = new Map<string, { matricula: number; texto: string }>();
+        if (missingOcrMats.length > 0) {
+          const missingPrens = [...new Set(missingOcrMats.map((r: any) => Number(r.Prenotacao)))];
+          let originCandidates: Array<{ Prenotacao: number; MatriculaOrigem: number; Prioridade: number }> = [];
+          for (const pBatch of chunkArray(missingPrens, 500)) {
+            const reqOrig = pool.request();
+            reqOrig.input('prenLista', sql.VarChar(sql.MAX), pBatch.join(','));
+            const origRs = await reqOrig.query(`
+              SET NOCOUNT ON;
+              SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+              SET LOCK_TIMEOUT 2000;
+
+              DECLARE @Pf TABLE (Pren INT PRIMARY KEY);
+              DECLARE @x XML = CAST('<x>' + REPLACE(@prenLista, ',', '</x><x>') + '</x>' AS XML);
+              INSERT INTO @Pf (Pren)
+              SELECT DISTINCT TRY_CAST(n.value('.', 'VARCHAR(20)') AS INT)
+              FROM @x.nodes('/x') AS t(n)
+              WHERE TRY_CAST(n.value('.', 'VARCHAR(20)') AS INT) IS NOT NULL;
+
+              SELECT
+                rc.PK_Recepcao AS Prenotacao,
+                r.PK_Num_Livro AS MatriculaOrigem,
+                MIN(CASE WHEN an.FK_tblWRINegocios_Id = 50 THEN 1 WHEN an.FK_tblWRINegocios_Id = 946 THEN 2 ELSE 3 END) AS Prioridade
+              FROM @Pf pf
+              JOIN dbo.tblWRIRecepcao rc WITH (NOLOCK)   ON rc.PK_Recepcao = pf.Pren AND rc.TipoPrenotacao IN (13, 27)
+              JOIN dbo.tblWRIAtosTitulos at WITH (NOLOCK) ON at.FK_tblWRIRecepcaoFlagRecepcao = rc.PK_FlagRecepcao AND at.FK_tblWRIRecepcaoRecepcao = rc.PK_Recepcao
+              JOIN dbo.tblWRIAtos a WITH (NOLOCK)        ON a.PK_Id = at.FK_tblWRIAtos_Id AND a.PK_SeqAto > 0
+              JOIN dbo.tblWRIReal r WITH (NOLOCK)        ON r.PK_Id = a.FK_tblWRIReal_Id AND r.FK_tblWRILivro_Id = 2
+              LEFT JOIN dbo.tblWRIAtosNegocios an WITH (NOLOCK) ON an.FK_tblWRIAtos_Id = a.PK_Id
+              WHERE an.FK_tblWRINegocios_Id IN (50, 946, 614, 947)
+              GROUP BY rc.PK_Recepcao, r.PK_Num_Livro
+              ORDER BY rc.PK_Recepcao, Prioridade ASC, r.PK_Num_Livro ASC;
+            `);
+            originCandidates = originCandidates.concat(origRs.recordset || []);
+          }
+
+          const origByPren = new Map<number, Array<{ matricula: number; prioridade: number }>>();
+          const allOrigNums = new Set<number>();
+          for (const oc of originCandidates) {
+            const pren = Number(oc.Prenotacao);
+            const matOrig = Number(oc.MatriculaOrigem);
+            if (!Number.isInteger(pren) || !Number.isInteger(matOrig) || matOrig <= 0) continue;
+            const arr = origByPren.get(pren) || [];
+            arr.push({ matricula: matOrig, prioridade: Number(oc.Prioridade || 3) });
+            origByPren.set(pren, arr);
+            allOrigNums.add(matOrig);
+          }
+
+          const origTextMap = new Map<number, string>();
+          for (const batch of chunkArray([...allOrigNums], 200)) {
+            const r = await pg.query('SELECT numero::int AS mat, texto FROM matricula WHERE numero = ANY($1::bigint[])', [batch]);
+            for (const row of r.rows) {
+              if (row.texto) origTextMap.set(Number(row.mat), String(row.texto));
+            }
+          }
+
+          for (const row of missingOcrMats) {
+            const pren = Number(row.Prenotacao);
+            const mat = Number(row.Matricula);
+            const cands = (origByPren.get(pren) || [])
+              .filter((c) => c.matricula < mat)
+              .sort((a, b) => a.prioridade - b.prioridade || a.matricula - b.matricula);
+            const hit = cands.find((c) => Boolean(origTextMap.get(c.matricula)));
+            if (hit) {
+              originInfoByKey.set(`${pren}|${mat}`, {
+                matricula: hit.matricula,
+                texto: origTextMap.get(hit.matricula)!,
+              });
+            }
+          }
+        }
+
         const derByPren = new Map<number, Set<number>>();
         for (const d of candDerivadas) {
           if (!derByPren.has(d.Prenotacao)) derByPren.set(d.Prenotacao, new Set());
           derByPren.get(d.Prenotacao)!.add(d.Matricula);
         }
 
-        const ocrMatrizRows = candMatrizes.map((row: any) => classifyMatrixOcr(row, matrixTextMap.get(Number(row.Matricula)) || ''));
+        const ocrMatrizRows = candMatrizes.map((row: any) =>
+          classifyMatrixOcr(
+            row,
+            matrixTextMap.get(Number(row.Matricula)) || '',
+            originInfoByKey.get(`${Number(row.Prenotacao)}|${Number(row.Matricula)}`) || null,
+          ),
+        );
         const validMatricesByPren = new Map<number, Set<number>>();
         for (const r of ocrMatrizRows) {
           if (r.Classificacao === 'TITULACAO_INDIVIDUAL_947' || r.Classificacao === 'CONDOMINIO_616_NAO_REURB') continue;

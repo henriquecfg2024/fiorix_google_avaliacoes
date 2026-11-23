@@ -239,7 +239,7 @@ function extractBairroFromOcr(texto, prenText) {
   const clause = imovelMatch ? imovelMatch[1] : head.slice(0, 450);
 
   // Bairro expresso somente quando explicitamente rotulado como "bairro ..."
-  const explicit = `${clause} ${prenText || ''}`.match(/\bno\s+bairro\s+(?:d[eao]\s+)?["“]?([A-Za-zÀ-ÿ0-9\s\.\-\/]{3,60}?)(?:["”]|,|\.|;|\s+n[oa]\s+distrito|\s+em\s+Guaianazes|\s+desta)/i);
+  const explicit = `${clause} ${prenText || ''}`.match(/(?:\bno\s+|,\s*)bairro\s+(?:d[eao]\s+)?["“]?([A-Za-zÀ-ÿ0-9\s\.\-\/]{3,60}?)(?:["”]|,|\.|;|\s+n[oa]\s+distrito|\s+em\s+Guaianazes|\s+desta)/i);
   const bairroExpresso = explicit ? explicit[1].trim() : null;
 
   // Sugestão de revisão a partir de loteamento/núcleo/conjunto do cabeçalho IMÓVEL
@@ -326,7 +326,7 @@ function extractOpenedRangesFromOcr(prenText, allowedDerivadasSet) {
   return [...linked.entries()].map(([matriculaDerivada, trecho]) => ({ matriculaDerivada, trecho }));
 }
 
-function classifyMatrixOcr(row, texto) {
+function classifyMatrixOcr(row, texto, originInfo = null) {
   const prenText = extractPrenContext(texto, row.Prenotacao);
   const interest = extractInterestFromOcr(prenText, texto);
   const agent = extractAgentFromOcr(prenText);
@@ -337,6 +337,35 @@ function classifyMatrixOcr(row, texto) {
   if (row.NegId === 947) {
     if (!texto) {
       const fallbackInd = row.Tem71 > 0 && row.QtdSeq0 === 0;
+      if (originInfo && originInfo.texto && !fallbackInd) {
+        const origBairro = extractBairroFromOcr(originInfo.texto, '');
+        const origEmpreend = extractEmpreendimentoFromOcr(originInfo.texto, '');
+        const origAgentRaw = extractAgentFromOcr(originInfo.texto);
+        const origAgent = origAgentRaw.tipoAgente === 1
+          ? origAgentRaw
+          : { agente: null, tipoAgente: null, trecho: null };
+        return {
+          Prenotacao: row.Prenotacao,
+          Matricula: row.Matricula,
+          NegId: 947,
+          Classificacao: 'MATRIZ_947',
+          TemReurb: false,
+          TemCrf: false,
+          TemArt69: false,
+          TipoInteresseOcr: null,
+          AgenteOcr: origAgent.agente,
+          TipoAgenteOcr: origAgent.tipoAgente,
+          BairroExpressoOcr: origBairro.bairroExpresso,
+          BairroSugestaoOcr: origBairro.bairroSugestao,
+          MotivoClassificacao: `Matriz ainda sem OCR no SiplanIA; metadados complementados pelo OCR da matrícula de origem ${originInfo.matricula} vinculada à mesma prenotação`,
+          DocumentoOcr: `SiplanIA.matricula ${originInfo.matricula} (origem na prot. ${row.Prenotacao})`,
+          TrechoAgente: origAgent.trecho,
+          TrechoBairro: origBairro.trechoBairro,
+          TrechoClassificacao: `Sem OCR próprio na matrícula ${row.Matricula}; origem consultada: SiplanIA.matricula ${originInfo.matricula}`,
+          EmpreendimentoOcr: origEmpreend.empreendimentoOcr,
+          TrechoEmpreendimento: origEmpreend.trechoEmpreendimento,
+        };
+      }
       return {
         Prenotacao: row.Prenotacao,
         Matricula: row.Matricula,
@@ -780,6 +809,76 @@ function validateOnrJson(parsed, options) {
       for (const row of r.rows) matrixTextMap.set(row.mat, row.texto || '');
     }
 
+    const missingOcrMats = candMatrizes.filter(r => r.NegId === 947 && !matrixTextMap.get(r.Matricula));
+    const originInfoByKey = new Map();
+    if (missingOcrMats.length > 0) {
+      const missingPrens = [...new Set(missingOcrMats.map(r => r.Prenotacao))];
+      let originCandidates = [];
+      for (const pBatch of chunkArray(missingPrens, 500)) {
+        const reqOrig = pool.request();
+        reqOrig.input('prenLista', sql.VarChar(sql.MAX), pBatch.join(','));
+        const origRs = await reqOrig.query(`
+          SET NOCOUNT ON;
+          SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+          SET LOCK_TIMEOUT 2000;
+
+          DECLARE @Pf TABLE (Pren INT PRIMARY KEY);
+          DECLARE @x XML = CAST('<x>' + REPLACE(@prenLista, ',', '</x><x>') + '</x>' AS XML);
+          INSERT INTO @Pf (Pren)
+          SELECT DISTINCT TRY_CAST(n.value('.', 'VARCHAR(20)') AS INT)
+          FROM @x.nodes('/x') AS t(n)
+          WHERE TRY_CAST(n.value('.', 'VARCHAR(20)') AS INT) IS NOT NULL;
+
+          SELECT
+            rc.PK_Recepcao AS Prenotacao,
+            r.PK_Num_Livro AS MatriculaOrigem,
+            MIN(CASE WHEN an.FK_tblWRINegocios_Id = 50 THEN 1 WHEN an.FK_tblWRINegocios_Id = 946 THEN 2 ELSE 3 END) AS Prioridade
+          FROM @Pf pf
+          JOIN dbo.tblWRIRecepcao rc WITH (NOLOCK)   ON rc.PK_Recepcao = pf.Pren AND rc.TipoPrenotacao IN (13, 27)
+          JOIN dbo.tblWRIAtosTitulos at WITH (NOLOCK) ON at.FK_tblWRIRecepcaoFlagRecepcao = rc.PK_FlagRecepcao AND at.FK_tblWRIRecepcaoRecepcao = rc.PK_Recepcao
+          JOIN dbo.tblWRIAtos a WITH (NOLOCK)        ON a.PK_Id = at.FK_tblWRIAtos_Id AND a.PK_SeqAto > 0
+          JOIN dbo.tblWRIReal r WITH (NOLOCK)        ON r.PK_Id = a.FK_tblWRIReal_Id AND r.FK_tblWRILivro_Id = 2
+          LEFT JOIN dbo.tblWRIAtosNegocios an WITH (NOLOCK) ON an.FK_tblWRIAtos_Id = a.PK_Id
+          WHERE an.FK_tblWRINegocios_Id IN (50, 946, 614, 947)
+          GROUP BY rc.PK_Recepcao, r.PK_Num_Livro
+          ORDER BY rc.PK_Recepcao, Prioridade ASC, r.PK_Num_Livro ASC;
+        `);
+        originCandidates = originCandidates.concat(origRs.recordset || []);
+      }
+
+      const origByPren = new Map();
+      const allOrigNums = new Set();
+      for (const oc of originCandidates) {
+        const pren = Number(oc.Prenotacao);
+        const matOrig = Number(oc.MatriculaOrigem);
+        if (!Number.isInteger(pren) || !Number.isInteger(matOrig) || matOrig <= 0) continue;
+        if (!origByPren.has(pren)) origByPren.set(pren, []);
+        origByPren.get(pren).push({ matricula: matOrig, prioridade: Number(oc.Prioridade || 3) });
+        allOrigNums.add(matOrig);
+      }
+
+      const origTextMap = new Map();
+      for (const batch of chunkArray([...allOrigNums], 200)) {
+        const r = await pg.query('SELECT numero::int AS mat, texto FROM matricula WHERE numero = ANY($1::bigint[])', [batch]);
+        for (const row of r.rows) {
+          if (row.texto) origTextMap.set(row.mat, String(row.texto));
+        }
+      }
+
+      for (const row of missingOcrMats) {
+        const cands = (origByPren.get(row.Prenotacao) || [])
+          .filter(c => c.matricula < row.Matricula)
+          .sort((a, b) => a.prioridade - b.prioridade || a.matricula - b.matricula);
+        const hit = cands.find(c => Boolean(origTextMap.get(c.matricula)));
+        if (hit) {
+          originInfoByKey.set(`${row.Prenotacao}|${row.Matricula}`, {
+            matricula: hit.matricula,
+            texto: origTextMap.get(hit.matricula),
+          });
+        }
+      }
+    }
+
     const derByPren = new Map();
     for (const d of candDerivadas) {
       if (!derByPren.has(d.Prenotacao)) derByPren.set(d.Prenotacao, new Set());
@@ -789,7 +888,8 @@ function validateOnrJson(parsed, options) {
     const ocrMatrizRows = [];
     for (const row of candMatrizes) {
       const texto = matrixTextMap.get(row.Matricula) || '';
-      ocrMatrizRows.push(classifyMatrixOcr(row, texto));
+      const originInfo = originInfoByKey.get(`${row.Prenotacao}|${row.Matricula}`) || null;
+      ocrMatrizRows.push(classifyMatrixOcr(row, texto, originInfo));
     }
 
     const validMatricesByPren = new Map();

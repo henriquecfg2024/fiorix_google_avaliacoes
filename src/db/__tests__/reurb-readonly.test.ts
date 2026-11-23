@@ -48,6 +48,32 @@ describe('REURB Somente-Leitura & Regras ONR v1.4 (fiorix-connector)', () => {
     expect(intr.temArt69).toBe(false);
   });
 
+  it('extrai bairro com vírgula antes de "Bairro do ..." e enriquece matriz sem OCR próprio a partir da matrícula de origem', () => {
+    const origemTexto = `
+      LIVRO N.º 2 - REGISTRO GERAL 7.º OFICIAL DE REGISTRO DE IMÓVEIS - matrícula 183.967
+      IMOVEL: TERRENO situado nas ruas Mario Ferraz de Souza, Mar de Baffim, Um e Dois, no Sítio dos Cunhas, Bairro do Rodeio, no DISTRITO DE GUAIANAZES, com a seguinte descrição: inicia-se no vértice 01...
+      Av. 01, em 19 de Janeiro de 2016 - À vista do Ofício expedido pela Coordenadoria de Regularização Fundiária-CRF da Secretaria Municipal de Habitação-SEHAB da Prefeitura da Capital, referente ao loteamento denominado Vila Paulista I e II, com acesso principal...
+    `;
+
+    const bairroOrig = extractBairroFromOcr(origemTexto, '');
+    expect(bairroOrig.bairroExpresso).toBe('Rodeio');
+
+    const res = classifyMatrixOcr(
+      { Prenotacao: 649975, Matricula: 270002, NegId: 947, Tem71: 0, QtdSeq0: 502 },
+      '',
+      { matricula: 183967, texto: origemTexto },
+    );
+
+    expect(res.Classificacao).toBe('MATRIZ_947');
+    expect(res.TemArt69).toBe(false);
+    expect(res.TipoInteresseOcr).toBeNull();
+    expect(res.BairroExpressoOcr).toBe('Rodeio');
+    expect(res.EmpreendimentoOcr).toBe('Vila Paulista I e II');
+    expect(res.AgenteOcr).toBe('SECRETARIA MUNICIPAL DA HABITAÇÃO DA PREFEITURA DE SÃO PAULO - SEHAB');
+    expect(res.TipoAgenteOcr).toBe(1);
+    expect(res.DocumentoOcr).toBe('SiplanIA.matricula 183967 (origem na prot. 649975)');
+  });
+
   it('separa áreas públicas (APM/Via/Institucional) apenas pelo cabeçalho IMÓVEL, sem falso positivo em confrontações', () => {
     const loteHabitacional =
       'IMÓVEL: Lote 12 da quadra B, do núcleo Sítio Conceição, nesta Capital, com a seguinte descrição perimetral: partindo-se do ponto 1, confrontando com APM-1 nos fundos, mede 10,00m.';
