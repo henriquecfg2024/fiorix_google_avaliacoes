@@ -166,7 +166,7 @@ function extractPrenContext(texto, pren) {
   const nextDiffPren = afterLast.match(new RegExp(`PRENOTA[CÇ][AÃ]O\\s*n?[º°o\\.]*\\s*(?!${pPat}(?!\\d))[0-9\\.\\s]{4,9}`, 'i'));
   const end = nextDiffPren
     ? Math.min(texto.length, lastIdx + 20 + nextDiffPren.index)
-    : Math.min(texto.length, lastIdx + 3800);
+    : Math.min(texto.length, lastIdx + 12000);
   return stripOcrPageHeaders(texto.slice(start, end));
 }
 
@@ -206,22 +206,36 @@ function extractAgentFromOcr(prenText) {
   if (!prenText) return { agente: null, tipoAgente: null, trecho: null };
 
   const patterns = [
-    /firmad[oa]s?\s+pel[oa]s?\.?\s+([^;]{4,220})/i,
-    /(?:Certid[aã]o\s+de\s+Regulariza[cç][aã]o\s+Fundi[aá]ria|\bCRF\b)[^;]{0,140}?expedid[oa]\s+(?:em\s+[0-9\/\.\s]+\s*,?\s*)?pel[oa]\.?\s+([^;]{4,220})/i,
-    /expedid[oa]s?\s+(?:em\s+[0-9\/\.\s]+\s*,?\s*)?pel[oa]\.?\s+((?:Coordenadoria|Secretaria|Prefeitura|Municipalidade|Munic[ií]pio)[^;]{4,220})/i,
+    /\bfirmad[oa]s?\s+pel[oa]s?\.?\s+([^;]{4,220})/i,
+    /(?:Certid[aã]o\s+de\s+Regulariza[cç][aã]o\s+Fundi[aá]ria|\bCRF\b)[^;]{0,140}?\bexpedid[oa]\s+(?:em\s+[0-9\/\.\s]+\s*,?\s*)?pel[oa]\.?\s+([^;]{4,220})/i,
+    /\bexpedid[oa]s?\s+(?:em\s+[0-9\/\.\s]+\s*,?\s*)?pel[oa]\.?\s+((?:Coordenadoria|Secretaria|Prefeitura|Municipalidade|Munic[ií]pio)[^;]{4,220})/i,
   ];
 
   for (const re of patterns) {
     const m = prenText.match(re);
     if (!m) continue;
     const rawClause = m[1]
-      .split(/\s*,?\s*(?:fa[cç]o\s+constar|j[aá]\s+qualificad|inscrit[oa]|com\s+sede|atrav[eé]s|por\s+sua|por\s+meio|acompanhad[oa]|resultante\s+da|Processo\s+n)/i)[0]
+      .split(/\s*,?\s*(?:fa[cç]o\s+constar|j[aá]\s+qualificad|inscrit[oa]|com\s+sede|atrav[eé]s|por\s+sua|por\s+meio|acompanhad[oa]|resultante\s+da|Processo\s+n|procede-se|todos\s+j[aá]|os\s+dois\s+primeiros)/i)[0]
       .replace(/^\.+/, '')
       .trim();
     const norm = normalizeKnownPublicAgent(rawClause);
     if (norm.agente) {
-      return { agente: norm.agente, tipoAgente: norm.tipoAgente, trecho: extractSnippet(prenText, re, 110) };
+      const isProprietarioPrivado =
+        norm.tipoAgente === null && /\bfirmad[oa]s?\s+pel[oa]s?\s+propriet[aá]ri[oa]s?\b/i.test(prenText);
+      return {
+        agente: norm.agente,
+        tipoAgente: isProprietarioPrivado ? 2 : norm.tipoAgente,
+        trecho: extractSnippet(prenText, re, 110),
+      };
     }
+  }
+
+  if (/\bfirmad[oa]s?\s+pel[oa]s?\s+propriet[aá]ri[oa]s?\b/i.test(prenText)) {
+    return {
+      agente: null,
+      tipoAgente: 2,
+      trecho: extractSnippet(prenText, /\bfirmad[oa]s?\s+pel[oa]s?\s+propriet[aá]ri[oa]s?\b/i, 110),
+    };
   }
 
   const fallbackPublic = prenText.match(/(MUNICIPALIDADE\s+DE\s+S[AÃ]O\s+PAULO|PREFEITURA\s+(?:DO\s+MUNIC[IÍ]PIO\s+)?DE\s+S[AÃ]O\s+PAULO|SECRETARIA\s+MUNICIPAL\s+D[EA]\s+HABITA[CÇ][AÃ]O[^,.;]{0,70}|COMPANHIA\s+DE\s+DESENVOLVIMENTO\s+HABITACIONAL[^,.;]{0,70}|COMPANHIA\s+METROPOLITANA\s+DE\s+HABITA[CÇ][AÃ]O[^,.;]{0,70})/i);
@@ -263,8 +277,24 @@ function extractBairroFromOcr(texto, prenText) {
     }
   }
   if (!bairroExpresso) {
-    const nucleoMatch = clause.match(/\bdo\s+loteamento\s+denominado\s+(N[úu]cleo\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,24}?)(?:\s*,\s*(?:Sec[cç][aã]o|em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito)|\s+em\s+GUAIANA[SZ]ES)/i);
-    const candidate = nucleoMatch ? nucleoMatch[1].replace(/\s+/g, ' ').trim() : null;
+    const nucleoUrbBairro = clause.match(/\bN[úu]c[li]eo\s+Urbano\s+((?:Jardim|Vila|Parque|Cidade)\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,24}?)(?:\s+em\s+GUAIANA[SZ]ES|\s*,\s*(?:em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito))/i);
+    const candidate = nucleoUrbBairro ? nucleoUrbBairro[1].replace(/\s+/g, ' ').trim() : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
+  if (!bairroExpresso) {
+    const nucleoMatch = clause.match(/(?:\bdo\s+loteamento\s+denominado|\bno|\bdo|,\s*)\s*(N[úu]c[li]eo\s+(?!Urbano\b)[A-Za-zÀ-ÿ0-9\s\.\-]{2,24}?)(?:\s*,\s*(?:Sec[cç][aã]o|em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito)|\s+em\s+GUAIANA[SZ]ES)/i);
+    const candidate = nucleoMatch
+      ? nucleoMatch[1].replace(/\bN[úu]c[li]eo\b/i, 'Núcleo').replace(/\s+/g, ' ').trim()
+      : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
+  if (!bairroExpresso) {
+    const subBairroMatch = clause.match(/,\s*d[eo]\s+((?:Jardim|Vila|Parque|Cidade)\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,24}?)(?:\s*,\s*(?:[AÁ]REA\s+\d+|Sec[cç][aã]o|em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito)|\s+n[oa]\s+distrito|\s+em\s+GUAIANA[SZ]ES)/i);
+    const candidate = subBairroMatch ? subBairroMatch[1].replace(/\s+/g, ' ').trim() : null;
     if (candidate && candidate.length >= 3 && candidate.length <= 30) {
       bairroExpresso = candidate;
     }
@@ -326,11 +356,11 @@ function extractOpenedRangesFromOcr(prenText, allowedDerivadasSet) {
   if (!prenText) return [];
   const linked = new Map();
   // Foca nos trechos após "FORAM ABERTAS" ou "FOI ABERTA"
-  const abRe = /(?:FORAM\s+ABERTAS|Foram\s+abertas|FOI\s+ABERTA|Foi\s+aberta)[^;]{0,900}?(?:selo:|escrevente|$)/gi;
+  const abRe = /(?:F[O0C]RAM\s+ABERTAS|F[o0c]ram\s+abertas|F[O0C]I\s+ABERTA|F[o0c]i\s+aberta)[\s\S]{0,900}?(?:selo:|escrevente|PRENOTA[CÇ][AÃ]O|$)/gi;
   for (const m of prenText.matchAll(abRe)) {
     const seg = m[0];
     const snippet = seg.slice(0, 260).replace(/\s+/g, ' ').trim();
-    for (const rm of seg.matchAll(/([0-9]{2,3}\.[0-9]{3})\s+(?:a|à)\s+([0-9]{2,3}\.[0-9]{3})/gi)) {
+    for (const rm of seg.matchAll(/([0-9]{2,3}\.[0-9]{3})\.?\s+(?:a|à)\s+([0-9]{2,3}\.[0-9]{3})/gi)) {
       const start = parseBrDotInt(rm[1]);
       const end = parseBrDotInt(rm[2]);
       if (start && end && end >= start && end - start <= 5000) {
@@ -428,6 +458,7 @@ function classifyMatrixOcr(row, texto, originInfo = null) {
     const hasLegit = /TITULA[CÇG][AÃ]O\s+por|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r|\bart\.?\s*23\b.{0,40}13\.?465/i.test(scope);
     const hasCondUrbSimples = /CONDOM[IÍ]NIO\s+URBANO\s+SIMPLES/i.test(scope);
     const hasEncerrada = /ENCERRADA\s+a\s+disponibilidade\s+de\s+[aá]rea|art\.?\s*233\s+da\s+Lei\s+6\.?015/i.test(scope);
+    const hasPendenteTitulacao = /Matr[ií]cula\s+aberta\s+nos\s+termos\s+do\s+requerimento[\s\S]{0,420}?pendente\s+de\s+titula[cç][aã]o|pendente\s+de\s+titula[cç][aã]o\s+a\s+teor\s+do\s+que\s+disp[oõ]e\s+o\s+art(?:igo)?\.?\s*44,?\s*[§$]\s*8/i.test(scope);
     const temReurb = /\bREURB(?:-[SEI])?\b|Regulariza[cç][aã]o\s+Fundi[aá]ria|13\.?465/i.test(scope);
     const temCrf = /Certid[aã]o\s+de\s+Regulariza[cç][aã]o\s+Fundi[aá]ria|\bCRF\b/i.test(scope);
 
@@ -436,6 +467,14 @@ function classifyMatrixOcr(row, texto, originInfo = null) {
     if (hasCondUrbSimples && hasEncerrada && !hasProjeto) {
       classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO';
       motivo = 'Matrícula intermediária de Condomínio Urbano Simples (arts. 61/62 Lei 13.465/2017) encerrada após abertura das unidades finais';
+    } else if (hasPendenteTitulacao && !hasAbertura && !hasProjeto) {
+      if (row.QtdSeq0 === 0) {
+        classificacao = 'TITULACAO_INDIVIDUAL_947';
+        motivo = 'Unidade derivada individual de núcleo REURB (art. 44, § 8º, Lei 13.465/2017) recebendo ato posterior';
+      } else {
+        classificacao = 'UNIDADE_PENDENTE_TITULACAO_947';
+        motivo = 'Unidade derivada aberta na mesma prenotação e gravada com pendência de titulação (art. 44, § 8º, Lei 13.465/2017); não é matrícula matriz';
+      }
     } else if ((hasLegit && !hasAbertura && !hasProjeto) || (!hasAbertura && !hasProjeto && row.Tem71 > 0 && row.QtdSeq0 === 0)) {
       classificacao = 'TITULACAO_INDIVIDUAL_947';
       motivo = 'Ato 947 é titulação individual por legitimação fundiária (art. 23 Lei 13.465/2017)';
@@ -445,9 +484,11 @@ function classifyMatrixOcr(row, texto, originInfo = null) {
       scope,
       classificacao === 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
         ? /CONDOM[IÍ]NIO\s+URBANO\s+SIMPLES|ENCERRADA\s+a\s+disponibilidade/i
-        : classificacao === 'TITULACAO_INDIVIDUAL_947'
-          ? /TITULA[CÇG][AÃ]O|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r/i
-          : /Regulariza[cç][aã]o\s+Fundi[aá]ria|Certid[aã]o\s+de\s+Regulariza[cç][aã]o|FORAM\s+ABERTAS/i,
+        : classificacao === 'UNIDADE_PENDENTE_TITULACAO_947'
+          ? /pendente\s+de\s+titula[cç][aã]o|art(?:igo)?\.?\s*44,?\s*[§$]\s*8/i
+          : classificacao === 'TITULACAO_INDIVIDUAL_947'
+            ? /TITULA[CÇG][AÃ]O|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r|pendente\s+de\s+titula[cç][aã]o/i
+            : /Regulariza[cç][aã]o\s+Fundi[aá]ria|Certid[aã]o\s+de\s+Regulariza[cç][aã]o|FORAM\s+ABERTAS/i,
       160
     );
 
@@ -571,10 +612,26 @@ function classifyDerivadaHeader(mat, headTexto) {
       TrechoOcr: 'Sem texto OCR no SiplanIA',
     };
   }
-  const imovelIdx = norm.search(/[IV]M[OÓ]VEL\s*:/i);
+  const imovelIdx = norm.search(/[IV]M[OÓ]VEL\s*[:\.]/i);
   const body = imovelIdx >= 0 ? norm.slice(imovelIdx) : norm;
   // Usa SOMENTE o cabeçalho de identificação do imóvel antes do memorial perimetral/confrontações
-  const clause = body.split(/com\s+a\s+se[gq]uinte\s+descri|partindo[\s-]se|inicia[\s-]se|tem\s+in[ií]cio|confrontando|mede\s+/i)[0].trim();
+  const clause = body.split(/com\s+a\s+se[gq]uinte\s+descri|partindo[\s-]se|inicia[\s-]se|tem\s+(?:o\s+)?in[ií]c[io]o|confrontando|mede\s+/i)[0].trim();
+
+  // Apartamento / unidade autônoma nunca é via pública ou APM, mesmo que situado em Viela ou Praça
+  if (/^[IV]M[OÓ]VEL\s*[:\.]?\s*(?:UM\s+|UMA\s+)?(?:APARTAMENTO|UNIDADE\s+AUT[OÔ]NOMA)\b/i.test(clause)) {
+    return {
+      Matricula: mat,
+      Categoria: 'UNIDADE',
+      EhAreaPublica: false,
+      MotivoExclusao: null,
+      DocumentoOcr: docRef,
+      TrechoOcr: clause.slice(0, 180),
+    };
+  }
+
+  const isResidentialLot =
+    /\b(?:LOTE(?:\s+DE\s+TERRENO)?\s+(?:n[º°o\.]*|[A-Z0-9])|CASA\s+n?[º°o\.]*\s*\d)\b/i.test(clause) &&
+    !/\b(?:representad[oa]\s+pel[oa]|constitu[ií]d[oa]\s+pel[oa]|destinad[oa]\s+[aà])\s+(?:[aá]rea\s+(?:p[uú]blica|verde|institucional|remanescente)|APM|leito|sistema\s+vi[aá]rio|via\s+p[uú]blica|viela|pra[cç]a)\b/i.test(clause);
 
   const checks = [
     {
@@ -584,7 +641,9 @@ function classifyDerivadaHeader(mat, headTexto) {
     },
     {
       cat: 'VIA_PUBLICA',
-      re: /\bleito\s+d[aeo]s?\b|\bsistema\s+vi[aá]rio\b|\bvia\s+p[uú]blica\b|\bleito\s+vi[aá]rio\b|\bviela\b|\bpra[cç]a\b|\bbal[aã]o\s+de\s+retorno\b/i,
+      re: isResidentialLot
+        ? /\bl[ei][ir]to\s+d[aeo]s?\b|\bl[ei][ir]to\s+vi[aá]rio\b|\bsistema\s+vi[aá]rio\b|\bvia\s+p[uú]blica\b|\bbal[aã]o\s+de\s+retorno\b/i
+        : /\bl[ei][ir]to\s+d[aeo]s?\b|\bl[ei][ir]to\s+vi[aá]rio\b|\bsistema\s+vi[aá]rio\b|\bvia\s+p[uú]blica\b|\bbal[aã]o\s+de\s+retorno\b|[IV]M[OÓ]VEL\s*[:\.]?\s*(?:UMA?\s+)?(?:TERRENO\s+)?(?:representad[oa]\s+pel[oa]|constitu[ií]d[oa]\s+(?:pel[oa]|de)|denominad[oa]|correspondente\s+[aà]|destinad[oa]\s+[aà])?\s*(?:viela|pra[cç]a)\b|\b(?:representad[oa]\s+pel[oa]|constitu[ií]d[oa]\s+pel[oa]|correspondente\s+[aà]|destinad[oa]\s+[aà])\s+(?:viela|pra[cç]a)\b/i,
       motivo: 'Via pública / sistema viário excluído da lista de unidades habitacionais',
     },
     {
@@ -936,6 +995,7 @@ function validateOnrJson(parsed, options) {
     for (const r of ocrMatrizRows) {
       if (
         r.Classificacao === 'TITULACAO_INDIVIDUAL_947' ||
+        r.Classificacao === 'UNIDADE_PENDENTE_TITULACAO_947' ||
         r.Classificacao === 'CONDOMINIO_616_NAO_REURB' ||
         r.Classificacao === 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
       ) continue;

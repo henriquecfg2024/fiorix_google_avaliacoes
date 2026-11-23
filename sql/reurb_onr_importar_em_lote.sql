@@ -301,10 +301,11 @@ SELECT
 INTO #PrenMeta
 FROM (SELECT DISTINCT Flag, Prenotacao FROM #RegCand) c;
 
-/* Classificação inicial de atos 947 (separa matriz REURB vs titulação individual vs condomínio simples intermediário) */
+/* Classificação inicial de atos 947 (separa matriz REURB vs titulação individual vs condomínio simples intermediário vs unidade art. 44 § 8º) */
 UPDATE c
 SET ClassificacaoFinal = CASE
       WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1 THEN 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
+      WHEN om.Classificacao = 'UNIDADE_PENDENTE_TITULACAO_947' AND c.AbertaMesmaPren = 1 THEN 'UNIDADE_PENDENTE_TITULACAO_947'
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' THEN 'TITULACAO_INDIVIDUAL_947'
       WHEN om.Classificacao = 'MATRIZ_947' THEN 'MATRIZ_947'
       WHEN om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1) THEN 'TITULACAO_INDIVIDUAL_947'
@@ -312,6 +313,7 @@ SET ClassificacaoFinal = CASE
     END,
     MotivoExclusao = CASE
       WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1 THEN ISNULL(om.MotivoClassificacao, N'Matrícula intermediária de Condomínio Urbano Simples encerrada na mesma prenotação')
+      WHEN om.Classificacao = 'UNIDADE_PENDENTE_TITULACAO_947' AND c.AbertaMesmaPren = 1 THEN ISNULL(om.MotivoClassificacao, N'Unidade derivada aberta na mesma prenotação (art. 44, § 8º, Lei 13.465/2017)')
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' THEN ISNULL(om.MotivoClassificacao, N'Ato 947 é titulação individual por legitimação fundiária')
       WHEN om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1) THEN N'Ato 947 com adquirente (71) sem abertura de loteamento ou aberta na própria prenotação (titulação individual)'
       ELSE NULL
@@ -323,6 +325,8 @@ SET ClassificacaoFinal = CASE
     AcaoClassificacao = CASE
       WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1
         THEN N'Excluída de #Reg e de derivadas[] (unidades finais já vinculadas à matriz de perímetro; evita dupla contagem)'
+      WHEN om.Classificacao = 'UNIDADE_PENDENTE_TITULACAO_947' AND c.AbertaMesmaPren = 1
+        THEN N'Excluída de #Reg e preservada em derivadas[] com dataRegistro = null (art. 44, § 8º, Lei 13.465/2017)'
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' OR (om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1))
         THEN N'Excluída de #Reg (preservada como derivada para dataRegistro de titulação)'
       ELSE NULL
@@ -690,6 +694,15 @@ WHERE TipoAgente IS NULL
     OR Agente LIKE N'%C_MARA MUNICIPAL%'
   );
 
+/* Confirma TipoAgente (1 ou 2) via OCR quando o nome veio do participante 572/273 sem ente público */
+UPDATE g
+SET TipoAgente      = om.TipoAgenteOcr,
+    FonteTipoAgente = 'OCR_ATO_REGISTRO'
+FROM #Reg g
+JOIN #OcrMatriz om ON om.Prenotacao = g.Prenotacao AND om.Matricula = g.Matricula AND om.NegId = g.NegId
+WHERE g.TipoAgente IS NULL
+  AND om.TipoAgenteOcr IN (1, 2);
+
 /* TipoInteresse (13 -> 1, 27 -> 2; art. 69 -> 3 parametrizado) */
 UPDATE g
 SET TipoInteresse = CASE
@@ -721,6 +734,10 @@ SET Bairro          = ISNULL(NULLIF(LTRIM(RTRIM(m.Bairro)), ''),    g.Bairro),
     QtdMunicipios   = CASE WHEN NULLIF(LTRIM(RTRIM(m.Municipio)), '') IS NOT NULL THEN 1 ELSE g.QtdMunicipios END
 FROM #Reg g
 JOIN #Manual m ON m.Prenotacao = g.Prenotacao AND m.Matricula = g.Matricula;
+
+/* Abreviação automática habilitada por padrão no modo Central (@ModoCentral = 1) */
+IF @ModoCentral = 1
+  SET @PermitirAbreviacaoBairro = 1;
 
 /* Abreviação opcional de bairro (somente quando @PermitirAbreviacaoBairro = 1) */
 IF @PermitirAbreviacaoBairro = 1
@@ -985,6 +1002,14 @@ WHERE NULLIF(LTRIM(RTRIM(g.Distrito)), '') IS NULL
   AND od.QtdDistritos = 1
   AND od.DistritoUnico IS NOT NULL;
 
+/* Fallback de Distrito via Subdistrito cadastrado no WEBRI quando o campo Distrito do imóvel estiver vazio */
+UPDATE #Reg
+SET Distrito      = LTRIM(RTRIM(Subdistrito)),
+    FonteDistrito = 'WEBRI_SUBDISTRITO_FALLBACK'
+WHERE NULLIF(LTRIM(RTRIM(Distrito)), '') IS NULL
+  AND NULLIF(LTRIM(RTRIM(Subdistrito)), '') IS NOT NULL
+  AND LEN(LTRIM(RTRIM(Subdistrito))) <= 30;
+
 /* Regra ONR para Guaianases: quando distrito é GUAIANAZES/GUAIANASES e subdistrito está vazio */
 UPDATE #Reg
 SET Subdistrito = N'GUAIANASES',
@@ -1018,70 +1043,214 @@ WHERE (NULLIF(LTRIM(RTRIM(g.Municipio)), '') IS NULL OR ISNULL(g.QtdMunicipios, 
   AND dm.QtdCidades = 1
   AND dm.CidadeUnica IS NOT NULL;
 
-/* 3e.1c) Desempate de Bairro majoritário confirmado por empreendimento ou maioria (>= 60%) nas derivadas vinculadas */
-;WITH der_bairro_cnt AS (
+/* 3e.1c) Desempate de Bairro por maioria normalizada (>= 60%) ou confirmação em empreendimento nas derivadas vinculadas */
+;WITH der_bairro_raw AS (
   SELECT
     d.Flag,
     d.Prenotacao,
     d.MatrizRealId,
-    NULLIF(LTRIM(RTRIM(lg.Bairro)), '') AS BairroDer,
-    COUNT(DISTINCT d.RealId) AS QtdDerBairro
+    d.RealId AS DerRealId,
+    NULLIF(LTRIM(RTRIM(lg.Bairro)), '') AS BairroRaw,
+    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+      LOWER(NULLIF(LTRIM(RTRIM(lg.Bairro)), '')),
+      N' dos ', N' '), N' das ', N' '), N' do ', N' '), N' da ', N' '), N' de ', N' '),
+      N'.', N''), N' ', N''), N'z', N's') COLLATE Latin1_General_CI_AI AS BairroNorm
   FROM #Der d
   JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
   JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
   JOIN dbo.tblWRILogradouros lg WITH (NOLOCK) ON lg.PK_Id = l.FK_tblWRILogradouros_Id
   WHERE d.MatrizRealId IS NOT NULL
     AND NULLIF(LTRIM(RTRIM(lg.Bairro)), '') IS NOT NULL
-  GROUP BY d.Flag, d.Prenotacao, d.MatrizRealId, NULLIF(LTRIM(RTRIM(lg.Bairro)), '')
-), der_bairro_tot AS (
+), der_bairro_cnt AS (
   SELECT
-    Flag, Prenotacao, MatrizRealId, BairroDer, QtdDerBairro,
-    SUM(QtdDerBairro) OVER (PARTITION BY Flag, Prenotacao, MatrizRealId) AS TotalDerComBairro
+    Flag,
+    Prenotacao,
+    MatrizRealId,
+    BairroNorm,
+    MIN(BairroRaw) AS BairroCanon,
+    COUNT(DISTINCT DerRealId) AS QtdDerBairro
+  FROM der_bairro_raw
+  GROUP BY Flag, Prenotacao, MatrizRealId, BairroNorm
+), der_bairro_ranked AS (
+  SELECT
+    Flag, Prenotacao, MatrizRealId, BairroNorm, BairroCanon, QtdDerBairro,
+    SUM(QtdDerBairro) OVER (PARTITION BY Flag, Prenotacao, MatrizRealId) AS TotalDerComBairro,
+    ROW_NUMBER() OVER (PARTITION BY Flag, Prenotacao, MatrizRealId ORDER BY QtdDerBairro DESC, BairroCanon ASC) AS rn
   FROM der_bairro_cnt
+), der_bairro_maj AS (
+  SELECT
+    r.Flag,
+    r.Prenotacao,
+    r.MatrizRealId,
+    CASE
+      WHEN @PermitirAbreviacaoBairro = 1 AND LEN(r.BairroCanon) > 30 THEN LTRIM(RTRIM(
+        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+          r.BairroCanon,
+          N'Conjunto Habitacional ', N'Cj.Hab.'),
+          N'CONJUNTO HABITACIONAL ', N'Cj.Hab.'),
+          N'Jardim ', N'Jd.'),
+          N'JARDIM ', N'Jd.'),
+          N'Vila ', N'Vl.'),
+          N'Parque ', N'Pq.')
+      ))
+      ELSE r.BairroCanon
+    END AS BairroFinal,
+    r.BairroCanon,
+    r.QtdDerBairro,
+    r.TotalDerComBairro
+  FROM der_bairro_ranked r
+  WHERE r.rn = 1
 )
 UPDATE g
-SET Bairro = lm.BairroMaj,
+SET Bairro = dbm.BairroFinal,
     FonteBairro = 'WEBRI_LOGRADOURO_CONFIRMADO',
     BairroSugerido = NULL,
     FonteBairroSugerido = NULL
 FROM #Reg g
-JOIN #LocBairroMaj lm ON lm.RealId = g.RealId AND lm.Prenotacao = g.Prenotacao
-LEFT JOIN der_bairro_tot dbt
-  ON dbt.Flag = g.Flag AND dbt.Prenotacao = g.Prenotacao AND dbt.MatrizRealId = g.RealId
- AND dbt.BairroDer COLLATE Latin1_General_CI_AI = lm.BairroMaj COLLATE Latin1_General_CI_AI
+JOIN der_bairro_maj dbm ON dbm.Flag = g.Flag AND dbm.Prenotacao = g.Prenotacao AND dbm.MatrizRealId = g.RealId
 WHERE NULLIF(LTRIM(RTRIM(g.Bairro)), '') IS NULL
-  AND NULLIF(LTRIM(RTRIM(lm.BairroMaj)), '') IS NOT NULL
-  AND LEN(LTRIM(RTRIM(lm.BairroMaj))) <= 30
+  AND LEN(dbm.BairroFinal) <= 30
   AND (
-       (NULLIF(LTRIM(RTRIM(g.Empreendimento)), '') IS NOT NULL AND g.Empreendimento COLLATE Latin1_General_CI_AI LIKE N'%' + LTRIM(RTRIM(lm.BairroMaj)) + N'%')
-    OR (dbt.TotalDerComBairro > 0 AND (dbt.QtdDerBairro * 100.0 / dbt.TotalDerComBairro) >= 60.0)
+       (dbm.TotalDerComBairro > 0 AND (dbm.QtdDerBairro * 100.0 / dbm.TotalDerComBairro) >= 60.0)
+    OR (NULLIF(LTRIM(RTRIM(g.Empreendimento)), '') IS NOT NULL AND g.Empreendimento COLLATE Latin1_General_CI_AI LIKE N'%' + LTRIM(RTRIM(dbm.BairroCanon)) + N'%')
   );
 
-/* 3e.1d) Fallback de Bairro unânime nas derivadas da prenotação (quando a matriz não possui bairro cadastrado) */
-;WITH pren_der_bairro AS (
+/* 3e.1d) Fallback de Bairro majoritário normalizado (>= 60%) nas derivadas da prenotação */
+;WITH pren_der_raw AS (
   SELECT
     d.Flag,
     d.Prenotacao,
-    COUNT(DISTINCT NULLIF(LTRIM(RTRIM(lg.Bairro)), '')) AS QtdBairrosDer,
-    MIN(NULLIF(LTRIM(RTRIM(lg.Bairro)), '')) AS BairroUnicoDer
+    d.RealId AS DerRealId,
+    NULLIF(LTRIM(RTRIM(lg.Bairro)), '') AS BairroRaw,
+    REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+      LOWER(NULLIF(LTRIM(RTRIM(lg.Bairro)), '')),
+      N' dos ', N' '), N' das ', N' '), N' do ', N' '), N' da ', N' '), N' de ', N' '),
+      N'.', N''), N' ', N''), N'z', N's') COLLATE Latin1_General_CI_AI AS BairroNorm
   FROM #Der d
   JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
   JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
   JOIN dbo.tblWRILogradouros lg WITH (NOLOCK) ON lg.PK_Id = l.FK_tblWRILogradouros_Id
   WHERE NULLIF(LTRIM(RTRIM(lg.Bairro)), '') IS NOT NULL
-  GROUP BY d.Flag, d.Prenotacao
+), pren_der_cnt AS (
+  SELECT
+    Flag, Prenotacao, BairroNorm,
+    MIN(BairroRaw) AS BairroCanon,
+    COUNT(DISTINCT DerRealId) AS QtdDerBairro
+  FROM pren_der_raw
+  GROUP BY Flag, Prenotacao, BairroNorm
+), pren_der_ranked AS (
+  SELECT
+    Flag, Prenotacao, BairroCanon, QtdDerBairro,
+    SUM(QtdDerBairro) OVER (PARTITION BY Flag, Prenotacao) AS TotalDerBairro,
+    ROW_NUMBER() OVER (PARTITION BY Flag, Prenotacao ORDER BY QtdDerBairro DESC, BairroCanon ASC) AS rn
+  FROM pren_der_cnt
+), pren_der_maj AS (
+  SELECT
+    r.Flag, r.Prenotacao, r.QtdDerBairro, r.TotalDerBairro,
+    CASE
+      WHEN @PermitirAbreviacaoBairro = 1 AND LEN(r.BairroCanon) > 30 THEN LTRIM(RTRIM(
+        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+          r.BairroCanon,
+          N'Conjunto Habitacional ', N'Cj.Hab.'),
+          N'CONJUNTO HABITACIONAL ', N'Cj.Hab.'),
+          N'Jardim ', N'Jd.'),
+          N'JARDIM ', N'Jd.'),
+          N'Vila ', N'Vl.'),
+          N'Parque ', N'Pq.')
+      ))
+      ELSE r.BairroCanon
+    END AS BairroFinal
+  FROM pren_der_ranked r
+  WHERE r.rn = 1
 )
 UPDATE g
-SET Bairro = pb.BairroUnicoDer,
+SET Bairro = pdm.BairroFinal,
     FonteBairro = 'WEBRI_DERIVADAS_BAIRRO',
     BairroSugerido = NULL,
     FonteBairroSugerido = NULL
 FROM #Reg g
-JOIN pren_der_bairro pb ON pb.Flag = g.Flag AND pb.Prenotacao = g.Prenotacao
+JOIN pren_der_maj pdm ON pdm.Flag = g.Flag AND pdm.Prenotacao = g.Prenotacao
 WHERE NULLIF(LTRIM(RTRIM(g.Bairro)), '') IS NULL
-  AND ISNULL(g.QtdBairros, 0) = 0
-  AND pb.QtdBairrosDer = 1
-  AND LEN(LTRIM(RTRIM(pb.BairroUnicoDer))) <= 30;
+  AND pdm.TotalDerBairro > 0
+  AND (pdm.QtdDerBairro * 100.0 / pdm.TotalDerBairro) >= 60.0
+  AND LEN(pdm.BairroFinal) <= 30;
+
+/* 3e.1e) Fallback por logradouro específico da matriz (exclui repetições genéricas do nome do Distrito) */
+;WITH loc_esp_cnt AS (
+  SELECT
+    lr.RealId,
+    lr.Prenotacao,
+    LTRIM(RTRIM(lr.BairroLog)) AS BairroLog,
+    COUNT(*) AS Qtd
+  FROM #LocRaw lr
+  JOIN #Reg g ON g.RealId = lr.RealId AND g.Prenotacao = lr.Prenotacao
+  WHERE NULLIF(LTRIM(RTRIM(lr.BairroLog)), '') IS NOT NULL
+    AND UPPER(LTRIM(RTRIM(lr.BairroLog))) COLLATE Latin1_General_CI_AI <> UPPER(LTRIM(RTRIM(ISNULL(g.Distrito, N'')))) COLLATE Latin1_General_CI_AI
+    AND NOT (
+      UPPER(LTRIM(RTRIM(ISNULL(g.Distrito, N'')))) IN (N'GUAIANAZES', N'GUAIANASES')
+      AND UPPER(LTRIM(RTRIM(lr.BairroLog))) IN (N'GUAIANAZES', N'GUAIANASES')
+    )
+  GROUP BY lr.RealId, lr.Prenotacao, LTRIM(RTRIM(lr.BairroLog))
+), loc_esp_ranked AS (
+  SELECT
+    RealId,
+    Prenotacao,
+    BairroLog,
+    Qtd,
+    SUM(Qtd) OVER (PARTITION BY RealId, Prenotacao) AS TotalEsp,
+    COUNT(*) OVER (PARTITION BY RealId, Prenotacao) AS QtdDistintos,
+    ROW_NUMBER() OVER (PARTITION BY RealId, Prenotacao ORDER BY Qtd DESC, BairroLog ASC) AS rn
+  FROM loc_esp_cnt
+), loc_esp_best AS (
+  SELECT
+    r.RealId,
+    r.Prenotacao,
+    r.Qtd,
+    r.TotalEsp,
+    r.QtdDistintos,
+    CASE
+      WHEN @PermitirAbreviacaoBairro = 1 AND LEN(r.BairroLog) > 30 THEN LTRIM(RTRIM(
+        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+          r.BairroLog,
+          N'Conjunto Habitacional ', N'Cj.Hab.'),
+          N'CONJUNTO HABITACIONAL ', N'Cj.Hab.'),
+          N'Jardim ', N'Jd.'),
+          N'JARDIM ', N'Jd.'),
+          N'Vila ', N'Vl.'),
+          N'Parque ', N'Pq.')
+      ))
+      ELSE r.BairroLog
+    END AS BairroFinal
+  FROM loc_esp_ranked r
+  WHERE r.rn = 1
+)
+UPDATE g
+SET Bairro = leb.BairroFinal,
+    FonteBairro = 'WEBRI_LOGRADOURO_ESPECIFICO',
+    BairroSugerido = NULL,
+    FonteBairroSugerido = NULL
+FROM #Reg g
+JOIN loc_esp_best leb ON leb.RealId = g.RealId AND leb.Prenotacao = g.Prenotacao
+WHERE NULLIF(LTRIM(RTRIM(g.Bairro)), '') IS NULL
+  AND LEN(leb.BairroFinal) <= 30
+  AND (leb.QtdDistintos = 1 OR (leb.TotalEsp > 0 AND (leb.Qtd * 100.0 / leb.TotalEsp) >= 60.0));
+
+/* Garante abreviação <= 30 chars após fallbacks quando @PermitirAbreviacaoBairro = 1 */
+IF @PermitirAbreviacaoBairro = 1
+BEGIN
+  UPDATE #Reg
+  SET Bairro = LTRIM(RTRIM(
+        REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+          Bairro,
+          N'Conjunto Habitacional ', N'Cj.Hab.'),
+          N'CONJUNTO HABITACIONAL ', N'Cj.Hab.'),
+          N'Jardim ', N'Jd.'),
+          N'JARDIM ', N'Jd.'),
+          N'Vila ', N'Vl.'),
+          N'Parque ', N'Pq.')
+      ))
+  WHERE Bairro IS NOT NULL AND LEN(Bairro) > 30;
+END;
 
 /* 3e.2) Fallback de Empreendimento via tblWRIRecepcao.Outorgado e loteamento majoritário das derivadas */
 UPDATE g
@@ -1185,6 +1354,10 @@ WHERE d.IncluirNaListaDerivadas = 0 OR d.ContarEmQtdUnidades = 0;
       OR (an.FK_tblWRINegocios_Id = 947 AND NOT EXISTS (
             SELECT 1 FROM #Reg g
             WHERE g.RealId = d.RealId AND g.Flag = rc.PK_FlagRecepcao AND g.Prenotacao = rc.PK_Recepcao
+         ) AND NOT EXISTS (
+            SELECT 1 FROM #RegCand rc2
+            WHERE rc2.RealId = d.RealId AND rc2.Flag = rc.PK_FlagRecepcao AND rc2.Prenotacao = rc.PK_Recepcao
+              AND rc2.ClassificacaoFinal IN ('UNIDADE_PENDENTE_TITULACAO_947', 'CONDOMINIO_SIMPLES_INTERMEDIARIO')
          ))
   )
     AND an.FK_tblWRINegocios_Id NOT IN (72, 614, 946, 616, 447, 461)
@@ -1317,10 +1490,10 @@ INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'bairro', 'MEDIA',
 FROM #Reg WHERE Bairro IS NOT NULL AND FonteBairro = 'WEBRI_LOGRADOURO_UNICO';
 
 INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'bairro', 'MEDIA',
-  N'Bairro majoritário confirmado via empreendimento/derivadas ou unânime nas derivadas: ' + Bairro,
+  N'Bairro majoritário confirmado via empreendimento/derivadas ou logradouro específico: ' + Bairro,
   ISNULL(FonteBairro, N'WEBRI'),
   N'Conferir com matrícula/CRF'
-FROM #Reg WHERE Bairro IS NOT NULL AND FonteBairro IN ('WEBRI_LOGRADOURO_CONFIRMADO', 'WEBRI_DERIVADAS_BAIRRO');
+FROM #Reg WHERE Bairro IS NOT NULL AND FonteBairro IN ('WEBRI_LOGRADOURO_CONFIRMADO', 'WEBRI_DERIVADAS_BAIRRO', 'WEBRI_LOGRADOURO_ESPECIFICO');
 
 INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'municipio', 'INFO',
   N'Município obtido de forma unânime nas matrículas derivadas vinculadas: ' + Municipio,
@@ -1365,6 +1538,12 @@ INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'distrito', 'INFO',
   FonteDistrito,
   N'Informativo — matriz recém-aberta sem distrito preenchido diretamente'
 FROM #Reg WHERE FonteDistrito IN ('WEBRI_DERIVADAS_DISTRITO', 'WEBRI_ORIGEM_DISTRITO');
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'distrito', 'INFO',
+  N'Distrito preenchido pelo Subdistrito cadastrado no imóvel: ' + Distrito,
+  FonteDistrito,
+  N'Informativo — campo Distrito vazio no cadastro WEBRI do imóvel'
+FROM #Reg WHERE FonteDistrito = 'WEBRI_SUBDISTRITO_FALLBACK';
 
 INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'subdistrito', 'INFO',
   N'Subdistrito preenchido automaticamente como GUAIANASES (regra ONR para distrito Guaianases)',

@@ -215,4 +215,83 @@ describe('REURB Somente-Leitura & Regras ONR v1.4 (fiorix-connector)', () => {
     expect(k1).toBe(k2);
     expect(k1).not.toBe(k3);
   });
+
+  it('extrai faixas com ruído OCR (Fcram abertas, ponto e vírgula e ponto final após matrícula)', () => {
+    const allowed = new Set([214336, 214337, 229051, 229052, 247029, 247030]);
+    const txt = [
+      'Av. 05 (PRENOTAÇÃO 584.897). Fcram abertas, nesta data, sob os nºs 247.029 a 247.030. selo: A',
+      'Av. 06 (PRENOTAÇÃO 478.965). Foram abertas, nesta data; sob os nos 214.336 a 214.337, as matrículas. selo: B',
+      'Av. 06 (PRENOTAÇÃO 511.051). Foram abertas, nesta data, sob os nºs 229.051. a 229.052, as matrículas. selo: C',
+    ].join(' ');
+    expect(
+      extractOpenedRangesFromOcr(txt, allowed)
+        .map((x) => x.matriculaDerivada)
+        .sort((a, b) => a - b),
+    ).toEqual([214336, 214337, 229051, 229052, 247029, 247030]);
+  });
+
+  it('ignora falso positivo "confirmada pelo" ao extrair agente e reconhece proprietário privado (tipoAgente=2)', () => {
+    const acTexto =
+      'Av. 01 confirmada pelo V. Acórdão para retornar à Massa Insolvente. R. 02 Pelo requerimento firmado pela Secretaria Municipal da Habitação da Prefeitura de São Paulo - SEHAB.';
+    const agPub = extractAgentFromOcr(acTexto);
+    expect(agPub.agente).toBe('SECRETARIA MUNICIPAL DA HABITAÇÃO DA PREFEITURA DE SÃO PAULO - SEHAB');
+    expect(agPub.tipoAgente).toBe(1);
+
+    const privTexto =
+      'R. 10 Pelo requerimento firmado pelos proprietários ANTONIO CARLOS TERRANOVA e sua mulher, todos já qualificados, procede-se o presente registro.';
+    const agPriv = extractAgentFromOcr(privTexto);
+    expect(agPriv.tipoAgente).toBe(2);
+  });
+
+  it('extrai Núcleo/bairro com OCR ruidoso e não marca apartamento/lote em Viela como via pública', () => {
+    expect(
+      extractBairroFromOcr(
+        'IMÓVEL: TERRENO lotes 163 e 164, da quadra A, Núcieo Lageado, em GUAIANAZES, com a seguinte descrição:',
+        '',
+      ).bairroExpresso,
+    ).toBe('Núcleo Lageado');
+
+    expect(
+      extractBairroFromOcr(
+        'IMÓVEL: TERRENO designado como lote nº 01, do Jardim Nazareth III, ÁREA 1, no DISTRITO DE GUAIANAZES, com a seguinte descrição:',
+        '',
+      ).bairroExpresso,
+    ).toBe('Jardim Nazareth III');
+
+    expect(
+      extractBairroFromOcr(
+        'IMÓVEL: TERRENO situado na Avenida Bento Guelfi, Núcleo Urbano JARDIM CANAÃ em GUAIANAZES, com a seguinte descrição:',
+        '',
+      ).bairroExpresso,
+    ).toBe('JARDIM CANAÃ');
+
+    const aptViela =
+      'IMÓVEL: APARTAMENTO n. 11, do núcleo JARDIM NAZARETH III, situado na Viela Natal nº 23, em GUAIANAZES, com área privativa de 48m2.';
+    expect(classifyDerivadaHeader(246995, aptViela).EhAreaPublica).toBe(false);
+
+    const loteViela =
+      'IMÓVEL: TERRENO situado na Viela Sem Denominação, LOTE A, do Núcleo Urbano "S/D", em GUAIANAZES, com a seguinte descrição:';
+    expect(classifyDerivadaHeader(257093, loteViela).EhAreaPublica).toBe(false);
+
+    const leitoOcr =
+      'IMÓVEL TERRENO representado pelo lerto da Travessa Maria José de Barros, antiga Viela Sem Denominacão, em GUAIANAZES, tem início na divisa';
+    expect(classifyDerivadaHeader(257121, leitoOcr).EhAreaPublica).toBe(true);
+    expect(classifyDerivadaHeader(257121, leitoOcr).Categoria).toBe('VIA_PUBLICA');
+  });
+
+  it('classifica unidade art. 44 § 8º pendente de titulação separadamente de matriz', () => {
+    const pendTitTxt =
+      'Av. 02 (PRENOTAÇÃO nº 611.816). Matrícula aberta nos termos do requerimento datado de 31/03/2025, permanecendo, a presente unidade imobiliária, pendente de titulação a teor do que dispõe o artigo 44, § 8º da lei n. 13.465/2017.';
+    const resMesmaPren = classifyMatrixOcr(
+      { Prenotacao: 611816, Matricula: 256023, NegId: 947, Tem71: 0, QtdSeq0: 1686 },
+      pendTitTxt,
+    );
+    expect(resMesmaPren.Classificacao).toBe('UNIDADE_PENDENTE_TITULACAO_947');
+
+    const resPosterior = classifyMatrixOcr(
+      { Prenotacao: 612622, Matricula: 252354, NegId: 947, Tem71: 0, QtdSeq0: 0 },
+      pendTitTxt,
+    );
+    expect(resPosterior.Classificacao).toBe('TITULACAO_INDIVIDUAL_947');
+  });
 });
