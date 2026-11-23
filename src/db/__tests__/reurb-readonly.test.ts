@@ -74,6 +74,29 @@ describe('REURB Somente-Leitura & Regras ONR v1.4 (fiorix-connector)', () => {
     expect(res.DocumentoOcr).toBe('SiplanIA.matricula 183967 (origem na prot. 649975)');
   });
 
+  it('extrai bairro urbano de cabeçalho IMÓVEL sem palavra literal "bairro" até 30 chars e descarta > 30 chars', () => {
+    const fanganielo =
+      'IMÓVEL: TERRENO situado nas ruas Alessio Prati (designado Perímetro 11), no Jardim Fanganielo, em GUAIANAZES (CEP: 08450-530), com a seguinte descrição:';
+    expect(extractBairroFromOcr(fanganielo, '').bairroExpresso).toBe('Jardim Fanganielo');
+
+    const longo =
+      'IMÓVEL: TERRENO situado na rua Um, no Jardim Residencial Muito Extenso Mesmo, em GUAIANAZES (CEP: 08450-530), com a seguinte descrição:';
+    expect(extractBairroFromOcr(longo, '').bairroExpresso).toBeNull();
+  });
+
+  it('classifica matrícula 947 de Condomínio Urbano Simples encerrado como CONDOMINIO_SIMPLES_INTERMEDIARIO', () => {
+    const condSimplesTexto = `
+      IMÓVEL: TERRENO situado na rua Andreas de Silva, lote 06, da quadra 10, do Núcleo Urbano denominado "JARDIM BANDEIRANTES", em GUAIANAZES.
+      R. 02, em 23 de setembro de 2026- (PRENOTAÇÃO nº 644.587 de 10/09/2026). ... foi destinado ao regime de condomínio, de conformidade com os artigos 61 e 62 da Lei Federal nº 13.465/2017, denominado "CONDOMÍNIO URBANO SIMPLES do Lote 06 da Quadra 10" ...
+      Av. 03 - fica ENCERRADA a disponibilidade de área desta matrícula, nos termos do art. 233 da Lei 6.015/73.
+    `;
+    const res = classifyMatrixOcr(
+      { Prenotacao: 644587, Matricula: 266869, NegId: 947, Tem71: 0, QtdSeq0: 1 },
+      condSimplesTexto,
+    );
+    expect(res.Classificacao).toBe('CONDOMINIO_SIMPLES_INTERMEDIARIO');
+  });
+
   it('separa áreas públicas (APM/Via/Institucional) apenas pelo cabeçalho IMÓVEL, sem falso positivo em confrontações', () => {
     const loteHabitacional =
       'IMÓVEL: Lote 12 da quadra B, do núcleo Sítio Conceição, nesta Capital, com a seguinte descrição perimetral: partindo-se do ponto 1, confrontando com APM-1 nos fundos, mede 10,00m.';

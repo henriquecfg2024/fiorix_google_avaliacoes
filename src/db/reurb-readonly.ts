@@ -349,7 +349,16 @@ export function extractBairroFromOcr(texto: string, prenText: string): {
   const explicit = `${clause} ${prenText || ''}`.match(
     /(?:\bno\s+|,\s*)bairro\s+(?:d[eao]\s+)?["“]?([A-Za-zÀ-ÿ0-9\s\.\-\/]{3,60}?)(?:["”]|,|\.|;|\s+n[oa]\s+distrito|\s+em\s+Guaianazes|\s+desta)/i,
   );
-  const bairroExpresso = explicit ? explicit[1].trim() : null;
+  let bairroExpresso = explicit ? explicit[1].trim() : null;
+  if (!bairroExpresso) {
+    const urbanMatch = clause.match(
+      /(?:,\s*|\)\s*,?\s*)n[oa]\s+((?:Jardim|Vila|Parque|Cidade|Ch[aá]cara)\s+[A-Za-zÀ-ÿ0-9\s\.\-\/]{2,40}?)(?:\s*,\s*(?:em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito|n[oa]\s+subdistrito|desta|nesta)|\s+n[oa]\s+distrito|\s+em\s+GUAIANA[SZ]ES)/i,
+    );
+    const candidate = urbanMatch ? urbanMatch[1].replace(/\s+/g, ' ').trim() : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
 
   const sugMatch = clause.match(
     /(?:N[úu]cleo(?:\s+Urbano(?:\s+Informal)?)?|Conjunto\s+Habitacional|loteamento)\s+(?:denominad[oa]\s+)?["“]?([^,"”;\.]{3,70})["”]?/i,
@@ -521,12 +530,17 @@ export function classifyMatrixOcr(
     const hasAbertura = /FORAM\s+ABERTAS|abertas,?\s*nesta\s+data|receberam\s+os\s+n['º°o]/i.test(scope);
     const hasProjeto = /Projeto\s+de\s+Regulariza[cç][aã]o\s+Fundi[aá]ria|subdividindo\s+a\s+[aá]rea\s+em/i.test(scope);
     const hasLegit = /TITULA[CÇG][AÃ]O\s+por|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r|\bart\.?\s*23\b.{0,40}13\.?465/i.test(scope);
+    const hasCondUrbSimples = /CONDOM[IÍ]NIO\s+URBANO\s+SIMPLES/i.test(scope);
+    const hasEncerrada = /ENCERRADA\s+a\s+disponibilidade\s+de\s+[aá]rea|art\.?\s*233\s+da\s+Lei\s+6\.?015/i.test(scope);
     const temReurb = /\bREURB(?:-[SEI])?\b|Regulariza[cç][aã]o\s+Fundi[aá]ria|13\.?465/i.test(scope);
     const temCrf = /Certid[aã]o\s+de\s+Regulariza[cç][aã]o\s+Fundi[aá]ria|\bCRF\b/i.test(scope);
 
     let classificacao = 'MATRIZ_947';
     let motivo = 'Matriz com registro de Projeto de Regularização Fundiária / CRF';
-    if (
+    if (hasCondUrbSimples && hasEncerrada && !hasProjeto) {
+      classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO';
+      motivo = 'Matrícula intermediária de Condomínio Urbano Simples (arts. 61/62 Lei 13.465/2017) encerrada após abertura das unidades finais';
+    } else if (
       (hasLegit && !hasAbertura && !hasProjeto) ||
       (!hasAbertura && !hasProjeto && row.Tem71 > 0 && row.QtdSeq0 === 0)
     ) {
@@ -536,9 +550,11 @@ export function classifyMatrixOcr(
 
     const trechoClass = extractSnippet(
       scope,
-      classificacao === 'TITULACAO_INDIVIDUAL_947'
-        ? /TITULA[CÇG][AÃ]O|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r/i
-        : /Regulariza[cç][aã]o\s+Fundi[aá]ria|Certid[aã]o\s+de\s+Regulariza[cç][aã]o|FORAM\s+ABERTAS/i,
+      classificacao === 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
+        ? /CONDOM[IÍ]NIO\s+URBANO\s+SIMPLES|ENCERRADA\s+a\s+disponibilidade/i
+        : classificacao === 'TITULACAO_INDIVIDUAL_947'
+          ? /TITULA[CÇG][AÃ]O|LEGITIM[A-Z]{1,6}[CÇ][AÃ]O\s+FUNDI[AÁ]R|[IL1]istagem\s+de\s+Benefici[aá]r/i
+          : /Regulariza[cç][aã]o\s+Fundi[aá]ria|Certid[aã]o\s+de\s+Regulariza[cç][aã]o|FORAM\s+ABERTAS/i,
       160,
     );
 
@@ -1103,7 +1119,13 @@ export async function extrairLoteReurbReadOnly(
         );
         const validMatricesByPren = new Map<number, Set<number>>();
         for (const r of ocrMatrizRows) {
-          if (r.Classificacao === 'TITULACAO_INDIVIDUAL_947' || r.Classificacao === 'CONDOMINIO_616_NAO_REURB') continue;
+          if (
+            r.Classificacao === 'TITULACAO_INDIVIDUAL_947' ||
+            r.Classificacao === 'CONDOMINIO_616_NAO_REURB' ||
+            r.Classificacao === 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
+          ) {
+            continue;
+          }
           if (!validMatricesByPren.has(r.Prenotacao)) validMatricesByPren.set(r.Prenotacao, new Set());
           validMatricesByPren.get(r.Prenotacao)!.add(r.Matricula);
         }

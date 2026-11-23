@@ -301,15 +301,17 @@ SELECT
 INTO #PrenMeta
 FROM (SELECT DISTINCT Flag, Prenotacao FROM #RegCand) c;
 
-/* Classificação inicial de atos 947 (separa matriz REURB vs titulação individual por legitimação fundiária) */
+/* Classificação inicial de atos 947 (separa matriz REURB vs titulação individual vs condomínio simples intermediário) */
 UPDATE c
 SET ClassificacaoFinal = CASE
+      WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1 THEN 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' THEN 'TITULACAO_INDIVIDUAL_947'
       WHEN om.Classificacao = 'MATRIZ_947' THEN 'MATRIZ_947'
       WHEN om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1) THEN 'TITULACAO_INDIVIDUAL_947'
       ELSE 'MATRIZ_947'
     END,
     MotivoExclusao = CASE
+      WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1 THEN ISNULL(om.MotivoClassificacao, N'Matrícula intermediária de Condomínio Urbano Simples encerrada na mesma prenotação')
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' THEN ISNULL(om.MotivoClassificacao, N'Ato 947 é titulação individual por legitimação fundiária')
       WHEN om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1) THEN N'Ato 947 com adquirente (71) sem abertura de loteamento ou aberta na própria prenotação (titulação individual)'
       ELSE NULL
@@ -319,6 +321,8 @@ SET ClassificacaoFinal = CASE
       ELSE N'WEBRI tblWRIAtosNegocios(947) / tblWRIAtosParticipantes(71)'
     END,
     AcaoClassificacao = CASE
+      WHEN om.Classificacao = 'CONDOMINIO_SIMPLES_INTERMEDIARIO' AND c.AbertaMesmaPren = 1
+        THEN N'Excluída de #Reg e de derivadas[] (unidades finais já vinculadas à matriz de perímetro; evita dupla contagem)'
       WHEN om.Classificacao = 'TITULACAO_INDIVIDUAL_947' OR (om.Matricula IS NULL AND c.TemAdquirente71 = 1 AND (pm.QtdSeq0Pren = 0 OR c.AbertaMesmaPren = 1))
         THEN N'Excluída de #Reg (preservada como derivada para dataRegistro de titulação)'
       ELSE NULL
@@ -755,7 +759,7 @@ CREATE TABLE #Der (
   Vinculo                   VARCHAR(40) NULL,
   VinculoAmbiguo            BIT NOT NULL DEFAULT 0,
   EhCondominioIntermediario BIT NOT NULL DEFAULT 0,
-  Categoria                 VARCHAR(30) NOT NULL DEFAULT 'UNIDADE',
+  Categoria                 VARCHAR(40) NOT NULL DEFAULT 'UNIDADE',
   EhAreaPublica             BIT NOT NULL DEFAULT 0,
   MotivoExclusao            NVARCHAR(400) NULL,
   DocumentoOcr              NVARCHAR(120) NULL,
@@ -799,6 +803,19 @@ WHERE EXISTS (
     AND at6.FK_tblWRIRecepcaoFlagRecepcao = d.Flag
     AND at6.FK_tblWRIRecepcaoRecepcao = d.Prenotacao
 );
+
+/* Derivada intermediária de Condomínio Urbano Simples (arts. 61/62 Lei 13.465/2017) encerrada após abrir unidades finais */
+UPDATE d
+SET EhCondominioIntermediario = 1,
+    Categoria = 'CONDOMINIO_SIMPLES_INTERMEDIARIO',
+    MotivoExclusao = N'Matrícula intermediária de Condomínio Urbano Simples encerrada após abertura das unidades finais'
+FROM #Der d
+WHERE d.EhCondominioIntermediario = 0
+  AND EXISTS (
+    SELECT 1 FROM #RegCand c
+    WHERE c.RealId = d.RealId AND c.Flag = d.Flag AND c.Prenotacao = d.Prenotacao
+      AND c.ClassificacaoFinal = 'CONDOMINIO_SIMPLES_INTERMEDIARIO'
+  );
 
 /* 3a) Vínculo por filiação (tblWRIRealFiliacao — protegido por TRY/CATCH) */
 CREATE TABLE #Fil (RealId INT, OrigemId INT);

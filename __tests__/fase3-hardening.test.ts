@@ -45,8 +45,8 @@ describe('Fase 3 Hardening — Healthcheck Completo, LAN URL, SQL Encrypt e Cons
     else process.env.CARTORIO_VIRTUAL_SQL_ENABLED = savedCvEnv;
   });
 
-  it('atualiza AGENT_VERSION para v2.6.28', () => {
-    expect(AGENT_VERSION).toBe('v2.6.28');
+  it('atualiza AGENT_VERSION para v2.6.29', () => {
+    expect(AGENT_VERSION).toBe('v2.6.29');
   });
 
   it('LOW-02: monitora staleness e falhas consecutivas de colaboradores_rh e cartorio_virtual_certidoes', () => {
