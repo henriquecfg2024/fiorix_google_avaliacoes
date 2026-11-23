@@ -524,4 +524,55 @@ describe('Central REURB — RBAC, Exportação e Revalidação Fail-Closed', () 
       expect(conf.exportacao.statusImportacaoOnr).toBe('CONFIRMADA_ONR');
     }
   });
+
+  it('bloqueia revalidação fail-closed (503) e preserva o banco quando ocrConsultado retorna false', async () => {
+    const dbRow = makeDbRowFromDto(getDemoReurbRegularizacoes()[0]!, 'db-900101');
+    mocks.prisma.fiorixReurbRegularizacao.findMany.mockResolvedValue([dbRow]);
+    mocks.resolveEffectiveDocumentConnector.mockResolvedValue({
+      connectorId: 'conn-1',
+      lastSeenAt: new Date(),
+      version: 'v2.6.27',
+    });
+    mocks.createJob.mockResolvedValue('job-no-ocr-1');
+    mocks.readSearch.mockResolvedValue({
+      id: 'job-no-ocr-1',
+      type: 'reurb_revalidar',
+      query: '{}',
+      status: 'complete',
+      result: {
+        sucesso: true,
+        ocrConsultado: false,
+        ocrErro: 'ECONNREFUSED 10.0.0.6:5432',
+        revalidadoEm: '2026-11-23T13:30:00.000Z',
+        registros: [],
+      },
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mocks.prisma.fiorixReurbExportacao.create.mockResolvedValue({ id: 'exp-no-ocr-1' });
+
+    const res = await executarGeracaoJsonReurb({
+      ctx: {
+        user: { id: 'u-1', tenantId: 'tenant-1', role: 'ADMIN', name: 'Admin' },
+        canView: true,
+        canExportJson: true,
+        canConfirmImport: true,
+        isReadOnly: false,
+      },
+      ids: ['db-900101'],
+      tipo: 'UNITARIA',
+    });
+
+    expect(res.ok).toBe(false);
+    expect(res.statusHttp).toBe(503);
+    expect(res.error).toContain('SRVSIPLANIA');
+    expect(mocks.prisma.fiorixReurbRegularizacao.upsert).not.toHaveBeenCalled();
+    expect(mocks.prisma.fiorixReurbExportacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          statusGeracao: 'FALHA',
+          ocrConsultado: false,
+        }),
+      })
+    );
+  });
 });

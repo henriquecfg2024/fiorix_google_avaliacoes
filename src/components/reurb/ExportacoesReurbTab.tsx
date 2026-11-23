@@ -33,6 +33,25 @@ interface MixedModalData {
   }>;
 }
 
+function formatarBloqueiosAgrupados(
+  bloqueios: Array<{ campo: string; motivo: string }>,
+  separador = ' | '
+): string {
+  const counts = new Map<string, { texto: string; qtd: number }>();
+  for (const bl of bloqueios) {
+    const chave = `${bl.campo}|${bl.motivo}`;
+    const prev = counts.get(chave);
+    if (prev) {
+      prev.qtd += 1;
+    } else {
+      counts.set(chave, { texto: `${bl.campo}: ${bl.motivo}`, qtd: 1 });
+    }
+  }
+  return Array.from(counts.values())
+    .map((item) => (item.qtd > 1 ? `${item.texto} (×${item.qtd})` : item.texto))
+    .join(separador);
+}
+
 interface ConfirmOnrTarget {
   exportacao: ReurbExportacaoDTO;
   protocoloOnrExterno: string;
@@ -242,7 +261,7 @@ export function ExportacoesReurbTab({
               {blockedList.map((b) => (
                 <div key={b.matricula} className="rounded-lg border border-rose-500/25 bg-[#070A12] p-2">
                   <strong>Matrícula {b.matricula} (Prot. {b.protocolo}):</strong>{' '}
-                  {b.bloqueios.map((bl) => `${bl.campo}: ${bl.motivo}`).join(' | ')}
+                  {formatarBloqueiosAgrupados(b.bloqueios, ' | ')}
                 </div>
               ))}
             </div>
@@ -513,7 +532,7 @@ export function ExportacoesReurbTab({
                     Barrada: Matrícula {b.matricula} (Prot. {b.protocolo})
                   </div>
                   <div className="text-slate-300 mt-0.5">
-                    {b.bloqueios.map((bl) => `${bl.campo}: ${bl.motivo}`).join(' · ')}
+                    {formatarBloqueiosAgrupados(b.bloqueios, ' · ')}
                   </div>
                 </div>
               ))}

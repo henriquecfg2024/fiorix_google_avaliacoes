@@ -107,7 +107,7 @@ export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
     status: 'ATIVO',
     title: 'Central REURB Integrada (WEBRI + OCR SiplanIA) & Exportador ONR v1.4 Somente Leitura',
     implementedAt: '2026-11-19',
-    connectorVersion: 'v2.6.26',
+    connectorVersion: 'v2.6.27',
     summarySimple:
       'Criamos a Central REURB no FIORIX integrada em modo estritamente somente leitura ao SRVSQL (WEBRI) e ao OCR das matrículas no SRVSIPLANIA (PostgreSQL 18). Agora a equipe acompanha regularizações fundiárias por painel mensal/anual, consulta matrículas derivadas, identifica pendências antes do envio e gera arquivos JSON validados conforme o Manual ONR v1.4 — sempre revalidando ao vivo pelo Connector e bloqueando a exportação se o serviço local estiver indisponível.',
     problemBefore:
@@ -118,7 +118,7 @@ export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
     metricAfter: 'Central REURB + Exportador ONR v1.4 · 227 regularizações reais sincronizadas (42 aptas, 185 pendentes; 16,3s leitura WEBRI+SiplanIA sem lock)',
     impactBadge: 'Central REURB + ONR v1.4 Ativos',
     technicalDetails:
-      'Consultas ao SRVSQL\\WEBRI filtram atos de regularização (negócios 947 e 616) e aberturas derivadas (negócio 72) combinados à leitura indexada no SRVSIPLANIA (tabela public.matriculas via fiorix_reader) para confirmar empreendimento, bairro, exclusão de APMs/vias públicas/condomínios intermediários e sinalização de campos para revisão humana. No pacote standalone OTA v2.6.26 publicado para o SRVFILES (index.js.gz), o script canônico reurb_onr_importar_em_lote.sql vai embutido automaticamente em src/db/reurb-sql-embedded.ts durante o build:release, e o scheduler aplica filtragem por hash + chunking seguro de 10 regularizações por requisição (mantendo o payload abaixo do teto de 4,5 MB da Vercel). No FIORIX, todas as permissões seguem o catálogo NavPermissions V2 (reurb_central, reurb_exportar_json e reurb_confirmar_importacao), mantendo VISITANTE estritamente somente leitura.',
+      'Consultas ao SRVSQL\\WEBRI filtram atos de regularização (negócios 947 e 616) e aberturas derivadas (negócio 72) combinados à leitura indexada no SRVSIPLANIA (tabela public.matriculas via fiorix_reader) para confirmar empreendimento, bairro, exclusão de APMs/vias públicas/condomínios intermediários e sinalização de campos para revisão humana. No pacote standalone OTA v2.6.27 publicado para o SRVFILES (index.js.gz), o script canônico reurb_onr_importar_em_lote.sql vai embutido automaticamente em src/db/reurb-sql-embedded.ts durante o build:release, a conexão ao SRVSIPLANIA segue o mesmo padrão sem senha obrigatória do módulo de Pesquisa Registral, o scheduler aplica filtragem por hash + chunking seguro de 10 regularizações por requisição (abaixo do teto de 4,5 MB da Vercel) e tanto a sincronização quanto a revalidação sob demanda operam em modo fail-closed caso o OCR do SRVSIPLANIA esteja indisponível. No FIORIX, todas as permissões seguem o catálogo NavPermissions V2 (reurb_central, reurb_exportar_json e reurb_confirmar_importacao), mantendo VISITANTE estritamente somente leitura.',
     commandsSnippet: `-- Verificação somente leitura das sessões de leitura REURB no SRVSQL e SRVSIPLANIA:
 -- SRVSQL (WEBRI): isolamento READ UNCOMMITTED, LOCK_TIMEOUT 2000 e apenas tabelas #temp no tempdb.
 SELECT session_id, status, transaction_isolation_level

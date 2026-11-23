@@ -8,6 +8,7 @@ interface RevalidarJobResult {
   sucesso?: boolean;
   revalidadoEm?: string;
   ocrConsultado?: boolean;
+  ocrErro?: string | null;
   registros?: ReurbIncomingRecord[];
   erro?: string | null;
   error?: string | null;
@@ -170,6 +171,21 @@ export async function revalidarRegistrosNoConnector(params: {
       revalidadoEm: payload.revalidadoEm || null,
       registros: [],
       error: payload.erro || 'Revalidação REURB retornou resposta incompleta do Connector.',
+    };
+  }
+
+  if (!payload.ocrConsultado) {
+    return {
+      ok: false,
+      statusHttp: 503,
+      connectorId: effective.connectorId,
+      ocrConsultado: false,
+      revalidadoEm: payload.revalidadoEm || null,
+      registros: [],
+      error:
+        'Revalidação bloqueada: o Connector não conseguiu consultar o OCR no SRVSIPLANIA' +
+        (payload.ocrErro ? ` (${payload.ocrErro})` : '') +
+        '. Os registros existentes foram preservados.',
     };
   }
 
