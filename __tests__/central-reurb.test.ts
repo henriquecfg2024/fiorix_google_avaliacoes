@@ -93,6 +93,7 @@ import {
 import {
   agruparPendenciasModal,
   escapePrintHtml,
+  filtrarPendenciasRelatorio,
   filtrarProcessosPainel,
   formatarPeriodoLabel,
   gerarHtmlComprovanteExportacaoReurb,
@@ -989,5 +990,43 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
 
     expect(labelTipoLocalizacao('U')).toBe('Urbana');
     expect(labelTipoLocalizacao('R')).toBe('Rural');
+  });
+
+  it('filtra pendências e alertas na aba Relatórios por tipo e busca sem acento', () => {
+    const itens = [
+      {
+        id: 'p-1',
+        matricula: 187029,
+        protocolo: '643703',
+        empreendimento: 'JARDIM MARPU',
+        modalidade: 'REURB_S' as const,
+        dataRegistro: '2026-10-13',
+        qtdBloqueios: 0,
+        qtdAlertas: 2,
+        motivoPrincipal: 'bairro: Bairro majoritário confirmado via logradouro',
+      },
+      {
+        id: 'p-2',
+        matricula: 900103,
+        protocolo: '600103',
+        empreendimento: 'VILA AURORA',
+        modalidade: 'REURB_E' as const,
+        dataRegistro: '2026-11-10',
+        qtdBloqueios: 1,
+        qtdAlertas: 0,
+        motivoPrincipal: 'bairro: Bairro não comprovado na matrícula',
+      },
+    ];
+
+    expect(filtrarPendenciasRelatorio(itens, 'TODAS', '')).toHaveLength(2);
+    expect(filtrarPendenciasRelatorio(itens, 'BLOQUEIO', '').map((i) => i.id)).toEqual(['p-2']);
+    expect(filtrarPendenciasRelatorio(itens, 'CONFERENCIA', '').map((i) => i.id)).toEqual(['p-1']);
+    expect(filtrarPendenciasRelatorio(itens, 'TODAS', 'majoritario').map((i) => i.id)).toEqual([
+      'p-1',
+    ]);
+    expect(filtrarPendenciasRelatorio(itens, 'BLOQUEIO', '900103').map((i) => i.id)).toEqual([
+      'p-2',
+    ]);
+    expect(filtrarPendenciasRelatorio(itens, 'BLOQUEIO', '187029')).toHaveLength(0);
   });
 });

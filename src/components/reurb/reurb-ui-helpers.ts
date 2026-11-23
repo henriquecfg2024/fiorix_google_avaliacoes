@@ -2,6 +2,7 @@ import type {
   ReurbExportacaoDTO,
   ReurbPendenciaDTO,
   ReurbRegularizacaoResumo,
+  ReurbRelatorioPendenciaItem,
   ReurbSituacaoValidacao,
 } from '@/lib/reurb/types';
 
@@ -131,6 +132,34 @@ function normalizeFilterText(value: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
+}
+
+export type RelatorioEvolucaoMetrica =
+  | 'derivadasAbertas'
+  | 'registradas'
+  | 'aptas'
+  | 'comPendencias';
+
+export type RelatorioPendenciaFiltro = 'TODAS' | 'BLOQUEIO' | 'CONFERENCIA';
+
+/** Filtra pendências/alertas da aba Relatórios por severidade e busca normalizada. */
+export function filtrarPendenciasRelatorio(
+  itens: ReurbRelatorioPendenciaItem[],
+  filtro: RelatorioPendenciaFiltro,
+  busca: string
+): ReurbRelatorioPendenciaItem[] {
+  const query = normalizeFilterText(busca);
+  return itens.filter((item) => {
+    if (filtro === 'BLOQUEIO' && item.qtdBloqueios <= 0) return false;
+    if (filtro === 'CONFERENCIA' && !(item.qtdBloqueios === 0 && item.qtdAlertas > 0)) {
+      return false;
+    }
+    if (!query) return true;
+    const alvo = normalizeFilterText(
+      `${item.matricula} ${item.protocolo} ${item.empreendimento || ''} ${item.motivoPrincipal}`
+    );
+    return alvo.includes(query);
+  });
 }
 
 function matchesDerivadasFilter(qtd: number, rawFilter: string): boolean {

@@ -109,6 +109,21 @@ export function CentralReurbClient({
     }));
   }
 
+  function handleDrillDownRelatorio(patch: Partial<ReurbConsultaFiltros>) {
+    setFiltros((prev) => ({
+      ...prev,
+      dataDe: null,
+      dataAte: null,
+      busca: null,
+      tipoData: 'registro',
+      modalidade: 'TODAS',
+      situacao: 'TODAS',
+      ...patch,
+      page: 1,
+    }));
+    setAbaAtiva('painel');
+  }
+
   function handleToggleSelect(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -398,6 +413,7 @@ export function CentralReurbClient({
           mes={filtros.mes ?? 'todos'}
           refreshKey={refreshKey}
           onChangePeriodo={handleChangePeriodoRelatorios}
+          onDrillDown={handleDrillDownRelatorio}
           onOpenDetalhe={(id) => setDetalheId(id)}
         />
       )}
