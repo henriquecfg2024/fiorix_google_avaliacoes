@@ -992,8 +992,21 @@ export function PainelReurbTab({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-[11px] text-slate-300">
-                        {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                      <td className="px-4 py-3 text-[11px]">
+                        {reg.statusImportacaoOnr === 'IMPORTADA_ONR' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200 whitespace-nowrap">
+                            <FileCheck2 className="h-3 w-3 shrink-0" />
+                            {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                          </span>
+                        ) : reg.statusImportacaoOnr === 'EXPORTADA_AGUARDANDO_CONFIRMACAO' ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-500/35 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 whitespace-nowrap">
+                            {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">
+                            {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button

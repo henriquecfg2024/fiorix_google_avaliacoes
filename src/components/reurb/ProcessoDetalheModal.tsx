@@ -298,7 +298,18 @@ export function ProcessoDetalheModal({
                     )}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Importação Ofício Eletrônico: {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                    Importação Ofício Eletrônico:{' '}
+                    <span
+                      className={
+                        reg.statusImportacaoOnr === 'IMPORTADA_ONR'
+                          ? 'font-semibold text-cyan-300'
+                          : reg.statusImportacaoOnr === 'EXPORTADA_AGUARDANDO_CONFIRMACAO'
+                            ? 'font-medium text-amber-300'
+                            : 'text-slate-300'
+                      }
+                    >
+                      {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                    </span>
                   </div>
                 </div>
               </div>
