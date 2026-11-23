@@ -1,7 +1,10 @@
 import { handleReurbApiError, reurbJsonReply } from '@/lib/reurb/api-helpers';
 import { validarRegularizacaoParaOnr } from '@/lib/reurb/onr-exporter';
 import { requireReurbAccess } from '@/lib/reurb/permissions';
-import { carregarRegularizacaoPorId } from '@/lib/reurb/query-service';
+import {
+  carregarRegularizacaoPorId,
+  sanitizarDetalheRegularizacaoParaPerfil,
+} from '@/lib/reurb/query-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,10 +22,23 @@ export async function GET(
       return reurbJsonReply({ error: 'Processo REURB não encontrado.' }, 404);
     }
 
+    const isMaster = String(ctx.user.role).toUpperCase() === 'MASTER';
+    const registroVisivel = sanitizarDetalheRegularizacaoParaPerfil(registro, isMaster);
     const validacao = validarRegularizacaoParaOnr(registro, { incluirArt69: false });
+    const validacaoVisivel = isMaster
+      ? validacao
+      : {
+          apto: validacao.apto,
+          registroOnr: null,
+          issues: [],
+          bloqueios: validacao.bloqueios,
+          avisos: validacao.avisos,
+        };
+
     return reurbJsonReply({
-      registro,
-      validacaoOnr: validacao,
+      registro: registroVisivel,
+      validacaoOnr: validacaoVisivel,
+      canViewTechnicalDetails: isMaster,
       demoMode,
       permissoes: {
         canExportJson: ctx.canExportJson,

@@ -77,6 +77,7 @@ import {
   filtrarProcessosReurb,
   isRegularizacaoAptaAtual,
   montarRelatoriosReurb,
+  sanitizarDetalheRegularizacaoParaPerfil,
 } from '@/lib/reurb/query-service';
 import { gerarBufferExcelReurb, sanitizeSpreadsheetCell } from '@/lib/reurb/excel-export';
 import {
@@ -100,6 +101,7 @@ import {
   INITIAL_PAINEL_COLUMN_FILTERS,
   isExportacaoElegivelComprovante,
   labelStatusImportacaoOnr,
+  labelTipoLocalizacao,
 } from '@/components/reurb/reurb-ui-helpers';
 
 function makeDbRowFromDto(reg: ReturnType<typeof getDemoReurbRegularizacoes>[number], idOverride?: string) {
@@ -939,5 +941,53 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(htmlConfirmadaSemProtocolo).toContain('Confirmado em ');
     expect(htmlConfirmadaSemProtocolo).not.toContain('Não informado');
     expect(htmlConfirmadaSemProtocolo).not.toContain('Protocolo:');
+  });
+
+  it('restringe campos técnicos (OCR, atos WEBRI, INFO e vínculo) ao perfil MASTER', () => {
+    const demo = getDemoReurbRegularizacoes();
+    const base = {
+      ...demo[2]!,
+      pendencias: [
+        {
+          campo: 'bairro',
+          severidade: 'BLOQUEIA' as const,
+          motivo: 'Bairro ausente',
+          fonte: 'WEBRI',
+          acaoNecessaria: 'Informar bairro',
+          matriculaDerivada: null,
+          exigeConferencia: true,
+        },
+        {
+          campo: 'dataRegistro',
+          severidade: 'INFO' as const,
+          motivo: 'Sem titulação',
+          fonte: 'WEBRI',
+          acaoNecessaria: null,
+          matriculaDerivada: 950001,
+          exigeConferencia: false,
+        },
+      ],
+    };
+
+    const masterView = sanitizarDetalheRegularizacaoParaPerfil(base, true);
+    expect(masterView.fontes.length).toBe(base.fontes.length);
+    expect(masterView.atosVinculados.length).toBe(base.atosVinculados.length);
+    expect(masterView.pendencias.some((p) => p.severidade === 'INFO')).toBe(true);
+    expect(masterView.derivadas[0]?.vinculoMetodo).toBe(base.derivadas[0]?.vinculoMetodo);
+
+    const commonView = sanitizarDetalheRegularizacaoParaPerfil(base, false);
+    expect(commonView.empreendimentoFonte).toBeNull();
+    expect(commonView.empreendimentoTrechoOcr).toBeNull();
+    expect(commonView.fontes).toEqual([]);
+    expect(commonView.atosVinculados).toEqual([]);
+    expect(commonView.pendencias).toHaveLength(1);
+    expect(commonView.pendencias[0]?.severidade).toBe('BLOQUEIA');
+    expect(commonView.pendencias[0]?.fonte).toBe('');
+    expect(commonView.derivadas.every((d) => d.vinculoMetodo === null && d.fonteOcr === null)).toBe(
+      true
+    );
+
+    expect(labelTipoLocalizacao('U')).toBe('Urbana');
+    expect(labelTipoLocalizacao('R')).toBe('Rural');
   });
 });

@@ -58,7 +58,9 @@ export function CentralReurbClient({
   initialMes,
   demoMode,
   permissoes,
+  userRole,
 }: CentralReurbClientProps) {
+  const isMaster = userRole.toUpperCase() === 'MASTER';
   const [abaAtiva, setAbaAtiva] = useState<ReurbTabKey>('painel');
   const [filtros, setFiltros] = useState<ReurbConsultaFiltros>({
     ano: initialAno,
@@ -404,6 +406,7 @@ export function CentralReurbClient({
         regularizacaoId={detalheId}
         canExportJson={permissoes.canExportJson}
         isReadOnly={permissoes.isReadOnly}
+        isMaster={isMaster}
         onClose={() => setDetalheId(null)}
         onExportSuccess={() => setRefreshKey((k) => k + 1)}
       />

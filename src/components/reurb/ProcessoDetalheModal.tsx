@@ -28,18 +28,21 @@ import {
   isExportacaoElegivelComprovante,
   labelModalidade,
   labelStatusImportacaoOnr,
+  labelTipoLocalizacao,
   triggerDownloadBlob,
 } from './reurb-ui-helpers';
 
 interface DetalheApiResponse {
   registro: ReurbRegularizacaoDTO;
   validacaoOnr: OnrValidationResult;
+  canViewTechnicalDetails?: boolean;
 }
 
 interface ProcessoDetalheModalProps {
   regularizacaoId: string | null;
   canExportJson: boolean;
   isReadOnly: boolean;
+  isMaster?: boolean;
   onClose: () => void;
   onExportSuccess: () => void;
 }
@@ -48,6 +51,7 @@ export function ProcessoDetalheModal({
   regularizacaoId,
   canExportJson,
   isReadOnly,
+  isMaster = false,
   onClose,
   onExportSuccess,
 }: ProcessoDetalheModalProps) {
@@ -113,6 +117,7 @@ export function ProcessoDetalheModal({
   if (!regularizacaoId) return null;
 
   const reg = data?.registro;
+  const showMasterDetails = Boolean(isMaster && (data?.canViewTechnicalDetails ?? true));
   const derivsJson = reg?.derivadas.filter((d) => d.incluirNoJson && !d.ehAreaPublica && !d.ehCondominioIntermediario) || [];
   const derivsExcluidas = reg?.derivadas.filter((d) => !d.incluirNoJson || d.ehAreaPublica || d.ehCondominioIntermediario) || [];
   const pendenciasAgrupadas = agruparPendenciasModal(reg?.pendencias || []);
@@ -269,8 +274,8 @@ export function ProcessoDetalheModal({
                     {reg.matricula} · Prot. {reg.protocolo}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Modalidade: <span className="text-slate-200 font-semibold">{labelModalidade(reg.modalidade)}</span> ·{' '}
-                    {reg.classificacaoFinal}
+                    Modalidade: <span className="text-slate-200 font-semibold">{labelModalidade(reg.modalidade)}</span>
+                    {showMasterDetails ? ` · ${reg.classificacaoFinal}` : ''}
                   </div>
                 </div>
 
@@ -285,7 +290,7 @@ export function ProcessoDetalheModal({
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-[#070A12] p-3.5 space-y-1">
-                  <div className="text-slate-400">Situação Ofício Eletrônico v1.4</div>
+                  <div className="text-slate-400">Situação</div>
                   <div className="flex items-center gap-2">
                     {reg.situacaoValidacao === 'APTO' ? (
                       <span className="inline-flex items-center gap-1 text-emerald-300 font-bold">
@@ -298,7 +303,7 @@ export function ProcessoDetalheModal({
                     )}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Importação Ofício Eletrônico:{' '}
+                    Ofício Eletrônico:{' '}
                     <span
                       className={
                         reg.statusImportacaoOnr === 'IMPORTADA_ONR'
@@ -314,7 +319,7 @@ export function ProcessoDetalheModal({
                 </div>
               </div>
 
-              {/* Localização e Agente */}
+              {/* Localização e Responsável */}
               <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <span className="text-slate-400 block">Município</span>
@@ -327,9 +332,9 @@ export function ProcessoDetalheModal({
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Bairro / Localização</span>
+                  <span className="text-slate-400 block">Bairro / Área</span>
                   <span className="font-semibold text-white">
-                    {reg.bairro || 'Não comprovado'} ({reg.tipoLocalizacao})
+                    {reg.bairro || 'Não informado'} · {labelTipoLocalizacao(reg.tipoLocalizacao)}
                   </span>
                   {!reg.bairro && reg.bairroSugerido && (
                     <span className="block text-[11px] text-amber-300">
@@ -338,17 +343,19 @@ export function ProcessoDetalheModal({
                   )}
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Agente ({reg.tipoAgente === 1 ? 'Poder Público' : reg.tipoAgente === 2 ? 'Particular' : 'Pendente'})</span>
+                  <span className="text-slate-400 block">
+                    Agente ({reg.tipoAgente === 1 ? 'Poder Público' : reg.tipoAgente === 2 ? 'Particular' : 'Não definido'})
+                  </span>
                   <span className="font-semibold text-white">{reg.agente || '—'}</span>
                 </div>
               </div>
 
-              {/* Pendências bloqueantes Ofício Eletrônico */}
+              {/* Pendências que impedem a exportação */}
               {pendenciasAgrupadas.bloqueios.length > 0 && (
                 <div className="rounded-xl border border-rose-500/35 bg-rose-500/5 p-4 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-rose-200">
                     <ShieldAlert className="h-4 w-4 text-rose-400" />
-                    Pendências bloqueantes — Ofício Eletrônico ({pendenciasAgrupadas.bloqueios.length})
+                    Pendências que impedem a exportação ({pendenciasAgrupadas.bloqueios.length})
                   </div>
                   <div className="space-y-2">
                     {pendenciasAgrupadas.bloqueios.map((p, idx) => (
@@ -358,9 +365,11 @@ export function ProcessoDetalheModal({
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
-                              {p.severidade}
-                            </span>
+                            {showMasterDetails && (
+                              <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                                {p.severidade}
+                              </span>
+                            )}
                             <span className="font-bold text-white">{p.campo}</span>
                             {p.matriculaDerivada && (
                               <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
@@ -368,26 +377,28 @@ export function ProcessoDetalheModal({
                           </div>
                           <p className="mt-1 text-slate-200">{p.motivo}</p>
                           {p.acaoNecessaria && (
-                            <p className="mt-0.5 text-[11px] text-emerald-300">Ação: {p.acaoNecessaria}</p>
+                            <p className="mt-0.5 text-[11px] text-emerald-300">Como resolver: {p.acaoNecessaria}</p>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                        {showMasterDetails && p.fonte && (
+                          <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Alertas de conferência recomendada */}
+              {/* Pontos para conferência */}
               {pendenciasAgrupadas.alertasConferencia.length > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 font-bold text-amber-200">
                       <AlertTriangle className="h-4 w-4 text-amber-400" />
-                      Alertas de conferência recomendada ({pendenciasAgrupadas.alertasConferencia.length})
+                      Pontos para conferência ({pendenciasAgrupadas.alertasConferencia.length})
                     </div>
                     <span className="text-[11px] text-amber-200/80">
-                      Não impedem a exportação do JSON, mas recomenda-se conferência.
+                      Não impedem a geração do arquivo JSON, mas recomenda-se conferir.
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -398,9 +409,11 @@ export function ProcessoDetalheModal({
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                              {p.severidade}
-                            </span>
+                            {showMasterDetails && (
+                              <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                                {p.severidade}
+                              </span>
+                            )}
                             <span className="font-bold text-white">{p.campo}</span>
                             {p.matriculaDerivada && (
                               <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
@@ -408,126 +421,12 @@ export function ProcessoDetalheModal({
                           </div>
                           <p className="mt-1 text-slate-200">{p.motivo}</p>
                           {p.acaoNecessaria && (
-                            <p className="mt-0.5 text-[11px] text-emerald-300">Ação: {p.acaoNecessaria}</p>
+                            <p className="mt-0.5 text-[11px] text-emerald-300">Orientação: {p.acaoNecessaria}</p>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Auditoria e avisos informativos (recolhido por padrão) */}
-              {pendenciasAgrupadas.totalInformativos > 0 && (
-                <details className="rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] p-4">
-                  <summary className="cursor-pointer select-none flex flex-wrap items-center justify-between gap-2 font-semibold text-cyan-200">
-                    <span>
-                      Auditoria e avisos informativos ({pendenciasAgrupadas.totalInformativos}) — não bloqueiam a exportação
-                    </span>
-                    <span className="text-[11px] font-normal text-slate-400">
-                      Clique para expandir detalhes
-                    </span>
-                  </summary>
-                  <div className="mt-3 space-y-2">
-                    {pendenciasAgrupadas.qtdDerivadasSemTitulacao > 0 && (
-                      <div className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
-                              INFO
-                            </span>
-                            <span className="font-bold text-white">derivadas[].dataRegistro</span>
-                          </div>
-                          <p className="mt-1 text-slate-200">
-                            {pendenciasAgrupadas.qtdDerivadasSemTitulacao} derivada(s) sem ato de titulação posterior — enviadas com <code className="text-cyan-300">dataRegistro: null</code> conforme Manual do Ofício Eletrônico v1.4.
-                          </p>
-                        </div>
-                        <span className="text-[11px] text-slate-400">WEBRI tblWRIAtos (TpAto=54)</span>
-                      </div>
-                    )}
-                    {pendenciasAgrupadas.outrosInformativos.map((p, idx) => (
-                      <div
-                        key={p.id || `info-${p.campo}-${idx}`}
-                        className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-slate-500/20 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
-                              {p.severidade}
-                            </span>
-                            <span className="font-bold text-white">{p.campo}</span>
-                            {p.matriculaDerivada && (
-                              <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-slate-200">{p.motivo}</p>
-                          {p.acaoNecessaria && (
-                            <p className="mt-0.5 text-[11px] text-slate-400">{p.acaoNecessaria}</p>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {/* Fontes e Evidências OCR */}
-              {(reg.fontes.length > 0 || reg.empreendimentoTrechoOcr) && (
-                <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2.5">
-                  <div className="flex items-center gap-2 font-bold text-slate-200">
-                    <FileText className="h-4 w-4 text-cyan-400" />
-                    Fontes dos dados e evidências OCR (SiplanIA)
-                  </div>
-                  {reg.empreendimentoTrechoOcr && (
-                    <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-slate-200">
-                      <span className="text-[11px] text-cyan-300 font-semibold block">
-                        Trecho empreendimento ({reg.empreendimentoFonte || 'OCR'}):
-                      </span>
-                      {reg.empreendimentoTrechoOcr}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {reg.fontes.map((f, idx) => (
-                      <div
-                        key={`${f.campo}-${idx}`}
-                        className={`rounded-lg border p-2.5 ${
-                          f.exigeConferencia
-                            ? 'border-amber-500/40 bg-amber-500/5'
-                            : 'border-white/10 bg-[#0D1322]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-white">{f.campo}: {f.valor}</span>
-                          {f.exigeConferencia && (
-                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 font-semibold">
-                              Conferência recomendada
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400">Origem: {f.origem}</div>
-                        {f.trechoOcr && (
-                          <div className="mt-1 text-[11px] text-cyan-200 italic">&ldquo;{f.trechoOcr}&rdquo;</div>
+                        {showMasterDetails && p.fonte && (
+                          <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
                         )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Atos vinculados */}
-              {reg.atosVinculados.length > 0 && (
-                <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2">
-                  <div className="font-bold text-slate-200">Atos vinculados no WEBRI</div>
-                  <div className="space-y-1.5">
-                    {reg.atosVinculados.map((a, idx) => (
-                      <div key={`${a.atoId}-${idx}`} className="flex flex-wrap items-center justify-between gap-2 text-slate-300 border-b border-white/5 pb-1.5 last:border-b-0">
-                        <span>
-                          <strong className="text-white">{a.seqLabel}</strong> · {a.negocioDescricao}
-                          {a.negId ? ` (Neg. ${a.negId})` : ''}
-                        </span>
-                        <span className="text-slate-400">{formatarDataBr(a.dataAto)}</span>
                       </div>
                     ))}
                   </div>
@@ -536,27 +435,33 @@ export function ProcessoDetalheModal({
 
               {/* Matrículas derivadas */}
               <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-bold text-slate-200">
                     <Layers className="h-4 w-4 text-emerald-400" />
-                    Matrículas derivadas ({derivsJson.length} incluídas no JSON · {derivsExcluidas.length} área(s) pública(s)/intermediária(s) excluída(s))
+                    Matrículas derivadas ({derivsJson.length} unidade(s)
+                    {derivsExcluidas.length > 0
+                      ? ` · ${derivsExcluidas.length} área(s) pública(s)/comum(ns) não incluída(s)`
+                      : ''}
+                    )
                   </div>
                   <span className="text-[11px] text-slate-400">
-                    Qtd Unidades na matriz: {reg.quantidadeUnidades}
+                    Total de unidades na matriz: {reg.quantidadeUnidades}
                   </span>
                 </div>
 
                 {derivsExcluidas.length > 0 && (
                   <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-1.5">
                     <div className="font-semibold text-cyan-200">
-                      Áreas públicas / vias / condomínio intermediário excluídos do array derivadas[] (Manual do Ofício Eletrônico v1.4)
+                      Áreas públicas, vias ou áreas comuns não incluídas nas unidades derivadas
                     </div>
                     {derivsExcluidas.map((d) => (
                       <div key={d.matriculaDerivada} className="text-[11px] text-slate-200 flex flex-wrap justify-between gap-2 border-t border-white/5 pt-1">
                         <span>
-                          <strong>Matrícula {d.matriculaDerivada}</strong> ({d.categoriaArea}) — {d.motivoExclusao || 'Excluída do JSON'}
+                          <strong>Matrícula {d.matriculaDerivada}</strong> ({d.categoriaArea}) — {d.motivoExclusao || 'Não incluída'}
                         </span>
-                        {d.fonteOcr && <span className="text-cyan-300">{d.fonteOcr}</span>}
+                        {showMasterDetails && d.fonteOcr && (
+                          <span className="text-cyan-300">{d.fonteOcr}</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -566,10 +471,10 @@ export function ProcessoDetalheModal({
                   <table className="w-full text-left text-[11px]">
                     <thead className="bg-white/[0.03] text-slate-400 sticky top-0">
                       <tr>
-                        <th className="px-3 py-2">Derivada</th>
-                        <th className="px-3 py-2">Abertura</th>
-                        <th className="px-3 py-2">Titulação (dataRegistro)</th>
-                        <th className="px-3 py-2">Vínculo</th>
+                        <th className="px-3 py-2">Matrícula derivada</th>
+                        <th className="px-3 py-2">Data de abertura</th>
+                        <th className="px-3 py-2">Data da titulação</th>
+                        {showMasterDetails && <th className="px-3 py-2">Vínculo</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -577,18 +482,150 @@ export function ProcessoDetalheModal({
                         <tr key={d.matriculaDerivada}>
                           <td className="px-3 py-1.5 font-bold text-white">{d.matriculaDerivada}</td>
                           <td className="px-3 py-1.5 text-slate-300">
-                            {d.dataAbertura ? formatarDataBr(d.dataAbertura) : 'Omitida (opcional — Manual do Ofício Eletrônico pág. 24)'}
+                            {d.dataAbertura ? formatarDataBr(d.dataAbertura) : 'Não informada'}
                           </td>
                           <td className="px-3 py-1.5 text-slate-300">
-                            {d.dataRegistro ? formatarDataBr(d.dataRegistro) : 'null (sem titulação posterior)'}
+                            {d.dataRegistro ? formatarDataBr(d.dataRegistro) : 'Sem titulação posterior'}
                           </td>
-                          <td className="px-3 py-1.5 text-slate-400">{d.vinculoMetodo || 'FILIACAO'}</td>
+                          {showMasterDetails && (
+                            <td className="px-3 py-1.5 text-slate-400">{d.vinculoMetodo || 'FILIACAO'}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               </div>
+
+              {/* Informações técnicas completas — restrito exclusivamente ao perfil MASTER */}
+              {showMasterDetails && (
+                <details className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.04] p-4 space-y-4">
+                  <summary className="cursor-pointer select-none flex flex-wrap items-center justify-between gap-2 font-semibold text-cyan-200">
+                    <span className="inline-flex items-center gap-2">
+                      <span>Informações técnicas completas (Auditoria, Fontes OCR SiplanIA e Atos WEBRI)</span>
+                      <span className="rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-200">
+                        Exclusivo MASTER
+                      </span>
+                    </span>
+                    <span className="text-[11px] font-normal text-slate-400">
+                      Clique para expandir detalhes técnicos
+                    </span>
+                  </summary>
+
+                  <div className="mt-4 space-y-4">
+                    {/* Auditoria e avisos informativos */}
+                    {pendenciasAgrupadas.totalInformativos > 0 && (
+                      <div className="rounded-xl border border-cyan-500/25 bg-[#070A12] p-4 space-y-2">
+                        <div className="font-semibold text-cyan-200">
+                          Auditoria e avisos informativos ({pendenciasAgrupadas.totalInformativos}) — não bloqueiam a exportação
+                        </div>
+                        <div className="space-y-2">
+                          {pendenciasAgrupadas.qtdDerivadasSemTitulacao > 0 && (
+                            <div className="rounded-lg border border-white/10 bg-[#0D1322] p-2.5 flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                                    INFO
+                                  </span>
+                                  <span className="font-bold text-white">derivadas[].dataRegistro</span>
+                                </div>
+                                <p className="mt-1 text-slate-200">
+                                  {pendenciasAgrupadas.qtdDerivadasSemTitulacao} derivada(s) sem ato de titulação posterior — enviadas com <code className="text-cyan-300">dataRegistro: null</code> conforme Manual do Ofício Eletrônico v1.4.
+                                </p>
+                              </div>
+                              <span className="text-[11px] text-slate-400">WEBRI tblWRIAtos (TpAto=54)</span>
+                            </div>
+                          )}
+                          {pendenciasAgrupadas.outrosInformativos.map((p, idx) => (
+                            <div
+                              key={p.id || `info-${p.campo}-${idx}`}
+                              className="rounded-lg border border-white/10 bg-[#0D1322] p-2.5 flex flex-wrap items-start justify-between gap-2"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded bg-slate-500/20 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
+                                    {p.severidade}
+                                  </span>
+                                  <span className="font-bold text-white">{p.campo}</span>
+                                  {p.matriculaDerivada && (
+                                    <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-slate-200">{p.motivo}</p>
+                                {p.acaoNecessaria && (
+                                  <p className="mt-0.5 text-[11px] text-slate-400">{p.acaoNecessaria}</p>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fontes e Evidências OCR */}
+                    {(reg.fontes.length > 0 || reg.empreendimentoTrechoOcr) && (
+                      <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2.5">
+                        <div className="flex items-center gap-2 font-bold text-slate-200">
+                          <FileText className="h-4 w-4 text-cyan-400" />
+                          Fontes dos dados e evidências OCR (SiplanIA)
+                        </div>
+                        {reg.empreendimentoTrechoOcr && (
+                          <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-slate-200">
+                            <span className="text-[11px] text-cyan-300 font-semibold block">
+                              Trecho empreendimento ({reg.empreendimentoFonte || 'OCR'}):
+                            </span>
+                            {reg.empreendimentoTrechoOcr}
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {reg.fontes.map((f, idx) => (
+                            <div
+                              key={`${f.campo}-${idx}`}
+                              className={`rounded-lg border p-2.5 ${
+                                f.exigeConferencia
+                                  ? 'border-amber-500/40 bg-amber-500/5'
+                                  : 'border-white/10 bg-[#0D1322]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-white">{f.campo}: {f.valor}</span>
+                                {f.exigeConferencia && (
+                                  <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 font-semibold">
+                                    Conferência recomendada
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400">Origem: {f.origem}</div>
+                              {f.trechoOcr && (
+                                <div className="mt-1 text-[11px] text-cyan-200 italic">&ldquo;{f.trechoOcr}&rdquo;</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Atos vinculados */}
+                    {reg.atosVinculados.length > 0 && (
+                      <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2">
+                        <div className="font-bold text-slate-200">Atos vinculados no WEBRI</div>
+                        <div className="space-y-1.5">
+                          {reg.atosVinculados.map((a, idx) => (
+                            <div key={`${a.atoId}-${idx}`} className="flex flex-wrap items-center justify-between gap-2 text-slate-300 border-b border-white/5 pb-1.5 last:border-b-0">
+                              <span>
+                                <strong className="text-white">{a.seqLabel}</strong> · {a.negocioDescricao}
+                                {a.negId ? ` (Neg. ${a.negId})` : ''}
+                              </span>
+                              <span className="text-slate-400">{formatarDataBr(a.dataAto)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              )}
             </>
           )}
         </div>

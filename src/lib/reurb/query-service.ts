@@ -586,3 +586,33 @@ export async function carregarRegularizacoesPorIds(
     demoMode,
   };
 }
+
+/**
+ * Remove campos e evidências estritamente técnicas (OCR SiplanIA, atos WEBRI, vínculo interno e avisos INFO)
+ * quando a visualização do detalhe não pertence ao perfil MASTER.
+ */
+export function sanitizarDetalheRegularizacaoParaPerfil(
+  registro: ReurbRegularizacaoDTO,
+  isMaster: boolean
+): ReurbRegularizacaoDTO {
+  if (isMaster) return registro;
+
+  return {
+    ...registro,
+    empreendimentoFonte: null,
+    empreendimentoTrechoOcr: null,
+    fontes: [],
+    atosVinculados: [],
+    pendencias: registro.pendencias
+      .filter((p) => p.severidade === 'BLOQUEIA' || p.severidade === 'MEDIA')
+      .map((p) => ({
+        ...p,
+        fonte: '',
+      })),
+    derivadas: registro.derivadas.map((d) => ({
+      ...d,
+      vinculoMetodo: null,
+      fonteOcr: null,
+    })),
+  };
+}

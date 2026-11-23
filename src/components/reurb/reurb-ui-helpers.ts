@@ -57,6 +57,12 @@ export function labelModalidade(mod: string): string {
   return mod;
 }
 
+export function labelTipoLocalizacao(tipo: string | null | undefined): string {
+  if (tipo === 'U') return 'Urbana';
+  if (tipo === 'R') return 'Rural';
+  return tipo || '—';
+}
+
 export function labelStatusImportacaoOnr(status: string): string {
   if (status === 'IMPORTADA_ONR' || status === 'CONFIRMADA_ONR') {
     return 'Importada no Ofício Eletrônico';
