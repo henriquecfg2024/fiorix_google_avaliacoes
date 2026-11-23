@@ -1,4 +1,5 @@
 import type {
+  ReurbExportacaoDTO,
   ReurbPendenciaDTO,
   ReurbRegularizacaoResumo,
   ReurbSituacaoValidacao,
@@ -547,6 +548,446 @@ export function gerarHtmlImpressaoPainel({
         </tr>
       </tfoot>
     </table>
+  </body>
+</html>`;
+}
+
+/** Verifica se a exportação JSON foi gerada com êxito, OCR verificado e zero pendências bloqueantes. */
+export function isExportacaoElegivelComprovante(
+  exp: ReurbExportacaoDTO | null | undefined
+): exp is ReurbExportacaoDTO {
+  return Boolean(
+    exp &&
+      exp.statusGeracao === 'GERADO' &&
+      exp.qtdAptasGeradas > 0 &&
+      exp.qtdBarradas === 0 &&
+      Boolean(exp.jsonSha256?.trim()) &&
+      exp.ocrConsultado === true
+  );
+}
+
+/** Imprime um documento HTML A4 isolado por meio de iframe oculto, retornando função de limpeza. */
+export function imprimirHtmlA4(html: string): () => void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return () => {};
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+
+  let cleaned = false;
+  let fallbackTimer = 0;
+
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    window.clearTimeout(fallbackTimer);
+    iframe.remove();
+  };
+
+  fallbackTimer = window.setTimeout(cleanup, 60_000);
+  iframe.onload = () => {
+    const win = iframe.contentWindow;
+    if (!win) {
+      cleanup();
+      return;
+    }
+    const handleAfterPrint = () => {
+      win.removeEventListener('afterprint', handleAfterPrint);
+      cleanup();
+    };
+    win.addEventListener('afterprint', handleAfterPrint);
+    win.focus();
+    win.print();
+  };
+
+  iframe.srcdoc = html;
+  document.body.appendChild(iframe);
+  return cleanup;
+}
+
+/** Gera documento HTML A4 em tema claro para o Comprovante de Geração de Arquivo JSON sem pendências. */
+export function gerarHtmlComprovanteExportacaoReurb(
+  exp: ReurbExportacaoDTO,
+  opcoes?: { emitidoEm?: Date }
+): string {
+  const tipoLabel = exp.tipo === 'UNITARIA' ? 'Unitária' : 'Em Lote';
+  const nomeArquivo = exp.nomeArquivoJson?.trim() || '—';
+  const operador = exp.geradoPorNome?.trim() || 'Operador';
+  const dataGeracaoLabel = formatarDataHoraBr(exp.createdAt);
+  const sha256Completo = exp.jsonSha256?.trim() || '—';
+  const verificadorCurto = sha256Completo !== '—' ? sha256Completo.slice(0, 16).toUpperCase() : '—';
+  const emissaoLabel = formatarDataHoraBr((opcoes?.emitidoEm ?? new Date()).toISOString());
+
+  const itensIncluidos = (exp.itens || []).filter((it) => it.incluidaNoJson);
+  const rowsHtml =
+    itensIncluidos.length > 0
+      ? itensIncluidos
+          .map(
+            (it) => `
+              <tr>
+                <td class="cell-primary">${escapePrintHtml(it.matricula)}</td>
+                <td>Prot. ${escapePrintHtml(it.protocolo)} (Pren. ${escapePrintHtml(it.prenotacao)})</td>
+                <td class="cell-emp">${escapePrintHtml(it.empreendimento || 'Não informado')}</td>
+                <td>${escapePrintHtml(labelModalidade(it.modalidade))}</td>
+                <td class="num">${escapePrintHtml(it.qtdDerivadasIncluidas)}</td>
+                <td><span class="badge-apta">Apta · Sem pendências</span></td>
+              </tr>`
+          )
+          .join('')
+      : `
+        <tr>
+          <td colspan="6" class="empty-row">Nenhuma regularização listada nos itens desta exportação.</td>
+        </tr>`;
+
+  const situacaoOnrHtml =
+    exp.statusImportacaoOnr === 'CONFIRMADA_ONR'
+      ? `
+        <div class="onr-box onr-confirmada">
+          <div class="onr-title-confirmada">Importação no Portal Ofício Eletrônico ONR CONFIRMADA manualmente</div>
+          <div class="onr-detail">${escapePrintHtml(
+            `Protocolo ONR: ${exp.protocoloOnrExterno?.trim() || 'Não informado'} · Confirmado em ${formatarDataHoraBr(exp.confirmadoImportacaoEm)} por ${exp.confirmadoPorNome?.trim() || 'Operador'}`
+          )}</div>
+          ${
+            exp.observacaoConfirmacao?.trim()
+              ? `<div class="onr-obs">${escapePrintHtml(`Observação: ${exp.observacaoConfirmacao.trim()}`)}</div>`
+              : ''
+          }
+        </div>`
+      : `
+        <div class="onr-box onr-pendente">
+          <div class="onr-title-pendente">JSON gerado e validado no FIORIX — deverá sempre ser realizada a importação manual do JSON no portal do OFÍCIO ELETRÔNICO.</div>
+        </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Comprovante de Geração de Arquivo JSON — ${escapePrintHtml(nomeArquivo)}</title>
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 12mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        color: #0f172a;
+        background: #ffffff;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+      .header {
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+      }
+      .header-kicker {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #475569;
+      }
+      .header-title {
+        margin: 4px 0 0;
+        font-size: 17px;
+        font-weight: 800;
+        color: #020617;
+      }
+      .sec {
+        margin-bottom: 14px;
+      }
+      .sec-title {
+        margin: 0 0 6px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #334155;
+      }
+      .id-box {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #f8fafc;
+        padding: 10px 12px;
+      }
+      .id-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .field-label {
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+      }
+      .field-value {
+        margin-top: 2px;
+        font-weight: 700;
+        color: #0f172a;
+        word-break: break-word;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      .sha-row {
+        margin-top: 9px;
+        padding-top: 8px;
+        border-top: 1px solid #e2e8f0;
+      }
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .kpi-card {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #f8fafc;
+        padding: 8px 10px;
+      }
+      .kpi-card-emerald {
+        border-color: #6ee7b7;
+        background: #ecfdf5;
+      }
+      .kpi-label-emerald {
+        color: #047857;
+      }
+      .kpi-num {
+        margin-top: 3px;
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .kpi-num-emerald {
+        color: #064e3b;
+      }
+      .table-wrap {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      thead {
+        display: table-header-group;
+      }
+      tfoot {
+        display: table-footer-group;
+      }
+      tr {
+        break-inside: avoid;
+      }
+      th {
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: left;
+        padding: 7px 8px;
+        border-bottom: 1px solid #cbd5e1;
+      }
+      th.num,
+      td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      td {
+        padding: 7px 8px;
+        border-bottom: 1px solid #e2e8f0;
+        vertical-align: top;
+      }
+      .cell-primary {
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .cell-emp {
+        font-weight: 500;
+        color: #0f172a;
+      }
+      .badge-apta {
+        display: inline-block;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid #6ee7b7;
+        background: #ecfdf5;
+        color: #065f46;
+        font-size: 9.5px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      tfoot td {
+        border-top: 2px solid #0f172a;
+        border-bottom: none;
+        background: #f8fafc;
+        font-weight: 700;
+        padding: 7px 8px;
+      }
+      .foot-ok {
+        color: #065f46;
+      }
+      .onr-box {
+        border-radius: 6px;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+      }
+      .onr-confirmada {
+        border-color: #67e8f9;
+        background: #ecfeff;
+      }
+      .onr-title-confirmada {
+        font-weight: 700;
+        color: #083344;
+      }
+      .onr-detail {
+        margin-top: 4px;
+        color: #164e63;
+      }
+      .onr-obs {
+        margin-top: 4px;
+        color: #334155;
+      }
+      .onr-pendente {
+        border-color: #fcd34d;
+        background: #fffbeb;
+      }
+      .onr-title-pendente {
+        font-weight: 700;
+        color: #451a03;
+      }
+      .empty-row {
+        text-align: center;
+        padding: 16px 8px;
+        color: #475569;
+      }
+      .footer {
+        border-top: 1px solid #cbd5e1;
+        padding-top: 8px;
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 10px;
+        color: #475569;
+      }
+      .footer strong {
+        color: #1e293b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-kicker">7º Oficial de Registro de Imóveis de São Paulo · CNS 12459-4</div>
+      <h1 class="header-title">COMPROVANTE DE GERAÇÃO DE ARQUIVO JSON</h1>
+    </header>
+
+    <section class="sec">
+      <h2 class="sec-title">1. Identificação e Integridade do Arquivo JSON</h2>
+      <div class="id-box">
+        <div class="id-grid">
+          <div>
+            <div class="field-label">ID Auditável da Exportação</div>
+            <div class="field-value mono">${escapePrintHtml(exp.id)}</div>
+          </div>
+          <div>
+            <div class="field-label">Tipo / Arquivo Gerado</div>
+            <div class="field-value">${escapePrintHtml(`${tipoLabel} · ${nomeArquivo}`)}</div>
+          </div>
+          <div>
+            <div class="field-label">Data / Hora &amp; Operador</div>
+            <div class="field-value">${escapePrintHtml(`${dataGeracaoLabel} · ${operador}`)}</div>
+          </div>
+        </div>
+        <div class="sha-row">
+          <div class="field-label">Hash Criptográfico SHA-256 do Arquivo JSON (Integridade)</div>
+          <div class="field-value mono">${escapePrintHtml(sha256Completo)}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-title">2. Resumo Quantitativo da Exportação</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="field-label">Solicitadas</div>
+          <div class="kpi-num">${escapePrintHtml(exp.qtdSolicitadas)}</div>
+        </div>
+        <div class="kpi-card kpi-card-emerald">
+          <div class="field-label kpi-label-emerald">Aptas no JSON</div>
+          <div class="kpi-num kpi-num-emerald">${escapePrintHtml(exp.qtdAptasGeradas)}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="field-label">Barradas / Pendências</div>
+          <div class="kpi-num kpi-num-emerald">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="field-label">Derivadas no JSON</div>
+          <div class="kpi-num">${escapePrintHtml(exp.qtdDerivadasIncluidas)}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-title">3. Relação Detalhada das Regularizações Incluídas</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Matrícula Matriz</th>
+              <th>Protocolo / Prenotação</th>
+              <th>Empreendimento</th>
+              <th>Modalidade</th>
+              <th class="num">Derivadas JSON</th>
+              <th>Situação na Geração</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4">${escapePrintHtml(`Totais do arquivo gerado (${itensIncluidos.length} regularização(ões))`)}</td>
+              <td class="num">${escapePrintHtml(exp.qtdDerivadasIncluidas)}</td>
+              <td class="foot-ok">100% Apta · 0 Pendências</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2 class="sec-title">4. Situação no Portal Externo do Ofício Eletrônico (ONR)</h2>
+      ${situacaoOnrHtml}
+    </section>
+
+    <footer class="footer">
+      <div>
+        Emitido pelo módulo Central REURB / FIORIX em <strong>${escapePrintHtml(emissaoLabel)}</strong>.
+        Este comprovante atesta a geração íntegra e sem pendências bloqueantes segundo o Manual ONR v1.4.
+      </div>
+      <div class="mono">
+        <strong>Verificador: ${escapePrintHtml(verificadorCurto)}</strong>
+      </div>
+    </footer>
   </body>
 </html>`;
 }

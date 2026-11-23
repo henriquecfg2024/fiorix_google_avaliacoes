@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,6 +8,7 @@ import {
   FileCheck2,
   FileJson,
   Loader2,
+  Printer,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
@@ -16,6 +17,9 @@ import type { ReurbExportacaoDTO, ReurbRegularizacaoResumo } from '@/lib/reurb/t
 import {
   formatarDataBr,
   formatarDataHoraBr,
+  gerarHtmlComprovanteExportacaoReurb,
+  imprimirHtmlA4,
+  isExportacaoElegivelComprovante,
   labelModalidade,
   labelStatusImportacaoOnr,
   triggerDownloadBlob,
@@ -98,6 +102,23 @@ export function ExportacoesReurbTab({
   } | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<ConfirmOnrTarget | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [lastEligibleExportacao, setLastEligibleExportacao] = useState<ReurbExportacaoDTO | null>(
+    null
+  );
+  const printCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      printCleanupRef.current?.();
+      printCleanupRef.current = null;
+    };
+  }, []);
+
+  function handleImprimirComprovante(exp: ReurbExportacaoDTO) {
+    if (!isExportacaoElegivelComprovante(exp)) return;
+    printCleanupRef.current?.();
+    printCleanupRef.current = imprimirHtmlA4(gerarHtmlComprovanteExportacaoReurb(exp));
+  }
 
   const carregarDados = useCallback(async () => {
     setLoading(true);
@@ -135,6 +156,7 @@ export function ExportacoesReurbTab({
     setGenerating(true);
     setErrorBanner(null);
     setBlockedList([]);
+    setLastEligibleExportacao(null);
 
     try {
       const res = await fetch('/api/reurb/exportacoes/lote', {
@@ -189,6 +211,9 @@ export function ExportacoesReurbTab({
       toast.success(
         `JSON ONR v1.4 gerado com ${body.exportacao?.qtdAptasGeradas ?? 0} regularização(ões) apta(s).`
       );
+      if (isExportacaoElegivelComprovante(body.exportacao)) {
+        setLastEligibleExportacao(body.exportacao);
+      }
       onDataChanged();
       carregarDados();
     } catch (err) {
@@ -266,6 +291,36 @@ export function ExportacoesReurbTab({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {lastEligibleExportacao && (
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-100">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>
+              <strong>{lastEligibleExportacao.nomeArquivoJson}</strong> gerado sem pendências (
+              {lastEligibleExportacao.qtdAptasGeradas} regularização(ões) ·{' '}
+              {lastEligibleExportacao.qtdDerivadasIncluidas} derivada(s)).
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleImprimirComprovante(lastEligibleExportacao)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100 hover:bg-emerald-500/30"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Imprimir comprovante
+            </button>
+            <button
+              type="button"
+              onClick={() => setLastEligibleExportacao(null)}
+              className="rounded-lg border border-white/15 px-2.5 py-1.5 text-slate-300 hover:bg-white/10"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 
@@ -477,6 +532,16 @@ export function ExportacoesReurbTab({
                         >
                           <Download className="h-3 w-3" /> JSON
                         </a>
+                      )}
+                      {isExportacaoElegivelComprovante(exp) && (
+                        <button
+                          type="button"
+                          onClick={() => handleImprimirComprovante(exp)}
+                          title="Imprimir comprovante de geração JSON sem pendências"
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                        >
+                          <Printer className="h-3 w-3" /> Comprovante
+                        </button>
                       )}
                       {exp.qtdBarradas > 0 && exp.nomeArquivoPendencias && (
                         <a

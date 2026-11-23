@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,14 +8,22 @@ import {
   FileText,
   Layers,
   Loader2,
+  Printer,
   ShieldAlert,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { OnrValidationResult, ReurbRegularizacaoDTO } from '@/lib/reurb/types';
+import type {
+  OnrValidationResult,
+  ReurbExportacaoDTO,
+  ReurbRegularizacaoDTO,
+} from '@/lib/reurb/types';
 import {
   agruparPendenciasModal,
   formatarDataBr,
+  gerarHtmlComprovanteExportacaoReurb,
+  imprimirHtmlA4,
+  isExportacaoElegivelComprovante,
   labelModalidade,
   labelStatusImportacaoOnr,
   triggerDownloadBlob,
@@ -46,12 +54,23 @@ export function ProcessoDetalheModal({
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [lastExportacaoComprovante, setLastExportacaoComprovante] =
+    useState<ReurbExportacaoDTO | null>(null);
+  const printCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      printCleanupRef.current?.();
+      printCleanupRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!regularizacaoId) {
       setData(null);
       setError(null);
       setExportError(null);
+      setLastExportacaoComprovante(null);
       return;
     }
 
@@ -59,6 +78,7 @@ export function ProcessoDetalheModal({
     setLoading(true);
     setError(null);
     setExportError(null);
+    setLastExportacaoComprovante(null);
 
     fetch(`/api/reurb/processos/${encodeURIComponent(regularizacaoId)}`, {
       cache: 'no-store',
@@ -96,6 +116,7 @@ export function ProcessoDetalheModal({
     if (!reg || exporting) return;
     setExporting(true);
     setExportError(null);
+    setLastExportacaoComprovante(null);
 
     try {
       const res = await fetch('/api/reurb/exportacoes/unitaria', {
@@ -113,6 +134,9 @@ export function ProcessoDetalheModal({
 
       if (body.jsonString && body.exportacao?.nomeArquivoJson) {
         triggerDownloadBlob(body.jsonString, body.exportacao.nomeArquivoJson);
+      }
+      if (isExportacaoElegivelComprovante(body.exportacao)) {
+        setLastExportacaoComprovante(body.exportacao);
       }
       toast.success(
         `JSON unitário da matrícula ${reg.matricula} gerado com revalidação ONR v1.4.`
@@ -193,6 +217,30 @@ export function ProcessoDetalheModal({
           {exportError && (
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200">
               <strong>Exportação unitária bloqueada:</strong> {exportError}
+            </div>
+          )}
+
+          {lastExportacaoComprovante && (
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-emerald-100">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>
+                  <strong>{lastExportacaoComprovante.nomeArquivoJson}</strong> gerado sem pendências.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  printCleanupRef.current?.();
+                  printCleanupRef.current = imprimirHtmlA4(
+                    gerarHtmlComprovanteExportacaoReurb(lastExportacaoComprovante)
+                  );
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100 hover:bg-emerald-500/30"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir comprovante
+              </button>
             </div>
           )}
 

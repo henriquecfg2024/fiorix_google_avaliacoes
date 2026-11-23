@@ -93,9 +93,11 @@ import {
   agruparPendenciasModal,
   escapePrintHtml,
   filtrarProcessosPainel,
+  gerarHtmlComprovanteExportacaoReurb,
   gerarHtmlImpressaoPainel,
   hasActivePainelFilters,
   INITIAL_PAINEL_COLUMN_FILTERS,
+  isExportacaoElegivelComprovante,
 } from '@/components/reurb/reurb-ui-helpers';
 
 function makeDbRowFromDto(reg: ReturnType<typeof getDemoReurbRegularizacoes>[number], idOverride?: string) {
@@ -789,5 +791,109 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(grouped.qtdDerivadasSemTitulacao).toBe(2);
     expect(grouped.outrosInformativos).toHaveLength(1);
     expect(grouped.totalInformativos).toBe(3);
+  });
+
+  it('valida elegibilidade e gera HTML do comprovante de geração JSON aprovado sem pendências', () => {
+    const baseExp = {
+      id: 'exp-ok-1',
+      tipo: 'LOTE' as const,
+      statusGeracao: 'GERADO' as const,
+      statusImportacaoOnr: 'PENDENTE_CONFIRMACAO' as const,
+      nomeArquivoJson: 'reurb_onr_lote_20261123160000.json',
+      nomeArquivoPendencias: null,
+      qtdSolicitadas: 2,
+      qtdAptasGeradas: 2,
+      qtdBarradas: 0,
+      qtdDerivadasIncluidas: 33,
+      jsonSha256: 'c4f9b2e819a07d43e881a5bc29047e1fa368d2104b9e7612f3840ac192837465',
+      erroDetalhe: null,
+      revalidacaoConnectorId: 'conn-1',
+      revalidadoEm: '2026-11-23T16:00:00Z',
+      ocrConsultado: true,
+      geradoPorNome: 'Henrique <Master>',
+      confirmadoImportacaoEm: null,
+      confirmadoPorNome: null,
+      protocoloOnrExterno: null,
+      observacaoConfirmacao: null,
+      createdAt: '2026-11-23T16:00:00Z',
+      itens: [
+        {
+          id: 'it-1',
+          regularizacaoId: 'reg-1',
+          prenotacao: 644354,
+          matricula: 268815,
+          protocolo: '644354',
+          empreendimento: 'CRISPIN <script>alert(1)</script>',
+          modalidade: 'REURB_S',
+          incluidaNoJson: true,
+          situacaoNoMomento: 'APTO',
+          qtdDerivadasIncluidas: 28,
+          motivosBloqueio: [],
+        },
+        {
+          id: 'it-2',
+          regularizacaoId: 'reg-2',
+          prenotacao: 644354,
+          matricula: 268818,
+          protocolo: '644354',
+          empreendimento: 'CRISPIN GONÇALVES',
+          modalidade: 'REURB_S',
+          incluidaNoJson: true,
+          situacaoNoMomento: 'APTO',
+          qtdDerivadasIncluidas: 5,
+          motivosBloqueio: [],
+        },
+        {
+          id: 'it-3',
+          regularizacaoId: 'reg-3',
+          prenotacao: 644354,
+          matricula: 999000,
+          protocolo: '644354',
+          empreendimento: 'NAO INCLUIDA',
+          modalidade: 'REURB_S',
+          incluidaNoJson: false,
+          situacaoNoMomento: 'PENDENTE',
+          qtdDerivadasIncluidas: 0,
+          motivosBloqueio: [],
+        },
+      ],
+    };
+
+    expect(isExportacaoElegivelComprovante(baseExp)).toBe(true);
+    expect(isExportacaoElegivelComprovante({ ...baseExp, qtdBarradas: 1 })).toBe(false);
+    expect(isExportacaoElegivelComprovante({ ...baseExp, statusGeracao: 'FALHA' })).toBe(false);
+    expect(isExportacaoElegivelComprovante({ ...baseExp, ocrConsultado: false })).toBe(false);
+    expect(isExportacaoElegivelComprovante({ ...baseExp, jsonSha256: null })).toBe(false);
+
+    const htmlPendente = gerarHtmlComprovanteExportacaoReurb(baseExp, {
+      emitidoEm: new Date('2026-11-23T19:00:00Z'),
+    });
+    expect(htmlPendente).toContain('COMPROVANTE DE GERAÇÃO DE ARQUIVO JSON');
+    expect(htmlPendente).not.toContain('CENTRAL REURB (ONR v1.4)');
+    expect(htmlPendente).not.toContain('Validação Estrita');
+    expect(htmlPendente).not.toContain('Evidência de Revalidação ao Vivo');
+    expect(htmlPendente).toContain('C4F9B2E819A07D43');
+    expect(htmlPendente).toContain(
+      'JSON gerado e validado no FIORIX — deverá sempre ser realizada a importação manual do JSON no portal do OFÍCIO ELETRÔNICO.'
+    );
+    expect(htmlPendente).not.toContain('não substituindo o recibo oficial');
+    expect(htmlPendente).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(htmlPendente).not.toContain('<script>alert(1)</script>');
+    expect(htmlPendente).not.toContain('NAO INCLUIDA');
+
+    const htmlConfirmada = gerarHtmlComprovanteExportacaoReurb({
+      ...baseExp,
+      tipo: 'UNITARIA',
+      statusImportacaoOnr: 'CONFIRMADA_ONR',
+      confirmadoImportacaoEm: '2026-11-23T16:10:00Z',
+      confirmadoPorNome: 'Henrique',
+      protocoloOnrExterno: 'ONR-2026-77',
+      observacaoConfirmacao: 'Protocolado OK',
+    });
+    expect(htmlConfirmada).toContain(
+      'Importação no Portal Ofício Eletrônico ONR CONFIRMADA manualmente'
+    );
+    expect(htmlConfirmada).toContain('Protocolo ONR: ONR-2026-77');
+    expect(htmlConfirmada).toContain('Observação: Protocolado OK');
   });
 });
