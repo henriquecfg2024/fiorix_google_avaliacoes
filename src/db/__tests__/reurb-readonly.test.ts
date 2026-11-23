@@ -1,0 +1,142 @@
+import fs from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import {
+  classifyDerivadaHeader,
+  classifyMatrixOcr,
+  extractAgentFromOcr,
+  extractBairroFromOcr,
+  extractEmpreendimentoFromOcr,
+  extractInterestFromOcr,
+  loadReurbSqlScript,
+  resolveReurbSqlPath,
+  validateOnrJsonV14,
+} from '../reurb-readonly.js';
+import { EMBEDDED_REURB_SQL } from '../reurb-sql-embedded.js';
+import { recordKey } from '../../services/recordKey.js';
+
+describe('REURB Somente-Leitura & Regras ONR v1.4 (fiorix-connector)', () => {
+  it('resolve o arquivo SQL canônico somente-leitura e confirma @ModoCentral + NO WRITE', () => {
+    const sqlPath = resolveReurbSqlPath();
+    const sql = fs.readFileSync(sqlPath, 'utf8');
+    expect(sql).toContain('SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED');
+    expect(sql).toContain('DECLARE @ModoCentral');
+    expect(sql).toContain('WHEN e.EhArt69 = 1 THEN N\'3\'');
+
+    expect(EMBEDDED_REURB_SQL).toBe(sql.replace(/^\uFEFF/, ''));
+    const loaded = loadReurbSqlScript();
+    expect(loaded).toContain('SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED');
+    expect(loaded).toContain('DECLARE @ModoCentral');
+  });
+
+  it('extrai empreendimento, bairro e agente a partir do texto OCR sem abreviar bairro indevidamente', () => {
+    const prenText =
+      'R.5/188.228 (PRENOTAÇÃO nº 572.013) - Certidão de Regularização Fundiária (CRF) expedida pela Municipalidade de São Paulo - SEHAB, referente ao núcleo urbano informal denominado "Jardim das Palmeiras", modalidade REURB-S.';
+    const matTexto = `IMÓVEL: Terreno urbano situado no bairro JARDIM DAS PALMEIRAS, distrito de Itaquera, São Paulo. ${prenText}`;
+
+    const emp = extractEmpreendimentoFromOcr(matTexto, prenText);
+    expect(emp.empreendimentoOcr).toBe('Jardim das Palmeiras');
+
+    const bairro = extractBairroFromOcr(matTexto, prenText);
+    expect(bairro.bairroExpresso).toBe('JARDIM DAS PALMEIRAS');
+
+    const agente = extractAgentFromOcr(prenText);
+    expect(agente.tipoAgente).toBe(1);
+    expect(agente.agente).toBe('MUNICIPALIDADE DE SÃO PAULO');
+
+    const intr = extractInterestFromOcr(prenText, matTexto);
+    expect(intr.tipoInteresseOcr).toBe(1);
+    expect(intr.temArt69).toBe(false);
+  });
+
+  it('separa áreas públicas (APM/Via/Institucional) apenas pelo cabeçalho IMÓVEL, sem falso positivo em confrontações', () => {
+    const loteHabitacional =
+      'IMÓVEL: Lote 12 da quadra B, do núcleo Sítio Conceição, nesta Capital, com a seguinte descrição perimetral: partindo-se do ponto 1, confrontando com APM-1 nos fundos, mede 10,00m.';
+    const apmReal =
+      'IMÓVEL: Área Pública Municipal APM-1 do parcelamento Sítio Conceição, com a seguinte descrição perimetral: mede 20,00m.';
+
+    const resLote = classifyDerivadaHeader(244294, loteHabitacional);
+    expect(resLote.EhAreaPublica).toBe(false);
+    expect(resLote.Categoria).toBe('UNIDADE');
+
+    const resApm = classifyDerivadaHeader(244310, apmReal);
+    expect(resApm.EhAreaPublica).toBe(true);
+    expect(resApm.Categoria).toBe('APM');
+  });
+
+  it('separa 947 matriz vs 947 titulação individual e inclui condomínio 616 REURB somente com evidência', () => {
+    const res947Ind = classifyMatrixOcr(
+      { Prenotacao: 612623, Matricula: 230001, NegId: 947, Tem71: 1, QtdSeq0: 0 },
+      'R.2 - PRENOTAÇÃO 612.623 - TITULAÇÃO por legitimação fundiária nos termos do art. 23 da Lei 13.465/2017.',
+    );
+    expect(res947Ind.Classificacao).toBe('TITULACAO_INDIVIDUAL_947');
+
+    const res616Reurb = classifyMatrixOcr(
+      { Prenotacao: 640441, Matricula: 217822, NegId: 616, Tem71: 0, QtdSeq0: 12 },
+      'R.8 - PRENOTAÇÃO 640.441 - Instituição de Condomínio proveniente de REURB-E com CRF anexa, Lei 13.465/2017.',
+    );
+    expect(res616Reurb.Classificacao).toBe('CONDOMINIO_616_REURB');
+
+    const res616Inc = classifyMatrixOcr(
+      { Prenotacao: 640442, Matricula: 217823, NegId: 616, Tem71: 0, QtdSeq0: 0 },
+      '',
+    );
+    expect(res616Inc.Classificacao).toBe('CONDOMINIO_616_INCONCLUSIVO');
+  });
+
+  it('valida estritamente o Manual ONR v1.4 (aceita quantidadeUnidades != derivadas.length, dataAbertura/dataRegistro null e tipoInteresse 1..3)', () => {
+    const okPayload = {
+      regularizacoes: [
+        {
+          matricula: 100000,
+          municipio: 'SÃO PAULO',
+          distrito: 'ITAQUERA',
+          bairro: 'VILA DAS FLORES',
+          tipoLocalizacao: 'U',
+          quantidadeUnidades: 15,
+          dataRegistro: '2025-03-10',
+          dataPrenotacao: '2025-03-01',
+          tipoInteresse: 1,
+          tipoAgente: 1,
+          agente: 'PREFEITURA DO MUNICIPIO DE SAO PAULO',
+          derivadas: [
+            { matricula: 100001, dataAbertura: '2025-03-15', dataRegistro: null, tipoInteresse: 1 },
+            { matricula: 100002, dataAbertura: null, dataRegistro: null, tipoInteresse: 2 },
+          ],
+        },
+      ],
+    };
+    expect(validateOnrJsonV14(okPayload)).toEqual([]);
+
+    const art69Blocked = validateOnrJsonV14({
+      regularizacoes: [{ ...okPayload.regularizacoes[0], tipoInteresse: 3 }],
+    });
+    expect(art69Blocked.some((e) => e.includes('tipoInteresse=3'))).toBe(true);
+
+    const art69Allowed = validateOnrJsonV14(
+      {
+        regularizacoes: [
+          {
+            ...okPayload.regularizacoes[0],
+            tipoInteresse: 3,
+            derivadas: [{ matricula: 100001, dataAbertura: '2025-03-15', dataRegistro: null, tipoInteresse: 3 }],
+          },
+        ],
+      },
+      { incluirArt69: true },
+    );
+    expect(art69Allowed).toEqual([]);
+
+    const emptyDeriv = validateOnrJsonV14({
+      regularizacoes: [{ ...okPayload.regularizacoes[0], derivadas: [] }],
+    });
+    expect(emptyDeriv.some((e) => e.includes('ao menos 1'))).toBe(true);
+  });
+
+  it('gera recordKey determinístico para reurb_regularizacoes', () => {
+    const k1 = recordKey('reurb_regularizacoes', { prenotacao: 572013, matricula: 188228 });
+    const k2 = recordKey('reurb_regularizacoes', { prenotacao: 572013, matricula: 188228 });
+    const k3 = recordKey('reurb_regularizacoes', { prenotacao: 572013, matricula: 188229 });
+    expect(k1).toBe(k2);
+    expect(k1).not.toBe(k3);
+  });
+});

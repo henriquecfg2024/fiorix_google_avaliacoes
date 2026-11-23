@@ -40,6 +40,7 @@ import {
   listarCatalogosPesquisaRegistralReadOnly,
   type InputPesquisaRegistral,
 } from '../db/pesquisa-registral-readonly.js';
+import { revalidarPrenotacoesReurbReadOnly } from '../db/reurb-readonly.js';
 
 interface ClaimedJob {
   id: string;
@@ -93,6 +94,7 @@ export interface DocumentWorkerTelemetry {
     ocr_document_pages: number;
     pesquisa_registral: number;
     pesquisa_registral_catalogos: number;
+    reurb_revalidar: number;
   };
   fileServer: EstatisticasServidorArquivos | null;
   searchEngine: DocumentSearchTelemetry | null;
@@ -273,6 +275,12 @@ function buildJobTargetIdentity(job: ClaimedJob): { key: string; label: string }
       label: jobType === 'pesquisa_registral' ? 'Pesquisa Registral Híbrida' : 'Catálogos Pesquisa Registral',
     };
   }
+  if (jobType === 'reurb_revalidar') {
+    return {
+      key: 'reurb_revalidar::onr',
+      label: 'Revalidação Central REURB (ONR)',
+    };
+  }
   if (job.rootId && job.relativePath) {
     const cleanRel = job.relativePath.replace(/\\/g, '/').trim();
     const base = path.basename(cleanRel) || cleanRel;
@@ -335,6 +343,7 @@ const workerRuntime = {
     ocr_document_pages: 0,
     pesquisa_registral: 0,
     pesquisa_registral_catalogos: 0,
+    reurb_revalidar: 0,
   },
 };
 
@@ -763,6 +772,22 @@ export function startDocumentWorker(): () => void {
               throw new Error('Parâmetros da Pesquisa Registral inválidos.');
             }
             result = await executarPesquisaRegistralHibridaReadOnly(parsedInput);
+          } else if (job.type === 'reurb_revalidar') {
+            let prenotacoes: number[] = [];
+            try {
+              const rawObj = JSON.parse(job.query || '{}') as { prenotacoes?: unknown };
+              if (Array.isArray(rawObj?.prenotacoes)) {
+                prenotacoes = rawObj.prenotacoes
+                  .map((v) => Number(v))
+                  .filter((n) => Number.isInteger(n) && n > 0);
+              }
+            } catch {
+              throw new Error('Parâmetros de revalidação REURB inválidos.');
+            }
+            if (prenotacoes.length === 0) {
+              throw new Error('Informe ao menos uma prenotação para revalidação REURB.');
+            }
+            result = await revalidarPrenotacoesReurbReadOnly(prenotacoes);
           } else {
             result = await searchDocuments(activeRoots, job.query || '');
           }

@@ -9,7 +9,8 @@ export type IncrementalSource =
   | 'impressoes'
   | 'safras'
   | 'colaboradores_rh'
-  | 'cartorio_virtual_certidoes';
+  | 'cartorio_virtual_certidoes'
+  | 'reurb_regularizacoes';
 type RecordData = Record<string, unknown>;
 
 const required = (record: RecordData, field: string): string => {
@@ -38,6 +39,8 @@ export function logicalRecordIdentity(source: IncrementalSource, record: RecordD
       return `colaboradores_rh:${record.Registro ?? record.registro ?? record.CPF ?? record.cpf ?? required(record, 'Nome')}`;
     case 'cartorio_virtual_certidoes':
       return `cartorio_virtual_certidoes:${record.numeroPedido ?? record.Pk_NrPedido ?? required(record, 'numeroPedido')}`;
+    case 'reurb_regularizacoes':
+      return `reurb:${required(record, 'prenotacao')}:${required(record, 'matricula')}`;
   }
 }
 

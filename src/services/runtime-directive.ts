@@ -31,7 +31,8 @@ export interface ConnectorRemoteConfig {
       | 'impressoes'
       | 'safras'
       | 'colaboradores_rh'
-      | 'cartorio_virtual_certidoes',
+      | 'cartorio_virtual_certidoes'
+      | 'reurb_regularizacoes',
       number
     >
   >;
@@ -45,7 +46,8 @@ export interface ConnectorRemoteConfig {
       | 'impressoes'
       | 'safras'
       | 'colaboradores_rh'
-      | 'cartorio_virtual_certidoes',
+      | 'cartorio_virtual_certidoes'
+      | 'reurb_regularizacoes',
       boolean
     >
   >;

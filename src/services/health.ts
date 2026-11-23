@@ -11,7 +11,8 @@ export type SourceName =
   | 'impressoes'
   | 'safras'
   | 'colaboradores_rh'
-  | 'cartorio_virtual_certidoes';
+  | 'cartorio_virtual_certidoes'
+  | 'reurb_regularizacoes';
 
 export interface SourceHealthState {
   source: SourceName;
@@ -105,6 +106,7 @@ export class HealthManager {
     safras: 7200, // 2 hours (2x 3600s)
     colaboradores_rh: 7200, // 2 hours (2x 3600s)
     cartorio_virtual_certidoes: 900, // 15 minutes (3x 300s)
+    reurb_regularizacoes: 7200, // 2 hours (2x 3600s)
   };
 
   private sourceHealth: Record<SourceName, SourceHealthState> = {
@@ -117,6 +119,7 @@ export class HealthManager {
     safras: this.createInitialSourceHealth('safras', 7200),
     colaboradores_rh: this.createInitialSourceHealth('colaboradores_rh', 7200),
     cartorio_virtual_certidoes: this.createInitialSourceHealth('cartorio_virtual_certidoes', 900),
+    reurb_regularizacoes: this.createInitialSourceHealth('reurb_regularizacoes', 7200),
   };
 
   private sourceMetrics: Record<SourceName, SourceMetrics> = {
@@ -129,6 +132,7 @@ export class HealthManager {
     safras: this.createInitialMetrics(),
     colaboradores_rh: this.createInitialMetrics(),
     cartorio_virtual_certidoes: this.createInitialMetrics(),
+    reurb_regularizacoes: this.createInitialMetrics(),
   };
 
   private durationsHistory: Record<SourceName, number[]> = {
@@ -141,6 +145,7 @@ export class HealthManager {
     safras: [],
     colaboradores_rh: [],
     cartorio_virtual_certidoes: [],
+    reurb_regularizacoes: [],
   };
 
   constructor() {
@@ -378,13 +383,14 @@ export class HealthManager {
       'safras',
       'colaboradores_rh',
       'cartorio_virtual_certidoes',
+      'reurb_regularizacoes',
     ];
 
     for (const s of monitoredSources) {
       const h = this.sourceHealth[s];
       const isOptionalInactiveModule =
-        s === 'cartorio_virtual_certidoes' &&
-        process.env.CARTORIO_VIRTUAL_SQL_ENABLED !== 'true' &&
+        ((s === 'cartorio_virtual_certidoes' && process.env.CARTORIO_VIRTUAL_SQL_ENABLED !== 'true') ||
+          (s === 'reurb_regularizacoes' && process.env.REURB_REGULARIZACOES_AUTO_SYNC_ENABLED !== 'true')) &&
         !h.lastSuccessAt &&
         h.consecutiveFailures === 0;
 

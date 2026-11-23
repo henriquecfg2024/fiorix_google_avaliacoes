@@ -41,6 +41,7 @@ import { AGENT_VERSION } from '../config/version.js';
 import { runtimeDirective } from './runtime-directive.js';
 import { selfUpdater } from './self-updater.js';
 import { extrairLoteCompletoCartorioVirtualReadOnly } from '../db/certidoes-readonly.js';
+import { extrairLoteReurbReadOnly } from '../db/reurb-readonly.js';
 
 export interface SourceScheduleConfig {
   name:
@@ -52,7 +53,8 @@ export interface SourceScheduleConfig {
     | 'impressoes'
     | 'safras'
     | 'colaboradores_rh'
-    | 'cartorio_virtual_certidoes';
+    | 'cartorio_virtual_certidoes'
+    | 'reurb_regularizacoes';
   mode: 'incremental' | 'reconciliation' | 'full';
   intervalSec: number;
   offsetSec: number;
@@ -162,6 +164,9 @@ export class Scheduler {
       return remoteEnabled;
     }
     const isGlobal = this.isGlobalActive();
+    if (sourceName === 'reurb_regularizacoes') {
+      return process.env.REURB_REGULARIZACOES_AUTO_SYNC_ENABLED === 'true';
+    }
     const envKey = `${sourceName.toUpperCase()}_AUTO_SYNC_ENABLED`;
     if (process.env[envKey] !== undefined) {
       return process.env[envKey] === 'true';
@@ -280,6 +285,17 @@ export class Scheduler {
           ? Number(process.env.CARTORIO_VIRTUAL_OFFSET_SECONDS)
           : 25,
         enabled: this.isSourceActive('cartorio_virtual_certidoes'),
+      },
+      {
+        name: 'reurb_regularizacoes',
+        mode: 'full',
+        intervalSec: remoteIntervals?.reurb_regularizacoes ?? (process.env.REURB_REGULARIZACOES_SYNC_INTERVAL_SECONDS
+          ? Number(process.env.REURB_REGULARIZACOES_SYNC_INTERVAL_SECONDS)
+          : 3600),
+        offsetSec: process.env.REURB_REGULARIZACOES_OFFSET_SECONDS !== undefined
+          ? Number(process.env.REURB_REGULARIZACOES_OFFSET_SECONDS)
+          : 390,
+        enabled: this.isSourceActive('reurb_regularizacoes'),
       },
     ];
   }
@@ -961,6 +977,25 @@ export class Scheduler {
           logger.warn(`QUEUE_TRIGGER_WARN: Falha no disparo imediato da fila para o lote ${cvBatchId}: ${qErr.message}`);
         });
         return;
+      } else if (config.name === 'reurb_regularizacoes') {
+        const res = await extrairLoteReurbReadOnly({
+          dataRegistroDe: '2009-03-25',
+          incluirArt69: false,
+          incluirCondominio616: true,
+        });
+        durationMs = res.duracaoMs;
+        if (res.registros.length === 0) {
+          const checkTimeIso = runTime.toISOString();
+          status.recordsRead = 0;
+          status.lastDurationMs = durationMs;
+          status.lastSuccessAt = checkTimeIso;
+          status.lastError = null;
+          markCheckpointCheckSuccess(this.db, config.name, checkTimeIso);
+          queueManager.recordCheckSuccess(config.name, checkTimeIso);
+          healthManager.recordRunSuccess(config.name, 0, 0, durationMs, null, runTime);
+          return;
+        }
+        records = res.registros.map((r) => attachRecordKey('reurb_regularizacoes', r as unknown as Record<string, unknown>));
       }
 
       status.recordsRead = records.length;

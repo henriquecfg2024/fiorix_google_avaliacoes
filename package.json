@@ -8,7 +8,7 @@
     "dev": "tsx src/index.ts",
     "dev:homolog": "tsx src/index.ts",
     "dev:production": "node --env-file=.env.production node_modules/tsx/dist/cli.mjs src/index.ts",
-    "build": "tsup src/index.ts --format esm --no-splitting --clean",
+    "build": "node scripts/embed-reurb-sql.mjs && tsup src/index.ts --format esm --no-splitting --clean",
     "build:release": "npm run build && node scripts/build-release-bundle.mjs",
     "start": "node dist/index.js",
     "start:homolog": "node dist/index.js",
