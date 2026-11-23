@@ -116,6 +116,7 @@ export interface RevalidarReurbResult {
   revalidadoEm: string;
   duracaoMs: number;
   ocrConsultado: boolean;
+  ocrErro?: string | null;
   registros: ReurbSyncRecord[];
   erro?: string | null;
 }
@@ -800,7 +801,7 @@ function buildFontesPorRegistro(row: any, exigeConferenciaMap: Map<string, boole
 
 export async function extrairLoteReurbReadOnly(
   options: ExtrairReurbOptions = {},
-): Promise<{ registros: ReurbSyncRecord[]; ocrConsultado: boolean; duracaoMs: number }> {
+): Promise<{ registros: ReurbSyncRecord[]; ocrConsultado: boolean; ocrErro?: string | null; duracaoMs: number }> {
   const startedAt = Date.now();
   const prenList = Array.isArray(options.prenotacoes)
     ? [...new Set(options.prenotacoes.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0))]
@@ -853,13 +854,21 @@ export async function extrairLoteReurbReadOnly(
 
   let pool: sql.ConnectionPool | undefined;
   let ocrConsultado = false;
+  let ocrErro: string | null = null;
   try {
     pool = await sql.connect(getReadOnlySqlConfig());
+
+    const pgHost = (env.SIPLANIA_HOST || '10.0.0.6').trim();
+    const pgDb = (env.SIPLANIA_POSTGRES_DB || 'SiplanIA').trim();
+    const pgUser = (env.SIPLANIA_POSTGRES_USER || 'fiorix_reader').trim();
+    const pgPassword = env.SIPLANIA_POSTGRES_PASSWORD
+      ? env.SIPLANIA_POSTGRES_PASSWORD
+      : undefined;
 
     const canTryOcr =
       options.semOcr !== true &&
       env.SIPLANIA_POSTGRES_ENABLED !== false &&
-      Boolean(env.SIPLANIA_POSTGRES_PASSWORD || process.env.SIPLANIA_POSTGRES_PASSWORD);
+      Boolean(pgHost && pgDb && pgUser);
 
     if (canTryOcr) {
       const req = pool.request();
@@ -949,12 +958,15 @@ export async function extrairLoteReurbReadOnly(
       }
 
       const pg = new Client({
-        host: env.SIPLANIA_HOST || '10.0.0.6',
+        host: pgHost,
         port: Number(env.SIPLANIA_POSTGRES_PORT || 5432),
-        database: env.SIPLANIA_POSTGRES_DB || 'SiplanIA',
-        user: env.SIPLANIA_POSTGRES_USER || 'fiorix_reader',
-        password: env.SIPLANIA_POSTGRES_PASSWORD,
-        connectionTimeoutMillis: 3500,
+        database: pgDb,
+        user: pgUser,
+        password: pgPassword,
+        ssl: false,
+        application_name: 'fiorix-connector-reurb-ro',
+        options: '-c default_transaction_read_only=on',
+        connectionTimeoutMillis: 6000,
         statement_timeout: 120000,
       });
 
@@ -1121,7 +1133,11 @@ export async function extrairLoteReurbReadOnly(
           .replace('-- @@OCR_ORIGEM@@', insOrigem)
           .replace('-- @@OCR_DERIVADA@@', insDerivada);
       } catch (pgErr: any) {
-        logger.warn(`[REURB_RO] SiplanIA indisponível; executando somente WEBRI (${pgErr?.message || pgErr}).`);
+        ocrErro = String(pgErr?.message || pgErr || 'Erro ao conectar ao SiplanIA')
+          .replace(/password\s*=[^;\s]+/gi, 'password=[redacted]')
+          .replace(/:\/\/([^:@\s]+):([^@\s]+)@/g, '://$1:[redacted]@')
+          .slice(0, 180);
+        logger.warn(`[REURB_RO] SiplanIA indisponível; executando somente WEBRI (${ocrErro}).`);
       } finally {
         await pg.end().catch(() => {});
       }
@@ -1260,6 +1276,7 @@ export async function extrairLoteReurbReadOnly(
     return {
       registros,
       ocrConsultado,
+      ocrErro,
       duracaoMs: Date.now() - startedAt,
     };
   } finally {
@@ -1282,6 +1299,7 @@ export async function revalidarPrenotacoesReurbReadOnly(
       revalidadoEm: new Date().toISOString(),
       duracaoMs: 0,
       ocrConsultado: false,
+      ocrErro: null,
       registros: [],
       erro: null,
     };
@@ -1299,6 +1317,7 @@ export async function revalidarPrenotacoesReurbReadOnly(
       revalidadoEm: new Date().toISOString(),
       duracaoMs: out.duracaoMs,
       ocrConsultado: out.ocrConsultado,
+      ocrErro: out.ocrErro,
       registros: out.registros,
       erro: null,
     };

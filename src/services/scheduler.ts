@@ -1024,6 +1024,16 @@ export class Scheduler {
           incluirCondominio616: true,
         });
         durationMs = res.duracaoMs;
+        if (!res.ocrConsultado) {
+          const msgOcr = res.ocrErro || 'SRVSIPLANIA indisponível';
+          status.lastDurationMs = durationMs;
+          status.lastError = `OCR SiplanIA indisponível (${msgOcr})`;
+          logger.warn(
+            `REURB_OCR_UNAVAILABLE_SKIP: Extração REURB sem consulta ao OCR do SRVSIPLANIA (${msgOcr}); mantendo registros atuais no FIORIX.`
+          );
+          healthManager.recordDbQuerySuccess();
+          return;
+        }
         if (res.registros.length === 0) {
           const checkTimeIso = runTime.toISOString();
           status.recordsRead = 0;
