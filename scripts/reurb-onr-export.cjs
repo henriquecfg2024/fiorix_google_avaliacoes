@@ -248,6 +248,27 @@ function extractBairroFromOcr(texto, prenText) {
       bairroExpresso = candidate;
     }
   }
+  if (!bairroExpresso) {
+    const parteMatch = clause.match(/\bem\s+parte\s+d[eo]\s+(?:(?:Jardim|Vila|Parque|Cidade)\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,30}?\s+e\s+d[eo]\s+)?((?:Jardim|Vila|Parque|Cidade)\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,30}?)(?:\s*,\s*(?:em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito)|\s+em\s+GUAIANA[SZ]ES)/i);
+    const candidate = parteMatch ? parteMatch[1].replace(/\s+/g, ' ').trim() : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
+  if (!bairroExpresso) {
+    const tradMatch = clause.match(/(?:,\s*|\)\s*,?\s*)(?:n[oa]\s+)?(Lageado|Lajeado|Itaim\s+Paulista|Iguatemi|Rodeio|Guaianazes|Guaianases)(?:\s*,\s*(?:em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito|desta|nesta)|\s+n[oa]\s+distrito|\s+em\s+GUAIANA[SZ]ES)/i);
+    const candidate = tradMatch ? tradMatch[1].replace(/\s+/g, ' ').trim() : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
+  if (!bairroExpresso) {
+    const nucleoMatch = clause.match(/\bdo\s+loteamento\s+denominado\s+(N[úu]cleo\s+[A-Za-zÀ-ÿ0-9\s\.\-]{2,24}?)(?:\s*,\s*(?:Sec[cç][aã]o|em\s+[A-ZÀ-Ÿ]|n[oa]\s+distrito)|\s+em\s+GUAIANA[SZ]ES)/i);
+    const candidate = nucleoMatch ? nucleoMatch[1].replace(/\s+/g, ' ').trim() : null;
+    if (candidate && candidate.length >= 3 && candidate.length <= 30) {
+      bairroExpresso = candidate;
+    }
+  }
 
   // Sugestão de revisão a partir de loteamento/núcleo/conjunto do cabeçalho IMÓVEL
   const sugMatch = clause.match(/(?:N[úu]cleo(?:\s+Urbano(?:\s+Informal)?)?|Conjunto\s+Habitacional|loteamento)\s+(?:denominad[oa]\s+)?["“]?([^,"”;\.]{3,70})["”]?/i);
@@ -304,15 +325,15 @@ function extractInterestFromOcr(prenText, fallbackText) {
 function extractOpenedRangesFromOcr(prenText, allowedDerivadasSet) {
   if (!prenText) return [];
   const linked = new Map();
-  // Foca nos trechos após "FORAM ABERTAS" ou "Foram abertas"
-  const abRe = /(?:FORAM\s+ABERTAS|Foram\s+abertas)[^;]{0,900}?(?:selo:|escrevente|$)/gi;
+  // Foca nos trechos após "FORAM ABERTAS" ou "FOI ABERTA"
+  const abRe = /(?:FORAM\s+ABERTAS|Foram\s+abertas|FOI\s+ABERTA|Foi\s+aberta)[^;]{0,900}?(?:selo:|escrevente|$)/gi;
   for (const m of prenText.matchAll(abRe)) {
     const seg = m[0];
+    const snippet = seg.slice(0, 260).replace(/\s+/g, ' ').trim();
     for (const rm of seg.matchAll(/([0-9]{2,3}\.[0-9]{3})\s+(?:a|à)\s+([0-9]{2,3}\.[0-9]{3})/gi)) {
       const start = parseBrDotInt(rm[1]);
       const end = parseBrDotInt(rm[2]);
       if (start && end && end >= start && end - start <= 5000) {
-        const snippet = seg.slice(0, 260).replace(/\s+/g, ' ').trim();
         for (let num = start; num <= end; num++) {
           if (allowedDerivadasSet.has(num) && !linked.has(num)) {
             linked.set(num, snippet);
@@ -321,12 +342,17 @@ function extractOpenedRangesFromOcr(prenText, allowedDerivadasSet) {
       }
     }
     for (const pm of seg.matchAll(/([0-9]{2,3}\.[0-9]{3})\s+e\s+([0-9]{2,3}\.[0-9]{3})/gi)) {
-      const snippet = seg.slice(0, 260).replace(/\s+/g, ' ').trim();
       for (const raw of [pm[1], pm[2]]) {
         const num = parseBrDotInt(raw);
         if (num && allowedDerivadasSet.has(num) && !linked.has(num)) {
           linked.set(num, snippet);
         }
+      }
+    }
+    for (const sm of seg.matchAll(/(?:\bn[º°o'ª]?s?\.?\s*|\be\s+)([0-9]{2,3}\.[0-9]{3})(?!\d)/gi)) {
+      const num = parseBrDotInt(sm[1]);
+      if (num && allowedDerivadasSet.has(num) && !linked.has(num)) {
+        linked.set(num, snippet);
       }
     }
   }

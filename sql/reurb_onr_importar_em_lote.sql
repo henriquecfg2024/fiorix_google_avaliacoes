@@ -992,6 +992,97 @@ SET Subdistrito = N'GUAIANASES',
 WHERE NULLIF(LTRIM(RTRIM(Subdistrito)), '') IS NULL
   AND UPPER(LTRIM(RTRIM(Distrito))) IN (N'GUAIANAZES', N'GUAIANASES');
 
+/* 3e.1b) Fallback de Municipio via derivadas vinculadas (unânime) */
+;WITH der_mun AS (
+  SELECT
+    d.Flag,
+    d.Prenotacao,
+    d.MatrizRealId,
+    COUNT(DISTINCT UPPER(NULLIF(LTRIM(RTRIM(c.Cidade)), ''))) AS QtdCidades,
+    MIN(UPPER(NULLIF(LTRIM(RTRIM(c.Cidade)), ''))) AS CidadeUnica
+  FROM #Der d
+  JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
+  JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
+  JOIN dbo.tblWRICidades c WITH (NOLOCK) ON c.PK_Id = l.FK_tblWRICidades_Id
+  WHERE d.MatrizRealId IS NOT NULL
+    AND NULLIF(LTRIM(RTRIM(c.Cidade)), '') IS NOT NULL
+  GROUP BY d.Flag, d.Prenotacao, d.MatrizRealId
+)
+UPDATE g
+SET Municipio = dm.CidadeUnica,
+    QtdMunicipios = 1,
+    FonteMunicipio = 'WEBRI_DERIVADAS_MUNICIPIO'
+FROM #Reg g
+JOIN der_mun dm ON dm.Flag = g.Flag AND dm.Prenotacao = g.Prenotacao AND dm.MatrizRealId = g.RealId
+WHERE (NULLIF(LTRIM(RTRIM(g.Municipio)), '') IS NULL OR ISNULL(g.QtdMunicipios, 0) = 0)
+  AND dm.QtdCidades = 1
+  AND dm.CidadeUnica IS NOT NULL;
+
+/* 3e.1c) Desempate de Bairro majoritário confirmado por empreendimento ou maioria (>= 60%) nas derivadas vinculadas */
+;WITH der_bairro_cnt AS (
+  SELECT
+    d.Flag,
+    d.Prenotacao,
+    d.MatrizRealId,
+    NULLIF(LTRIM(RTRIM(lg.Bairro)), '') AS BairroDer,
+    COUNT(DISTINCT d.RealId) AS QtdDerBairro
+  FROM #Der d
+  JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
+  JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
+  JOIN dbo.tblWRILogradouros lg WITH (NOLOCK) ON lg.PK_Id = l.FK_tblWRILogradouros_Id
+  WHERE d.MatrizRealId IS NOT NULL
+    AND NULLIF(LTRIM(RTRIM(lg.Bairro)), '') IS NOT NULL
+  GROUP BY d.Flag, d.Prenotacao, d.MatrizRealId, NULLIF(LTRIM(RTRIM(lg.Bairro)), '')
+), der_bairro_tot AS (
+  SELECT
+    Flag, Prenotacao, MatrizRealId, BairroDer, QtdDerBairro,
+    SUM(QtdDerBairro) OVER (PARTITION BY Flag, Prenotacao, MatrizRealId) AS TotalDerComBairro
+  FROM der_bairro_cnt
+)
+UPDATE g
+SET Bairro = lm.BairroMaj,
+    FonteBairro = 'WEBRI_LOGRADOURO_CONFIRMADO',
+    BairroSugerido = NULL,
+    FonteBairroSugerido = NULL
+FROM #Reg g
+JOIN #LocBairroMaj lm ON lm.RealId = g.RealId AND lm.Prenotacao = g.Prenotacao
+LEFT JOIN der_bairro_tot dbt
+  ON dbt.Flag = g.Flag AND dbt.Prenotacao = g.Prenotacao AND dbt.MatrizRealId = g.RealId
+ AND dbt.BairroDer COLLATE Latin1_General_CI_AI = lm.BairroMaj COLLATE Latin1_General_CI_AI
+WHERE NULLIF(LTRIM(RTRIM(g.Bairro)), '') IS NULL
+  AND NULLIF(LTRIM(RTRIM(lm.BairroMaj)), '') IS NOT NULL
+  AND LEN(LTRIM(RTRIM(lm.BairroMaj))) <= 30
+  AND (
+       (NULLIF(LTRIM(RTRIM(g.Empreendimento)), '') IS NOT NULL AND g.Empreendimento COLLATE Latin1_General_CI_AI LIKE N'%' + LTRIM(RTRIM(lm.BairroMaj)) + N'%')
+    OR (dbt.TotalDerComBairro > 0 AND (dbt.QtdDerBairro * 100.0 / dbt.TotalDerComBairro) >= 60.0)
+  );
+
+/* 3e.1d) Fallback de Bairro unânime nas derivadas da prenotação (quando a matriz não possui bairro cadastrado) */
+;WITH pren_der_bairro AS (
+  SELECT
+    d.Flag,
+    d.Prenotacao,
+    COUNT(DISTINCT NULLIF(LTRIM(RTRIM(lg.Bairro)), '')) AS QtdBairrosDer,
+    MIN(NULLIF(LTRIM(RTRIM(lg.Bairro)), '')) AS BairroUnicoDer
+  FROM #Der d
+  JOIN dbo.tblWRIReal rd WITH (NOLOCK) ON rd.PK_Id = d.RealId
+  JOIN dbo.tblWRILocalizacao l WITH (NOLOCK) ON l.FK_tblWRIImovelBase_Id = rd.FK_tblWRIImovelBase_Id
+  JOIN dbo.tblWRILogradouros lg WITH (NOLOCK) ON lg.PK_Id = l.FK_tblWRILogradouros_Id
+  WHERE NULLIF(LTRIM(RTRIM(lg.Bairro)), '') IS NOT NULL
+  GROUP BY d.Flag, d.Prenotacao
+)
+UPDATE g
+SET Bairro = pb.BairroUnicoDer,
+    FonteBairro = 'WEBRI_DERIVADAS_BAIRRO',
+    BairroSugerido = NULL,
+    FonteBairroSugerido = NULL
+FROM #Reg g
+JOIN pren_der_bairro pb ON pb.Flag = g.Flag AND pb.Prenotacao = g.Prenotacao
+WHERE NULLIF(LTRIM(RTRIM(g.Bairro)), '') IS NULL
+  AND ISNULL(g.QtdBairros, 0) = 0
+  AND pb.QtdBairrosDer = 1
+  AND LEN(LTRIM(RTRIM(pb.BairroUnicoDer))) <= 30;
+
 /* 3e.2) Fallback de Empreendimento via tblWRIRecepcao.Outorgado e loteamento majoritário das derivadas */
 UPDATE g
 SET Empreendimento = NULLIF(LTRIM(RTRIM(rc.Outorgado)), ''),
@@ -1224,6 +1315,18 @@ INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'bairro', 'MEDIA',
   N'WEBRI tblWRILogradouros.Bairro' + CASE WHEN TrechoBairroOcr IS NOT NULL THEN N' | ' + ISNULL(DocumentoOcr, N'OCR') + N': ' + TrechoBairroOcr ELSE N'' END,
   N'Conferir com matrícula/CRF'
 FROM #Reg WHERE Bairro IS NOT NULL AND FonteBairro = 'WEBRI_LOGRADOURO_UNICO';
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'bairro', 'MEDIA',
+  N'Bairro majoritário confirmado via empreendimento/derivadas ou unânime nas derivadas: ' + Bairro,
+  ISNULL(FonteBairro, N'WEBRI'),
+  N'Conferir com matrícula/CRF'
+FROM #Reg WHERE Bairro IS NOT NULL AND FonteBairro IN ('WEBRI_LOGRADOURO_CONFIRMADO', 'WEBRI_DERIVADAS_BAIRRO');
+
+INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'municipio', 'INFO',
+  N'Município obtido de forma unânime nas matrículas derivadas vinculadas: ' + Municipio,
+  N'WEBRI_DERIVADAS_MUNICIPIO',
+  N'Informativo — matriz sem cidade preenchida diretamente'
+FROM #Reg WHERE FonteMunicipio = 'WEBRI_DERIVADAS_MUNICIPIO';
 
 INSERT INTO #Alerta SELECT Prenotacao, Matricula, NULL, 'tipoLocalizacao', 'MEDIA',
   N'Classificado como Rural — conferir', N'WEBRI tblWRIImovel (TipoImovel/Incra)', N'Confirmar na matrícula/CRF'

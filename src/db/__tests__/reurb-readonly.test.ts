@@ -7,6 +7,7 @@ import {
   extractBairroFromOcr,
   extractEmpreendimentoFromOcr,
   extractInterestFromOcr,
+  extractOpenedRangesFromOcr,
   loadReurbSqlScript,
   resolveReurbSqlPath,
   validateOnrJsonV14,
@@ -82,6 +83,32 @@ describe('REURB Somente-Leitura & Regras ONR v1.4 (fiorix-connector)', () => {
     const longo =
       'IMÓVEL: TERRENO situado na rua Um, no Jardim Residencial Muito Extenso Mesmo, em GUAIANAZES (CEP: 08450-530), com a seguinte descrição:';
     expect(extractBairroFromOcr(longo, '').bairroExpresso).toBeNull();
+
+    const lageado =
+      'IMÓVEL: TERRENO situado na rua do Folclore e estrada Iguatemi, no Sítio Iguatemi, no Lageado, em GUAIANAZES, com a seguinte descrição:';
+    expect(extractBairroFromOcr(lageado, '').bairroExpresso).toBe('Lageado');
+
+    const parteJardim =
+      'IMÓVEL: TERRENO com frente para as ruas Manuel Soares Madureira, localizado em parte do Jardim Célia e do Jardim Irene, em GUAIANAZES, com a seguinte descrição:';
+    expect(extractBairroFromOcr(parteJardim, '').bairroExpresso).toBe('Jardim Irene');
+
+    const nucleoItaim =
+      'IMÓVEL: TERRENO situado nas ruas Francisco Soutomaior, do loteamento denominado Núcleo Itaim, Secção "A", em GUAIANAZES, com a seguinte descrição:';
+    expect(extractBairroFromOcr(nucleoItaim, '').bairroExpresso).toBe('Núcleo Itaim');
+  });
+
+  it('extrai matrículas derivadas no singular ("FOI ABERTA") e avulsas após faixa ("... e 261.553")', () => {
+    const allowed = new Set([261535, 261536, 261537, 261538, 261553]);
+    const singular = 'Av. 02 (PRENOTAÇÃO 624.785). FOI ABERTA nesta data a matrícula referente ao lote de terreno, que recebeu o nº 261.538. selo: ABC';
+    expect(extractOpenedRangesFromOcr(singular, allowed).map((x) => x.matriculaDerivada)).toEqual([261538]);
+
+    const faixaEAvulsa =
+      'Av. 02 (PRENOTAÇÃO 624.785). FORAM ABERTAS nesta data as matrículas referentes aos lotes de terreno e a área remanescente, que receberam os nºs 261.535 a 261.537 (lotes) e 261.553 (área remanescente). selo: DEF';
+    expect(
+      extractOpenedRangesFromOcr(faixaEAvulsa, allowed)
+        .map((x) => x.matriculaDerivada)
+        .sort((a, b) => a - b),
+    ).toEqual([261535, 261536, 261537, 261553]);
   });
 
   it('classifica matrícula 947 de Condomínio Urbano Simples encerrado como CONDOMINIO_SIMPLES_INTERMEDIARIO', () => {
