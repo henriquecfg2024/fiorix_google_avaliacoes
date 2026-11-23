@@ -108,7 +108,10 @@ export function hasActivePainelFilters(filters: PainelColumnFilters): boolean {
 }
 
 /** Formata o rótulo legível do período selecionado no Painel REURB. */
-export function formatarPeriodoLabel(ano: number, mes: number | 'todos'): string {
+export function formatarPeriodoLabel(ano: number | null, mes: number | 'todos'): string {
+  if (ano === null) {
+    return 'Todos os anos';
+  }
   if (mes === 'todos') {
     return `Ano inteiro (${ano})`;
   }
@@ -253,8 +256,28 @@ export function agruparPendenciasModal(
     totalInformativos: qtdDerivadasSemTitulacao + outrosInformativos.length,
   };
 }
+/** Agrupa motivos de bloqueio por campo/motivo com contagem para exibição em banners e modais. */
+export function formatarBloqueiosAgrupados(
+  bloqueios: Array<{ campo: string; motivo: string }>,
+  separador = ' | '
+): string {
+  const counts = new Map<string, { texto: string; qtd: number }>();
+  for (const bl of bloqueios) {
+    const chave = `${bl.campo}|${bl.motivo}`;
+    const prev = counts.get(chave);
+    if (prev) {
+      prev.qtd += 1;
+    } else {
+      counts.set(chave, { texto: `${bl.campo}: ${bl.motivo}`, qtd: 1 });
+    }
+  }
+  return Array.from(counts.values())
+    .map((item) => (item.qtd > 1 ? `${item.texto} (×${item.qtd})` : item.texto))
+    .join(separador);
+}
+
 export interface GerarHtmlImpressaoPainelParams {
-  ano: number;
+  ano: number | null;
   mes: number | 'todos';
   processos: ReurbRegularizacaoResumo[];
   totalPeriodo: number;
@@ -299,18 +322,18 @@ export function gerarHtmlImpressaoPainel({
   const filtrosResumoHtml =
     activeFilterItems.length > 0
       ? activeFilterItems
-          .map((item) => `<span class="filter-chip">${escapePrintHtml(item)}</span>`)
-          .join(' ')
+        .map((item) => `<span class="filter-chip">${escapePrintHtml(item)}</span>`)
+        .join(' ')
       : '<span class="filter-empty">Nenhum filtro de coluna aplicado (todos os registros do período)</span>';
 
   const rowsHtml =
     processos.length > 0
       ? processos
-          .map((reg) => {
-            const situacaoLabel = reg.situacaoValidacao === 'APTO' ? 'Apto' : 'Pendente';
-            const badgeClass =
-              reg.situacaoValidacao === 'APTO' ? 'badge badge-apto' : 'badge badge-pendente';
-            return `
+        .map((reg) => {
+          const situacaoLabel = reg.situacaoValidacao === 'APTO' ? 'Apto' : 'Pendente';
+          const badgeClass =
+            reg.situacaoValidacao === 'APTO' ? 'badge badge-apto' : 'badge badge-pendente';
+          return `
               <tr>
                 <td>
                   <div class="cell-primary">${escapePrintHtml(reg.matricula)}</div>
@@ -324,8 +347,8 @@ export function gerarHtmlImpressaoPainel({
                 <td class="num">${escapePrintHtml(reg.qtdDerivadasLista)}</td>
                 <td><span class="${badgeClass}">${situacaoLabel}</span></td>
               </tr>`;
-          })
-          .join('')
+        })
+        .join('')
       : `
         <tr>
           <td colspan="5" class="empty-row">Nenhuma regularização encontrada para os filtros informados.</td>
@@ -560,18 +583,18 @@ export function isExportacaoElegivelComprovante(
 ): exp is ReurbExportacaoDTO {
   return Boolean(
     exp &&
-      exp.statusGeracao === 'GERADO' &&
-      exp.qtdAptasGeradas > 0 &&
-      exp.qtdBarradas === 0 &&
-      Boolean(exp.jsonSha256?.trim()) &&
-      exp.ocrConsultado === true
+    exp.statusGeracao === 'GERADO' &&
+    exp.qtdAptasGeradas > 0 &&
+    exp.qtdBarradas === 0 &&
+    Boolean(exp.jsonSha256?.trim()) &&
+    exp.ocrConsultado === true
   );
 }
 
 /** Imprime um documento HTML A4 isolado por meio de iframe oculto, retornando função de limpeza. */
 export function imprimirHtmlA4(html: string): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    return () => {};
+    return () => { };
   }
 
   const iframe = document.createElement('iframe');
@@ -637,13 +660,13 @@ export function gerarHtmlComprovanteExportacaoReurb(
   const rowsHtml =
     itensIncluidos.length > 0
       ? itensIncluidos
-          .map((it) => {
-            const protStr = String(it.protocolo ?? '').trim();
-            const prenStr = it.prenotacao != null ? String(it.prenotacao).trim() : '';
-            const protocoloCell =
-              prenStr && prenStr !== protStr ? `Prot. ${protStr} · Pren. ${prenStr}` : `Prot. ${protStr}`;
+        .map((it) => {
+          const protStr = String(it.protocolo ?? '').trim();
+          const prenStr = it.prenotacao != null ? String(it.prenotacao).trim() : '';
+          const protocoloCell =
+            prenStr && prenStr !== protStr ? `Prot. ${protStr} · Pren. ${prenStr}` : `Prot. ${protStr}`;
 
-            return `
+          return `
               <tr>
                 <td class="cell-primary nowrap">${escapePrintHtml(it.matricula)}</td>
                 <td class="nowrap">${escapePrintHtml(protocoloCell)}</td>
@@ -652,8 +675,8 @@ export function gerarHtmlComprovanteExportacaoReurb(
                 <td class="num nowrap">${escapePrintHtml(it.qtdDerivadasIncluidas)}</td>
                 <td class="col-status nowrap"><span class="badge-apta">Apta · Sem pendências</span></td>
               </tr>`;
-          })
-          .join('')
+        })
+        .join('')
       : `
         <tr>
           <td colspan="6" class="empty-row">Nenhuma regularização listada nos itens desta exportação.</td>
@@ -670,11 +693,10 @@ export function gerarHtmlComprovanteExportacaoReurb(
         <div class="onr-box onr-confirmada">
           <div class="onr-title-confirmada">Importação confirmada manualmente no Portal do Ofício Eletrônico</div>
           <div class="onr-detail">${escapePrintHtml(detalheConfirmacao)}</div>
-          ${
-            exp.observacaoConfirmacao?.trim()
-              ? `<div class="onr-obs">${escapePrintHtml(`Observação: ${exp.observacaoConfirmacao.trim()}`)}</div>`
-              : ''
-          }
+          ${exp.observacaoConfirmacao?.trim()
+        ? `<div class="onr-obs">${escapePrintHtml(`Observação: ${exp.observacaoConfirmacao.trim()}`)}</div>`
+        : ''
+      }
         </div>`
       : `
         <div class="onr-box onr-pendente">

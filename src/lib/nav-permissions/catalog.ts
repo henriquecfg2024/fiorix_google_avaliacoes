@@ -98,7 +98,7 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         href: '/reurb',
         groupId: 'documental',
         groupLabel: 'GESTÃO DOCUMENTAL',
-        description: 'Central REURB: Painel, Consulta, Relatórios e acompanhamento de regularizações fundiárias',
+        description: 'Central REURB: Painel e Processos, Exportações e Relatórios de regularizações fundiárias',
       },
       {
         id: 'reurb_exportar_json',

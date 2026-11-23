@@ -93,6 +93,7 @@ import {
   agruparPendenciasModal,
   escapePrintHtml,
   filtrarProcessosPainel,
+  formatarPeriodoLabel,
   gerarHtmlComprovanteExportacaoReurb,
   gerarHtmlImpressaoPainel,
   hasActivePainelFilters,
@@ -726,6 +727,7 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     });
 
     expect(escapePrintHtml('<a&"b">')).toBe('&lt;a&amp;&quot;b&quot;&gt;');
+    expect(formatarPeriodoLabel(null, 'todos')).toBe('Todos os anos');
     expect(html).toContain('Outubro / 2026');
     expect(html).toContain('1 de 2');
     expect(html).toContain('17 (1 apta(s) · 0 pend.)');
@@ -736,6 +738,16 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(html).not.toContain('999888-EXCLUIDO');
     expect(html).not.toContain('>Ação<');
     expect(html).not.toContain('>Detalhes<');
+
+    const htmlTodosAnos = gerarHtmlImpressaoPainel({
+      ano: null,
+      mes: 'todos',
+      processos: filtrados,
+      totalPeriodo: totalLista.length,
+      filters,
+      emitidoEm: new Date('2026-11-23T14:00:00Z'),
+    });
+    expect(htmlTodosAnos).toContain('Todos os anos');
   });
 
   it('separa bloqueios, conferência recomendada e agrupa avisos INFO repetitivos no modal de detalhes', () => {
@@ -884,6 +896,10 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(htmlPendente).toContain(
       'JSON gerado e validado no FIORIX — deverá sempre ser realizada a importação manual do JSON no portal do OFÍCIO ELETRÔNICO.'
     );
+    expect(htmlPendente).toContain(
+      'Documento comprobatório de geração íntegra e sem pendências segundo o Manual do Ofício Eletrônico v1.4.'
+    );
+    expect(htmlPendente).not.toContain('Manual ONR v1.4');
     expect(htmlPendente).toContain(
       'Documento comprobatório de geração íntegra e sem pendências segundo o Manual do Ofício Eletrônico v1.4.'
     );
