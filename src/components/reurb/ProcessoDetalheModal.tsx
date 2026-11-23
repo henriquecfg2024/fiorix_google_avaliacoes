@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import type { OnrValidationResult, ReurbRegularizacaoDTO } from '@/lib/reurb/types';
 import {
+  agruparPendenciasModal,
   formatarDataBr,
   labelModalidade,
   labelStatusImportacaoOnr,
@@ -89,6 +90,7 @@ export function ProcessoDetalheModal({
   const reg = data?.registro;
   const derivsJson = reg?.derivadas.filter((d) => d.incluirNoJson && !d.ehAreaPublica && !d.ehCondominioIntermediario) || [];
   const derivsExcluidas = reg?.derivadas.filter((d) => !d.incluirNoJson || d.ehAreaPublica || d.ehCondominioIntermediario) || [];
+  const pendenciasAgrupadas = agruparPendenciasModal(reg?.pendencias || []);
 
   async function handleExportarUnitaria() {
     if (!reg || exporting) return;
@@ -267,28 +269,22 @@ export function ProcessoDetalheModal({
                 </div>
               </div>
 
-              {/* Pendências e Alertas */}
-              {reg.pendencias.length > 0 && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-amber-200">
-                    <ShieldAlert className="h-4 w-4 text-amber-400" />
-                    Pendências e alertas de validação ONR ({reg.pendencias.length})
+              {/* Pendências bloqueantes ONR */}
+              {pendenciasAgrupadas.bloqueios.length > 0 && (
+                <div className="rounded-xl border border-rose-500/35 bg-rose-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-rose-200">
+                    <ShieldAlert className="h-4 w-4 text-rose-400" />
+                    Pendências bloqueantes ONR ({pendenciasAgrupadas.bloqueios.length})
                   </div>
                   <div className="space-y-2">
-                    {reg.pendencias.map((p, idx) => (
+                    {pendenciasAgrupadas.bloqueios.map((p, idx) => (
                       <div
-                        key={p.id || `${p.campo}-${idx}`}
+                        key={p.id || `bloq-${p.campo}-${idx}`}
                         className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2"
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                p.severidade === 'BLOQUEIA'
-                                  ? 'bg-rose-500/20 text-rose-300'
-                                  : 'bg-amber-500/20 text-amber-300'
-                              }`}
-                            >
+                            <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
                               {p.severidade}
                             </span>
                             <span className="font-bold text-white">{p.campo}</span>
@@ -306,6 +302,101 @@ export function ProcessoDetalheModal({
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Alertas de conferência recomendada */}
+              {pendenciasAgrupadas.alertasConferencia.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold text-amber-200">
+                      <AlertTriangle className="h-4 w-4 text-amber-400" />
+                      Alertas de conferência recomendada ({pendenciasAgrupadas.alertasConferencia.length})
+                    </div>
+                    <span className="text-[11px] text-amber-200/80">
+                      Não impedem a exportação do JSON, mas recomenda-se conferência.
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {pendenciasAgrupadas.alertasConferencia.map((p, idx) => (
+                      <div
+                        key={p.id || `conf-${p.campo}-${idx}`}
+                        className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                              {p.severidade}
+                            </span>
+                            <span className="font-bold text-white">{p.campo}</span>
+                            {p.matriculaDerivada && (
+                              <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-slate-200">{p.motivo}</p>
+                          {p.acaoNecessaria && (
+                            <p className="mt-0.5 text-[11px] text-emerald-300">Ação: {p.acaoNecessaria}</p>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Auditoria e avisos informativos (recolhido por padrão) */}
+              {pendenciasAgrupadas.totalInformativos > 0 && (
+                <details className="rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] p-4">
+                  <summary className="cursor-pointer select-none flex flex-wrap items-center justify-between gap-2 font-semibold text-cyan-200">
+                    <span>
+                      Auditoria e avisos informativos ({pendenciasAgrupadas.totalInformativos}) — não bloqueiam a exportação
+                    </span>
+                    <span className="text-[11px] font-normal text-slate-400">
+                      Clique para expandir detalhes
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    {pendenciasAgrupadas.qtdDerivadasSemTitulacao > 0 && (
+                      <div className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                              INFO
+                            </span>
+                            <span className="font-bold text-white">derivadas[].dataRegistro</span>
+                          </div>
+                          <p className="mt-1 text-slate-200">
+                            {pendenciasAgrupadas.qtdDerivadasSemTitulacao} derivada(s) sem ato de titulação posterior — enviadas com <code className="text-cyan-300">dataRegistro: null</code> conforme Manual ONR v1.4.
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-slate-400">WEBRI tblWRIAtos (TpAto=54)</span>
+                      </div>
+                    )}
+                    {pendenciasAgrupadas.outrosInformativos.map((p, idx) => (
+                      <div
+                        key={p.id || `info-${p.campo}-${idx}`}
+                        className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-slate-500/20 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
+                              {p.severidade}
+                            </span>
+                            <span className="font-bold text-white">{p.campo}</span>
+                            {p.matriculaDerivada && (
+                              <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-slate-200">{p.motivo}</p>
+                          {p.acaoNecessaria && (
+                            <p className="mt-0.5 text-[11px] text-slate-400">{p.acaoNecessaria}</p>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               )}
 
               {/* Fontes e Evidências OCR */}

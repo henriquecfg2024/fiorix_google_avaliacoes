@@ -90,6 +90,7 @@ import {
   executarGeracaoJsonReurb,
 } from '@/lib/reurb/export-service';
 import {
+  agruparPendenciasModal,
   escapePrintHtml,
   filtrarProcessosPainel,
   gerarHtmlImpressaoPainel,
@@ -732,5 +733,61 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(html).not.toContain('999888-EXCLUIDO');
     expect(html).not.toContain('>Ação<');
     expect(html).not.toContain('>Detalhes<');
+  });
+
+  it('separa bloqueios, conferência recomendada e agrupa avisos INFO repetitivos no modal de detalhes', () => {
+    const grouped = agruparPendenciasModal([
+      {
+        campo: 'bairro',
+        severidade: 'BLOQUEIA',
+        motivo: 'Bairro não comprovado',
+        fonte: 'WEBRI',
+        acaoNecessaria: 'Informar',
+        matriculaDerivada: null,
+        exigeConferencia: true,
+      },
+      {
+        campo: 'bairro',
+        severidade: 'MEDIA',
+        motivo: 'Bairro obtido do logradouro',
+        fonte: 'WEBRI',
+        acaoNecessaria: 'Conferir',
+        matriculaDerivada: null,
+        exigeConferencia: true,
+      },
+      {
+        campo: 'agente',
+        severidade: 'INFO',
+        motivo: 'Agente obtido do OCR',
+        fonte: 'SiplanIA',
+        acaoNecessaria: null,
+        matriculaDerivada: null,
+        exigeConferencia: false,
+      },
+      {
+        campo: 'dataRegistro',
+        severidade: 'INFO',
+        motivo: 'Derivada sem ato de titulação REURB; enviada com null',
+        fonte: 'WEBRI',
+        acaoNecessaria: null,
+        matriculaDerivada: 270006,
+        exigeConferencia: false,
+      },
+      {
+        campo: 'dataRegistro',
+        severidade: 'INFO',
+        motivo: 'Derivada sem ato de titulação REURB; enviada com null',
+        fonte: 'WEBRI',
+        acaoNecessaria: null,
+        matriculaDerivada: 270008,
+        exigeConferencia: false,
+      },
+    ]);
+
+    expect(grouped.bloqueios).toHaveLength(1);
+    expect(grouped.alertasConferencia).toHaveLength(1);
+    expect(grouped.qtdDerivadasSemTitulacao).toBe(2);
+    expect(grouped.outrosInformativos).toHaveLength(1);
+    expect(grouped.totalInformativos).toBe(3);
   });
 });

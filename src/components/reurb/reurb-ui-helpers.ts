@@ -1,4 +1,8 @@
-import type { ReurbRegularizacaoResumo, ReurbSituacaoValidacao } from '@/lib/reurb/types';
+import type {
+  ReurbPendenciaDTO,
+  ReurbRegularizacaoResumo,
+  ReurbSituacaoValidacao,
+} from '@/lib/reurb/types';
 
 export const MESES_NOMES = [
   { value: 1, label: 'Janeiro' },
@@ -205,6 +209,47 @@ export function escapePrintHtml(value: string | number | null | undefined): stri
     .replace(/'/g, '&#39;');
 }
 
+export interface PendenciasAgrupadasModal {
+  bloqueios: ReurbPendenciaDTO[];
+  alertasConferencia: ReurbPendenciaDTO[];
+  qtdDerivadasSemTitulacao: number;
+  outrosInformativos: ReurbPendenciaDTO[];
+  totalInformativos: number;
+}
+
+/** Separa bloqueios, alertas de conferência e avisos informativos/auditoria para o modal de detalhes. */
+export function agruparPendenciasModal(
+  pendencias: ReurbPendenciaDTO[]
+): PendenciasAgrupadasModal {
+  const bloqueios: ReurbPendenciaDTO[] = [];
+  const alertasConferencia: ReurbPendenciaDTO[] = [];
+  const outrosInformativos: ReurbPendenciaDTO[] = [];
+  let qtdDerivadasSemTitulacao = 0;
+
+  for (const p of pendencias) {
+    const sev = String(p.severidade);
+    if (sev === 'BLOQUEIA') {
+      bloqueios.push(p);
+    } else if (sev === 'ALTA' || sev === 'MEDIA') {
+      alertasConferencia.push(p);
+    } else if (
+      p.campo === 'dataRegistro' &&
+      p.motivo.includes('Derivada sem ato de titulação REURB')
+    ) {
+      qtdDerivadasSemTitulacao += 1;
+    } else {
+      outrosInformativos.push(p);
+    }
+  }
+
+  return {
+    bloqueios,
+    alertasConferencia,
+    qtdDerivadasSemTitulacao,
+    outrosInformativos,
+    totalInformativos: qtdDerivadasSemTitulacao + outrosInformativos.length,
+  };
+}
 export interface GerarHtmlImpressaoPainelParams {
   ano: number;
   mes: number | 'todos';
