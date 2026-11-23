@@ -56,7 +56,7 @@ export default async function CentralReurbPage() {
             <span className="text-slate-600">/</span>
             <span className="text-emerald-400 font-extrabold tracking-wider">CENTRAL REURB</span>
             <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-              ONR v1.4
+              Ofício Eletrônico v1.4
             </span>
           </div>
 

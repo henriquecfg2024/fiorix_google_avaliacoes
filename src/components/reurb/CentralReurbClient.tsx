@@ -117,7 +117,7 @@ export function CentralReurbClient({
             )}
           </div>
           <p className="text-xs text-slate-400">
-            Regularização Fundiária Urbana (WEBRI + OCR SiplanIA) · Leiaute Importar em Lote do Ofício Eletrônico ONR v1.4
+            Regularização Fundiária Urbana (WEBRI + OCR SiplanIA) · Leiaute Importar em Lote do Ofício Eletrônico v1.4
           </p>
         </div>
 

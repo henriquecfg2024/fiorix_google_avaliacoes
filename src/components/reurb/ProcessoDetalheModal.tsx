@@ -131,7 +131,7 @@ export function ProcessoDetalheModal({
       });
       const body = await res.json();
       if (!res.ok || !body?.ok) {
-        const msg = body?.error || 'Falha ao gerar JSON unitário para o ONR.';
+        const msg = body?.error || 'Falha ao gerar JSON unitário para o Ofício Eletrônico.';
         setExportError(msg);
         toast.error(msg);
         return;
@@ -144,7 +144,7 @@ export function ProcessoDetalheModal({
         setLastExportacaoComprovante(body.exportacao);
       }
       toast.success(
-        `JSON unitário da matrícula ${reg.matricula} gerado com revalidação ONR v1.4.`
+        `JSON unitário da matrícula ${reg.matricula} gerado com revalidação do Ofício Eletrônico v1.4.`
       );
       onExportSuccess();
     } catch (err) {
@@ -182,7 +182,7 @@ export function ProcessoDetalheModal({
                 title={
                   reg.situacaoValidacao !== 'APTO'
                     ? 'Resolva as pendências bloqueantes antes de exportar JSON'
-                    : 'Revalidar no Connector e exportar JSON ONR v1.4 unitário'
+                    : 'Revalidar no Connector e exportar JSON unitário para o Ofício Eletrônico v1.4'
                 }
                 className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-45 disabled:cursor-not-allowed"
               >
@@ -285,7 +285,7 @@ export function ProcessoDetalheModal({
                 </div>
 
                 <div className="rounded-xl border border-white/10 bg-[#070A12] p-3.5 space-y-1">
-                  <div className="text-slate-400">Situação ONR v1.4</div>
+                  <div className="text-slate-400">Situação Ofício Eletrônico v1.4</div>
                   <div className="flex items-center gap-2">
                     {reg.situacaoValidacao === 'APTO' ? (
                       <span className="inline-flex items-center gap-1 text-emerald-300 font-bold">
@@ -298,7 +298,7 @@ export function ProcessoDetalheModal({
                     )}
                   </div>
                   <div className="text-[11px] text-slate-400">
-                    Importação ONR: {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                    Importação Ofício Eletrônico: {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
                   </div>
                 </div>
               </div>
@@ -332,12 +332,12 @@ export function ProcessoDetalheModal({
                 </div>
               </div>
 
-              {/* Pendências bloqueantes ONR */}
+              {/* Pendências bloqueantes Ofício Eletrônico */}
               {pendenciasAgrupadas.bloqueios.length > 0 && (
                 <div className="rounded-xl border border-rose-500/35 bg-rose-500/5 p-4 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-rose-200">
                     <ShieldAlert className="h-4 w-4 text-rose-400" />
-                    Pendências bloqueantes ONR ({pendenciasAgrupadas.bloqueios.length})
+                    Pendências bloqueantes — Ofício Eletrônico ({pendenciasAgrupadas.bloqueios.length})
                   </div>
                   <div className="space-y-2">
                     {pendenciasAgrupadas.bloqueios.map((p, idx) => (
@@ -429,7 +429,7 @@ export function ProcessoDetalheModal({
                             <span className="font-bold text-white">derivadas[].dataRegistro</span>
                           </div>
                           <p className="mt-1 text-slate-200">
-                            {pendenciasAgrupadas.qtdDerivadasSemTitulacao} derivada(s) sem ato de titulação posterior — enviadas com <code className="text-cyan-300">dataRegistro: null</code> conforme Manual ONR v1.4.
+                            {pendenciasAgrupadas.qtdDerivadasSemTitulacao} derivada(s) sem ato de titulação posterior — enviadas com <code className="text-cyan-300">dataRegistro: null</code> conforme Manual do Ofício Eletrônico v1.4.
                           </p>
                         </div>
                         <span className="text-[11px] text-slate-400">WEBRI tblWRIAtos (TpAto=54)</span>
@@ -538,7 +538,7 @@ export function ProcessoDetalheModal({
                 {derivsExcluidas.length > 0 && (
                   <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-1.5">
                     <div className="font-semibold text-cyan-200">
-                      Áreas públicas / vias / condomínio intermediário excluídos do array derivadas[] (Manual ONR v1.4)
+                      Áreas públicas / vias / condomínio intermediário excluídos do array derivadas[] (Manual do Ofício Eletrônico v1.4)
                     </div>
                     {derivsExcluidas.map((d) => (
                       <div key={d.matriculaDerivada} className="text-[11px] text-slate-200 flex flex-wrap justify-between gap-2 border-t border-white/5 pt-1">
@@ -566,7 +566,7 @@ export function ProcessoDetalheModal({
                         <tr key={d.matriculaDerivada}>
                           <td className="px-3 py-1.5 font-bold text-white">{d.matriculaDerivada}</td>
                           <td className="px-3 py-1.5 text-slate-300">
-                            {d.dataAbertura ? formatarDataBr(d.dataAbertura) : 'Omitida (opcional ONR pág. 24)'}
+                            {d.dataAbertura ? formatarDataBr(d.dataAbertura) : 'Omitida (opcional — Manual do Ofício Eletrônico pág. 24)'}
                           </td>
                           <td className="px-3 py-1.5 text-slate-300">
                             {d.dataRegistro ? formatarDataBr(d.dataRegistro) : 'null (sem titulação posterior)'}

@@ -62,7 +62,7 @@ export function ComprovanteExportacaoModal({
         className="fixed inset-0 bg-black/80 backdrop-blur-sm cursor-default"
       />
 
-      <div className="relative z-10 w-full max-w-4xl rounded-2xl border border-white/15 bg-[#0D1322] text-white shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative z-10 w-full max-w-[900px] rounded-2xl border border-white/15 bg-[#0D1322] text-white shadow-2xl overflow-hidden flex flex-col">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#0D1322] px-5 py-3.5">
           <div className="min-w-0 space-y-0.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -71,11 +71,11 @@ export function ComprovanteExportacaoModal({
               </h2>
               {confirmadaOnr ? (
                 <span className="rounded-full border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-cyan-200">
-                  Importada no ONR
+                  Importada no Ofício Eletrônico
                 </span>
               ) : (
                 <span className="rounded-full border border-amber-500/35 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
-                  Aguardando importação manual no ONR
+                  Aguardando importação manual no Ofício Eletrônico
                 </span>
               )}
             </div>

@@ -186,7 +186,7 @@ export function ExportacoesReurbTab({
       setMixedModal(null);
 
       if (!res.ok || !body?.ok) {
-        const msg = body?.error || 'Falha ao gerar arquivo JSON para o ONR.';
+        const msg = body?.error || 'Falha ao gerar arquivo JSON para o Ofício Eletrônico.';
         setErrorBanner(msg);
         if (Array.isArray(body?.barradas)) {
           setBlockedList(body.barradas);
@@ -212,7 +212,7 @@ export function ExportacoesReurbTab({
       }
 
       toast.success(
-        `JSON ONR v1.4 gerado com ${body.exportacao?.qtdAptasGeradas ?? 0} regularização(ões) apta(s).`
+        `JSON do Ofício Eletrônico v1.4 gerado com ${body.exportacao?.qtdAptasGeradas ?? 0} regularização(ões) apta(s).`
       );
       if (isExportacaoElegivelComprovante(body.exportacao)) {
         setLastEligibleExportacao(body.exportacao);
@@ -245,15 +245,15 @@ export function ExportacoesReurbTab({
       );
       const body = await res.json();
       if (!res.ok || !body?.ok) {
-        toast.error(body?.error || 'Não foi possível confirmar a importação no ONR.');
+        toast.error(body?.error || 'Não foi possível confirmar a importação no Ofício Eletrônico.');
         return;
       }
-      toast.success('Importação manual no ONR registrada no histórico.');
+      toast.success('Importação manual no Ofício Eletrônico registrada no histórico.');
       setConfirmTarget(null);
       onDataChanged();
       carregarDados();
     } catch {
-      toast.error('Erro ao registrar confirmação manual no ONR.');
+      toast.error('Erro ao registrar confirmação manual no Ofício Eletrônico.');
     } finally {
       setConfirming(false);
     }
@@ -261,23 +261,6 @@ export function ExportacoesReurbTab({
 
   return (
     <div className="space-y-6">
-      {/* Regra operacional de segurança */}
-      <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="text-slate-200 space-y-1">
-          <div className="font-bold text-emerald-300">
-            Fluxo oficial ONR v1.4 (Manual Cap. 6 — Importar em Lote)
-          </div>
-          <p className="text-slate-300">
-            <strong>1) Aptidão</strong> indica validação local · <strong>2) JSON gerado</strong> executa revalidação ao vivo obrigatória no Connector (WEBRI + SiplanIA) · <strong>3) Importada no ONR</strong> ocorre apenas após confirmação manual do protocolo no portal externo.
-          </p>
-        </div>
-        {isReadOnly && (
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300">
-            Perfil em modo somente leitura
-          </span>
-        )}
-      </div>
-
       {errorBanner && (
         <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 space-y-2 text-xs text-rose-200">
           <div className="flex items-center gap-2 font-bold text-rose-300">
@@ -339,7 +322,7 @@ export function ExportacoesReurbTab({
       <div className="rounded-2xl border border-white/10 bg-[#0D1322] overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-sm font-bold text-white">Seleção do lote ONR</h2>
+            <h2 className="text-sm font-bold text-white">Seleção do lote — Ofício Eletrônico</h2>
             <p className="text-xs text-slate-400">
               {selectedIds.length} selecionada(s) ·{' '}
               <span className="text-emerald-300 font-semibold">{qtdAptosSel} apta(s)</span> ·{' '}
@@ -379,7 +362,7 @@ export function ExportacoesReurbTab({
               ) : (
                 <FileJson className="h-4 w-4" />
               )}
-              Gerar JSON em lote ONR
+              Gerar JSON em lote — Ofício Eletrônico
             </button>
           </div>
         </div>
@@ -394,7 +377,7 @@ export function ExportacoesReurbTab({
                 <th className="px-4 py-3">Registro</th>
                 <th className="px-4 py-3">Derivadas</th>
                 <th className="px-4 py-3">Aptidão</th>
-                <th className="px-4 py-3">Status no ONR</th>
+                <th className="px-4 py-3">Status no Ofício Eletrônico</th>
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
             </thead>
@@ -463,10 +446,10 @@ export function ExportacoesReurbTab({
         </div>
       </div>
 
-      {/* Histórico de exportações e confirmação manual no ONR */}
+      {/* Histórico de exportações e confirmação manual no Ofício Eletrônico */}
       <div className="rounded-2xl border border-white/10 bg-[#0D1322] overflow-hidden">
         <div className="p-4 border-b border-white/10">
-          <h2 className="text-sm font-bold text-white">Histórico de exportações JSON e importação no ONR</h2>
+          <h2 className="text-sm font-bold text-white">Histórico de exportações JSON e importação no Ofício Eletrônico</h2>
           <p className="text-xs text-slate-400">
             Registro auditável de arquivos gerados, falhas de revalidação e confirmação manual no Ofício Eletrônico.
           </p>
@@ -479,7 +462,7 @@ export function ExportacoesReurbTab({
                 <th className="px-4 py-3">Data / Operador</th>
                 <th className="px-4 py-3">Tipo / Arquivo</th>
                 <th className="px-4 py-3">Geração FIORIX</th>
-                <th className="px-4 py-3">Importação ONR</th>
+                <th className="px-4 py-3">Importação Ofício Eletrônico</th>
                 <th className="px-4 py-3 text-right">Downloads & Confirmação</th>
               </tr>
             </thead>
@@ -522,11 +505,11 @@ export function ExportacoesReurbTab({
                       {exp.statusImportacaoOnr === 'CONFIRMADA_ONR' ? (
                         <div>
                           <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200">
-                            <FileCheck2 className="h-3 w-3" /> Importada no ONR
+                            <FileCheck2 className="h-3 w-3" /> Importada no Ofício Eletrônico
                           </span>
                           <div className="text-[11px] text-slate-400 mt-0.5">
                             {formatarDataHoraBr(exp.confirmadoImportacaoEm)}
-                            {exp.protocoloOnrExterno ? ` · Prot. ONR ${exp.protocoloOnrExterno}` : ''}
+                            {exp.protocoloOnrExterno ? ` · Prot. ${exp.protocoloOnrExterno}` : ''}
                           </div>
                         </div>
                       ) : (
@@ -587,7 +570,7 @@ export function ExportacoesReurbTab({
                             }
                             className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 hover:bg-cyan-500/25"
                           >
-                            Confirmar importação ONR
+                            Confirmar no Ofício Eletrônico
                           </button>
                         )}
                     </td>
@@ -609,7 +592,7 @@ export function ExportacoesReurbTab({
             </div>
             <p className="text-slate-300">
               Foram identificadas <strong>{mixedModal.aptasCount}</strong> regularização(ões) apta(s) e{' '}
-              <strong className="text-amber-300">{mixedModal.barradasCount}</strong> com pendência(s) bloqueante(s). Deseja gerar o JSON ONR v1.4 apenas com as aptas e baixar o relatório de pendências para as barradas?
+              <strong className="text-amber-300">{mixedModal.barradasCount}</strong> com pendência(s) bloqueante(s). Deseja gerar o JSON do Ofício Eletrônico v1.4 apenas com as aptas e baixar o relatório de pendências para as barradas?
             </p>
             <div className="max-h-48 overflow-y-auto space-y-2">
               {mixedModal.barradas.map((b) => (
@@ -644,26 +627,26 @@ export function ExportacoesReurbTab({
         </div>
       )}
 
-      {/* Modal Confirmação Manual ONR */}
+      {/* Modal Confirmação Manual Ofício Eletrônico */}
       {confirmTarget && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md rounded-2xl border border-cyan-500/40 bg-[#0D1322] p-6 space-y-4 text-xs">
             <div className="flex items-center gap-2 text-cyan-300 font-bold text-sm">
               <ShieldAlert className="h-5 w-5" />
-              Confirmar importação manual no Ofício Eletrônico ONR
+              Confirmar importação manual no Ofício Eletrônico
             </div>
             <p className="text-slate-300">
               Arquivo: <strong className="text-white">{confirmTarget.exportacao.nomeArquivoJson}</strong>
             </p>
             <div>
-              <label className="block text-slate-400 mb-1">Protocolo / Recibo ONR (opcional)</label>
+              <label className="block text-slate-400 mb-1">Protocolo / Recibo do Ofício Eletrônico (opcional)</label>
               <input
                 type="text"
                 value={confirmTarget.protocoloOnrExterno}
                 onChange={(e) =>
                   setConfirmTarget({ ...confirmTarget, protocoloOnrExterno: e.target.value })
                 }
-                placeholder="Ex.: ONR-REURB-2026-8841"
+                placeholder="Ex.: OFICIO-REURB-2026-8841"
                 className="w-full rounded-xl border border-white/15 bg-[#070A12] px-3 py-2 text-white"
               />
             </div>
@@ -693,7 +676,7 @@ export function ExportacoesReurbTab({
                 onClick={handleConfirmarImportacaoOnr}
                 className="rounded-xl bg-cyan-600 px-4 py-2 font-semibold text-white hover:bg-cyan-500 disabled:opacity-50"
               >
-                {confirming ? 'Salvando...' : 'Registrar confirmação ONR'}
+                {confirming ? 'Salvando...' : 'Registrar confirmação no Ofício Eletrônico'}
               </button>
             </div>
           </div>

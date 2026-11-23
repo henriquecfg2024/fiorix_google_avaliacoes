@@ -98,6 +98,7 @@ import {
   hasActivePainelFilters,
   INITIAL_PAINEL_COLUMN_FILTERS,
   isExportacaoElegivelComprovante,
+  labelStatusImportacaoOnr,
 } from '@/components/reurb/reurb-ui-helpers';
 
 function makeDbRowFromDto(reg: ReturnType<typeof getDemoReurbRegularizacoes>[number], idOverride?: string) {
@@ -860,6 +861,8 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     };
 
     expect(isExportacaoElegivelComprovante(baseExp)).toBe(true);
+    expect(labelStatusImportacaoOnr('IMPORTADA_ONR')).toBe('Importada no Ofício Eletrônico');
+    expect(labelStatusImportacaoOnr('CONFIRMADA_ONR')).toBe('Importada no Ofício Eletrônico');
     expect(isExportacaoElegivelComprovante({ ...baseExp, qtdBarradas: 1 })).toBe(false);
     expect(isExportacaoElegivelComprovante({ ...baseExp, statusGeracao: 'FALHA' })).toBe(false);
     expect(isExportacaoElegivelComprovante({ ...baseExp, ocrConsultado: false })).toBe(false);
@@ -874,9 +877,17 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
     expect(htmlPendente).not.toContain('Validação Estrita');
     expect(htmlPendente).not.toContain('Evidência de Revalidação ao Vivo');
     expect(htmlPendente).toContain('C4F9B2E819A07D43');
+    expect(htmlPendente).toContain('Total incluído no arquivo (2 regularizações)');
+    expect(htmlPendente).toContain('100% aptas · 0 pendências');
+    expect(htmlPendente).toContain('Prot. 644354');
+    expect(htmlPendente).not.toContain('(Pren. 644354)');
     expect(htmlPendente).toContain(
       'JSON gerado e validado no FIORIX — deverá sempre ser realizada a importação manual do JSON no portal do OFÍCIO ELETRÔNICO.'
     );
+    expect(htmlPendente).toContain(
+      'Documento comprobatório de geração íntegra e sem pendências segundo o Manual do Ofício Eletrônico v1.4.'
+    );
+    expect(htmlPendente).not.toContain('Manual ONR v1.4');
     expect(htmlPendente).not.toContain('não substituindo o recibo oficial');
     expect(htmlPendente).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(htmlPendente).not.toContain('<script>alert(1)</script>');
@@ -888,13 +899,29 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
       statusImportacaoOnr: 'CONFIRMADA_ONR',
       confirmadoImportacaoEm: '2026-11-23T16:10:00Z',
       confirmadoPorNome: 'Henrique',
-      protocoloOnrExterno: 'ONR-2026-77',
+      protocoloOnrExterno: 'OFICIO-2026-77',
       observacaoConfirmacao: 'Protocolado OK',
     });
     expect(htmlConfirmada).toContain(
-      'Importação no Portal Ofício Eletrônico ONR CONFIRMADA manualmente'
+      'Importação confirmada manualmente no Portal do Ofício Eletrônico'
     );
-    expect(htmlConfirmada).toContain('Protocolo ONR: ONR-2026-77');
+    expect(htmlConfirmada).toContain('Protocolo: OFICIO-2026-77');
     expect(htmlConfirmada).toContain('Observação: Protocolado OK');
+    expect(htmlConfirmada).not.toContain('Ofício Eletrônico (ONR)');
+    expect(htmlConfirmada).not.toContain('Ofício Eletrônico ONR');
+    expect(htmlConfirmada).not.toContain('Protocolo ONR:');
+
+    const htmlConfirmadaSemProtocolo = gerarHtmlComprovanteExportacaoReurb({
+      ...baseExp,
+      tipo: 'LOTE',
+      statusImportacaoOnr: 'CONFIRMADA_ONR',
+      confirmadoImportacaoEm: '2026-11-23T16:42:00Z',
+      confirmadoPorNome: 'David Coutinho da Silva',
+      protocoloOnrExterno: null,
+      observacaoConfirmacao: null,
+    });
+    expect(htmlConfirmadaSemProtocolo).toContain('Confirmado em ');
+    expect(htmlConfirmadaSemProtocolo).not.toContain('Não informado');
+    expect(htmlConfirmadaSemProtocolo).not.toContain('Protocolo:');
   });
 });

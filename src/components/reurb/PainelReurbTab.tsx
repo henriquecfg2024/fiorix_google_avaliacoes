@@ -286,7 +286,7 @@ export function PainelReurbTab({
             {loading ? '—' : data?.kpis.aptasExportacao ?? 0}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            Regra: <strong>situação atual</strong> dos processos registrados no período sem pendência bloqueante ONR v1.4.
+            Regra: <strong>situação atual</strong> dos processos registrados no período sem pendência bloqueante no Ofício Eletrônico v1.4.
           </p>
         </button>
 

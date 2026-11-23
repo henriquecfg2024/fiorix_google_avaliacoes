@@ -205,7 +205,7 @@ export function ConsultaReurbTab({
               className="w-full rounded-xl border border-white/15 bg-[#070A12] px-3 py-2 text-xs text-white"
             >
               <option value="TODAS">Todas</option>
-              <option value="APTO">Apto para ONR</option>
+              <option value="APTO">Apto para Ofício Eletrônico</option>
               <option value="PENDENTE">Com pendências</option>
             </select>
           </div>
@@ -354,8 +354,8 @@ export function ConsultaReurbTab({
                 <th className="px-4 py-3">Empreendimento / Modalidade</th>
                 <th className="px-4 py-3">Registro / Prenotação</th>
                 <th className="px-4 py-3">Derivadas</th>
-                <th className="px-4 py-3">Validação ONR</th>
-                <th className="px-4 py-3">Status ONR</th>
+                <th className="px-4 py-3">Validação Ofício Eletrônico</th>
+                <th className="px-4 py-3">Status no Ofício Eletrônico</th>
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
             </thead>

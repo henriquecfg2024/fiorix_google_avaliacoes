@@ -58,7 +58,9 @@ export function labelModalidade(mod: string): string {
 }
 
 export function labelStatusImportacaoOnr(status: string): string {
-  if (status === 'IMPORTADA_ONR' || status === 'CONFIRMADA_ONR') return 'Importada no ONR';
+  if (status === 'IMPORTADA_ONR' || status === 'CONFIRMADA_ONR') {
+    return 'Importada no Ofício Eletrônico';
+  }
   if (status === 'EXPORTADA_AGUARDANDO_CONFIRMACAO' || status === 'PENDENTE_CONFIRMACAO') {
     return 'JSON gerado (aguardando confirmação)';
   }
@@ -618,7 +620,8 @@ export function gerarHtmlComprovanteExportacaoReurb(
   exp: ReurbExportacaoDTO,
   opcoes?: { emitidoEm?: Date }
 ): string {
-  const tipoLabel = exp.tipo === 'UNITARIA' ? 'Unitária' : 'Em Lote';
+  const tipoExportacaoLabel =
+    exp.tipo === 'UNITARIA' ? 'Exportação Unitária' : 'Exportação em Lote';
   const nomeArquivo = exp.nomeArquivoJson?.trim() || '—';
   const operador = exp.geradoPorNome?.trim() || 'Operador';
   const dataGeracaoLabel = formatarDataHoraBr(exp.createdAt);
@@ -627,34 +630,46 @@ export function gerarHtmlComprovanteExportacaoReurb(
   const emissaoLabel = formatarDataHoraBr((opcoes?.emitidoEm ?? new Date()).toISOString());
 
   const itensIncluidos = (exp.itens || []).filter((it) => it.incluidaNoJson);
+  const rotuloRegularizacoes = itensIncluidos.length === 1 ? 'regularização' : 'regularizações';
+  const situacaoTotalLabel =
+    itensIncluidos.length === 1 ? '100% apta · 0 pendências' : '100% aptas · 0 pendências';
+
   const rowsHtml =
     itensIncluidos.length > 0
       ? itensIncluidos
-          .map(
-            (it) => `
+          .map((it) => {
+            const protStr = String(it.protocolo ?? '').trim();
+            const prenStr = it.prenotacao != null ? String(it.prenotacao).trim() : '';
+            const protocoloCell =
+              prenStr && prenStr !== protStr ? `Prot. ${protStr} · Pren. ${prenStr}` : `Prot. ${protStr}`;
+
+            return `
               <tr>
-                <td class="cell-primary">${escapePrintHtml(it.matricula)}</td>
-                <td>Prot. ${escapePrintHtml(it.protocolo)} (Pren. ${escapePrintHtml(it.prenotacao)})</td>
+                <td class="cell-primary nowrap">${escapePrintHtml(it.matricula)}</td>
+                <td class="nowrap">${escapePrintHtml(protocoloCell)}</td>
                 <td class="cell-emp">${escapePrintHtml(it.empreendimento || 'Não informado')}</td>
-                <td>${escapePrintHtml(labelModalidade(it.modalidade))}</td>
-                <td class="num">${escapePrintHtml(it.qtdDerivadasIncluidas)}</td>
-                <td><span class="badge-apta">Apta · Sem pendências</span></td>
-              </tr>`
-          )
+                <td class="nowrap">${escapePrintHtml(labelModalidade(it.modalidade))}</td>
+                <td class="num nowrap">${escapePrintHtml(it.qtdDerivadasIncluidas)}</td>
+                <td class="col-status nowrap"><span class="badge-apta">Apta · Sem pendências</span></td>
+              </tr>`;
+          })
           .join('')
       : `
         <tr>
           <td colspan="6" class="empty-row">Nenhuma regularização listada nos itens desta exportação.</td>
         </tr>`;
 
+  const protocoloConfirmacao = exp.protocoloOnrExterno?.trim();
+  const detalheConfirmacao = protocoloConfirmacao
+    ? `Protocolo: ${protocoloConfirmacao} · Confirmado em ${formatarDataHoraBr(exp.confirmadoImportacaoEm)} por ${exp.confirmadoPorNome?.trim() || 'Operador'}`
+    : `Confirmado em ${formatarDataHoraBr(exp.confirmadoImportacaoEm)} por ${exp.confirmadoPorNome?.trim() || 'Operador'}`;
+
   const situacaoOnrHtml =
     exp.statusImportacaoOnr === 'CONFIRMADA_ONR'
       ? `
         <div class="onr-box onr-confirmada">
-          <div class="onr-title-confirmada">Importação no Portal Ofício Eletrônico ONR CONFIRMADA manualmente</div>
-          <div class="onr-detail">${escapePrintHtml(
-            `Protocolo ONR: ${exp.protocoloOnrExterno?.trim() || 'Não informado'} · Confirmado em ${formatarDataHoraBr(exp.confirmadoImportacaoEm)} por ${exp.confirmadoPorNome?.trim() || 'Operador'}`
-          )}</div>
+          <div class="onr-title-confirmada">Importação confirmada manualmente no Portal do Ofício Eletrônico</div>
+          <div class="onr-detail">${escapePrintHtml(detalheConfirmacao)}</div>
           ${
             exp.observacaoConfirmacao?.trim()
               ? `<div class="onr-obs">${escapePrintHtml(`Observação: ${exp.observacaoConfirmacao.trim()}`)}</div>`
@@ -685,20 +700,20 @@ export function gerarHtmlComprovanteExportacaoReurb(
         font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
         color: #0f172a;
         background: #ffffff;
-        font-size: 11px;
+        font-size: 11.5px;
         line-height: 1.45;
       }
       @media screen {
         body {
-          padding: 28px 32px;
+          padding: 28px 34px;
           max-width: 820px;
           margin: 0 auto;
         }
       }
       .header {
         border-bottom: 2px solid #0f172a;
-        padding-bottom: 10px;
-        margin-bottom: 14px;
+        padding-bottom: 12px;
+        margin-bottom: 18px;
       }
       .header-kicker {
         font-size: 9.5px;
@@ -709,15 +724,16 @@ export function gerarHtmlComprovanteExportacaoReurb(
       }
       .header-title {
         margin: 4px 0 0;
-        font-size: 17px;
+        font-size: 18px;
         font-weight: 800;
         color: #020617;
+        letter-spacing: -0.01em;
       }
       .sec {
-        margin-bottom: 14px;
+        margin-bottom: 18px;
       }
       .sec-title {
-        margin: 0 0 6px;
+        margin: 0 0 7px;
         font-size: 10px;
         font-weight: 700;
         text-transform: uppercase;
@@ -728,32 +744,40 @@ export function gerarHtmlComprovanteExportacaoReurb(
         border: 1px solid #cbd5e1;
         border-radius: 6px;
         background: #f8fafc;
-        padding: 10px 12px;
+        padding: 12px 14px;
       }
       .id-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: 1.35fr 1fr;
+        column-gap: 18px;
+        row-gap: 10px;
       }
       .field-label {
         font-size: 9px;
-        font-weight: 600;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         color: #64748b;
+        white-space: nowrap;
       }
       .field-value {
         margin-top: 2px;
+        font-size: 11px;
         font-weight: 700;
         color: #0f172a;
-        word-break: break-word;
+      }
+      .nowrap {
+        white-space: nowrap;
       }
       .mono {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       }
+      .sha-value {
+        font-size: 10.5px;
+      }
       .sha-row {
-        margin-top: 9px;
-        padding-top: 8px;
+        margin-top: 10px;
+        padding-top: 9px;
         border-top: 1px solid #e2e8f0;
       }
       .kpi-grid {
@@ -765,7 +789,7 @@ export function gerarHtmlComprovanteExportacaoReurb(
         border: 1px solid #cbd5e1;
         border-radius: 6px;
         background: #f8fafc;
-        padding: 8px 10px;
+        padding: 11px 13px;
       }
       .kpi-card-emerald {
         border-color: #6ee7b7;
@@ -775,9 +799,10 @@ export function gerarHtmlComprovanteExportacaoReurb(
         color: #047857;
       }
       .kpi-num {
-        margin-top: 3px;
-        font-size: 18px;
+        margin-top: 4px;
+        font-size: 20px;
         font-weight: 800;
+        line-height: 1.1;
         color: #0f172a;
       }
       .kpi-num-emerald {
@@ -791,6 +816,7 @@ export function gerarHtmlComprovanteExportacaoReurb(
       table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
       }
       thead {
         display: table-header-group;
@@ -804,23 +830,29 @@ export function gerarHtmlComprovanteExportacaoReurb(
       th {
         background: #f1f5f9;
         color: #334155;
-        font-size: 9.5px;
+        font-size: 9px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.04em;
         text-align: left;
-        padding: 7px 8px;
+        padding: 8px;
         border-bottom: 1px solid #cbd5e1;
+        white-space: nowrap;
       }
       th.num,
       td.num {
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
+      th.col-status,
+      td.col-status {
+        text-align: right;
+      }
       td {
-        padding: 7px 8px;
+        padding: 8px;
         border-bottom: 1px solid #e2e8f0;
-        vertical-align: top;
+        vertical-align: middle;
+        font-size: 11px;
       }
       .cell-primary {
         font-weight: 700;
@@ -832,7 +864,7 @@ export function gerarHtmlComprovanteExportacaoReurb(
       }
       .badge-apta {
         display: inline-block;
-        padding: 2px 7px;
+        padding: 2px 8px;
         border-radius: 999px;
         border: 1px solid #6ee7b7;
         background: #ecfdf5;
@@ -846,14 +878,17 @@ export function gerarHtmlComprovanteExportacaoReurb(
         border-bottom: none;
         background: #f8fafc;
         font-weight: 700;
-        padding: 7px 8px;
+        padding: 8px;
       }
       .foot-ok {
         color: #065f46;
+        text-align: right;
+        font-size: 10.5px;
+        white-space: nowrap;
       }
       .onr-box {
         border-radius: 6px;
-        padding: 10px 12px;
+        padding: 11px 14px;
         border: 1px solid #cbd5e1;
       }
       .onr-confirmada {
@@ -887,17 +922,39 @@ export function gerarHtmlComprovanteExportacaoReurb(
       }
       .footer {
         border-top: 1px solid #cbd5e1;
-        padding-top: 8px;
-        margin-top: 16px;
+        padding-top: 10px;
+        margin-top: 22px;
         display: flex;
-        flex-wrap: wrap;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 8px;
+        gap: 16px;
+        flex-wrap: nowrap;
         font-size: 10px;
         color: #475569;
       }
+      .footer-info {
+        flex: 1;
+        line-height: 1.5;
+      }
       .footer strong {
         color: #1e293b;
+      }
+      .footer-verif {
+        white-space: nowrap;
+        text-align: right;
+      }
+      .footer-verif-label {
+        font-size: 8.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+      }
+      .footer-verif-code {
+        margin-top: 2px;
+        font-size: 10.5px;
+        font-weight: 700;
+        color: #0f172a;
       }
     </style>
   </head>
@@ -912,59 +969,71 @@ export function gerarHtmlComprovanteExportacaoReurb(
       <div class="id-box">
         <div class="id-grid">
           <div>
-            <div class="field-label">ID Auditável da Exportação</div>
-            <div class="field-value mono">${escapePrintHtml(exp.id)}</div>
+            <div class="field-label">Arquivo JSON Gerado</div>
+            <div class="field-value mono nowrap">${escapePrintHtml(nomeArquivo)}</div>
           </div>
           <div>
-            <div class="field-label">Tipo / Arquivo Gerado</div>
-            <div class="field-value">${escapePrintHtml(`${tipoLabel} · ${nomeArquivo}`)}</div>
+            <div class="field-label">Gerado em / Responsável</div>
+            <div class="field-value nowrap">${escapePrintHtml(`${dataGeracaoLabel} · ${operador}`)}</div>
           </div>
           <div>
-            <div class="field-label">Data / Hora &amp; Operador</div>
-            <div class="field-value">${escapePrintHtml(`${dataGeracaoLabel} · ${operador}`)}</div>
+            <div class="field-label">Identificador da Exportação</div>
+            <div class="field-value mono nowrap">${escapePrintHtml(exp.id)}</div>
+          </div>
+          <div>
+            <div class="field-label">Tipo de Exportação</div>
+            <div class="field-value nowrap">${escapePrintHtml(tipoExportacaoLabel)}</div>
           </div>
         </div>
         <div class="sha-row">
-          <div class="field-label">Hash Criptográfico SHA-256 do Arquivo JSON (Integridade)</div>
-          <div class="field-value mono">${escapePrintHtml(sha256Completo)}</div>
+          <div class="field-label">Assinatura de Integridade (SHA-256)</div>
+          <div class="field-value mono sha-value nowrap">${escapePrintHtml(sha256Completo)}</div>
         </div>
       </div>
     </section>
 
     <section class="sec">
-      <h2 class="sec-title">2. Resumo Quantitativo da Exportação</h2>
+      <h2 class="sec-title">2. Resumo da Exportação</h2>
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="field-label">Solicitadas</div>
+          <div class="field-label">Processos Solicitados</div>
           <div class="kpi-num">${escapePrintHtml(exp.qtdSolicitadas)}</div>
         </div>
         <div class="kpi-card kpi-card-emerald">
-          <div class="field-label kpi-label-emerald">Aptas no JSON</div>
+          <div class="field-label kpi-label-emerald">Incluídos no Arquivo</div>
           <div class="kpi-num kpi-num-emerald">${escapePrintHtml(exp.qtdAptasGeradas)}</div>
         </div>
         <div class="kpi-card">
-          <div class="field-label">Barradas / Pendências</div>
+          <div class="field-label">Com Pendências</div>
           <div class="kpi-num kpi-num-emerald">0</div>
         </div>
         <div class="kpi-card">
-          <div class="field-label">Derivadas no JSON</div>
+          <div class="field-label">Matrículas Derivadas</div>
           <div class="kpi-num">${escapePrintHtml(exp.qtdDerivadasIncluidas)}</div>
         </div>
       </div>
     </section>
 
     <section class="sec">
-      <h2 class="sec-title">3. Relação Detalhada das Regularizações Incluídas</h2>
+      <h2 class="sec-title">3. Regularizações Incluídas no Arquivo</h2>
       <div class="table-wrap">
         <table>
+          <colgroup>
+            <col style="width: 11%" />
+            <col style="width: 15%" />
+            <col style="width: 31%" />
+            <col style="width: 12%" />
+            <col style="width: 11%" />
+            <col style="width: 20%" />
+          </colgroup>
           <thead>
             <tr>
-              <th>Matrícula Matriz</th>
-              <th>Protocolo / Prenotação</th>
+              <th>Matrícula</th>
+              <th>Protocolo</th>
               <th>Empreendimento</th>
               <th>Modalidade</th>
-              <th class="num">Derivadas JSON</th>
-              <th>Situação na Geração</th>
+              <th class="num">Derivadas</th>
+              <th class="col-status">Situação</th>
             </tr>
           </thead>
           <tbody>
@@ -972,9 +1041,9 @@ export function gerarHtmlComprovanteExportacaoReurb(
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="4">${escapePrintHtml(`Totais do arquivo gerado (${itensIncluidos.length} regularização(ões))`)}</td>
-              <td class="num">${escapePrintHtml(exp.qtdDerivadasIncluidas)}</td>
-              <td class="foot-ok">100% Apta · 0 Pendências</td>
+              <td colspan="4">${escapePrintHtml(`Total incluído no arquivo (${itensIncluidos.length} ${rotuloRegularizacoes})`)}</td>
+              <td class="num nowrap">${escapePrintHtml(exp.qtdDerivadasIncluidas)}</td>
+              <td class="foot-ok">${escapePrintHtml(situacaoTotalLabel)}</td>
             </tr>
           </tfoot>
         </table>
@@ -982,17 +1051,18 @@ export function gerarHtmlComprovanteExportacaoReurb(
     </section>
 
     <section class="sec">
-      <h2 class="sec-title">4. Situação no Portal Externo do Ofício Eletrônico (ONR)</h2>
+      <h2 class="sec-title">4. Situação no Portal do Ofício Eletrônico</h2>
       ${situacaoOnrHtml}
     </section>
 
     <footer class="footer">
-      <div>
-        Emitido pelo módulo Central REURB / FIORIX em <strong>${escapePrintHtml(emissaoLabel)}</strong>.
-        Este comprovante atesta a geração íntegra e sem pendências bloqueantes segundo o Manual ONR v1.4.
+      <div class="footer-info">
+        <div>Emitido pelo FIORIX (Central REURB) em <strong>${escapePrintHtml(emissaoLabel)}</strong>.</div>
+        <div>Documento comprobatório de geração íntegra e sem pendências segundo o Manual do Ofício Eletrônico v1.4.</div>
       </div>
-      <div class="mono">
-        <strong>Verificador: ${escapePrintHtml(verificadorCurto)}</strong>
+      <div class="footer-verif">
+        <div class="footer-verif-label">Código Verificador</div>
+        <div class="footer-verif-code mono">${escapePrintHtml(verificadorCurto)}</div>
       </div>
     </footer>
   </body>
