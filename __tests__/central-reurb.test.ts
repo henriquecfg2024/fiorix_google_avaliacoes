@@ -89,6 +89,13 @@ import {
   confirmarImportacaoOnrReurb,
   executarGeracaoJsonReurb,
 } from '@/lib/reurb/export-service';
+import {
+  escapePrintHtml,
+  filtrarProcessosPainel,
+  gerarHtmlImpressaoPainel,
+  hasActivePainelFilters,
+  INITIAL_PAINEL_COLUMN_FILTERS,
+} from '@/components/reurb/reurb-ui-helpers';
 
 function makeDbRowFromDto(reg: ReturnType<typeof getDemoReurbRegularizacoes>[number], idOverride?: string) {
   return {
@@ -589,5 +596,141 @@ describe('Central REURB — RBAC, Exportação e Revalidação Fail-Closed', () 
         }),
       })
     );
+  });
+});
+
+describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
+  it('filtra simultaneamente por todas as colunas da tabela de regularizações do período', () => {
+    const demo = getDemoReurbRegularizacoes();
+    const semNome = { ...demo[2]!, empreendimento: null };
+    const lista = [demo[0]!, demo[1]!, semNome, demo[4]!];
+
+    expect(hasActivePainelFilters(INITIAL_PAINEL_COLUMN_FILTERS)).toBe(false);
+
+    // 1) Matrícula / Protocolo
+    const byMat = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      matriculaProtocolo: String(demo[1]!.matricula),
+    });
+    expect(byMat.map((r) => r.matricula)).toEqual([demo[1]!.matricula]);
+
+    const byProt = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      matriculaProtocolo: demo[0]!.protocolo.slice(-4),
+    });
+    expect(byProt.some((r) => r.matricula === demo[0]!.matricula)).toBe(true);
+
+    // 2) Empreendimento (sem acento, fallback "Não informado" e modalidade)
+    const byEmpSemAcento = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      empreendimento: 'nao informado',
+    });
+    expect(byEmpSemAcento.map((r) => r.matricula)).toEqual([semNome.matricula]);
+
+    const byModalidade = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      empreendimento: 'reurb-e',
+    });
+    expect(byModalidade.every((r) => r.modalidade === 'REURB_E')).toBe(true);
+    expect(byModalidade.length).toBeGreaterThan(0);
+
+    // 3) Registro (data formatada dd/mm/aaaa e parcial mm/aaaa)
+    const regAlvo = demo[4]!;
+    const [yyyy, mm, dd] = String(regAlvo.dataRegistro).slice(0, 10).split('-');
+    const byRegistro = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      registro: `${dd}/${mm}/${yyyy}`,
+    });
+    expect(byRegistro.some((r) => r.matricula === regAlvo.matricula)).toBe(true);
+
+    // 4) Derivadas JSON (exato, operadores e faixa min-max)
+    const exactQtd = demo[0]!.qtdDerivadasLista;
+    const byDerExact = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      derivadasJson: String(exactQtd),
+    });
+    expect(byDerExact.every((r) => r.qtdDerivadasLista === exactQtd)).toBe(true);
+
+    const byDerGte = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      derivadasJson: '>= 10',
+    });
+    expect(byDerGte.every((r) => r.qtdDerivadasLista >= 10)).toBe(true);
+
+    const byDerRange = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      derivadasJson: '1-30',
+    });
+    expect(byDerRange.every((r) => r.qtdDerivadasLista >= 1 && r.qtdDerivadasLista <= 30)).toBe(
+      true
+    );
+
+    // Operador incompleto enquanto digita não zera resultados
+    const byDerTyping = filtrarProcessosPainel(lista, {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      derivadasJson: '>=',
+    });
+    expect(byDerTyping).toHaveLength(lista.length);
+
+    // 5) Situação + combinação multi-coluna
+    const combinado = filtrarProcessosPainel(lista, {
+      matriculaProtocolo: '',
+      empreendimento: demo[0]!.empreendimento || '',
+      registro: `${mm}/${yyyy}`,
+      derivadasJson: '>=1',
+      situacao: 'APTO',
+    });
+    expect(hasActivePainelFilters({
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      situacao: 'APTO',
+    })).toBe(true);
+    expect(combinado.every((r) => r.situacaoValidacao === 'APTO')).toBe(true);
+  });
+
+  it('gera HTML de impressão somente com os registros filtrados, sem coluna Ação e com escape XSS', () => {
+    const demo = getDemoReurbRegularizacoes();
+    const registroXss = {
+      ...demo[0]!,
+      protocolo: '644354<script>alert(1)</script>',
+      empreendimento: 'Vila "Teste" & <img src=x onerror=alert(2)>',
+      qtdDerivadasLista: 17,
+      situacaoValidacao: 'APTO' as const,
+    };
+    const registroFora = {
+      ...demo[1]!,
+      matricula: 999888,
+      protocolo: '999888-EXCLUIDO',
+      qtdDerivadasLista: 42,
+      situacaoValidacao: 'PENDENTE' as const,
+    };
+
+    const filters = {
+      ...INITIAL_PAINEL_COLUMN_FILTERS,
+      empreendimento: 'Vila',
+      situacao: 'APTO' as const,
+    };
+    const totalLista = [registroXss, registroFora];
+    const filtrados = filtrarProcessosPainel(totalLista, filters);
+    expect(filtrados).toHaveLength(1);
+    const html = gerarHtmlImpressaoPainel({
+      ano: 2026,
+      mes: 10,
+      processos: filtrados,
+      totalPeriodo: totalLista.length,
+      filters,
+      emitidoEm: new Date('2026-11-23T14:00:00Z'),
+    });
+
+    expect(escapePrintHtml('<a&"b">')).toBe('&lt;a&amp;&quot;b&quot;&gt;');
+    expect(html).toContain('Outubro / 2026');
+    expect(html).toContain('1 de 2');
+    expect(html).toContain('17 (1 apta(s) · 0 pend.)');
+    expect(html).toContain('Empreendimento: &quot;Vila&quot;');
+    expect(html).toContain('Situação: Apto');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).not.toContain('999888-EXCLUIDO');
+    expect(html).not.toContain('>Ação<');
+    expect(html).not.toContain('>Detalhes<');
   });
 });

@@ -1,13 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, FileCheck2, Layers, RefreshCw } from 'lucide-react';
-import type { ReurbPainelDTO } from '@/lib/reurb/types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  FileCheck2,
+  Layers,
+  Printer,
+  RefreshCw,
+  X,
+} from 'lucide-react';
+import type { ReurbPainelDTO, ReurbSituacaoValidacao } from '@/lib/reurb/types';
 import {
   buildAnosDisponiveis,
+  filtrarProcessosPainel,
   formatarDataBr,
+  gerarHtmlImpressaoPainel,
+  hasActivePainelFilters,
+  INITIAL_PAINEL_COLUMN_FILTERS,
   labelModalidade,
   MESES_NOMES,
+  type PainelColumnFilters,
 } from './reurb-ui-helpers';
 
 export type PainelKpiDrillType =
@@ -36,6 +50,19 @@ export function PainelReurbTab({
   const [data, setData] = useState<ReurbPainelDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [columnFilters, setColumnFilters] = useState<PainelColumnFilters>(
+    INITIAL_PAINEL_COLUMN_FILTERS
+  );
+  const printIframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (printIframeRef.current) {
+        printIframeRef.current.remove();
+        printIframeRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +100,76 @@ export function PainelReurbTab({
   const anos = buildAnosDisponiveis(ano);
   const crossMonthItems =
     data?.derivadasPeriodoResumo.itens.filter((item) => item.deOutroMes) || [];
+  const processosPeriodo = useMemo(() => data?.processosPeriodo ?? [], [data]);
+  const processosFiltrados = useMemo(
+    () => filtrarProcessosPainel(processosPeriodo, columnFilters),
+    [processosPeriodo, columnFilters]
+  );
+  const filtrosAtivos = hasActivePainelFilters(columnFilters);
+  const totalDerivadasFiltradas = useMemo(
+    () => processosFiltrados.reduce((acc, item) => acc + item.qtdDerivadasLista, 0),
+    [processosFiltrados]
+  );
+
+  function handleClearFilters() {
+    setColumnFilters(INITIAL_PAINEL_COLUMN_FILTERS);
+  }
+
+  function handleImprimirFiltrados() {
+    if (typeof window === 'undefined' || processosFiltrados.length === 0) return;
+
+    if (printIframeRef.current) {
+      printIframeRef.current.remove();
+      printIframeRef.current = null;
+    }
+
+    const html = gerarHtmlImpressaoPainel({
+      ano,
+      mes,
+      processos: processosFiltrados,
+      totalPeriodo: processosPeriodo.length,
+      filters: columnFilters,
+    });
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+
+    const cleanup = () => {
+      if (printIframeRef.current === iframe) {
+        printIframeRef.current = null;
+      }
+      iframe.remove();
+    };
+
+    const fallbackTimer = window.setTimeout(cleanup, 60_000);
+    iframe.onload = () => {
+      const win = iframe.contentWindow;
+      if (!win) {
+        window.clearTimeout(fallbackTimer);
+        cleanup();
+        return;
+      }
+      const handleAfterPrint = () => {
+        window.clearTimeout(fallbackTimer);
+        win.removeEventListener('afterprint', handleAfterPrint);
+        cleanup();
+      };
+      win.addEventListener('afterprint', handleAfterPrint);
+      win.focus();
+      win.print();
+    };
+
+    iframe.srcdoc = html;
+    printIframeRef.current = iframe;
+    document.body.appendChild(iframe);
+  }
 
   return (
     <div className="space-y-6">
@@ -275,7 +372,7 @@ export function PainelReurbTab({
 
       {/* Tabela de regularizações registradas no período */}
       <div className="rounded-2xl border border-white/10 bg-[#0D1322] overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-white">
               Regularizações registradas no período
@@ -283,10 +380,36 @@ export function PainelReurbTab({
             <p className="text-xs text-slate-400">
               {loading
                 ? 'Carregando processos...'
-                : `${data?.processosPeriodo.length ?? 0} processo(s) registrado(s) no recorte selecionado`}
+                : filtrosAtivos
+                  ? `Exibindo ${processosFiltrados.length} de ${processosPeriodo.length} processo(s) · ${totalDerivadasFiltradas} derivada(s) no JSON`
+                  : `${processosPeriodo.length} processo(s) registrado(s) no recorte selecionado · ${totalDerivadasFiltradas} derivada(s) no JSON`}
             </p>
           </div>
-          {loading && <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />}
+          <div className="flex flex-wrap items-center gap-2">
+            {loading && <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />}
+            {filtrosAtivos && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/10"
+              >
+                <X className="h-3.5 w-3.5" />
+                Limpar filtros
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleImprimirFiltrados}
+              disabled={loading || processosFiltrados.length === 0}
+              title="Imprimir regularizações conforme filtros aplicados"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              {!loading && processosFiltrados.length > 0
+                ? `Imprimir (${processosFiltrados.length})`
+                : 'Imprimir'}
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -300,16 +423,123 @@ export function PainelReurbTab({
                 <th className="px-4 py-3">Situação</th>
                 <th className="px-4 py-3 text-right">Ação</th>
               </tr>
+              <tr className="border-t border-white/10 bg-[#0A0F1C]">
+                <th className="px-4 py-2 font-normal normal-case tracking-normal">
+                  <input
+                    type="text"
+                    value={columnFilters.matriculaProtocolo}
+                    onChange={(e) =>
+                      setColumnFilters((prev) => ({
+                        ...prev,
+                        matriculaProtocolo: e.target.value,
+                      }))
+                    }
+                    placeholder="Matrícula ou prot..."
+                    aria-label="Filtrar por Matrícula ou Protocolo"
+                    className="w-full rounded-lg border border-white/15 bg-[#070A12] px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+                  />
+                </th>
+                <th className="px-4 py-2 font-normal normal-case tracking-normal">
+                  <input
+                    type="text"
+                    value={columnFilters.empreendimento}
+                    onChange={(e) =>
+                      setColumnFilters((prev) => ({
+                        ...prev,
+                        empreendimento: e.target.value,
+                      }))
+                    }
+                    placeholder="Nome ou modalidade..."
+                    aria-label="Filtrar por Empreendimento ou Modalidade"
+                    className="w-full rounded-lg border border-white/15 bg-[#070A12] px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+                  />
+                </th>
+                <th className="px-4 py-2 font-normal normal-case tracking-normal">
+                  <input
+                    type="text"
+                    value={columnFilters.registro}
+                    onChange={(e) =>
+                      setColumnFilters((prev) => ({
+                        ...prev,
+                        registro: e.target.value,
+                      }))
+                    }
+                    placeholder="dd/mm/aaaa..."
+                    aria-label="Filtrar por Data de Registro"
+                    className="w-full rounded-lg border border-white/15 bg-[#070A12] px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+                  />
+                </th>
+                <th className="px-4 py-2 font-normal normal-case tracking-normal">
+                  <input
+                    type="text"
+                    value={columnFilters.derivadasJson}
+                    onChange={(e) =>
+                      setColumnFilters((prev) => ({
+                        ...prev,
+                        derivadasJson: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: 28, >=10, 2-50"
+                    aria-label="Filtrar por Derivadas JSON"
+                    className="w-full rounded-lg border border-white/15 bg-[#070A12] px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+                  />
+                </th>
+                <th className="px-4 py-2 font-normal normal-case tracking-normal">
+                  <select
+                    value={columnFilters.situacao}
+                    onChange={(e) =>
+                      setColumnFilters((prev) => ({
+                        ...prev,
+                        situacao: e.target.value as 'TODAS' | ReurbSituacaoValidacao,
+                      }))
+                    }
+                    aria-label="Filtrar por Situação"
+                    className="w-full rounded-lg border border-white/15 bg-[#070A12] px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-white focus:border-emerald-400 focus:outline-none"
+                  >
+                    <option value="TODAS">Todas</option>
+                    <option value="APTO">Apto</option>
+                    <option value="PENDENTE">Pendente</option>
+                  </select>
+                </th>
+                <th className="px-4 py-2 text-right font-normal normal-case tracking-normal">
+                  {filtrosAtivos ? (
+                    <button
+                      type="button"
+                      onClick={handleClearFilters}
+                      className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-white/10"
+                    >
+                      Limpar
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-slate-600">—</span>
+                  )}
+                </th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {!loading && (data?.processosPeriodo.length ?? 0) === 0 ? (
+              {!loading && processosPeriodo.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     Nenhuma regularização registrada no período selecionado.
                   </td>
                 </tr>
+              ) : !loading && processosFiltrados.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                    <div className="space-y-2">
+                      <div>Nenhuma regularização encontrada com os filtros aplicados.</div>
+                      <button
+                        type="button"
+                        onClick={handleClearFilters}
+                        className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10"
+                      >
+                        Limpar filtros
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : (
-                data?.processosPeriodo.map((reg) => (
+                processosFiltrados.map((reg) => (
                   <tr key={reg.id} className="hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <div className="font-bold text-white">{reg.matricula}</div>
