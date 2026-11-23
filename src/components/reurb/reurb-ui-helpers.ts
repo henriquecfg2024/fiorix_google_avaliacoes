@@ -688,6 +688,13 @@ export function gerarHtmlComprovanteExportacaoReurb(
         font-size: 11px;
         line-height: 1.45;
       }
+      @media screen {
+        body {
+          padding: 28px 32px;
+          max-width: 820px;
+          margin: 0 auto;
+        }
+      }
       .header {
         border-bottom: 2px solid #0f172a;
         padding-bottom: 10px;

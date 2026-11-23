@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   Layers,
   Loader2,
@@ -18,6 +19,7 @@ import type {
   ReurbExportacaoDTO,
   ReurbRegularizacaoDTO,
 } from '@/lib/reurb/types';
+import { ComprovanteExportacaoModal } from './ComprovanteExportacaoModal';
 import {
   agruparPendenciasModal,
   formatarDataBr,
@@ -56,6 +58,7 @@ export function ProcessoDetalheModal({
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastExportacaoComprovante, setLastExportacaoComprovante] =
     useState<ReurbExportacaoDTO | null>(null);
+  const [previewComprovante, setPreviewComprovante] = useState<ReurbExportacaoDTO | null>(null);
   const printCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export function ProcessoDetalheModal({
       setError(null);
       setExportError(null);
       setLastExportacaoComprovante(null);
+      setPreviewComprovante(null);
       return;
     }
 
@@ -79,6 +83,7 @@ export function ProcessoDetalheModal({
     setError(null);
     setExportError(null);
     setLastExportacaoComprovante(null);
+    setPreviewComprovante(null);
 
     fetch(`/api/reurb/processos/${encodeURIComponent(regularizacaoId)}`, {
       cache: 'no-store',
@@ -228,19 +233,29 @@ export function ProcessoDetalheModal({
                   <strong>{lastExportacaoComprovante.nomeArquivoJson}</strong> gerado sem pendências.
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  printCleanupRef.current?.();
-                  printCleanupRef.current = imprimirHtmlA4(
-                    gerarHtmlComprovanteExportacaoReurb(lastExportacaoComprovante)
-                  );
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100 hover:bg-emerald-500/30"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                Imprimir comprovante
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreviewComprovante(lastExportacaoComprovante)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/15 px-3 py-1.5 font-semibold text-cyan-100 hover:bg-cyan-500/25"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Visualizar comprovante
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    printCleanupRef.current?.();
+                    printCleanupRef.current = imprimirHtmlA4(
+                      gerarHtmlComprovanteExportacaoReurb(lastExportacaoComprovante)
+                    );
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100 hover:bg-emerald-500/30"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Imprimir comprovante
+                </button>
+              </div>
             </div>
           )}
 
@@ -567,6 +582,11 @@ export function ProcessoDetalheModal({
           )}
         </div>
       </div>
+
+      <ComprovanteExportacaoModal
+        exportacao={previewComprovante}
+        onClose={() => setPreviewComprovante(null)}
+      />
     </div>
   );
 }

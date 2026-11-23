@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Eye,
   FileCheck2,
   FileJson,
   Loader2,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReurbExportacaoDTO, ReurbRegularizacaoResumo } from '@/lib/reurb/types';
+import { ComprovanteExportacaoModal } from './ComprovanteExportacaoModal';
 import {
   formatarDataBr,
   formatarDataHoraBr,
@@ -105,6 +107,7 @@ export function ExportacoesReurbTab({
   const [lastEligibleExportacao, setLastEligibleExportacao] = useState<ReurbExportacaoDTO | null>(
     null
   );
+  const [previewComprovante, setPreviewComprovante] = useState<ReurbExportacaoDTO | null>(null);
   const printCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -305,6 +308,14 @@ export function ExportacoesReurbTab({
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPreviewComprovante(lastEligibleExportacao)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/15 px-3 py-1.5 font-semibold text-cyan-100 hover:bg-cyan-500/25"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Visualizar comprovante
+            </button>
             <button
               type="button"
               onClick={() => handleImprimirComprovante(lastEligibleExportacao)}
@@ -534,14 +545,24 @@ export function ExportacoesReurbTab({
                         </a>
                       )}
                       {isExportacaoElegivelComprovante(exp) && (
-                        <button
-                          type="button"
-                          onClick={() => handleImprimirComprovante(exp)}
-                          title="Imprimir comprovante de geração JSON sem pendências"
-                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
-                        >
-                          <Printer className="h-3 w-3" /> Comprovante
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewComprovante(exp)}
+                            title="Visualizar comprovante de geração JSON sem pendências"
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/35 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 hover:bg-cyan-500/20"
+                          >
+                            <Eye className="h-3 w-3" /> Visualizar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleImprimirComprovante(exp)}
+                            title="Imprimir comprovante de geração JSON sem pendências"
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                          >
+                            <Printer className="h-3 w-3" /> Comprovante
+                          </button>
+                        </>
                       )}
                       {exp.qtdBarradas > 0 && exp.nomeArquivoPendencias && (
                         <a
@@ -678,6 +699,11 @@ export function ExportacoesReurbTab({
           </div>
         </div>
       )}
+
+      <ComprovanteExportacaoModal
+        exportacao={previewComprovante}
+        onClose={() => setPreviewComprovante(null)}
+      />
     </div>
   );
 }

@@ -869,6 +869,7 @@ describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {
       emitidoEm: new Date('2026-11-23T19:00:00Z'),
     });
     expect(htmlPendente).toContain('COMPROVANTE DE GERAÇÃO DE ARQUIVO JSON');
+    expect(htmlPendente).toContain('@media screen');
     expect(htmlPendente).not.toContain('CENTRAL REURB (ONR v1.4)');
     expect(htmlPendente).not.toContain('Validação Estrita');
     expect(htmlPendente).not.toContain('Evidência de Revalidação ao Vivo');
