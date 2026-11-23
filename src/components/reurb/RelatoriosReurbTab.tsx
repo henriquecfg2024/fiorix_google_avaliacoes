@@ -165,8 +165,6 @@ export function RelatoriosReurbTab({
     [todasPendencias, pendenciaFiltro, pendenciaBusca]
   );
 
-  const totalDerivadasModalidades = Math.max(1, data?.totais.derivadasAbertas ?? 0);
-
   return (
     <div className="space-y-6">
       {/* Cabeçalho dinâmico de Período + Ações */}
@@ -256,204 +254,14 @@ export function RelatoriosReurbTab({
         </div>
       )}
 
-      {/* 1. Resumo por modalidade (interativo com drill-down) */}
-      <div className="rounded-2xl border border-white/10 bg-[#0D1322] overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white">1. Resumo por modalidade</h2>
-            <p className="text-xs text-slate-400">
-              Clique em uma modalidade ou indicador numérico para abrir os processos filtrados em Painel e Processos.
-            </p>
-          </div>
-          {loading && <RefreshCw className="h-4 w-4 animate-spin text-emerald-400" />}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-white/[0.03] text-slate-400 uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3">Modalidade</th>
-                <th className="px-4 py-3">Registradas</th>
-                <th className="px-4 py-3">Derivadas abertas</th>
-                <th className="px-4 py-3">Aptas JSON</th>
-                <th className="px-4 py-3">Com pendências</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {data?.porModalidade.map((m) => {
-                const sharePct =
-                  (data?.totais.derivadasAbertas ?? 0) > 0
-                    ? Math.round((m.derivadasAbertas / totalDerivadasModalidades) * 100)
-                    : 0;
-                return (
-                  <tr key={m.modalidade} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDrillDown({
-                            ano,
-                            mes,
-                            modalidade: m.modalidade,
-                            tipoData: 'registro',
-                            situacao: 'TODAS',
-                          })
-                        }
-                        className="text-left group"
-                      >
-                        <div className="font-semibold text-white group-hover:text-emerald-300 transition-colors inline-flex items-center gap-1">
-                          {m.label}
-                          <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-1.5 w-28 rounded-full bg-[#070A12] overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-300"
-                              style={{ width: `${sharePct}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-slate-400">{sharePct}% das derivadas</span>
-                        </div>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDrillDown({
-                            ano,
-                            mes,
-                            modalidade: m.modalidade,
-                            tipoData: 'registro',
-                            situacao: 'TODAS',
-                          })
-                        }
-                        className="font-semibold text-slate-200 hover:text-white hover:underline"
-                      >
-                        {m.registradas}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDrillDown({
-                            ano,
-                            mes,
-                            modalidade: m.modalidade,
-                            tipoData: 'abertura_derivada',
-                            situacao: 'TODAS',
-                          })
-                        }
-                        className="font-semibold text-cyan-300 hover:text-cyan-200 hover:underline"
-                      >
-                        {m.derivadasAbertas}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDrillDown({
-                            ano,
-                            mes,
-                            modalidade: m.modalidade,
-                            tipoData: 'registro',
-                            situacao: 'APTO',
-                          })
-                        }
-                        className="font-semibold text-emerald-300 hover:text-emerald-200 hover:underline"
-                      >
-                        {m.aptas}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDrillDown({
-                            ano,
-                            mes,
-                            modalidade: m.modalidade,
-                            tipoData: 'registro',
-                            situacao: 'PENDENTE',
-                          })
-                        }
-                        className="font-semibold text-amber-300 hover:text-amber-200 hover:underline"
-                      >
-                        {m.comPendencias}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {data && (
-                <tr className="bg-white/[0.03] font-bold">
-                  <td className="px-4 py-3 text-white">TOTAL DO PERÍODO</td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onDrillDown({ ano, mes, modalidade: 'TODAS', tipoData: 'registro', situacao: 'TODAS' })
-                      }
-                      className="text-white hover:underline"
-                    >
-                      {data.totais.registradas}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onDrillDown({
-                          ano,
-                          mes,
-                          modalidade: 'TODAS',
-                          tipoData: 'abertura_derivada',
-                          situacao: 'TODAS',
-                        })
-                      }
-                      className="text-cyan-300 hover:underline"
-                    >
-                      {data.totais.derivadasAbertas}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onDrillDown({ ano, mes, modalidade: 'TODAS', tipoData: 'registro', situacao: 'APTO' })
-                      }
-                      className="text-emerald-300 hover:underline"
-                    >
-                      {data.totais.aptas}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onDrillDown({ ano, mes, modalidade: 'TODAS', tipoData: 'registro', situacao: 'PENDENTE' })
-                      }
-                      className="text-amber-300 hover:underline"
-                    >
-                      {data.totais.comPendencias}
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 2. Evolução mensal dinâmica no ano */}
+      {/* 1. Evolução mensal dinâmica no ano */}
       <div className="rounded-2xl border border-white/10 bg-[#0D1322] p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-cyan-400" />
-              <h2 className="text-sm font-bold text-white">2. Evolução mensal ({ano})</h2>
+              <h2 className="text-sm font-bold text-white">1. Evolução mensal ({ano})</h2>
+              {loading && <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-400" />}
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Total anual: <strong className="text-white">{totaisAnuais.registradas}</strong> reg. ·{' '}
@@ -504,37 +312,24 @@ export function RelatoriosReurbTab({
                 <button
                   type="button"
                   onClick={() => onChangePeriodo(ano, isMesAtivo ? 'todos' : m.mes)}
-                  title={
+                  title={`${m.mesLabel}/${ano}: ${m.registradas} reg. · ${m.derivadasAbertas} deriv. · ${m.aptas} aptas · ${m.comPendencias} pend. (${
                     isMesAtivo
-                      ? `Voltar para o ano inteiro (${ano})`
-                      : `Filtrar cards para ${m.mesLabel}/${ano}`
-                  }
-                  className="flex-1 grid grid-cols-12 items-center gap-3 text-left text-xs"
+                      ? `clique para voltar ao ano inteiro (${ano})`
+                      : 'clique para filtrar os cards'
+                  })`}
+                  className="flex-1 flex items-center gap-3 text-left text-xs"
                 >
-                  <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5 font-semibold text-slate-200">
+                  <div className="w-12 shrink-0 flex items-center gap-1.5 font-semibold text-slate-200">
                     <span>{m.mesLabel}</span>
                     {isMesAtivo && (
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                     )}
                   </div>
-                  <div className="col-span-5 sm:col-span-7 h-5 rounded-md bg-[#070A12] border border-white/10 overflow-hidden flex items-center">
+                  <div className="flex-1 h-5 rounded-md bg-[#070A12] border border-white/10 overflow-hidden flex items-center">
                     <div
                       className={`h-full bg-gradient-to-r ${metricaCfg.gradient} transition-all duration-300`}
                       style={{ width: `${valorMetrica > 0 ? Math.max(4, pct) : 0}%` }}
                     />
-                  </div>
-                  <div className="col-span-5 sm:col-span-4 text-right text-[11px] text-slate-300 whitespace-nowrap">
-                    <strong className={metrica === 'registradas' ? 'text-white underline' : 'text-white'}>
-                      {m.registradas}
-                    </strong>{' '}
-                    reg. ·{' '}
-                    <strong className={metrica === 'derivadasAbertas' ? 'text-cyan-300 underline' : 'text-cyan-300'}>
-                      {m.derivadasAbertas}
-                    </strong>{' '}
-                    deriv. ·{' '}
-                    <span className={metrica === 'comPendencias' ? 'text-amber-300 font-bold underline' : 'text-amber-300'}>
-                      {m.comPendencias} pend.
-                    </span>
                   </div>
                 </button>
 
@@ -564,11 +359,11 @@ export function RelatoriosReurbTab({
         </div>
       </div>
 
-      {/* 3. Pendências e conferências no período (dinâmico com filtro e busca) */}
+      {/* 2. Pendências e conferências no período (dinâmico com filtro e busca) */}
       <div className="rounded-2xl border border-white/10 bg-[#0D1322] overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold text-white">3. Pendências e alertas no período</h2>
+            <h2 className="text-sm font-bold text-white">2. Pendências e alertas no período</h2>
             <p className="text-xs text-slate-400">
               Processos registrados no período com pendências bloqueantes ou pontos de conferência recomendada.
             </p>

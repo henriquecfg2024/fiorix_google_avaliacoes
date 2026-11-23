@@ -215,7 +215,7 @@ export function ExportacoesReurbTab({
                 <th className="px-4 py-3">Tipo / Arquivo</th>
                 <th className="px-4 py-3">Geração FIORIX</th>
                 <th className="px-4 py-3">Importação Ofício Eletrônico</th>
-                <th className="px-4 py-3 text-right">Downloads &amp; Confirmação</th>
+                <th className="px-4 py-3 text-right">Confirmação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -277,14 +277,6 @@ export function ExportacoesReurbTab({
                       )}
                     </td>
                     <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                      {exp.statusGeracao === 'GERADO' && (
-                        <a
-                          href={`/api/reurb/exportacoes/${encodeURIComponent(exp.id)}/download?tipo=json`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-white hover:bg-white/10"
-                        >
-                          <Download className="h-3 w-3" /> JSON
-                        </a>
-                      )}
                       {isExportacaoElegivelComprovante(exp) && (
                         <>
                           <button
