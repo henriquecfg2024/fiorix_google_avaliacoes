@@ -200,7 +200,7 @@ export interface OnrJsonRegularizacao {
   matricula: number;
   municipio: string;
   distrito: string;
-  subdistrito?: string;
+  subdistrito: string;
   bairro: string;
   tipoLocalizacao: 'U' | 'R';
   quantidadeUnidades: number;

@@ -115,8 +115,22 @@ export function validarRegularizacaoParaOnr(
     );
   }
 
-  const subdistrito = cleanStr(reg.subdistrito);
-  if (subdistrito.length > 30) {
+  let subdistrito = cleanStr(reg.subdistrito);
+  if (!subdistrito && /^GUAIANA[SZ]ES$/i.test(distrito)) {
+    subdistrito = 'GUAIANASES';
+    addIssue(
+      'subdistrito',
+      'INFO',
+      'Subdistrito preenchido automaticamente como "GUAIANASES" para imóvel do distrito de Guaianases (exigência do validador do Ofício Eletrônico ONR).'
+    );
+  }
+  if (!subdistrito) {
+    addIssue(
+      'subdistrito',
+      'BLOQUEIA',
+      'Subdistrito deve ser informado (obrigatório no validador do Ofício Eletrônico ONR).'
+    );
+  } else if (subdistrito.length > 30) {
     addIssue(
       'subdistrito',
       'BLOQUEIA',
@@ -195,6 +209,12 @@ export function validarRegularizacaoParaOnr(
   const agente = cleanStr(reg.agente);
   if (!agente) {
     addIssue('agente', 'BLOQUEIA', 'Nome do agente legitimado não informado.');
+  } else if (agente.length > 100) {
+    addIssue(
+      'agente',
+      'BLOQUEIA',
+      `Nome do agente excede o limite de 100 caracteres (${agente.length}) do Manual ONR v1.4.`
+    );
   }
 
   const derivadasValidas = (reg.derivadas || []).filter(
@@ -305,7 +325,7 @@ export function validarRegularizacaoParaOnr(
     matricula: reg.matricula,
     municipio,
     distrito,
-    ...(subdistrito ? { subdistrito } : {}),
+    subdistrito,
     bairro,
     tipoLocalizacao: tipoLocalizacaoRaw as 'U' | 'R',
     quantidadeUnidades: reg.quantidadeUnidades,

@@ -172,13 +172,28 @@ describe('Central REURB — Validador & Construtor ONR v1.4', () => {
     expect(val.registroOnr!.derivadas.some((d) => d.matricula === 950025 || d.matricula === 950026)).toBe(false);
   });
 
-  it('omite subdistrito vazio e dataAbertura ausente na derivada sem bloquear (Manual pág. 24), além de aceitar dataRegistro null', () => {
+  it('preenche subdistrito GUAIANASES automaticamente no distrito de Guaianases, exige subdistrito nos demais distritos e aceita dataRegistro null', () => {
     const demo = getDemoReurbRegularizacoes();
-    const reg900102 = demo[1]!; // REURB-E sem subdistrito e com derivadas sem titulação
+    const reg900102 = demo[1]!; // distrito GUAIANASES e subdistrito null no WEBRI
     const val = validarRegularizacaoParaOnr(reg900102);
 
     expect(val.apto).toBe(true);
-    expect('subdistrito' in val.registroOnr!).toBe(false);
+    expect(val.registroOnr!.subdistrito).toBe('GUAIANASES');
+
+    const guaianazesZ = { ...reg900102, distrito: 'GUAIANAZES', subdistrito: null };
+    const valZ = validarRegularizacaoParaOnr(guaianazesZ);
+    expect(valZ.apto).toBe(true);
+    expect(valZ.registroOnr!.subdistrito).toBe('GUAIANASES');
+
+    const outroSemSub = { ...demo[4]!, distrito: 'ITAQUERA', subdistrito: null };
+    const valSemSub = validarRegularizacaoParaOnr(outroSemSub);
+    expect(valSemSub.apto).toBe(false);
+    expect(valSemSub.bloqueios.some((b) => b.campo === 'subdistrito')).toBe(true);
+
+    const agenteLongo = { ...reg900102, agente: 'A'.repeat(101) };
+    const valAgLongo = validarRegularizacaoParaOnr(agenteLongo);
+    expect(valAgLongo.apto).toBe(false);
+    expect(valAgLongo.bloqueios.some((b) => b.campo === 'agente')).toBe(true);
 
     const untitledDer = val.registroOnr!.derivadas.find((d) => d.matricula === 951012);
     expect(untitledDer).toBeDefined();
