@@ -165,7 +165,10 @@ export class Scheduler {
     }
     const isGlobal = this.isGlobalActive();
     if (sourceName === 'reurb_regularizacoes') {
-      return process.env.REURB_REGULARIZACOES_AUTO_SYNC_ENABLED === 'true';
+      if (process.env.REURB_REGULARIZACOES_AUTO_SYNC_ENABLED !== undefined) {
+        return process.env.REURB_REGULARIZACOES_AUTO_SYNC_ENABLED === 'true';
+      }
+      return isGlobal;
     }
     const envKey = `${sourceName.toUpperCase()}_AUTO_SYNC_ENABLED`;
     if (process.env[envKey] !== undefined) {
@@ -733,6 +736,102 @@ export class Scheduler {
     }
   }
 
+  private enqueueDeltaHashBatch(params: {
+    source: 'cartorio_virtual_certidoes' | 'reurb_regularizacoes';
+    mapped: Array<Record<string, unknown> & { record_key: string }>;
+    durationMs: number;
+    chk: ReturnType<typeof getCheckpoint>;
+    runTime: Date;
+    status: SourceRuntimeStatus;
+    label: string;
+  }) {
+    const { source, mapped, durationMs, chk, runTime, status, label } = params;
+    const storedHashes = countStoredRecordHashes(this.db, source);
+    const lastReconcilMs = chk?.last_reconciliation_at
+      ? new Date(chk.last_reconciliation_at).getTime()
+      : 0;
+    const forceDailyReconcil =
+      storedHashes === 0 ||
+      !Number.isFinite(lastReconcilMs) ||
+      lastReconcilMs <= 0 ||
+      runTime.getTime() - lastReconcilMs >= 24 * 3600 * 1000;
+
+    const delta = filterChangedRecordsByHash(this.db, source, mapped);
+    if (!forceDailyReconcil && delta.changedRecords.length === 0) {
+      logger.info(
+        `${label}_DELTA_SKIP: ${mapped.length} registro(s) verificados sem alterações de hash. Nenhum lote duplicado enviado.`
+      );
+      const checkTimeIso = runTime.toISOString();
+      status.recordsRead = mapped.length;
+      status.lastBatchId = null;
+      status.lastError = null;
+      status.lastSuccessAt = checkTimeIso;
+      status.lastDurationMs = durationMs;
+      markCheckpointCheckSuccess(this.db, source, checkTimeIso);
+      queueManager.recordCheckSuccess(source, checkTimeIso);
+      healthManager.recordRunSuccess(source, mapped.length, 0, durationMs, null, runTime);
+      if (!this.isRunning || Date.now() - this.lastTelemetryPingAtMs >= 55000) {
+        this.sendTelemetryPing().catch((tErr) => {
+          logger.warn(
+            `TELEMETRY_PING_WARN: Falha ao enviar telemetria após delta vazio de ${source}: ${tErr.message}`
+          );
+        });
+      }
+      return;
+    }
+
+    const effectiveRecords =
+      forceDailyReconcil && delta.changedRecords.length === 0 ? mapped : delta.changedRecords;
+    const hashesToStage: RecordHashCandidate[] = forceDailyReconcil
+      ? delta.allHashes
+      : delta.candidateHashes;
+    const batchId = uuidv4();
+    const generatedAt = runTime.toISOString();
+    const syncMode: 'full' | 'incremental' | 'reconciliation' =
+      forceDailyReconcil && storedHashes > 0 ? 'reconciliation' : 'incremental';
+
+    stageRecordHashCandidates(this.db, batchId, source, hashesToStage);
+
+    const payloadObj = {
+      source,
+      batch_id: batchId,
+      batchId,
+      generated_at: generatedAt,
+      generatedAt,
+      records: effectiveRecords,
+      sync_mode: syncMode,
+      reconciliation_pass: forceDailyReconcil,
+    };
+
+    queueManager.enqueue({
+      source,
+      batch_id: batchId,
+      generated_at: generatedAt,
+      payload: JSON.stringify(payloadObj),
+    });
+
+    status.recordsRead = mapped.length;
+    status.lastDurationMs = durationMs;
+    status.lastBatchId = batchId;
+    status.lastError = null;
+    logger.info(
+      `${label}_DELTA_ENQUEUED: ${effectiveRecords.length} registro(s) alterado(s)/novo(s) de ${mapped.length} lidos (modo=${syncMode}, batch=${batchId}).`
+    );
+    healthManager.recordRunSuccess(
+      source,
+      mapped.length,
+      effectiveRecords.length,
+      durationMs,
+      batchId,
+      runTime
+    );
+    this.processQueue().catch((qErr) => {
+      logger.warn(
+        `QUEUE_TRIGGER_WARN: Falha no disparo imediato da fila para o lote ${batchId}: ${qErr.message}`
+      );
+    });
+  }
+
   public async runExtraction(config: SourceScheduleConfig, runTime: Date = new Date()) {
     if (this.activeLocks.has(config.name)) {
       logger.warn(`SKIPPED_OVERLAPPING_RUN: Extração da fonte ${config.name} já está em andamento.`);
@@ -908,73 +1007,14 @@ export class Scheduler {
           return;
         }
         const mapped = res.registros.map((r: any) => attachRecordKey('cartorio_virtual_certidoes', r));
-        const storedHashes = countStoredRecordHashes(this.db, 'cartorio_virtual_certidoes');
-        const lastReconcilMs = chk?.last_reconciliation_at ? new Date(chk.last_reconciliation_at).getTime() : 0;
-        const forceDailyReconcil =
-          storedHashes === 0 ||
-          !Number.isFinite(lastReconcilMs) ||
-          lastReconcilMs <= 0 ||
-          runTime.getTime() - lastReconcilMs >= 24 * 3600 * 1000;
-
-        const delta = filterChangedRecordsByHash(this.db, 'cartorio_virtual_certidoes', mapped);
-        if (!forceDailyReconcil && delta.changedRecords.length === 0) {
-          logger.info(
-            `CARTORIO_VIRTUAL_DELTA_SKIP: ${mapped.length} pedidos verificados no SQL Server sem alterações de hash. Nenhum lote duplicado enviado.`
-          );
-          const checkTimeIso = runTime.toISOString();
-          status.recordsRead = mapped.length;
-          status.lastBatchId = null;
-          status.lastError = null;
-          status.lastSuccessAt = checkTimeIso;
-          status.lastDurationMs = durationMs;
-          markCheckpointCheckSuccess(this.db, config.name, checkTimeIso);
-          queueManager.recordCheckSuccess(config.name, checkTimeIso);
-          healthManager.recordRunSuccess(config.name, mapped.length, 0, durationMs, null, runTime);
-          if (!this.isRunning || Date.now() - this.lastTelemetryPingAtMs >= 55000) {
-            this.sendTelemetryPing().catch((tErr) => {
-              logger.warn(`TELEMETRY_PING_WARN: Falha ao enviar telemetria após delta vazio de ${config.name}: ${tErr.message}`);
-            });
-          }
-          return;
-        }
-
-        const effectiveRecords = forceDailyReconcil && delta.changedRecords.length === 0 ? mapped : delta.changedRecords;
-        const hashesToStage: RecordHashCandidate[] = forceDailyReconcil ? delta.allHashes : delta.candidateHashes;
-        const cvBatchId = uuidv4();
-        const cvGeneratedAt = runTime.toISOString();
-        const cvSyncMode: 'full' | 'incremental' | 'reconciliation' =
-          forceDailyReconcil && storedHashes > 0 ? 'reconciliation' : 'incremental';
-
-        stageRecordHashCandidates(this.db, cvBatchId, 'cartorio_virtual_certidoes', hashesToStage);
-
-        const cvPayloadObj = {
-          source: config.name,
-          batch_id: cvBatchId,
-          batchId: cvBatchId,
-          generated_at: cvGeneratedAt,
-          generatedAt: cvGeneratedAt,
-          records: effectiveRecords,
-          sync_mode: cvSyncMode,
-          reconciliation_pass: forceDailyReconcil,
-        };
-
-        queueManager.enqueue({
-          source: config.name,
-          batch_id: cvBatchId,
-          generated_at: cvGeneratedAt,
-          payload: JSON.stringify(cvPayloadObj),
-        });
-
-        status.recordsRead = mapped.length;
-        status.lastDurationMs = durationMs;
-        status.lastBatchId = cvBatchId;
-        status.lastError = null;
-        logger.info(
-          `CARTORIO_VIRTUAL_DELTA_ENQUEUED: ${effectiveRecords.length} registro(s) alterado(s)/novo(s) de ${mapped.length} lidos (modo=${cvSyncMode}, batch=${cvBatchId}).`
-        );
-        healthManager.recordRunSuccess(config.name, mapped.length, effectiveRecords.length, durationMs, cvBatchId, runTime);
-        this.processQueue().catch((qErr) => {
-          logger.warn(`QUEUE_TRIGGER_WARN: Falha no disparo imediato da fila para o lote ${cvBatchId}: ${qErr.message}`);
+        this.enqueueDeltaHashBatch({
+          source: 'cartorio_virtual_certidoes',
+          mapped,
+          durationMs,
+          chk,
+          runTime,
+          status,
+          label: 'CARTORIO_VIRTUAL',
         });
         return;
       } else if (config.name === 'reurb_regularizacoes') {
@@ -995,7 +1035,17 @@ export class Scheduler {
           healthManager.recordRunSuccess(config.name, 0, 0, durationMs, null, runTime);
           return;
         }
-        records = res.registros.map((r) => attachRecordKey('reurb_regularizacoes', r as unknown as Record<string, unknown>));
+        const mapped = res.registros.map((r) => attachRecordKey('reurb_regularizacoes', r as unknown as Record<string, unknown>));
+        this.enqueueDeltaHashBatch({
+          source: 'reurb_regularizacoes',
+          mapped,
+          durationMs,
+          chk,
+          runTime,
+          status,
+          label: 'REURB',
+        });
+        return;
       }
 
       status.recordsRead = records.length;
@@ -1131,11 +1181,15 @@ export class Scheduler {
         try {
           const payload = JSON.parse(batch.payload);
           const batchId = payload.batch_id || payload.batchId;
-          if (Array.isArray(payload.records) && payload.records.length > env.CHUNK_SIZE_RECORDS) {
+          const effectiveChunkSize =
+            batch.source === 'reurb_regularizacoes'
+              ? Math.min(env.CHUNK_SIZE_RECORDS, 10)
+              : env.CHUNK_SIZE_RECORDS;
+          if (Array.isArray(payload.records) && payload.records.length > effectiveChunkSize) {
             const chunkResult = await retryChunkedBatch(
               queueManager.getDb(),
               batchId,
-              env.CHUNK_SIZE_RECORDS,
+              effectiveChunkSize,
               sendSyncBatch,
             );
             if (!chunkResult.completed) {
@@ -1155,7 +1209,10 @@ export class Scheduler {
           if (payload.sync_mode === 'reconciliation' || payload.reconciliation_pass === true) {
             markReconciliationSuccess(this.db, batch.source, new Date().toISOString());
           }
-          if (batch.source === 'cartorio_virtual_certidoes') {
+          if (
+            batch.source === 'cartorio_virtual_certidoes' ||
+            batch.source === 'reurb_regularizacoes'
+          ) {
             markCheckpointCheckSuccess(this.db, batch.source, new Date().toISOString());
           }
 
