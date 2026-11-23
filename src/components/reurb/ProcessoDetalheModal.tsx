@@ -1,0 +1,433 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  FileText,
+  Layers,
+  Loader2,
+  ShieldAlert,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import type { OnrValidationResult, ReurbRegularizacaoDTO } from '@/lib/reurb/types';
+import {
+  formatarDataBr,
+  labelModalidade,
+  labelStatusImportacaoOnr,
+  triggerDownloadBlob,
+} from './reurb-ui-helpers';
+
+interface DetalheApiResponse {
+  registro: ReurbRegularizacaoDTO;
+  validacaoOnr: OnrValidationResult;
+}
+
+interface ProcessoDetalheModalProps {
+  regularizacaoId: string | null;
+  canExportJson: boolean;
+  isReadOnly: boolean;
+  onClose: () => void;
+  onExportSuccess: () => void;
+}
+
+export function ProcessoDetalheModal({
+  regularizacaoId,
+  canExportJson,
+  isReadOnly,
+  onClose,
+  onExportSuccess,
+}: ProcessoDetalheModalProps) {
+  const [data, setData] = useState<DetalheApiResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!regularizacaoId) {
+      setData(null);
+      setError(null);
+      setExportError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setExportError(null);
+
+    fetch(`/api/reurb/processos/${encodeURIComponent(regularizacaoId)}`, {
+      cache: 'no-store',
+    })
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body?.error || 'Falha ao carregar detalhe da REURB.');
+        return body as DetalheApiResponse;
+      })
+      .then((payload) => {
+        if (!cancelled) setData(payload);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Erro ao consultar processo REURB.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [regularizacaoId]);
+
+  if (!regularizacaoId) return null;
+
+  const reg = data?.registro;
+  const derivsJson = reg?.derivadas.filter((d) => d.incluirNoJson && !d.ehAreaPublica && !d.ehCondominioIntermediario) || [];
+  const derivsExcluidas = reg?.derivadas.filter((d) => !d.incluirNoJson || d.ehAreaPublica || d.ehCondominioIntermediario) || [];
+
+  async function handleExportarUnitaria() {
+    if (!reg || exporting) return;
+    setExporting(true);
+    setExportError(null);
+
+    try {
+      const res = await fetch('/api/reurb/exportacoes/unitaria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reg.id }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body?.ok) {
+        const msg = body?.error || 'Falha ao gerar JSON unitário para o ONR.';
+        setExportError(msg);
+        toast.error(msg);
+        return;
+      }
+
+      if (body.jsonString && body.exportacao?.nomeArquivoJson) {
+        triggerDownloadBlob(body.jsonString, body.exportacao.nomeArquivoJson);
+      }
+      toast.success(
+        `JSON unitário da matrícula ${reg.matricula} gerado com revalidação ONR v1.4.`
+      );
+      onExportSuccess();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao exportar JSON unitário.';
+      setExportError(msg);
+      toast.error(msg);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/15 bg-[#0D1322] text-white shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/10 bg-[#0D1322]/95 px-6 py-4 backdrop-blur">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-wider text-emerald-400">
+              Detalhe da Regularização Fundiária
+            </div>
+            <h2 className="text-lg font-bold text-white">
+              {reg ? `Matrícula ${reg.matricula} · ${reg.empreendimento || `Prot. ${reg.protocolo}`}` : 'Carregando...'}
+            </h2>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {reg && canExportJson && !isReadOnly && (
+              <button
+                type="button"
+                disabled={exporting || reg.situacaoValidacao !== 'APTO'}
+                onClick={handleExportarUnitaria}
+                title={
+                  reg.situacaoValidacao !== 'APTO'
+                    ? 'Resolva as pendências bloqueantes antes de exportar JSON'
+                    : 'Revalidar no Connector e exportar JSON ONR v1.4 unitário'
+                }
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                {exporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Exportar JSON unitário
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar detalhes"
+              className="rounded-xl border border-white/15 p-2 text-slate-300 hover:bg-white/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6 text-xs">
+          {loading && (
+            <div className="flex items-center justify-center py-12 gap-2 text-slate-300">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              Carregando informações do processo, atos, derivadas e fontes OCR...
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200">
+              {error}
+            </div>
+          )}
+
+          {exportError && (
+            <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200">
+              <strong>Exportação unitária bloqueada:</strong> {exportError}
+            </div>
+          )}
+
+          {reg && (
+            <>
+              {/* Dados principais */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-white/10 bg-[#070A12] p-3.5 space-y-1">
+                  <div className="text-slate-400">Matrícula / Protocolo</div>
+                  <div className="text-sm font-bold text-white">
+                    {reg.matricula} · Prot. {reg.protocolo}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Modalidade: <span className="text-slate-200 font-semibold">{labelModalidade(reg.modalidade)}</span> ·{' '}
+                    {reg.classificacaoFinal}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-[#070A12] p-3.5 space-y-1">
+                  <div className="text-slate-400">Datas</div>
+                  <div className="text-slate-200">
+                    Registro: <strong>{formatarDataBr(reg.dataRegistro)}</strong>
+                  </div>
+                  <div className="text-slate-400">
+                    Prenotação: <strong className="text-slate-200">{formatarDataBr(reg.dataPrenotacao)}</strong>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-[#070A12] p-3.5 space-y-1">
+                  <div className="text-slate-400">Situação ONR v1.4</div>
+                  <div className="flex items-center gap-2">
+                    {reg.situacaoValidacao === 'APTO' ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-300 font-bold">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Apto para exportação
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-300 font-bold">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Com pendências ({reg.qtdBloqueios})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Importação ONR: {labelStatusImportacaoOnr(reg.statusImportacaoOnr)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Localização e Agente */}
+              <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <span className="text-slate-400 block">Município</span>
+                  <span className="font-semibold text-white">{reg.municipio || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Distrito / Subdistrito</span>
+                  <span className="font-semibold text-white">
+                    {reg.distrito || '—'} {reg.subdistrito ? `/ ${reg.subdistrito}` : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Bairro / Localização</span>
+                  <span className="font-semibold text-white">
+                    {reg.bairro || 'Não comprovado'} ({reg.tipoLocalizacao})
+                  </span>
+                  {!reg.bairro && reg.bairroSugerido && (
+                    <span className="block text-[11px] text-amber-300">
+                      Sugestão logradouros: {reg.bairroSugerido}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-slate-400 block">Agente ({reg.tipoAgente === 1 ? 'Poder Público' : reg.tipoAgente === 2 ? 'Particular' : 'Pendente'})</span>
+                  <span className="font-semibold text-white">{reg.agente || '—'}</span>
+                </div>
+              </div>
+
+              {/* Pendências e Alertas */}
+              {reg.pendencias.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-amber-200">
+                    <ShieldAlert className="h-4 w-4 text-amber-400" />
+                    Pendências e alertas de validação ONR ({reg.pendencias.length})
+                  </div>
+                  <div className="space-y-2">
+                    {reg.pendencias.map((p, idx) => (
+                      <div
+                        key={p.id || `${p.campo}-${idx}`}
+                        className="rounded-lg border border-white/10 bg-[#070A12] p-2.5 flex flex-wrap items-start justify-between gap-2"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                p.severidade === 'BLOQUEIA'
+                                  ? 'bg-rose-500/20 text-rose-300'
+                                  : 'bg-amber-500/20 text-amber-300'
+                              }`}
+                            >
+                              {p.severidade}
+                            </span>
+                            <span className="font-bold text-white">{p.campo}</span>
+                            {p.matriculaDerivada && (
+                              <span className="text-slate-400">(Derivada {p.matriculaDerivada})</span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-slate-200">{p.motivo}</p>
+                          {p.acaoNecessaria && (
+                            <p className="mt-0.5 text-[11px] text-emerald-300">Ação: {p.acaoNecessaria}</p>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400">Fonte: {p.fonte}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Fontes e Evidências OCR */}
+              {(reg.fontes.length > 0 || reg.empreendimentoTrechoOcr) && (
+                <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 font-bold text-slate-200">
+                    <FileText className="h-4 w-4 text-cyan-400" />
+                    Fontes dos dados e evidências OCR (SiplanIA)
+                  </div>
+                  {reg.empreendimentoTrechoOcr && (
+                    <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 p-2.5 text-slate-200">
+                      <span className="text-[11px] text-cyan-300 font-semibold block">
+                        Trecho empreendimento ({reg.empreendimentoFonte || 'OCR'}):
+                      </span>
+                      {reg.empreendimentoTrechoOcr}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {reg.fontes.map((f, idx) => (
+                      <div
+                        key={`${f.campo}-${idx}`}
+                        className={`rounded-lg border p-2.5 ${
+                          f.exigeConferencia
+                            ? 'border-amber-500/40 bg-amber-500/5'
+                            : 'border-white/10 bg-[#0D1322]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-white">{f.campo}: {f.valor}</span>
+                          {f.exigeConferencia && (
+                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 font-semibold">
+                              Conferência recomendada
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400">Origem: {f.origem}</div>
+                        {f.trechoOcr && (
+                          <div className="mt-1 text-[11px] text-cyan-200 italic">&ldquo;{f.trechoOcr}&rdquo;</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Atos vinculados */}
+              {reg.atosVinculados.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-2">
+                  <div className="font-bold text-slate-200">Atos vinculados no WEBRI</div>
+                  <div className="space-y-1.5">
+                    {reg.atosVinculados.map((a, idx) => (
+                      <div key={`${a.atoId}-${idx}`} className="flex flex-wrap items-center justify-between gap-2 text-slate-300 border-b border-white/5 pb-1.5 last:border-b-0">
+                        <span>
+                          <strong className="text-white">{a.seqLabel}</strong> · {a.negocioDescricao}
+                          {a.negId ? ` (Neg. ${a.negId})` : ''}
+                        </span>
+                        <span className="text-slate-400">{formatarDataBr(a.dataAto)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Matrículas derivadas */}
+              <div className="rounded-xl border border-white/10 bg-[#070A12] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-slate-200">
+                    <Layers className="h-4 w-4 text-emerald-400" />
+                    Matrículas derivadas ({derivsJson.length} incluídas no JSON · {derivsExcluidas.length} área(s) pública(s)/intermediária(s) excluída(s))
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Qtd Unidades na matriz: {reg.quantidadeUnidades}
+                  </span>
+                </div>
+
+                {derivsExcluidas.length > 0 && (
+                  <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-1.5">
+                    <div className="font-semibold text-cyan-200">
+                      Áreas públicas / vias / condomínio intermediário excluídos do array derivadas[] (Manual ONR v1.4)
+                    </div>
+                    {derivsExcluidas.map((d) => (
+                      <div key={d.matriculaDerivada} className="text-[11px] text-slate-200 flex flex-wrap justify-between gap-2 border-t border-white/5 pt-1">
+                        <span>
+                          <strong>Matrícula {d.matriculaDerivada}</strong> ({d.categoriaArea}) — {d.motivoExclusao || 'Excluída do JSON'}
+                        </span>
+                        {d.fonteOcr && <span className="text-cyan-300">{d.fonteOcr}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="max-h-56 overflow-y-auto border border-white/10 rounded-lg">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-white/[0.03] text-slate-400 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2">Derivada</th>
+                        <th className="px-3 py-2">Abertura</th>
+                        <th className="px-3 py-2">Titulação (dataRegistro)</th>
+                        <th className="px-3 py-2">Vínculo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {derivsJson.map((d) => (
+                        <tr key={d.matriculaDerivada}>
+                          <td className="px-3 py-1.5 font-bold text-white">{d.matriculaDerivada}</td>
+                          <td className="px-3 py-1.5 text-slate-300">
+                            {d.dataAbertura ? formatarDataBr(d.dataAbertura) : 'Omitida (opcional ONR pág. 24)'}
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-300">
+                            {d.dataRegistro ? formatarDataBr(d.dataRegistro) : 'null (sem titulação posterior)'}
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-400">{d.vinculoMetodo || 'FILIACAO'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

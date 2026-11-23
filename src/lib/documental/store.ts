@@ -70,7 +70,7 @@ export function isCachedSearchResultValid(rawResult: unknown): boolean {
 export async function createJob(tenantId: string, userId: string, connectorId: string, options: CreateJobOptions): Promise<JobResponse | null> {
   const type = options.type || 'search';
   const query = options.query
-    ? (type === 'pesquisa_registral' || type === 'pesquisa_registral_catalogos'
+    ? (type === 'pesquisa_registral' || type === 'pesquisa_registral_catalogos' || type === 'reurb_revalidar'
         ? options.query.trim()
         : normalizarTermoPesquisaDocumental(options.query))
     : null;
@@ -476,6 +476,7 @@ export async function finishSearch(id: string, tenantId: string, connectorId: st
       WHEN ${ehChunkEfemero}::boolean THEN NOW() + INTERVAL '2 minutes'
       WHEN type = 'search' THEN NOW() + INTERVAL '2 minutes'
       WHEN type = 'pesquisa_registral' THEN NOW() + INTERVAL '2 minutes'
+      WHEN type = 'reurb_revalidar' THEN NOW() + INTERVAL '2 minutes'
       ELSE NOW() + INTERVAL '24 hours'
     END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}

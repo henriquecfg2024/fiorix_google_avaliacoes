@@ -6,6 +6,7 @@ import { invalidateMetasTenantCache } from '@/lib/bi-metas-cache';
 import { invalidateImpressoesTenantCache } from '@/lib/bi-impressoes-cache';
 import { upsertColaboradoresGestorBatch } from '@/lib/ferias/ferias-repository';
 import { sincronizarPedidosOficiaisWebriBatch } from '@/lib/cartorio-virtual/connector-sync';
+import { sincronizarReurbBatch } from '@/lib/reurb/connector-sync';
 
 export interface UnpackLiveResult {
   inserted: number;
@@ -50,7 +51,8 @@ export async function unpackLiveRecords({
     | 'impressoes'
     | 'safras'
     | 'colaboradores_rh'
-    | 'cartorio_virtual_certidoes';
+    | 'cartorio_virtual_certidoes'
+    | 'reurb_regularizacoes';
   records: any[];
 }): Promise<UnpackLiveResult> {
   if (!records || records.length === 0) {
@@ -614,6 +616,13 @@ export async function unpackLiveRecords({
         inserted: cvRes.inseridos,
         updated: cvRes.atualizados,
         unchanged: cvRes.inalterados,
+      };
+    } else if (source === 'reurb_regularizacoes') {
+      const reurbRes = await sincronizarReurbBatch(tenantId, records);
+      return {
+        inserted: reurbRes.inseridos,
+        updated: reurbRes.atualizados,
+        unchanged: reurbRes.inalterados,
       };
     }
     return { inserted: 0, updated: 0, unchanged: records.length };

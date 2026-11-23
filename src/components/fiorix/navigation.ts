@@ -77,6 +77,7 @@ export const navigationGroups = {
       { id: "conferencia_documental", label: "EM CONFERÊNCIA", href: "/gestao-documental/conferencia", icon: Clock3 },
       { id: "arquivo_documental", label: "ARQUIVO", href: "/gestao-documental/arquivo", icon: FolderArchive },
       { id: "historico_documental", label: "ANDAMENTOS", href: "/gestao-documental/historico", icon: History },
+      { id: "reurb_central", label: "REURB", href: "/reurb", icon: Building2 },
     ],
   },
   gestao: {

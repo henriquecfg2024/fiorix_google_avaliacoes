@@ -36,6 +36,10 @@ export function isNavPermissionsFeatureEnabled(
  */
 export function isItemVisibleInLegacy(item: NavCatalogItem, role: string): boolean {
   if (item.id === 'validacao_autenticidade_documental') return false;
+  if (item.id === 'reurb_exportar_json' || item.id === 'reurb_confirmar_importacao') {
+    const upper = String(role || '').toUpperCase();
+    return ['MASTER', 'ADMIN', 'SUBSTITUTO'].includes(upper);
+  }
   if (item.isMasterOnly) return role === 'MASTER';
   if (item.id === 'inicio' || item.href === '/dashboard') {
     const upper = String(role || '').toUpperCase();
@@ -678,7 +682,13 @@ export async function getEffectiveUserNavigation(user: {
     if (group.isMasterOnly) continue;
 
     const visibleItems = group.items.filter((item) => {
-      if (item.id === 'validacao_autenticidade_documental') return false;
+      if (
+        item.id === 'validacao_autenticidade_documental' ||
+        item.id === 'reurb_exportar_json' ||
+        item.id === 'reurb_confirmar_importacao'
+      ) {
+        return false;
+      }
       // 1. Guarda estrutural
       const structural = checkStructuralRestriction(item, user.role);
       if (structural.isBlocked) return false;

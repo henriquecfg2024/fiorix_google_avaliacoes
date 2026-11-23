@@ -167,6 +167,12 @@ export const pesquisaRegistralCatalogosInput = z.object({
   forceFresh: z.boolean().optional(),
 }).strict();
 
+export const reurbRevalidarInput = z.object({
+  connectorId: connectorIdSchema,
+  type: z.literal('reurb_revalidar'),
+  query: z.string().min(2).max(2000),
+}).strict();
+
 export const documentJobInput = z.union([
   searchInput,
   extractPetitionInput,

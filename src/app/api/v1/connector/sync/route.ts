@@ -47,6 +47,7 @@ const syncPayloadSchema = z.object({
     'safras',
     'colaboradores_rh',
     'cartorio_virtual_certidoes',
+    'reurb_regularizacoes',
   ]),
   batch_id: z.string(),
   generated_at: z.string().datetime(),

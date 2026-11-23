@@ -127,6 +127,12 @@ model Tenant {
   cvLotesImpressao     FiorixCvLoteImpressao[]
   cvFilaJobs           FiorixCvFilaJob[]
   cvHistoricoOperacoes FiorixCvHistoricoOperacao[]
+
+  // CENTRAL REURB (REGULARIZAÇÃO FUNDIÁRIA • ONR v1.4)
+  reurbRegularizacoes FiorixReurbRegularizacao[]
+  reurbDerivadas      FiorixReurbDerivada[]
+  reurbPendencias     FiorixReurbPendencia[]
+  reurbExportacoes    FiorixReurbExportacao[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -1527,4 +1533,172 @@ model FiorixCvHistoricoOperacao {
   @@index([tenantId, createdAt(sort: Desc)])
   @@index([tenantId, pedidoId])
   @@map("fiorix_cv_historico_operacoes")
+}
+
+// =============================================================================
+// CENTRAL REURB (REGULARIZAÇÃO FUNDIÁRIA • ONR v1.4)
+// =============================================================================
+
+model FiorixReurbRegularizacao {
+  id                          String    @id @default(cuid())
+  tenantId                    String    @map("tenant_id")
+  tenant                      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recordKey                   String    @map("record_key")
+  prenotacao                  Int
+  matricula                   Int
+  complMatricula              String?   @map("compl_matricula")
+  protocolo                   String
+  empreendimento              String?
+  empreendimentoFonte         String?   @map("empreendimento_fonte")
+  empreendimentoTrechoOcr     String?   @map("empreendimento_trecho_ocr") @db.Text
+  negId                       Int       @default(947) @map("neg_id")
+  classificacaoFinal          String    @map("classificacao_final")
+  modalidade                  String
+  tipoInteresse               Int       @map("tipo_interesse")
+  dataRegistro                DateTime? @map("data_registro") @db.Date
+  dataPrenotacao              DateTime? @map("data_prenotacao") @db.Date
+  municipio                   String?
+  distrito                    String?
+  subdistrito                 String?
+  bairro                      String?
+  bairroSugerido              String?   @map("bairro_sugerido")
+  tipoLocalizacao             String    @default("U") @map("tipo_localizacao")
+  quantidadeUnidades          Int       @default(0) @map("quantidade_unidades")
+  qtdDerivadasLista           Int       @default(0) @map("qtd_derivadas_lista")
+  qtdAreasPublicasExcluidas   Int       @default(0) @map("qtd_areas_publicas_excluidas")
+  tipoAgente                  Int?      @map("tipo_agente")
+  agente                      String?
+  situacaoValidacao           String    @default("PENDENTE") @map("situacao_validacao")
+  qtdBloqueios                Int       @default(0) @map("qtd_bloqueios")
+  qtdAlertas                  Int       @default(0) @map("qtd_alertas")
+  ehArt69                     Boolean   @default(false) @map("eh_art_69")
+  fontesJson                  Json?     @map("fontes_json")
+  atosVinculadosJson          Json?     @map("atos_vinculados_json")
+  ultimaExportacaoEm          DateTime? @map("ultima_exportacao_em")
+  ultimaImportacaoConfirmadaEm DateTime? @map("ultima_importacao_confirmada_em")
+  syncedAt                    DateTime  @default(now()) @map("synced_at")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  derivadas       FiorixReurbDerivada[]
+  pendencias      FiorixReurbPendencia[]
+  exportacaoItens FiorixReurbExportacaoItem[]
+
+  @@unique([tenantId, recordKey])
+  @@unique([tenantId, prenotacao, matricula])
+  @@index([tenantId, dataRegistro(sort: Desc)])
+  @@index([tenantId, dataPrenotacao(sort: Desc)])
+  @@index([tenantId, situacaoValidacao])
+  @@index([tenantId, modalidade])
+  @@index([tenantId, matricula])
+  @@index([tenantId, prenotacao])
+  @@map("fiorix_reurb_regularizacoes")
+}
+
+model FiorixReurbDerivada {
+  id                        String                   @id @default(cuid())
+  tenantId                  String                   @map("tenant_id")
+  tenant                    Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  regularizacaoId           String                   @map("regularizacao_id")
+  regularizacao             FiorixReurbRegularizacao @relation(fields: [regularizacaoId], references: [id], onDelete: Cascade)
+  matriculaDerivada         Int                      @map("matricula_derivada")
+  complMatricula            String?                  @map("compl_matricula")
+  dataAbertura              DateTime?                @map("data_abertura") @db.Date
+  dataRegistro              DateTime?                @map("data_registro") @db.Date
+  tipoInteresse             Int                      @map("tipo_interesse")
+  incluirNoJson             Boolean                  @default(true) @map("incluir_no_json")
+  ehAreaPublica             Boolean                  @default(false) @map("eh_area_publica")
+  ehCondominioIntermediario Boolean                  @default(false) @map("eh_condominio_intermediario")
+  categoriaArea             String                   @default("UNIDADE_AUTONOMA") @map("categoria_area")
+  vinculoMetodo             String?                  @map("vinculo_metodo")
+  motivoExclusao            String?                  @map("motivo_exclusao")
+  fonteOcr                  String?                  @map("fonte_ocr") @db.Text
+  createdAt                 DateTime                 @default(now()) @map("created_at")
+  updatedAt                 DateTime                 @updatedAt @map("updated_at")
+
+  @@unique([regularizacaoId, matriculaDerivada])
+  @@index([tenantId, dataAbertura(sort: Desc)])
+  @@index([tenantId, matriculaDerivada])
+  @@index([regularizacaoId, incluirNoJson])
+  @@map("fiorix_reurb_derivadas")
+}
+
+model FiorixReurbPendencia {
+  id                String                   @id @default(cuid())
+  tenantId          String                   @map("tenant_id")
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  regularizacaoId   String                   @map("regularizacao_id")
+  regularizacao     FiorixReurbRegularizacao @relation(fields: [regularizacaoId], references: [id], onDelete: Cascade)
+  matriculaDerivada Int?                     @map("matricula_derivada")
+  campo             String
+  severidade        String
+  motivo            String                   @db.Text
+  fonte             String                   @db.Text
+  acaoNecessaria    String?                  @map("acao_necessaria") @db.Text
+  exigeConferencia  Boolean                  @default(false) @map("exige_conferencia")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+
+  @@index([tenantId, severidade])
+  @@index([regularizacaoId, severidade])
+  @@map("fiorix_reurb_pendencias")
+}
+
+model FiorixReurbExportacao {
+  id                       String                      @id @default(cuid())
+  tenantId                 String                      @map("tenant_id")
+  tenant                   Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipo                     String
+  statusGeracao            String                      @map("status_geracao")
+  statusImportacaoOnr      String                      @default("PENDENTE_CONFIRMACAO") @map("status_importacao_onr")
+  nomeArquivoJson          String?                     @map("nome_arquivo_json")
+  nomeArquivoPendencias    String?                     @map("nome_arquivo_pendencias")
+  qtdSolicitadas           Int                         @default(0) @map("qtd_solicitadas")
+  qtdAptasGeradas          Int                         @default(0) @map("qtd_aptas_geradas")
+  qtdBarradas              Int                         @default(0) @map("qtd_barradas")
+  qtdDerivadasIncluidas    Int                         @default(0) @map("qtd_derivadas_incluidas")
+  jsonPayload              String?                     @map("json_payload") @db.Text
+  jsonSha256               String?                     @map("json_sha256")
+  relatorioPendenciasJson  Json?                       @map("relatorio_pendencias_json")
+  erroDetalhe              String?                     @map("erro_detalhe") @db.Text
+  revalidacaoConnectorId   String?                     @map("revalidacao_connector_id")
+  revalidadoEm             DateTime?                   @map("revalidado_em")
+  ocrConsultado            Boolean                     @default(false) @map("ocr_consultado")
+  geradoPorUserId          String                      @map("gerado_por_user_id")
+  geradoPorNome            String?                     @map("gerado_por_nome")
+  confirmadoImportacaoEm   DateTime?                   @map("confirmado_importacao_em")
+  confirmadoPorUserId      String?                     @map("confirmado_por_user_id")
+  confirmadoPorNome        String?                     @map("confirmado_por_nome")
+  protocoloOnrExterno      String?                     @map("protocolo_onr_externo")
+  observacaoConfirmacao    String?                     @map("observacao_confirmacao") @db.Text
+  createdAt                DateTime                    @default(now()) @map("created_at")
+  updatedAt                DateTime                    @updatedAt @map("updated_at")
+
+  itens FiorixReurbExportacaoItem[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([tenantId, statusGeracao])
+  @@index([tenantId, statusImportacaoOnr])
+  @@map("fiorix_reurb_exportacoes")
+}
+
+model FiorixReurbExportacaoItem {
+  id                    String                    @id @default(cuid())
+  exportacaoId          String                    @map("exportacao_id")
+  exportacao            FiorixReurbExportacao     @relation(fields: [exportacaoId], references: [id], onDelete: Cascade)
+  regularizacaoId       String?                   @map("regularizacao_id")
+  regularizacao         FiorixReurbRegularizacao? @relation(fields: [regularizacaoId], references: [id], onDelete: SetNull)
+  prenotacao            Int
+  matricula             Int
+  protocolo             String
+  empreendimento        String?
+  modalidade            String
+  incluidaNoJson        Boolean                   @default(false) @map("incluida_no_json")
+  situacaoNoMomento     String                    @map("situacao_no_momento")
+  qtdDerivadasIncluidas Int                       @default(0) @map("qtd_derivadas_incluidas")
+  motivosBloqueioJson   Json?                     @map("motivos_bloqueio_json")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+
+  @@index([exportacaoId, incluidaNoJson])
+  @@index([regularizacaoId])
+  @@map("fiorix_reurb_exportacao_itens")
 }

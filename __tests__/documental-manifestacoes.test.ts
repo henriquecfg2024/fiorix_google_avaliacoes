@@ -90,6 +90,7 @@ describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS',
       { label: 'EM CONFERÊNCIA', href: '/gestao-documental/conferencia' },
       { label: 'ARQUIVO', href: '/gestao-documental/arquivo' },
       { label: 'ANDAMENTOS', href: '/gestao-documental/historico' },
+      { label: 'REURB', href: '/reurb' },
     ]);
 
     const catalogoDoc = NAV_CATALOG_GROUPS.find(g => g.id === 'documental');
@@ -102,6 +103,9 @@ describe('manifestações: posição e navegação da aba ARQUIVO e ANDAMENTOS',
       '/gestao-documental/arquivo',
       '/gestao-documental/historico',
       '/gestao-documental#validacao-autenticidade',
+      '/reurb',
+      '/reurb#exportar-json',
+      '/reurb#confirmar-importacao',
     ]);
   });
 });

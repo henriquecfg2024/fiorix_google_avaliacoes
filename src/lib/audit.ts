@@ -14,6 +14,7 @@ export type AuditModulo =
   | 'OPERACOES_CONNECTOR'
   | 'CARTORIO_VIRTUAL'
   | 'GESTAO_DOCUMENTAL'
+  | 'REURB'
   | 'MEMORIAL_INFRAESTRUTURA';
 
 export type AuditAcao =
@@ -38,7 +39,8 @@ export type AuditAcao =
   | 'CONSULTA_LGPD'
   | 'HOMOLOGACAO'
   | 'AUDITORIA_INTEGRIDADE'
-  | 'EMISSAO_DOSSIE' | 'CONFERENCIA' | 'ARQUIVAMENTO';
+  | 'EMISSAO_DOSSIE' | 'CONFERENCIA' | 'ARQUIVAMENTO'
+  | 'EXPORTACAO_JSON' | 'EXPORTACAO_EXCEL' | 'CONFIRMACAO_IMPORTACAO_ONR';
 
 export interface AuditLogParams {
   modulo: AuditModulo;
