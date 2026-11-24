@@ -309,7 +309,66 @@ describe('Central REURB — Salvamento em lote nas pastas existentes', () => {
     expect(summary.semPasta).toBe(2);
     expect(summary.naoElegiveis).toBe(1);
     expect(summary.erros).toBe(0);
+    expect(summary.rootDirName).toBe('REURB');
     expect(summary.pastasAusentes).toEqual(['2026/10-OUTUBRO']);
+  });
+
+  it('aceita seleção direta da pasta do mês (09-SETEMBRO), do ano (2026) ou do drive (W:) contendo REURB', async () => {
+    const expSet = makeExportacao();
+    const expOut = makeExportacao({
+      id: 'exp-out-direct',
+      nomeArquivoJson: 'reurb_onr_mat_266499_20261124191000.json',
+      itens: [
+        {
+          ...makeExportacao().itens[0],
+          matricula: 266499,
+          dataRegistro: '2026-10-15',
+        },
+      ],
+    });
+
+    // 1) Usuário seleciona diretamente a pasta "09-SETEMBRO"
+    const directMonthDir = new MemoryDirectoryHandle('09-SETEMBRO');
+    const resDirectMonth = await salvarArquivosReurbEmPastasExistentes({
+      exportacoes: [expSet, expOut],
+      mode: 'comprovantes',
+      rootDir: directMonthDir,
+      fetchJsonBytes: async () => new Uint8Array(),
+      generatePdfBytes: (exp) => gerarPdfComprovanteExportacaoReurb(exp),
+    });
+    expect(directMonthDir.files.has('reurb_onr_mat_266468_20261124185950.json.pdf')).toBe(true);
+    expect(directMonthDir.files.has('reurb_onr_mat_266499_20261124191000.json.pdf')).toBe(false);
+    expect(resDirectMonth.salvos).toBe(1);
+    expect(resDirectMonth.semPasta).toBe(1);
+    expect(resDirectMonth.rootDirName).toBe('09-SETEMBRO');
+
+    // 2) Usuário seleciona diretamente a pasta do ano "2026"
+    const yearDir = new MemoryDirectoryHandle('2026');
+    const yearSetDir = yearDir.addSubdir(new MemoryDirectoryHandle('09-SETEMBRO'));
+    const resYear = await salvarArquivosReurbEmPastasExistentes({
+      exportacoes: [expSet],
+      mode: 'comprovantes',
+      rootDir: yearDir,
+      fetchJsonBytes: async () => new Uint8Array(),
+      generatePdfBytes: (exp) => gerarPdfComprovanteExportacaoReurb(exp),
+    });
+    expect(yearSetDir.files.has('reurb_onr_mat_266468_20261124185950.json.pdf')).toBe(true);
+    expect(resYear.salvos).toBe(1);
+
+    // 3) Usuário seleciona a raiz do drive ("W:") contendo REURB/2026/09-SETEMBRO
+    const driveRoot = new MemoryDirectoryHandle('W:');
+    const driveReurb = driveRoot.addSubdir(new MemoryDirectoryHandle('REURB'));
+    const drive2026 = driveReurb.addSubdir(new MemoryDirectoryHandle('2026'));
+    const driveSet = drive2026.addSubdir(new MemoryDirectoryHandle('09-SETEMBRO'));
+    const resDrive = await salvarArquivosReurbEmPastasExistentes({
+      exportacoes: [expSet],
+      mode: 'comprovantes',
+      rootDir: driveRoot,
+      fetchJsonBytes: async () => new Uint8Array(),
+      generatePdfBytes: (exp) => gerarPdfComprovanteExportacaoReurb(exp),
+    });
+    expect(driveSet.files.has('reurb_onr_mat_266468_20261124185950.json.pdf')).toBe(true);
+    expect(resDrive.salvos).toBe(1);
   });
 
   it('gera PDF válido com nome padrão <arquivo>.json.pdf e ZIP organizado por mês', async () => {

@@ -238,7 +238,7 @@ export function ExportacoesReurbTab({
         );
       } else if (summary.semPasta > 0) {
         toast.error(
-          `Nenhuma pasta mensal encontrada (${summary.pastasAusentes.join(', ')}). Nenhuma pasta nova foi criada.`
+          `Nenhuma pasta mensal encontrada (${summary.pastasAusentes.join(', ')}) em "${summary.rootDirName}". Nenhuma pasta nova foi criada.`
         );
       } else {
         toast.info('Nenhum arquivo novo precisou ser gravado (já existentes ou não elegíveis).');
@@ -392,7 +392,7 @@ export function ExportacoesReurbTab({
                 Histórico de exportações JSON e importação no Ofício Eletrônico
               </h2>
               <p className="text-xs text-slate-400">
-                Selecione a pasta raiz <span className="font-mono text-slate-300">W:\REURB</span> (ou o ano) para salvar diretamente nas pastas mensais existentes pela <strong className="text-slate-200">data de registro</strong>, sem criar pastas novas nem sobrescrever arquivos existentes.
+                Selecione <span className="font-mono text-slate-300">W:\REURB</span>, o ano (<span className="font-mono text-slate-300">2026</span>) ou diretamente a pasta do mês (<span className="font-mono text-slate-300">09-SETEMBRO</span>) para salvar pela <strong className="text-slate-200">data de registro</strong>, sem criar pastas novas nem sobrescrever arquivos existentes.
               </p>
             </div>
 

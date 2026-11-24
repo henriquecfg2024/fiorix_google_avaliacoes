@@ -48,6 +48,7 @@ export interface ReurbBatchItemResult {
 
 export interface ReurbBatchSummary {
   mode: ReurbBatchMode;
+  rootDirName: string;
   totalOperacoes: number;
   salvos: number;
   ignoradosExistentes: number;
@@ -227,7 +228,8 @@ async function listSubdirectoryNames(dir: FsDirectoryHandle): Promise<string[]> 
 
 /**
  * Localiza a pasta existente `<ANO>/<MÊS>` sem criar subpastas faltantes.
- * Aceita tanto a raiz `W:\REURB` quanto uma pasta já selecionada no ano `W:\REURB\2026`.
+ * Aceita a pasta do mês diretamente (`09-SETEMBRO`), a pasta do ano (`2026`),
+ * a pasta raiz `W:\REURB` ou a raiz do volume (`W:\`) contendo `REURB\2026\...`.
  */
 export async function resolveTargetDirectoryHandle(
   rootDir: FsDirectoryHandle,
@@ -236,17 +238,54 @@ export async function resolveTargetDirectoryHandle(
 ): Promise<{ handle: FsDirectoryHandle | null; expectedPath: string }> {
   const anoStr = String(ano);
   const defaultMonth = getDefaultMonthFolderName(mes);
+  const rootNameTrimmed = rootDir.name.trim();
 
+  // 1. Pasta do mês selecionada diretamente (ex.: "09-SETEMBRO", "09-NOVEMBRO", "Novembro_2026")
+  const explicitYearInRoot = /(?:^|\D)(20\d{2})(?:\D|$)/.exec(rootNameTrimmed)?.[1] ?? null;
+  const matchedRootAsMonth = matchExistingMonthFolderName([rootNameTrimmed], mes);
+  if (matchedRootAsMonth) {
+    if (explicitYearInRoot && explicitYearInRoot !== anoStr) {
+      return { handle: null, expectedPath: `${anoStr}/${defaultMonth}` };
+    }
+    return { handle: rootDir, expectedPath: rootNameTrimmed };
+  }
+
+  // Se o usuário selecionou diretamente uma pasta explícita de outro mês (ex.: "09-SETEMBRO" para mês 10),
+  // não gravar fora da competência nem tentar resolver como ano/raiz.
+  const anyExplicitMonthInRoot = detectExplicitMonthInFolderName(
+    normalizeFolderName(rootNameTrimmed)
+  );
+  if (anyExplicitMonthInRoot !== null && anyExplicitMonthInRoot !== mes) {
+    return { handle: null, expectedPath: `${anoStr}/${defaultMonth}` };
+  }
+
+  // 2. Pasta do ano selecionada diretamente (ex.: "2026")
   let yearDir: FsDirectoryHandle | null = null;
-  if (rootDir.name.trim() === anoStr) {
+  if (rootNameTrimmed === anoStr || explicitYearInRoot === anoStr) {
     yearDir = rootDir;
   } else {
     const rootSubdirs = await listSubdirectoryNames(rootDir);
     const matchedYear = rootSubdirs.find((name) => name.trim() === anoStr);
-    if (!matchedYear) {
-      return { handle: null, expectedPath: `${anoStr}/${defaultMonth}` };
+    if (matchedYear) {
+      yearDir = await rootDir.getDirectoryHandle(matchedYear);
+    } else {
+      // 3. Raiz do drive / compartilhamento (ex.: "W:\" contendo subpasta "REURB")
+      const reurbSubdir = rootSubdirs.find(
+        (name) => normalizeFolderName(name) === 'REURB'
+      );
+      if (reurbSubdir) {
+        const reurbHandle = await rootDir.getDirectoryHandle(reurbSubdir);
+        const reurbSubdirs = await listSubdirectoryNames(reurbHandle);
+        const yearInsideReurb = reurbSubdirs.find((name) => name.trim() === anoStr);
+        if (yearInsideReurb) {
+          yearDir = await reurbHandle.getDirectoryHandle(yearInsideReurb);
+        }
+      }
     }
-    yearDir = await rootDir.getDirectoryHandle(matchedYear);
+  }
+
+  if (!yearDir) {
+    return { handle: null, expectedPath: `${anoStr}/${defaultMonth}` };
   }
 
   const monthSubdirs = await listSubdirectoryNames(yearDir);
@@ -530,6 +569,7 @@ export async function salvarArquivosReurbEmPastasExistentes(params: {
 
   return {
     mode: params.mode,
+    rootDirName: params.rootDir.name,
     totalOperacoes: currentOp,
     salvos,
     ignoradosExistentes,

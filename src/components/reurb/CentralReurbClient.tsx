@@ -323,7 +323,7 @@ export function CentralReurbClient({
         );
       } else if (summary.semPasta > 0) {
         toast.error(
-          `Pasta mensal não encontrada (${summary.pastasAusentes.join(', ')}). Nenhuma pasta nova foi criada.`
+          `Pasta mensal não encontrada (${summary.pastasAusentes.join(', ')}) em "${summary.rootDirName}". Nenhuma pasta nova foi criada.`
         );
       } else {
         toast.info('Arquivos já existiam na pasta selecionada.');
