@@ -46,6 +46,58 @@ async function safeAudit(params: {
   }
 }
 
+function formatDateOnlyIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+  const clean = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : null;
+}
+
+export function resolveCompetenciaFromItens(
+  itens: Array<{ dataRegistro?: string | null; incluidaNoJson: boolean }>
+): {
+  competenciaAno: number | null;
+  competenciaMes: number | null;
+  competenciaMista: boolean;
+} {
+  const selecionados = itens.filter((it) => it.incluidaNoJson);
+  const base = selecionados.length > 0 ? selecionados : itens;
+  const counts = new Map<string, { ano: number; mes: number; count: number }>();
+
+  for (const item of base) {
+    const iso = formatDateOnlyIso(item.dataRegistro);
+    if (!iso) continue;
+    const ano = Number.parseInt(iso.slice(0, 4), 10);
+    const mes = Number.parseInt(iso.slice(5, 7), 10);
+    if (!Number.isInteger(ano) || !Number.isInteger(mes) || mes < 1 || mes > 12) continue;
+    const key = `${ano}-${String(mes).padStart(2, '0')}`;
+    const current = counts.get(key);
+    if (current) {
+      current.count += 1;
+    } else {
+      counts.set(key, { ano, mes, count: 1 });
+    }
+  }
+
+  if (counts.size === 0) {
+    return { competenciaAno: null, competenciaMes: null, competenciaMista: false };
+  }
+
+  const ordered = [...counts.values()].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    if (b.ano !== a.ano) return b.ano - a.ano;
+    return b.mes - a.mes;
+  });
+
+  return {
+    competenciaAno: ordered[0].ano,
+    competenciaMes: ordered[0].mes,
+    competenciaMista: counts.size > 1,
+  };
+}
+
 function mapExportacaoRowToDto(row: {
   id: string;
   tipo: string;
@@ -80,8 +132,32 @@ function mapExportacaoRowToDto(row: {
     situacaoNoMomento: string;
     qtdDerivadasIncluidas: number;
     motivosBloqueioJson: unknown;
+    regularizacao?: { dataRegistro: Date | null } | null;
   }>;
 }): ReurbExportacaoDTO {
+  const itensDto = row.itens.map((it) => ({
+    id: it.id,
+    regularizacaoId: it.regularizacaoId,
+    prenotacao: it.prenotacao,
+    matricula: it.matricula,
+    protocolo: it.protocolo,
+    empreendimento: it.empreendimento,
+    modalidade: it.modalidade,
+    dataRegistro: formatDateOnlyIso(it.regularizacao?.dataRegistro),
+    incluidaNoJson: it.incluidaNoJson,
+    situacaoNoMomento: it.situacaoNoMomento,
+    qtdDerivadasIncluidas: it.qtdDerivadasIncluidas,
+    motivosBloqueio: Array.isArray(it.motivosBloqueioJson)
+      ? (it.motivosBloqueioJson as Array<{
+          campo: string;
+          severidade?: string;
+          motivo: string;
+          fonte?: string;
+        }>)
+      : [],
+  }));
+  const competencia = resolveCompetenciaFromItens(itensDto);
+
   return {
     id: row.id,
     tipo: row.tipo === 'UNITARIA' ? 'UNITARIA' : 'LOTE',
@@ -110,27 +186,11 @@ function mapExportacaoRowToDto(row: {
     confirmadoPorNome: row.confirmadoPorNome,
     protocoloOnrExterno: row.protocoloOnrExterno,
     observacaoConfirmacao: row.observacaoConfirmacao,
+    competenciaAno: competencia.competenciaAno,
+    competenciaMes: competencia.competenciaMes,
+    competenciaMista: competencia.competenciaMista,
     createdAt: row.createdAt.toISOString(),
-    itens: row.itens.map((it) => ({
-      id: it.id,
-      regularizacaoId: it.regularizacaoId,
-      prenotacao: it.prenotacao,
-      matricula: it.matricula,
-      protocolo: it.protocolo,
-      empreendimento: it.empreendimento,
-      modalidade: it.modalidade,
-      incluidaNoJson: it.incluidaNoJson,
-      situacaoNoMomento: it.situacaoNoMomento,
-      qtdDerivadasIncluidas: it.qtdDerivadasIncluidas,
-      motivosBloqueio: Array.isArray(it.motivosBloqueioJson)
-        ? (it.motivosBloqueioJson as Array<{
-            campo: string;
-            severidade?: string;
-            motivo: string;
-            fonte?: string;
-          }>)
-        : [],
-    })),
+    itens: itensDto,
   };
 }
 
@@ -489,7 +549,13 @@ export async function executarGeracaoJsonReurb(params: {
             ],
           },
         },
-        include: { itens: true },
+        include: {
+          itens: {
+            include: {
+              regularizacao: { select: { dataRegistro: true } },
+            },
+          },
+        },
       });
 
       const includedDbIds = built.aptas
@@ -513,6 +579,37 @@ export async function executarGeracaoJsonReurb(params: {
     dto = mapExportacaoRowToDto(created);
   } catch (err) {
     if (!isMissingRelationError(err)) throw err;
+    const fallbackItens = [
+      ...built.aptas.map((a, idx) => ({
+        id: `${expId}-a-${idx}`,
+        regularizacaoId: a.regularizacao.id,
+        prenotacao: a.regularizacao.prenotacao,
+        matricula: a.regularizacao.matricula,
+        protocolo: a.regularizacao.protocolo,
+        empreendimento: a.regularizacao.empreendimento,
+        modalidade: a.regularizacao.modalidade,
+        dataRegistro: formatDateOnlyIso(a.regularizacao.dataRegistro),
+        incluidaNoJson: true,
+        situacaoNoMomento: 'APTO',
+        qtdDerivadasIncluidas: a.registroOnr.derivadas.length,
+        motivosBloqueio: a.avisos,
+      })),
+      ...built.barradas.map((b, idx) => ({
+        id: `${expId}-b-${idx}`,
+        regularizacaoId: b.regularizacao.id,
+        prenotacao: b.regularizacao.prenotacao,
+        matricula: b.regularizacao.matricula,
+        protocolo: b.regularizacao.protocolo,
+        empreendimento: b.regularizacao.empreendimento,
+        modalidade: b.regularizacao.modalidade,
+        dataRegistro: formatDateOnlyIso(b.regularizacao.dataRegistro),
+        incluidaNoJson: false,
+        situacaoNoMomento: 'PENDENTE',
+        qtdDerivadasIncluidas: 0,
+        motivosBloqueio: b.bloqueios,
+      })),
+    ];
+    const fallbackCompetencia = resolveCompetenciaFromItens(fallbackItens);
     dto = {
       id: expId,
       tipo: params.tipo,
@@ -534,35 +631,11 @@ export async function executarGeracaoJsonReurb(params: {
       confirmadoPorNome: null,
       protocoloOnrExterno: null,
       observacaoConfirmacao: null,
+      competenciaAno: fallbackCompetencia.competenciaAno,
+      competenciaMes: fallbackCompetencia.competenciaMes,
+      competenciaMista: fallbackCompetencia.competenciaMista,
       createdAt: now.toISOString(),
-      itens: [
-        ...built.aptas.map((a, idx) => ({
-          id: `${expId}-a-${idx}`,
-          regularizacaoId: a.regularizacao.id,
-          prenotacao: a.regularizacao.prenotacao,
-          matricula: a.regularizacao.matricula,
-          protocolo: a.regularizacao.protocolo,
-          empreendimento: a.regularizacao.empreendimento,
-          modalidade: a.regularizacao.modalidade,
-          incluidaNoJson: true,
-          situacaoNoMomento: 'APTO',
-          qtdDerivadasIncluidas: a.registroOnr.derivadas.length,
-          motivosBloqueio: a.avisos,
-        })),
-        ...built.barradas.map((b, idx) => ({
-          id: `${expId}-b-${idx}`,
-          regularizacaoId: b.regularizacao.id,
-          prenotacao: b.regularizacao.prenotacao,
-          matricula: b.regularizacao.matricula,
-          protocolo: b.regularizacao.protocolo,
-          empreendimento: b.regularizacao.empreendimento,
-          modalidade: b.regularizacao.modalidade,
-          incluidaNoJson: false,
-          situacaoNoMomento: 'PENDENTE',
-          qtdDerivadasIncluidas: 0,
-          motivosBloqueio: b.bloqueios,
-        })),
-      ],
+      itens: fallbackItens,
     };
   }
 
@@ -592,19 +665,65 @@ export async function executarGeracaoJsonReurb(params: {
   };
 }
 
-export async function listarExportacoesReurb(tenantId: string): Promise<ReurbExportacaoDTO[]> {
+export interface ListarExportacoesReurbFiltro {
+  ano?: number | null;
+  mes?: number | null;
+  limit?: number;
+}
+
+export async function listarExportacoesReurb(
+  tenantId: string,
+  filtros?: ListarExportacoesReurbFiltro
+): Promise<ReurbExportacaoDTO[]> {
   try {
+    const ano = filtros?.ano ?? null;
+    const mes = filtros?.mes ?? null;
+    const limit = Math.min(Math.max(filtros?.limit ?? 200, 1), 500);
+
+    const where: Prisma.FiorixReurbExportacaoWhereInput = { tenantId };
+    if (ano !== null) {
+      const start =
+        mes !== null ? new Date(Date.UTC(ano, mes - 1, 1)) : new Date(Date.UTC(ano, 0, 1));
+      const end =
+        mes !== null ? new Date(Date.UTC(ano, mes, 1)) : new Date(Date.UTC(ano + 1, 0, 1));
+      where.itens = {
+        some: {
+          regularizacao: {
+            dataRegistro: {
+              gte: start,
+              lt: end,
+            },
+          },
+        },
+      };
+    }
+
     const rows = await prisma.fiorixReurbExportacao.findMany({
-      where: { tenantId },
+      where,
       include: {
         itens: {
+          include: {
+            regularizacao: { select: { dataRegistro: true } },
+          },
           orderBy: [{ incluidaNoJson: 'desc' }, { matricula: 'asc' }],
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: 60,
+      take: limit,
     });
-    return rows.map(mapExportacaoRowToDto);
+
+    const dtos = rows.map(mapExportacaoRowToDto);
+    if (ano === null && mes !== null) {
+      return dtos.filter(
+        (dto) =>
+          dto.competenciaMes === mes ||
+          dto.itens.some((it) => {
+            if (!it.dataRegistro) return false;
+            return Number.parseInt(it.dataRegistro.slice(5, 7), 10) === mes;
+          })
+      );
+    }
+    return dtos;
   } catch (err) {
     if (isMissingRelationError(err)) return [];
     throw err;
@@ -682,7 +801,13 @@ export async function confirmarImportacaoOnrReurb(params: {
         protocoloOnrExterno: params.protocoloOnrExterno?.trim() || null,
         observacaoConfirmacao: params.observacao?.trim() || null,
       },
-      include: { itens: true },
+      include: {
+        itens: {
+          include: {
+            regularizacao: { select: { dataRegistro: true } },
+          },
+        },
+      },
     });
 
     const regIds = existing.itens

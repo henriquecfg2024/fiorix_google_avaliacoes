@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { Printer, X } from 'lucide-react';
+import { Download, Printer, X } from 'lucide-react';
 import type { ReurbExportacaoDTO } from '@/lib/reurb/types';
+import {
+  buildNomeArquivoComprovantePdf,
+  gerarPdfComprovanteExportacaoReurb,
+} from './reurb-comprovante-pdf';
 import {
   gerarHtmlComprovanteExportacaoReurb,
   imprimirHtmlA4,
   isExportacaoElegivelComprovante,
+  triggerDownloadBlob,
 } from './reurb-ui-helpers';
 
 interface ComprovanteExportacaoModalProps {
@@ -85,6 +90,23 @@ export function ComprovanteExportacaoModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const bytes = gerarPdfComprovanteExportacaoReurb(exportacao);
+                const copy = new Uint8Array(bytes.byteLength);
+                copy.set(bytes);
+                triggerDownloadBlob(
+                  new Blob([copy.buffer], { type: 'application/pdf' }),
+                  buildNomeArquivoComprovantePdf(exportacao),
+                  'application/pdf'
+                );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/45 bg-cyan-600/20 px-3.5 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-600/35"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar PDF
+            </button>
             <button
               type="button"
               onClick={() => {

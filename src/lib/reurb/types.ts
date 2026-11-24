@@ -240,6 +240,7 @@ export interface ReurbExportacaoItemDTO {
   protocolo: string;
   empreendimento: string | null;
   modalidade: string;
+  dataRegistro?: string | null;
   incluidaNoJson: boolean;
   situacaoNoMomento: string;
   qtdDerivadasIncluidas: number;
@@ -267,6 +268,9 @@ export interface ReurbExportacaoDTO {
   confirmadoPorNome: string | null;
   protocoloOnrExterno: string | null;
   observacaoConfirmacao: string | null;
+  competenciaAno?: number | null;
+  competenciaMes?: number | null;
+  competenciaMista?: boolean;
   createdAt: string;
   itens: ReurbExportacaoItemDTO[];
 }
