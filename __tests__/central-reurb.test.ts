@@ -605,6 +605,96 @@ describe('Central REURB — RBAC, Exportação e Revalidação Fail-Closed', () 
       })
     );
   });
+
+  it('gera arquivos JSON individuais por matrícula quando individuais=true no modo LOTE', async () => {
+    const demoA = getDemoReurbRegularizacoes()[0]!;
+    const demoB = {
+      ...demoA,
+      id: 'demo-reurb-900102',
+      recordKey: '600102|900102',
+      matricula: 900102,
+      protocolo: '600102',
+      prenotacao: 600102,
+      derivadas: demoA.derivadas.slice(0, 2),
+    };
+    const rowA = makeDbRowFromDto(demoA, 'db-900101');
+    const rowB = makeDbRowFromDto(demoB, 'db-900102');
+
+    mocks.prisma.fiorixReurbRegularizacao.findMany.mockResolvedValue([rowA, rowB]);
+    mocks.resolveEffectiveDocumentConnector.mockResolvedValue({
+      connectorId: 'conn-1',
+      lastSeenAt: new Date(),
+      version: 'v2.6.27',
+    });
+    mocks.createJob.mockResolvedValue('job-ind-1');
+    mocks.readSearch.mockResolvedValue({
+      id: 'job-ind-1',
+      type: 'reurb_revalidar',
+      query: '{}',
+      status: 'complete',
+      result: {
+        sucesso: true,
+        ocrConsultado: true,
+        revalidadoEm: '2026-11-24T18:30:00.000Z',
+        registros: [demoA, demoB],
+      },
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    mocks.prisma.$transaction.mockImplementation(
+      async (fn: (tx: typeof mocks.prisma) => Promise<unknown>) => fn(mocks.prisma)
+    );
+    mocks.prisma.fiorixReurbRegularizacao.findUnique.mockResolvedValue({ id: 'db-900101' });
+    mocks.prisma.fiorixReurbRegularizacao.upsert.mockResolvedValue({ id: 'db-900101' });
+    mocks.prisma.fiorixReurbExportacao.create.mockImplementation(
+      async ({
+        data,
+      }: {
+        data: Record<string, unknown> & { itens: { create: Array<Record<string, unknown>> } };
+      }) => ({
+        ...data,
+        createdAt: new Date('2026-11-24T18:30:00Z'),
+        itens: data.itens.create.map((it) => ({ ...it })),
+      })
+    );
+
+    const res = await executarGeracaoJsonReurb({
+      ctx: {
+        user: { id: 'u-1', tenantId: 'tenant-1', role: 'ADMIN', name: 'Admin' },
+        canView: true,
+        canExportJson: true,
+        canConfirmImport: true,
+        isReadOnly: false,
+      },
+      ids: ['db-900101', 'db-900102'],
+      tipo: 'LOTE',
+      individuais: true,
+    });
+
+    expect(mocks.createJob).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.fiorixReurbExportacao.create).toHaveBeenCalledTimes(2);
+    expect(res.ok).toBe(true);
+    if (res.ok && res.arquivos && res.arquivos.length > 0) {
+      expect(res.arquivos).toHaveLength(2);
+      const mats = res.arquivos.map((a) => a.payload.regularizacoes[0]?.matricula);
+      expect(mats).toEqual([demoA.matricula, 900102]);
+      expect(res.arquivos[0]!.payload.regularizacoes).toHaveLength(1);
+      expect(res.arquivos[1]!.payload.regularizacoes).toHaveLength(1);
+      expect(res.arquivos[0]!.exportacao.tipo).toBe('UNITARIA');
+      expect(res.arquivos[0]!.exportacao.nomeArquivoJson).toMatch(
+        new RegExp(`^reurb_onr_mat_${demoA.matricula}_\\d{14}\\.json$`)
+      );
+      expect(res.arquivos[1]!.exportacao.nomeArquivoJson).toMatch(
+        /^reurb_onr_mat_900102_\d{14}\.json$/
+      );
+      expect(res.arquivos[0]!.exportacao.jsonSha256).not.toBe(
+        res.arquivos[1]!.exportacao.jsonSha256
+      );
+      expect(isExportacaoElegivelComprovante(res.arquivos[0]!.exportacao)).toBe(true);
+      expect(isExportacaoElegivelComprovante(res.arquivos[1]!.exportacao)).toBe(true);
+    } else {
+      throw new Error('Esperava resposta com arquivos individuais');
+    }
+  });
 });
 
 describe('Central REURB — Filtros de Coluna e Impressão do Painel', () => {

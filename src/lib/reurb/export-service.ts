@@ -6,7 +6,7 @@ import { revalidarRegistrosNoConnector } from './connector-revalidation';
 import { construirJsonImportacaoOnr, validarRegularizacaoParaOnr } from './onr-exporter';
 import type { ReurbAccessContext } from './permissions';
 import { carregarRegularizacoesPorIds } from './query-service';
-import type { ReurbExportacaoDTO, ReurbRegularizacaoDTO } from './types';
+import type { OnrJsonPayload, ReurbExportacaoDTO, ReurbRegularizacaoDTO } from './types';
 
 function isMissingRelationError(err: unknown): boolean {
   const code = (err as { code?: string })?.code;
@@ -344,6 +344,7 @@ export async function executarGeracaoJsonReurb(params: {
   tipo: 'UNITARIA' | 'LOTE';
   confirmarMisto?: boolean;
   incluirArt69?: boolean;
+  individuais?: boolean;
 }) {
   const uniqueIds = [...new Set(params.ids.filter(Boolean))];
   if (params.tipo === 'UNITARIA' && uniqueIds.length !== 1) {
@@ -484,13 +485,211 @@ export async function executarGeracaoJsonReurb(params: {
     };
   }
 
+  const isDemoId = (regId: string) => regId.startsWith('demo-reurb-');
+  const now = new Date();
+
+  if (params.tipo === 'LOTE' && params.individuais) {
+    const usedNames = new Set<string>();
+    const prepared = built.aptas.map((apta, index) => {
+      const ind = construirJsonImportacaoOnr([apta.regularizacao], {
+        incluirArt69: Boolean(params.incluirArt69),
+        tipo: 'UNITARIA',
+      });
+      let nomeArquivoJson = ind.nomeArquivoJson;
+      if (usedNames.has(nomeArquivoJson)) {
+        nomeArquivoJson = nomeArquivoJson.replace(/\.json$/i, `_${index + 1}.json`);
+      }
+      usedNames.add(nomeArquivoJson);
+      return {
+        expId: randomUUID(),
+        apta,
+        ind,
+        nomeArquivoJson,
+      };
+    });
+
+    const arquivos: Array<{
+      exportacao: ReurbExportacaoDTO;
+      jsonString: string;
+      payload: OnrJsonPayload;
+    }> = [];
+
+    try {
+      const createdRows = await prisma.$transaction(async (tx) => {
+        const savedRows = [];
+        for (const item of prepared) {
+          const saved = await tx.fiorixReurbExportacao.create({
+            data: {
+              id: item.expId,
+              tenantId: params.ctx.user.tenantId,
+              tipo: 'UNITARIA',
+              statusGeracao: 'GERADO',
+              statusImportacaoOnr: 'PENDENTE_CONFIRMACAO',
+              nomeArquivoJson: item.nomeArquivoJson,
+              nomeArquivoPendencias: null,
+              qtdSolicitadas: 1,
+              qtdAptasGeradas: 1,
+              qtdBarradas: 0,
+              qtdDerivadasIncluidas: item.apta.registroOnr.derivadas.length,
+              jsonPayload: item.ind.jsonString,
+              jsonSha256: item.ind.jsonSha256,
+              relatorioPendenciasJson: null as unknown as Prisma.InputJsonValue,
+              revalidacaoConnectorId: reval.connectorId,
+              revalidadoEm: reval.revalidadoEm ? new Date(reval.revalidadoEm) : now,
+              ocrConsultado: reval.ocrConsultado,
+              geradoPorUserId: params.ctx.user.id,
+              geradoPorNome:
+                params.ctx.user.name || params.ctx.user.email || params.ctx.user.id,
+              itens: {
+                create: [
+                  {
+                    id: randomUUID(),
+                    regularizacaoId: isDemoId(item.apta.regularizacao.id)
+                      ? null
+                      : item.apta.regularizacao.id,
+                    prenotacao: item.apta.regularizacao.prenotacao,
+                    matricula: item.apta.regularizacao.matricula,
+                    protocolo: item.apta.regularizacao.protocolo,
+                    empreendimento: item.apta.regularizacao.empreendimento,
+                    modalidade: item.apta.regularizacao.modalidade,
+                    incluidaNoJson: true,
+                    situacaoNoMomento: 'APTO',
+                    qtdDerivadasIncluidas: item.apta.registroOnr.derivadas.length,
+                    motivosBloqueioJson: item.apta.avisos as unknown as Prisma.InputJsonValue,
+                  },
+                ],
+              },
+            },
+            include: {
+              itens: {
+                include: {
+                  regularizacao: { select: { dataRegistro: true } },
+                },
+              },
+            },
+          });
+          savedRows.push(saved);
+        }
+
+        const includedDbIds = built.aptas
+          .map((a) => a.regularizacao.id)
+          .filter((rid) => !isDemoId(rid));
+        if (includedDbIds.length > 0) {
+          await tx.fiorixReurbRegularizacao.updateMany({
+            where: {
+              tenantId: params.ctx.user.tenantId,
+              id: { in: includedDbIds },
+            },
+            data: {
+              ultimaExportacaoEm: now,
+            },
+          });
+        }
+
+        return savedRows;
+      });
+
+      createdRows.forEach((row, index) => {
+        const item = prepared[index]!;
+        arquivos.push({
+          exportacao: mapExportacaoRowToDto(row),
+          jsonString: item.ind.jsonString,
+          payload: item.ind.payload,
+        });
+      });
+    } catch (err) {
+      if (!isMissingRelationError(err)) throw err;
+      for (const item of prepared) {
+        const fallbackItens = [
+          {
+            id: `${item.expId}-a-0`,
+            regularizacaoId: item.apta.regularizacao.id,
+            prenotacao: item.apta.regularizacao.prenotacao,
+            matricula: item.apta.regularizacao.matricula,
+            protocolo: item.apta.regularizacao.protocolo,
+            empreendimento: item.apta.regularizacao.empreendimento,
+            modalidade: item.apta.regularizacao.modalidade,
+            dataRegistro: formatDateOnlyIso(item.apta.regularizacao.dataRegistro),
+            incluidaNoJson: true,
+            situacaoNoMomento: 'APTO',
+            qtdDerivadasIncluidas: item.apta.registroOnr.derivadas.length,
+            motivosBloqueio: item.apta.avisos,
+          },
+        ];
+        const comp = resolveCompetenciaFromItens(fallbackItens);
+        arquivos.push({
+          exportacao: {
+            id: item.expId,
+            tipo: 'UNITARIA',
+            statusGeracao: 'GERADO',
+            statusImportacaoOnr: 'PENDENTE_CONFIRMACAO',
+            nomeArquivoJson: item.nomeArquivoJson,
+            nomeArquivoPendencias: null,
+            qtdSolicitadas: 1,
+            qtdAptasGeradas: 1,
+            qtdBarradas: 0,
+            qtdDerivadasIncluidas: item.apta.registroOnr.derivadas.length,
+            jsonSha256: item.ind.jsonSha256,
+            erroDetalhe: null,
+            revalidacaoConnectorId: reval.connectorId,
+            revalidadoEm: reval.revalidadoEm,
+            ocrConsultado: reval.ocrConsultado,
+            geradoPorNome:
+              params.ctx.user.name || params.ctx.user.email || params.ctx.user.id,
+            confirmadoImportacaoEm: null,
+            confirmadoPorNome: null,
+            protocoloOnrExterno: null,
+            observacaoConfirmacao: null,
+            competenciaAno: comp.competenciaAno,
+            competenciaMes: comp.competenciaMes,
+            competenciaMista: comp.competenciaMista,
+            createdAt: now.toISOString(),
+            itens: fallbackItens,
+          },
+          jsonString: item.ind.jsonString,
+          payload: item.ind.payload,
+        });
+      }
+    }
+
+    const totalDerivadasIndividuais = built.aptas.reduce(
+      (acc, a) => acc + a.registroOnr.derivadas.length,
+      0
+    );
+    await safeAudit({
+      ctx: params.ctx,
+      acao: 'EXPORTACAO_JSON',
+      registroId: arquivos[0]?.exportacao.id,
+      registroDescricao: `Exportação REURB LOTE_INDIVIDUAL (${arquivos.length} arquivo(s), ${built.barradas.length} barradas)`,
+      detalhes: {
+        status: 'GERADO',
+        modo: 'INDIVIDUAIS',
+        qtdArquivos: arquivos.length,
+        arquivos: arquivos.map((a) => a.exportacao.nomeArquivoJson),
+        qtdBarradas: built.barradas.length,
+        qtdDerivadasIncluidas: totalDerivadasIndividuais,
+        ocrConsultado: reval.ocrConsultado,
+      },
+    });
+
+    return {
+      ok: true as const,
+      statusHttp: 200,
+      individuais: true as const,
+      arquivos,
+      exportacao: arquivos[0]!.exportacao,
+      payload: built.payload,
+      jsonString: arquivos[0]!.jsonString,
+      relatorioPendencias: built.barradas.length > 0 ? built.relatorioPendencias : null,
+      nomeArquivoPendencias: built.barradas.length > 0 ? built.nomeArquivoPendencias : null,
+    };
+  }
+
   const totalDerivadasIncluidas = built.aptas.reduce(
     (acc, a) => acc + a.registroOnr.derivadas.length,
     0
   );
   const expId = randomUUID();
-  const isDemoId = (regId: string) => regId.startsWith('demo-reurb-');
-  const now = new Date();
   let dto: ReurbExportacaoDTO;
 
   try {

@@ -6,7 +6,9 @@ import {
   BarChart3,
   Building2,
   CheckCircle2,
+  Download,
   FileJson,
+  FolderOutput,
   LayoutDashboard,
   Loader2,
   Printer,
@@ -19,6 +21,12 @@ import { ExportacoesReurbTab } from './ExportacoesReurbTab';
 import { PainelReurbTab } from './PainelReurbTab';
 import { ProcessoDetalheModal } from './ProcessoDetalheModal';
 import { RelatoriosReurbTab } from './RelatoriosReurbTab';
+import {
+  isFileSystemAccessSupported,
+  pickReurbRootDirectory,
+  salvarArquivosReurbEmPastasExistentes,
+} from './reurb-batch-folders';
+import { gerarPdfComprovanteExportacaoReurb } from './reurb-comprovante-pdf';
 import {
   formatarBloqueiosAgrupados,
   gerarHtmlComprovanteExportacaoReurb,
@@ -39,6 +47,23 @@ interface MixedModalData {
     empreendimento: string | null;
     bloqueios: Array<{ campo: string; motivo: string }>;
   }>;
+}
+
+interface LoteIndividualArquivo {
+  exportacao: ReurbExportacaoDTO;
+  jsonString: string;
+}
+
+async function baixarArquivosSequencial(
+  arquivos: Array<{ nomeArquivo: string; content: string }>
+) {
+  for (let i = 0; i < arquivos.length; i += 1) {
+    const item = arquivos[i]!;
+    triggerDownloadBlob(item.content, item.nomeArquivo);
+    if (i < arquivos.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
 }
 
 interface CentralReurbClientProps {
@@ -82,6 +107,10 @@ export function CentralReurbClient({
   const [lastEligibleExportacao, setLastEligibleExportacao] = useState<ReurbExportacaoDTO | null>(
     null
   );
+  const [lastBatchIndividualFiles, setLastBatchIndividualFiles] = useState<
+    LoteIndividualArquivo[]
+  >([]);
+  const [savingBatchToFolder, setSavingBatchToFolder] = useState(false);
   const [previewComprovante, setPreviewComprovante] = useState<ReurbExportacaoDTO | null>(null);
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -149,6 +178,7 @@ export function CentralReurbClient({
     setLoteErrorBanner(null);
     setLoteBlockedList([]);
     setLastEligibleExportacao(null);
+    setLastBatchIndividualFiles([]);
 
     try {
       const res = await fetch('/api/reurb/exportacoes/lote', {
@@ -158,6 +188,7 @@ export function CentralReurbClient({
           ids: selectedIds,
           confirmarMisto,
           incluirArt69,
+          individuais: true,
         }),
       });
       const body = await res.json();
@@ -185,22 +216,55 @@ export function CentralReurbClient({
         return;
       }
 
-      if (body.jsonString && body.exportacao?.nomeArquivoJson) {
-        triggerDownloadBlob(body.jsonString, body.exportacao.nomeArquivoJson);
-      }
-      if (body.relatorioPendencias && body.exportacao?.nomeArquivoPendencias) {
-        triggerDownloadBlob(
-          JSON.stringify(body.relatorioPendencias, null, 2),
-          body.exportacao.nomeArquivoPendencias
+      const arquivosIndividuais = Array.isArray(body?.arquivos)
+        ? (body.arquivos as LoteIndividualArquivo[]).filter(
+            (a) => Boolean(a?.jsonString && a?.exportacao?.nomeArquivoJson)
+          )
+        : [];
+
+      if (arquivosIndividuais.length > 0) {
+        const filaDownload = arquivosIndividuais.map((a) => ({
+          nomeArquivo: a.exportacao.nomeArquivoJson!,
+          content: a.jsonString,
+        }));
+        if (body.relatorioPendencias && body.nomeArquivoPendencias) {
+          filaDownload.push({
+            nomeArquivo: String(body.nomeArquivoPendencias),
+            content: JSON.stringify(body.relatorioPendencias, null, 2),
+          });
+        }
+        await baixarArquivosSequencial(filaDownload);
+
+        toast.success(
+          `${arquivosIndividuais.length} arquivo(s) JSON individual(is) gerado(s) para o Ofício Eletrônico v1.4.`
         );
+        if (arquivosIndividuais.length === 1) {
+          const unico = arquivosIndividuais[0]!.exportacao;
+          if (isExportacaoElegivelComprovante(unico)) {
+            setLastEligibleExportacao(unico);
+          }
+        } else {
+          setLastBatchIndividualFiles(arquivosIndividuais);
+        }
+      } else {
+        if (body.jsonString && body.exportacao?.nomeArquivoJson) {
+          triggerDownloadBlob(body.jsonString, body.exportacao.nomeArquivoJson);
+        }
+        if (body.relatorioPendencias && body.exportacao?.nomeArquivoPendencias) {
+          triggerDownloadBlob(
+            JSON.stringify(body.relatorioPendencias, null, 2),
+            body.exportacao.nomeArquivoPendencias
+          );
+        }
+
+        toast.success(
+          `JSON do Ofício Eletrônico v1.4 gerado com ${body.exportacao?.qtdAptasGeradas ?? 0} regularização(ões) apta(s).`
+        );
+        if (isExportacaoElegivelComprovante(body.exportacao)) {
+          setLastEligibleExportacao(body.exportacao);
+        }
       }
 
-      toast.success(
-        `JSON do Ofício Eletrônico v1.4 gerado com ${body.exportacao?.qtdAptasGeradas ?? 0} regularização(ões) apta(s).`
-      );
-      if (isExportacaoElegivelComprovante(body.exportacao)) {
-        setLastEligibleExportacao(body.exportacao);
-      }
       setSelectedIds([]);
       setRefreshKey((k) => k + 1);
     } catch (err) {
@@ -209,6 +273,65 @@ export function CentralReurbClient({
       toast.error(msg);
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleSalvarLoteIndividualEmPastas() {
+    if (savingBatchToFolder || lastBatchIndividualFiles.length === 0) return;
+    if (!isFileSystemAccessSupported()) {
+      toast.error(
+        'Este navegador não permite escrita direta em pastas locais. Use a aba Exportações para baixar o ZIP por mês.'
+      );
+      return;
+    }
+
+    let rootDir;
+    try {
+      rootDir = await pickReurbRootDirectory();
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      toast.error('Não foi possível acessar a pasta selecionada.');
+      return;
+    }
+
+    setSavingBatchToFolder(true);
+    try {
+      const encoder = new TextEncoder();
+      const jsonById = new Map<string, Uint8Array>(
+        lastBatchIndividualFiles.map((item) => [
+          item.exportacao.id,
+          encoder.encode(item.jsonString),
+        ])
+      );
+      const summary = await salvarArquivosReurbEmPastasExistentes({
+        exportacoes: lastBatchIndividualFiles.map((item) => item.exportacao),
+        mode: 'jsons',
+        rootDir,
+        fetchJsonBytes: async (id) => {
+          const bytes = jsonById.get(id);
+          if (!bytes) throw new Error('JSON em memória não encontrado para exportação.');
+          return bytes;
+        },
+        generatePdfBytes: (exp) => gerarPdfComprovanteExportacaoReurb(exp),
+      });
+
+      if (summary.salvos > 0 && summary.semPasta === 0 && summary.erros === 0) {
+        toast.success(`${summary.salvos} arquivo(s) JSON salvo(s) nas pastas existentes.`);
+      } else if (summary.salvos > 0) {
+        toast.success(
+          `${summary.salvos} salvo(s) · ${summary.ignoradosExistentes} já existente(s) · ${summary.semPasta} sem pasta.`
+        );
+      } else if (summary.semPasta > 0) {
+        toast.error(
+          `Pasta mensal não encontrada (${summary.pastasAusentes.join(', ')}). Nenhuma pasta nova foi criada.`
+        );
+      } else {
+        toast.info('Arquivos já existiam na pasta selecionada.');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar JSONs nas pastas.');
+    } finally {
+      setSavingBatchToFolder(false);
     }
   }
 
@@ -316,6 +439,70 @@ export function CentralReurbClient({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {lastBatchIndividualFiles.length > 0 && (
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-100">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>
+              <strong>{lastBatchIndividualFiles.length} arquivos JSON individuais</strong> gerados sem pendências (
+              {lastBatchIndividualFiles.reduce(
+                (acc, a) => acc + (a.exportacao.qtdDerivadasIncluidas ?? 0),
+                0
+              )}{' '}
+              derivada(s) no total).
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={savingBatchToFolder}
+              onClick={handleSalvarLoteIndividualEmPastas}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/50 bg-cyan-500/20 px-3 py-1.5 font-semibold text-cyan-100 hover:bg-cyan-500/30 disabled:opacity-50"
+            >
+              {savingBatchToFolder ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FolderOutput className="h-3.5 w-3.5" />
+              )}
+              Salvar na pasta (JSONs)
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                baixarArquivosSequencial(
+                  lastBatchIndividualFiles
+                    .filter((a) => Boolean(a.exportacao.nomeArquivoJson))
+                    .map((a) => ({
+                      nomeArquivo: a.exportacao.nomeArquivoJson!,
+                      content: a.jsonString,
+                    }))
+                )
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100 hover:bg-emerald-500/30"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Baixar novamente ({lastBatchIndividualFiles.length} JSONs)
+            </button>
+            {abaAtiva !== 'exportacoes' && (
+              <button
+                type="button"
+                onClick={() => setAbaAtiva('exportacoes')}
+                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 font-semibold text-white hover:bg-white/10"
+              >
+                Ver em Exportações
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setLastBatchIndividualFiles([])}
+              className="rounded-lg border border-white/15 px-2.5 py-1.5 text-slate-300 hover:bg-white/10"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 

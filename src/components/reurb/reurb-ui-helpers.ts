@@ -84,7 +84,7 @@ export function triggerDownloadBlob(content: string | Blob, fileName: string, mi
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export interface PainelColumnFilters {

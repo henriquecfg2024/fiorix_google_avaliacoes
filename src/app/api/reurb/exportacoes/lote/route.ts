@@ -9,6 +9,7 @@ const loteSchema = z.object({
   ids: z.array(z.string().min(1).max(120)).min(1).max(200),
   confirmarMisto: z.boolean().optional(),
   incluirArt69: z.boolean().optional(),
+  individuais: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
       tipo: 'LOTE',
       confirmarMisto: Boolean(parsed.data.confirmarMisto),
       incluirArt69: Boolean(parsed.data.incluirArt69),
+      individuais: Boolean(parsed.data.individuais),
     });
 
     if (!res.ok) {
