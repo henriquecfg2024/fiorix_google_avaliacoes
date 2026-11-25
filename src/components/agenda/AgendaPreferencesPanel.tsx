@@ -301,7 +301,7 @@ export function AgendaPreferencesPanel({
               />
             </div>
 
-            <div className="sm:col-span-2 flex flex-wrap gap-2.5 pt-1">
+            <div className="sm:col-span-2 space-y-2.5 pt-1">
               <label className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 font-semibold cursor-pointer transition ${checkboxPill}`}>
                 <input
                   type="checkbox"
@@ -312,16 +312,62 @@ export function AgendaPreferencesPanel({
                 />
                 Exibir compromissos concluídos
               </label>
-              <label className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 font-semibold cursor-pointer transition ${checkboxPill}`}>
-                <input
-                  type="checkbox"
-                  checked={form.webPushEnabled}
-                  disabled={isReadOnly}
-                  onChange={(e) => setForm({ ...form, webPushEnabled: e.target.checked })}
-                  className={`h-4 w-4 accent-[#43239D] ${isDark ? '[color-scheme:dark]' : '[color-scheme:light]'}`}
-                />
-                Habilitar Web Push complementar
-              </label>
+
+              <div
+                className={`rounded-2xl border p-3.5 space-y-2.5 ${
+                  isDark
+                    ? 'border-white/15 bg-white/5 text-slate-200'
+                    : 'border-slate-200 bg-slate-50/90 text-slate-800'
+                }`}
+              >
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.webPushEnabled}
+                    disabled={isReadOnly}
+                    onChange={(e) => setForm({ ...form, webPushEnabled: e.target.checked })}
+                    className={`mt-0.5 h-4 w-4 accent-[#43239D] ${isDark ? '[color-scheme:dark]' : '[color-scheme:light]'}`}
+                  />
+                  <div>
+                    <span className="block font-bold">Habilitar Web Push complementar</span>
+                    <span
+                      className={`block text-[11px] font-normal mt-0.5 ${
+                        isDark ? 'text-slate-400' : 'text-slate-600'
+                      }`}
+                    >
+                      Receba alertas nativos no navegador ou celular mesmo com a aba do FIORIX minimizada ou fechada.
+                    </span>
+                  </div>
+                </label>
+
+                <div
+                  className={`rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed space-y-1.5 ${
+                    isDark
+                      ? 'border-violet-400/20 bg-violet-950/30 text-slate-300'
+                      : 'border-violet-200/80 bg-white text-slate-600'
+                  }`}
+                >
+                  <p className={isDark ? 'font-bold text-violet-200' : 'font-bold text-slate-800'}>
+                    Como funciona na prática:
+                  </p>
+                  <p>O envio de push na Agenda depende de 3 itens combinados:</p>
+                  <ol className="list-decimal pl-4 space-y-1">
+                    <li>
+                      A opção <strong>Habilitar Web Push complementar</strong> estar marcada nas preferências do usuário;
+                    </li>
+                    <li>
+                      O compromisso ter um lembrete no canal <strong>Web Push</strong> (ou o usuário escolher{' '}
+                      <strong>Web Push</strong> como canal padrão);
+                    </li>
+                    <li>
+                      O usuário ter autorizado as notificações do FIORIX naquele navegador/dispositivo (assinatura registrada).
+                    </li>
+                  </ol>
+                  <p className={isDark ? 'text-slate-300 pt-0.5' : 'text-slate-600 pt-0.5'}>
+                    Se ficar desmarcada, <strong>E-mail</strong> e <strong>Pop-up interno</strong> continuam funcionando normalmente — ela apenas bloqueia/libera o canal de push no navegador/celular.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
