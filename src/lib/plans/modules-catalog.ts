@@ -437,6 +437,28 @@ export const CANONICAL_MODULES: Record<string, ModuleDefinition> = {
     isCustomizable: true,
     isSystemCritical: true,
   },
+  'agenda.inteligente': {
+    id: 'agenda.inteligente',
+    name: 'Agenda Inteligente V1.0',
+    category: 'ROTINA_TRABALHO',
+    categoryLabel: 'ROTINA DE TRABALHO',
+    description: 'Calendário corporativo, recorrências, contagem regressiva, lembretes e boas-vindas no login',
+    route: '/agenda',
+    routes: [
+      '/agenda',
+      '/agenda/calendario',
+      '/agenda/proximos',
+      '/agenda/compartilhados',
+      '/agenda/historico',
+      '/agenda/configuracoes',
+    ],
+    apiPrefix: '/api/agenda',
+    apiEndpoints: ['/api/agenda'],
+    defaultPlanTier: 'BASIC',
+    supportedActions: ['view', 'create', 'edit', 'delete', 'admin'],
+    isCustomizable: true,
+    isSystemCritical: false,
+  },
 };
 
 export const CANONICAL_MODULES_LIST: ModuleDefinition[] = Object.values(CANONICAL_MODULES);

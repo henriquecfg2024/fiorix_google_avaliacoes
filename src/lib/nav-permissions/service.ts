@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { recordAuditLog } from '@/lib/audit';
 import { filterNavigationByRole } from '@/lib/navigation/permissions';
 import { getHomeRouteForRole } from '@/lib/permissions';
+import { isAgendaEnabled } from '@/lib/agenda/feature-flags';
 import {
   ALL_NAV_CATALOG_ITEMS,
   ITEM_BY_ID,
@@ -36,6 +37,11 @@ export function isNavPermissionsFeatureEnabled(
  */
 export function isItemVisibleInLegacy(item: NavCatalogItem, role: string): boolean {
   if (item.id === 'validacao_autenticidade_documental') return false;
+  if (item.id.startsWith('agenda_')) {
+    if (!isAgendaEnabled()) return false;
+    const upper = String(role || '').toUpperCase();
+    return ['MASTER', 'ADMIN', 'SUBSTITUTO', 'VISITANTE'].includes(upper);
+  }
   if (item.id === 'reurb_exportar_json' || item.id === 'reurb_confirmar_importacao') {
     const upper = String(role || '').toUpperCase();
     return ['MASTER', 'ADMIN', 'SUBSTITUTO'].includes(upper);

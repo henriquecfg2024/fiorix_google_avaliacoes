@@ -433,6 +433,7 @@ export async function get2FAStatus(): Promise<{ enabled: boolean; required: bool
 export async function getCurrentUser() {
   const session = await auth();
   if (!session?.user) return null;
+  const sessionAuthAt = (session.user as { authAt?: number }).authAt;
 
   if (session.user.id) {
     try {
@@ -452,7 +453,7 @@ export async function getCurrentUser() {
       const effectiveRole = dbUser.role || session.user.role || 'USER';
       const effectiveTenantId =
         effectiveRole === 'MASTER'
-          ? (session.user as any).tenantId || dbUser.tenantId || ''
+          ? (session.user as { tenantId?: string }).tenantId || dbUser.tenantId || ''
           : dbUser.tenantId || '';
       return {
         id: session.user.id,
@@ -460,6 +461,7 @@ export async function getCurrentUser() {
         email: dbUser.email || session.user.email || '',
         role: effectiveRole,
         tenantId: effectiveTenantId,
+        authAt: sessionAuthAt,
       };
     } catch {
       try {
@@ -476,8 +478,9 @@ export async function getCurrentUser() {
           role: effectiveRole,
           tenantId:
             effectiveRole === 'MASTER'
-              ? (session.user as any).tenantId || dbUser.tenantId || ''
+              ? (session.user as { tenantId?: string }).tenantId || dbUser.tenantId || ''
               : dbUser.tenantId || '',
+          authAt: sessionAuthAt,
         };
       } catch {
         // Fallback em indisponibilidade transitória de banco
@@ -490,6 +493,7 @@ export async function getCurrentUser() {
     name: session.user.name || '',
     email: session.user.email || '',
     role: session.user.role || 'USER',
-    tenantId: (session.user as any).tenantId || '',
+    tenantId: (session.user as { tenantId?: string }).tenantId || '',
+    authAt: sessionAuthAt,
   };
 }

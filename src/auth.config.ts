@@ -33,6 +33,7 @@ export const authConfig = {
         nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
         nextUrl.pathname.startsWith('/mensagens') ||
         nextUrl.pathname.startsWith('/espera') ||
+        nextUrl.pathname.startsWith('/agenda') ||
         nextUrl.pathname.startsWith('/jornada') ||
         nextUrl.pathname.startsWith('/preview-');
 
@@ -89,6 +90,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/controle-impressoes') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
             nextUrl.pathname.startsWith('/mensagens') ||
+            nextUrl.pathname.startsWith('/agenda') ||
             nextUrl.pathname.startsWith('/espera')
           ) {
             return true;
@@ -107,6 +109,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/configuracoes/departamentos') ||
+            nextUrl.pathname.startsWith('/agenda') ||
             nextUrl.pathname.startsWith('/mensagens')
           ) {
             return true;
@@ -128,6 +131,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/mensagens') ||
+            nextUrl.pathname.startsWith('/agenda') ||
             nextUrl.pathname.startsWith('/espera') ||
             nextUrl.pathname.startsWith('/jornada') ||
             nextUrl.pathname.startsWith('/controle-impressoes') ||
