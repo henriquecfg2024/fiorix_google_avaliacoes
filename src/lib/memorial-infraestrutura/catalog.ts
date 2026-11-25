@@ -26,7 +26,7 @@ export const SERVERS_TOPOLOGY_7RI: ServerTopologySummary[] = [
     ip: '10.0.0.40',
     roleTitle: 'Servidor de Imagens (.KEN/PDF), File Server & FIORIX Connector',
     specs: 'Windows Server · 4 vCPUs · 19,5 GB RAM · C: (120 GB), D: (2 TB), E: (2 TB)',
-    engines: 'FIORIX Connector v2.6.24 (NSSM + SQLite WAL + LAN :8765) + MySQL (:3306)',
+    engines: 'FIORIX Connector v2.6.32 (NSSM + SQLite WAL + LAN :8765) + MySQL (:3306)',
     currentHealthSummary: 'Saudável · CPU reduzida de 93%–100% para ~33,6%–36% · 0 falhas na fila',
     keyMetrics: [
       { label: 'CPU Local (Expediente)', value: '~33,6%–36% (era 93%–100%)' },
@@ -99,6 +99,40 @@ export const GOVERNANCE_BOUNDARIES_7RI: GovernanceBoundaryItem[] = [
 ];
 
 export const OFFICIAL_INFRA_MEMORIAL_ENTRIES: MemorialInfraEntry[] = [
+  {
+    id: 'imp-2026-11-25-srvfiles-connector-v2-6-32-wal-chunk-bytes',
+    source: 'OFICIAL_CODIGO',
+    server: 'SRVFILES',
+    category: 'ALTA_DISPONIBILIDADE',
+    status: 'ATIVO',
+    title: 'Fila SQLite WAL: Chunking por Orçamento de Bytes (2,5 MB) e Expurgo de Lotes REURB Superados (v2.6.32)',
+    implementedAt: '2026-11-25',
+    connectorVersion: 'v2.6.32',
+    summarySimple:
+      'Resolvemos o alerta de "1 lote em retry automático no SQLite WAL (REURB_REGULARIZACOES)" no SRVFILES sem perder nenhum dado. Um lote antigo tinha um bloco maior que o limite aceito pela API na nuvem e ficava em nova tentativa contínua mesmo depois de sincronizações mais novas já terem atualizado todas as 154 regularizações. Agora o FIORIX Connector limita cada pacote pelo tamanho real em bytes (2,5 MB), divide automaticamente pacotes que excederem o limite e limpa lotes antigos já superados por uma reconciliação bem-sucedida.',
+    problemBefore:
+      'Um lote incremental legado de REURB_REGULARIZACOES (b6ab35e4-378d-46a4-b918-c7b4b461bc26) havia ficado preso no SQLite WAL do SRVFILES com mais de 642 tentativas por receber HTTP 413 (Payload Too Large — um chunk de 10 registros com textos OCR extensos ultrapassava 4,5 MB). Como o planejador de chunks só considerava quantidade de registros e o SQLite só removia o lote se aquele batch_id exato concluísse, ele permanecia em loop mesmo após reconciliações diárias posteriores entregarem todas as 154 regularizações.',
+    solutionApplied:
+      'Publicamos a versão OTA v2.6.32 do fiorix-connector no SRVFILES com três proteções definitivas: 1) Planejamento de chunks em chunkRetry.ts por orçamento de bytes (máx. 2,5 MB UTF-8 por pacote) além da contagem de registros; 2) Re-fatiamento automático dos registros não confirmados pela metade quando qualquer chunk retornar HTTP 413 (quarentenando apenas se 1 registro isolado exceder o limite); 3) Limpeza automática (pruneSupersededFailedBatches) de lotes antigos em erro no SQLite WAL sempre que houver reconciliação ou envio snapshot mais recente concluído para a mesma fonte.',
+    metricBefore: '1 lote em retry contínuo (642+ tentativas · HTTP 413 · 19 chunks pendentes)',
+    metricAfter: '0 lotes pendentes · 0 erros na fila SQLite WAL · chunks limitados a <= 2,5 MB',
+    impactBadge: 'Fila WAL Zerada · v2.6.32 OTA',
+    technicalDetails:
+      'Ajuste concentrado no agente fiorix-connector (src/services/chunkRetry.ts, src/db/queue.ts e src/services/scheduler.ts) preservando 100% do acesso somente leitura ao SRVSQL e SRVSIPLANIA. O artefato OTA (index.js.gz + manifest.json com SHA-256) foi publicado no FIORIX SaaS e aplicado no serviço Windows do SRVFILES.',
+    commandsSnippet: `-- Auditoria somente leitura da fila/telemetria e histórico de atualização OTA do SRVFILES no PostgreSQL do FIORIX:
+SELECT connector_id, operational_state, target_version, update_status, update_message, updated_at
+FROM public.fiorix_connector_ha_nodes
+WHERE hostname = 'SrvFiles';
+
+SELECT connector_id, queue_pending, queue_failed, details->'sqlite'->'chunks' AS chunks, created_at
+FROM public.fiorix_connector_telemetry
+ORDER BY created_at DESC
+LIMIT 3;`,
+    rollbackPlan:
+      'Em caso de regressão no agente, o self-updater restaura automaticamente o binário anterior (dist.rollback/index.js) e também é possível reapontar target_version para v2.6.31 no catálogo HA do tenant.',
+    authorName: 'Henrique C. F. Gama + Antigravity',
+    updatedAtIso: '2026-11-25T20:30:00.000Z',
+  },
   {
     id: 'imp-2026-11-19-srvsql-siplania-central-reurb-onr',
     source: 'OFICIAL_CODIGO',
