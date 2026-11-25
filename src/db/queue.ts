@@ -1,9 +1,15 @@
 import { DatabaseSync } from 'node:sqlite';
 import { logger } from '../utils/logger.js';
-import { initializeChunkSchema } from '../services/chunkRetry.js';
+import { initializeChunkSchema, isPayloadTooLargeError } from '../services/chunkRetry.js';
 import { commitCheckpointForBatch, initializeCheckpointSchema, stageCheckpointCandidate } from './checkpoint.js';
 
 import { connectorEnv } from '../config/env.js';
+
+export const SNAPSHOT_RECONCILIABLE_SOURCES = new Set([
+  'reurb_regularizacoes',
+  'cartorio_virtual_certidoes',
+  'safras_prenotacoes',
+]);
 
 export interface SyncBatch {
   id?: number;
@@ -85,9 +91,82 @@ export function markQueueFailureResolvedInDb(
   `).run(resolvedAtIso, batchId);
 }
 
+export function pruneSupersededFailedBatches(db: DatabaseSync): number {
+  initializeChunkSchema(db);
+  initializeCheckpointSchema(db);
+  initializeQueueFailureHistorySchema(db);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_health (
+      source TEXT PRIMARY KEY,
+      last_success_at TEXT
+    );
+  `);
+
+  const errorRows = db
+    .prepare(`SELECT id, source, batch_id, generated_at, last_error FROM sync_queue WHERE status = 'error'`)
+    .all() as Array<{
+    id: number;
+    source: string;
+    batch_id: string;
+    generated_at: string;
+    last_error: string | null;
+  }>;
+
+  if (errorRows.length === 0) return 0;
+
+  const checkpointStmt = db.prepare(`SELECT last_reconciliation_at FROM sync_checkpoints WHERE source = ?`);
+  const healthStmt = db.prepare(`SELECT last_success_at FROM sync_health WHERE source = ?`);
+  let cleaned = 0;
+
+  for (const row of errorRows) {
+    const generatedMs = Date.parse(row.generated_at || '');
+    if (!Number.isFinite(generatedMs)) continue;
+
+    let reason: string | null = null;
+
+    const chk = checkpointStmt.get(row.source) as { last_reconciliation_at?: string | null } | undefined;
+    const reconcilMs = chk?.last_reconciliation_at ? Date.parse(chk.last_reconciliation_at) : NaN;
+    if (Number.isFinite(reconcilMs) && reconcilMs > generatedMs) {
+      reason = 'reconciliation';
+    } else if (
+      SNAPSHOT_RECONCILIABLE_SOURCES.has(row.source) &&
+      isPayloadTooLargeError(row.last_error || '')
+    ) {
+      const health = healthStmt.get(row.source) as { last_success_at?: string | null } | undefined;
+      const lastSuccessMs = health?.last_success_at ? Date.parse(health.last_success_at) : NaN;
+      if (Number.isFinite(lastSuccessMs) && lastSuccessMs > generatedMs) {
+        reason = 'snapshot_413_superseded';
+      }
+    }
+
+    if (!reason) continue;
+
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      db.prepare(`DELETE FROM sync_queue_chunks WHERE batch_id = ?`).run(row.batch_id);
+      db.prepare(`DELETE FROM sync_queue_chunk_plans WHERE batch_id = ?`).run(row.batch_id);
+      db.prepare(`DELETE FROM sync_checkpoint_candidates WHERE batch_id = ?`).run(row.batch_id);
+      db.prepare(`DELETE FROM sync_record_hash_candidates WHERE batch_id = ?`).run(row.batch_id);
+      db.prepare(`DELETE FROM sync_queue WHERE id = ?`).run(row.id);
+      markQueueFailureResolvedInDb(db, row.batch_id);
+      db.exec('COMMIT;');
+      cleaned += 1;
+      logger.info(
+        `QUEUE_SUPERSEDED_CLEANUP: Batch ${row.batch_id} (${row.source}) removido por ${reason} posterior a ${row.generated_at}.`
+      );
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      throw err;
+    }
+  }
+
+  return cleaned;
+}
+
 export function pruneOrphanedQueueArtifacts(db: DatabaseSync) {
   initializeQueueFailureHistorySchema(db);
   initializeCheckpointSchema(db);
+  pruneSupersededFailedBatches(db);
   const cutoff7dIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   db.exec(`
     DELETE FROM sync_queue WHERE status = 'completed';
@@ -317,6 +396,12 @@ class QueueManager {
     } catch (err) {
       this.db.exec('ROLLBACK;');
       throw err;
+    }
+
+    try {
+      pruneSupersededFailedBatches(this.db);
+    } catch {
+      // Limpeza não-fatal de lotes antigos superados
     }
   }
 

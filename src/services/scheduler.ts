@@ -2,7 +2,7 @@ import os from 'node:os';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseSync } from 'node:sqlite';
 import { env } from '../config/env.js';
-import { queueManager } from '../db/queue.js';
+import { queueManager, markQueueFailureResolvedInDb, pruneSupersededFailedBatches } from '../db/queue.js';
 import { 
   executeBiIncrementalProcedure, 
   executeBiIncrementalV2Procedure,
@@ -32,7 +32,12 @@ import { sendSyncBatch, sendHeartbeat, resetApiClient } from './api.js';
 import { getDocumentWorkerTelemetry } from './document-worker.js';
 import { collectAndSendSrvsqlPerformance } from './srvsql-telemetry.js';
 import { collectAndSendInfraBriefing } from './infra-briefing-telemetry.js';
-import { retryChunkedBatch } from './chunkRetry.js';
+import {
+  DEFAULT_MAX_CHUNK_BYTES,
+  isPayloadTooLargeError,
+  retryChunkedBatch,
+  splitRemainingOversizedBatch,
+} from './chunkRetry.js';
 import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
 import { healthManager } from './health.js';
@@ -1195,7 +1200,11 @@ export class Scheduler {
             batch.source === 'reurb_regularizacoes'
               ? Math.min(env.CHUNK_SIZE_RECORDS, 10)
               : env.CHUNK_SIZE_RECORDS;
-          if (Array.isArray(payload.records) && payload.records.length > effectiveChunkSize) {
+          const payloadBytes = Buffer.byteLength(batch.payload || '', 'utf8');
+          if (
+            Array.isArray(payload.records) &&
+            (payload.records.length > effectiveChunkSize || payloadBytes > DEFAULT_MAX_CHUNK_BYTES)
+          ) {
             const chunkResult = await retryChunkedBatch(
               queueManager.getDb(),
               batchId,
@@ -1218,6 +1227,11 @@ export class Scheduler {
           }
           if (payload.sync_mode === 'reconciliation' || payload.reconciliation_pass === true) {
             markReconciliationSuccess(this.db, batch.source, new Date().toISOString());
+            try {
+              pruneSupersededFailedBatches(this.db);
+            } catch {
+              // Limpeza não-fatal pós-reconciliação
+            }
           }
           if (
             batch.source === 'cartorio_virtual_certidoes' ||
@@ -1233,6 +1247,40 @@ export class Scheduler {
           }
         } catch (err: any) {
           const errMsg = err.message || 'Erro desconhecido';
+          const isChunk413 =
+            errMsg.includes('CHUNK_PAYLOAD_TOO_LARGE') ||
+            (!errMsg.includes('NON_RETRYABLE') && isPayloadTooLargeError(errMsg));
+
+          if (isChunk413) {
+            let handledOversize = false;
+            try {
+              pruneSupersededFailedBatches(queueManager.getDb());
+              const stillQueued = batch.batch_id
+                ? queueManager
+                    .getDb()
+                    .prepare(`SELECT id FROM sync_queue WHERE batch_id = ?`)
+                    .get(batch.batch_id)
+                : { id: batch.id };
+              if (!stillQueued) {
+                handledOversize = true;
+              } else if (batch.batch_id) {
+                const splitRes = splitRemainingOversizedBatch(queueManager.getDb(), batch.batch_id);
+                markQueueFailureResolvedInDb(queueManager.getDb(), batch.batch_id);
+                if (splitRes.split) {
+                  logger.warn(
+                    `SYNC_413_RESPLIT: Lote ${batch.batch_id} (${batch.source}) excedeu 413 e foi re-fatiado em ${splitRes.newBatchId} (${splitRes.remainingRecords} reg(s), chunkSize=${splitRes.newChunkSize}).`
+                  );
+                }
+                handledOversize = true;
+              }
+            } catch (splitErr: any) {
+              logger.warn(`SYNC_413_SPLIT_WARN: Falha ao re-fatiar lote ${batch.batch_id}: ${splitErr?.message || splitErr}`);
+            }
+            if (handledOversize) {
+              continue;
+            }
+          }
+
           const isNonRetryable = errMsg.includes('INVALID_BATCH_IDENTITY') || errMsg.includes('NON_RETRYABLE');
           if (isNonRetryable) {
             queueManager.markQuarantined(batch.id, errMsg);
