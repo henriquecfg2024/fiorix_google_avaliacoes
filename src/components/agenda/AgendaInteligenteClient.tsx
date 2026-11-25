@@ -1,24 +1,35 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   Bell,
   Calendar,
+  CalendarClock,
   CalendarDays,
+  CalendarRange,
   CheckCircle2,
   Clock,
   Filter,
+  History,
   Moon,
   Plus,
   Repeat,
   Search,
+  Settings,
   Sparkles,
   Sun,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { addDaysToLocalDate, formatCountdownLabel, formatHourShortBr, getZonedParts } from '@/lib/agenda/timezone';
+import {
+  addDaysToLocalDate,
+  formatCountdownLabel,
+  formatHourShortBr,
+  getZonedParts,
+} from '@/lib/agenda/timezone';
 import type {
   AgendaAuditLogDTO,
   AgendaCalendarView,
@@ -38,9 +49,19 @@ import type {
 import { AgendaCalendarViews } from './AgendaCalendarViews';
 import { AgendaEventModal } from './AgendaEventModal';
 import { AgendaPreferencesPanel } from './AgendaPreferencesPanel';
+import {
+  AgendaCompartilhadosSection,
+  AgendaHistoricoSection,
+  AgendaProximosSection,
+} from './AgendaSectionViews';
 import { NotificationCenterDrawer } from './NotificationCenterDrawer';
 import { WelcomeLoginModal } from './WelcomeLoginModal';
-import { AgendaCategoryIcon, PRIORITY_LABEL, RECURRENCE_LABEL, VISIBILITY_LABEL } from './agenda-icons';
+import {
+  AgendaCategoryIcon,
+  PRIORITY_LABEL,
+  RECURRENCE_LABEL,
+  VISIBILITY_LABEL,
+} from './agenda-icons';
 
 export type AgendaSectionMode =
   | 'dashboard'
@@ -90,6 +111,42 @@ const DEFAULT_PREFS: AgendaUserPreferenceDTO = {
   themeMode: 'light',
 };
 
+const SECTION_HEADER_META: Record<
+  AgendaSectionMode,
+  { title: string; subtitle: string; icon: typeof CalendarDays }
+> = {
+  dashboard: {
+    title: 'Agenda Inteligente',
+    subtitle: 'Visão geral de compromissos, recorrências e lembretes · 7º RI-SP',
+    icon: CalendarDays,
+  },
+  calendario: {
+    title: 'Calendário Institucional & Pessoal',
+    subtitle: 'Planejamento diário, semanal, mensal, semestral e anual em tela dedicada · 7º RI-SP',
+    icon: CalendarRange,
+  },
+  proximos: {
+    title: 'Próximos Compromissos',
+    subtitle: 'Cronograma em contagem regressiva agrupado por atrasados, hoje, amanhã e próximos prazos · 7º RI-SP',
+    icon: CalendarClock,
+  },
+  compartilhados: {
+    title: 'Compromissos Compartilhados e Setoriais',
+    subtitle: 'Agenda colaborativa, eventos por departamento, reuniões institucionais e confirmações RSVP · 7º RI-SP',
+    icon: Users,
+  },
+  historico: {
+    title: 'Histórico e Auditoria da Agenda',
+    subtitle: 'Compromissos concluídos, cancelados, datas passadas e trilha íntegra SHA-256 · 7º RI-SP',
+    icon: History,
+  },
+  configuracoes: {
+    title: 'Configurações de Lembretes e Preferências',
+    subtitle: 'Personalize canais de alerta, horários silenciosos, histórico de e-mails e categorias · 7º RI-SP',
+    icon: Settings,
+  },
+};
+
 export function AgendaInteligenteClient({
   initialSection = 'dashboard',
   initialView = 'MENSAL',
@@ -97,7 +154,6 @@ export function AgendaInteligenteClient({
   const searchParams = useSearchParams();
   const todayDate = useMemo(() => getZonedParts(new Date(), 'America/Sao_Paulo').dateStr, []);
 
-  // Tema 100% Claro por padrão (conforme diretriz aprovada do Print 3) com alternador interno opcional
   const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const isDark = themeMode === 'dark';
 
@@ -116,9 +172,9 @@ export function AgendaInteligenteClient({
   const [priority, setPriority] = useState<AgendaPriority | ''>('');
   const [recurrenceType, setRecurrenceType] = useState<AgendaRecurrenceType | ''>('');
   const [visibility, setVisibility] = useState<AgendaVisibility | ''>('');
-  const [scopeTab, setScopeTab] = useState<'todos' | 'proprios' | 'compartilhados' | 'institucionais'>(
-    initialSection === 'compartilhados' ? 'compartilhados' : 'todos'
-  );
+  const [scopeTab, setScopeTab] = useState<
+    'todos' | 'proprios' | 'compartilhados' | 'institucionais'
+  >('todos');
   const [quickFilter, setQuickFilter] = useState<string>(
     initialSection === 'historico'
       ? 'historico'
@@ -157,7 +213,7 @@ export function AgendaInteligenteClient({
   const [editingOcc, setEditingOcc] = useState<AgendaOccurrenceView | null>(null);
   const [modalInitialDate, setModalInitialDate] = useState(todayDate);
 
-  // Prévia homologação Boas-Vindas (todos os 7 cenários)
+  // Prévia Boas-Vindas (apenas dashboard em dev/MASTER)
   const [previewWelcomeOpen, setPreviewWelcomeOpen] = useState(false);
   const [previewWelcomeData, setPreviewWelcomeData] = useState<AgendaWelcomeResponse | null>(null);
 
@@ -170,8 +226,15 @@ export function AgendaInteligenteClient({
       if (priority) qs.set('priority', priority);
       if (recurrenceType) qs.set('recurrenceType', recurrenceType);
       if (visibility) qs.set('visibility', visibility);
-      if (scopeTab !== 'todos') qs.set('scopeTab', scopeTab);
-      if (quickFilter) qs.set('quickFilter', quickFilter);
+      if (initialSection !== 'compartilhados' && scopeTab !== 'todos') {
+        qs.set('scopeTab', scopeTab);
+      }
+      if (initialSection === 'historico') {
+        qs.set('quickFilter', 'historico');
+        qs.set('start', addDaysToLocalDate(todayDate, -365));
+      } else if (quickFilter) {
+        qs.set('quickFilter', quickFilter);
+      }
 
       const [dashRes, notifRes] = await Promise.all([
         fetch(`/api/agenda/dashboard?${qs.toString()}`, { cache: 'no-store' }),
@@ -204,7 +267,17 @@ export function AgendaInteligenteClient({
     } finally {
       setLoading(false);
     }
-  }, [search, categoryId, priority, recurrenceType, visibility, scopeTab, quickFilter]);
+  }, [
+    initialSection,
+    todayDate,
+    search,
+    categoryId,
+    priority,
+    recurrenceType,
+    visibility,
+    scopeTab,
+    quickFilter,
+  ]);
 
   useEffect(() => {
     void carregarDados();
@@ -216,7 +289,6 @@ export function AgendaInteligenteClient({
     return () => window.removeEventListener('fiorix:agenda-updated', onUpdated);
   }, [carregarDados]);
 
-  // Abre automaticamente um evento específico se vier via ?event=<id>
   useEffect(() => {
     const targetEventId = searchParams.get('event');
     if (!targetEventId || occurrences.length === 0) return;
@@ -257,6 +329,55 @@ export function AgendaInteligenteClient({
     setAnchorDate(`${String(nextYear).padStart(4, '0')}-${String(m).padStart(2, '0')}-01`);
   }
 
+  async function handleQuickConclude(occ: AgendaOccurrenceView) {
+    try {
+      const res = await fetch(`/api/agenda/events/${encodeURIComponent(occ.eventId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'CONCLUIR',
+          scope: occ.isRecurringInstance ? 'SINGLE' : 'ALL',
+          occurrenceDate: occ.occurrenceDate,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        toast.error(body?.error || 'Não foi possível concluir o compromisso.');
+        return;
+      }
+      toast.success(`"${occ.title}" marcado como concluído.`);
+      window.dispatchEvent(new Event('fiorix:agenda-updated'));
+      await carregarDados();
+    } catch {
+      toast.error('Erro ao concluir compromisso.');
+    }
+  }
+
+  async function handleRespondRsvp(
+    occ: AgendaOccurrenceView,
+    rsvpStatus: 'CONFIRMADO' | 'RECUSADO'
+  ) {
+    try {
+      const res = await fetch(`/api/agenda/events/${encodeURIComponent(occ.eventId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RSVP', rsvpStatus }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        toast.error(body?.error || 'Não foi possível registrar sua resposta.');
+        return;
+      }
+      toast.success(
+        rsvpStatus === 'CONFIRMADO' ? 'Participação confirmada!' : 'Convite recusado.'
+      );
+      window.dispatchEvent(new Event('fiorix:agenda-updated'));
+      await carregarDados();
+    } catch {
+      toast.error('Erro ao responder convite.');
+    }
+  }
+
   async function handleMarkRead(jobId: string) {
     await fetch('/api/agenda/notifications', {
       method: 'POST',
@@ -275,7 +396,7 @@ export function AgendaInteligenteClient({
     await carregarDados();
   }
 
-  async function handleRunWorkerSandbox() {
+  async function handleRunWorkerDev() {
     const res = await fetch('/api/cron/agenda-reminders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -287,7 +408,7 @@ export function AgendaInteligenteClient({
       return;
     }
     toast.success(
-      `Fila processada: ${body.deliveredPopup ?? 0} pop-up(s) · ${body.deliveredEmail ?? 0} e-mail(s) sandbox.`
+      `Fila processada: ${body.deliveredPopup ?? 0} pop-up(s) · ${body.deliveredEmail ?? 0} e-mail(s).`
     );
     window.dispatchEvent(new Event('fiorix:agenda-updated'));
     await carregarDados();
@@ -318,61 +439,86 @@ export function AgendaInteligenteClient({
     ? 'border-white/15 bg-[#070A12] text-white placeholder:text-slate-500 focus:border-violet-400 focus:outline-none [color-scheme:dark]'
     : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 shadow-2xs focus:border-[#43239D] focus:outline-none [color-scheme:light]';
 
-  const sectionTitle =
-    initialSection === 'calendario'
-      ? 'Calendário Institucional & Pessoal'
-      : initialSection === 'proximos'
-        ? 'Próximos Compromissos'
-        : initialSection === 'compartilhados'
-          ? 'Compromissos Compartilhados e Setoriais'
-          : initialSection === 'historico'
-            ? 'Histórico e Auditoria da Agenda'
-            : initialSection === 'configuracoes'
-              ? 'Configurações de Lembretes e Preferências'
-              : 'Agenda Inteligente';
+  const headerMeta = SECTION_HEADER_META[initialSection];
+  const HeaderIcon = headerMeta.icon;
+  const canCreate = !permissions.isReadOnly && permissions.canCreateOwn;
+  const showHeaderCreateButton =
+    canCreate &&
+    (initialSection === 'calendario' ||
+      initialSection === 'proximos' ||
+      initialSection === 'compartilhados');
+  const showWelcomeShortcuts =
+    initialSection === 'dashboard' &&
+    (process.env.NODE_ENV !== 'production' || permissions.role === 'MASTER');
+
+  function openNewModal(dateStr = selectedDate) {
+    setEditingOcc(null);
+    setModalInitialDate(dateStr);
+    setModalOpen(true);
+  }
+
+  function openOccurrenceModal(occ: AgendaOccurrenceView) {
+    setEditingOcc(occ);
+    setModalInitialDate(occ.localStartDate);
+    setModalOpen(true);
+  }
 
   return (
     <div className={`min-h-full p-4 sm:p-6 lg:p-7 space-y-5 transition-colors ${pageBg}`}>
-      {/* Cabeçalho principal idêntico ao Print 3 (com sino de notificações e alternador Claro/Escuro) */}
+      {/* Cabeçalho contextual por tela */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl border border-violet-200 bg-white text-[#43239D] flex items-center justify-center shadow-xs">
-            <CalendarDays className="h-6 w-6" />
+          <div className="h-11 w-11 rounded-2xl border border-violet-200 bg-white text-[#43239D] flex items-center justify-center shadow-xs shrink-0">
+            <HeaderIcon className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">{sectionTitle}</h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+              {headerMeta.title}
+            </h1>
             <p className={`text-xs ${mutedText}`}>
-              Gestão de compromissos, recorrências e lembretes · 7º RI-SP
+              {headerMeta.subtitle}
               {permissions.isReadOnly ? ' · Somente leitura' : ''}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Atalho de homologação visual dos 7 cenários de Boas-Vindas */}
-          <div className="hidden xl:flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 shadow-2xs">
-            <Sparkles className="h-3.5 w-3.5 text-violet-600" />
-            <span className="font-semibold">Boas-vindas:</span>
-            {(
-              [
-                ['A_UM_COMPROMISSO', '1 comp.'],
-                ['B_VARIOS_COMPROMISSOS', 'Vários'],
-                ['C_SEM_COMPROMISSOS', 'Livre'],
-                ['D_TODOS_CONCLUIDOS', 'Concluídos'],
-                ['E_COM_ATRASADOS', 'Atraso'],
-                ['F_FALHA_CONSULTA', 'Falha'],
-              ] as Array<[AgendaWelcomeScenario, string]>
-            ).map(([scen, label]) => (
-              <button
-                key={scen}
-                type="button"
-                onClick={() => void handlePreviewWelcomeScenario(scen)}
-                className="rounded-lg px-2 py-0.5 font-semibold hover:bg-violet-50 hover:text-violet-800"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {showWelcomeShortcuts && (
+            <div className="hidden xl:flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 shadow-2xs">
+              <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+              <span className="font-semibold">Boas-vindas:</span>
+              {(
+                [
+                  ['A_UM_COMPROMISSO', '1 comp.'],
+                  ['B_VARIOS_COMPROMISSOS', 'Vários'],
+                  ['C_SEM_COMPROMISSOS', 'Livre'],
+                  ['D_TODOS_CONCLUIDOS', 'Concluídos'],
+                  ['E_COM_ATRASADOS', 'Atraso'],
+                  ['F_FALHA_CONSULTA', 'Falha'],
+                ] as Array<[AgendaWelcomeScenario, string]>
+              ).map(([scen, label]) => (
+                <button
+                  key={scen}
+                  type="button"
+                  onClick={() => void handlePreviewWelcomeScenario(scen)}
+                  className="rounded-lg px-2 py-0.5 font-semibold hover:bg-violet-50 hover:text-violet-800"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showHeaderCreateButton && (
+            <button
+              type="button"
+              onClick={() => openNewModal(selectedDate)}
+              className="rounded-full bg-[#43239D] px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-900/15 hover:bg-[#5B21B6] inline-flex items-center gap-1.5 whitespace-nowrap transition"
+            >
+              <Plus className="h-4 w-4" />
+              Novo compromisso
+            </button>
+          )}
 
           <button
             type="button"
@@ -409,117 +555,119 @@ export function AgendaInteligenteClient({
         </div>
       </div>
 
-      {/* 4 KPIs principais em tons pastéis suaves (exatamente como Print 3) + 4 pílulas complementares */}
-      <div className="space-y-2.5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
-          {[
-            {
-              key: 'hoje',
-              label: 'Hoje',
-              value: indicators.hoje,
-              bg: isDark ? 'bg-sky-500/15 border-sky-400/30 text-sky-200' : 'bg-[#EAF2FF] border-[#D6E6FF] text-[#1E3A8A]',
-              icon: Calendar,
-            },
-            {
-              key: 'proximos7',
-              label: 'Próximos 7 dias',
-              value: indicators.proximos7Dias,
-              bg: isDark ? 'bg-violet-500/15 border-violet-400/30 text-violet-200' : 'bg-[#F3EEFE] border-[#E4D9FB] text-[#5B21B6]',
-              icon: CalendarDays,
-            },
-            {
-              key: 'pendentes',
-              label: 'Pendentes',
-              value: indicators.pendentes,
-              bg: isDark ? 'bg-amber-500/15 border-amber-400/30 text-amber-200' : 'bg-[#FFF3E6] border-[#FDE2C4] text-[#9A3412]',
-              icon: AlertTriangle,
-            },
-            {
-              key: 'concluidos_mes',
-              label: 'Concluídos no mês',
-              value: indicators.concluidosMes,
-              bg: isDark ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200' : 'bg-[#E9F9EE] border-[#CCF0D8] text-[#166534]',
-              icon: CheckCircle2,
-            },
-          ].map((kpi) => {
-            const Icon = kpi.icon;
-            const active = quickFilter === kpi.key;
-            return (
-              <button
-                key={kpi.key}
-                type="button"
-                onClick={() => setQuickFilter((prev) => (prev === kpi.key ? '' : kpi.key))}
-                className={`rounded-2xl border p-4 text-left transition ${kpi.bg} ${
-                  active ? 'ring-2 ring-violet-600' : 'hover:shadow-sm'
-                }`}
-              >
-                <div className="flex items-center gap-2 text-xs font-bold">
-                  <Icon className="h-4 w-4" />
-                  <span>{kpi.label}</span>
-                </div>
-                <div className="mt-1.5 text-3xl font-extrabold tabular-nums">{kpi.value}</div>
-                <div className="text-[11px] opacity-80">compromissos</div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 4 Indicadores dinâmicos complementares clicáveis */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {[
-            { key: 'amanha', label: `Amanhã: ${indicators.amanha}` },
-            { key: 'proximos30', label: `Próximos 30 dias: ${indicators.proximos30Dias}` },
-            { key: 'atrasados', label: `Atrasados: ${indicators.atrasados}` },
-            { key: 'lembretes', label: `Lembretes programados: ${indicators.lembretesProgramados}` },
-          ].map((pill) => {
-            const active = quickFilter === pill.key;
-            return (
-              <button
-                key={pill.key}
-                type="button"
-                onClick={() => {
-                  if (pill.key === 'lembretes') {
-                    setNotifOpen(true);
-                  } else {
-                    setQuickFilter((prev) => (prev === pill.key ? '' : pill.key));
-                  }
-                }}
-                className={`rounded-full border px-3 py-1 font-semibold transition ${
-                  active
-                    ? 'bg-[#43239D] text-white border-[#43239D]'
-                    : isDark
-                      ? 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {pill.label}
-              </button>
-            );
-          })}
-          {quickFilter && (
-            <button
-              type="button"
-              onClick={() => setQuickFilter('')}
-              className="text-xs font-bold text-violet-700 hover:underline ml-1"
-            >
-              Limpar filtro rápido
-            </button>
-          )}
-        </div>
-      </div>
-
-      {initialSection === 'configuracoes' ? (
-        <AgendaPreferencesPanel
-          preferences={preferences}
-          emailOutbox={emailOutbox}
-          isReadOnly={permissions.isReadOnly}
-          isDark={isDark}
-          onUpdated={setPreferences}
-          onRunWorkerSandbox={handleRunWorkerSandbox}
-        />
-      ) : (
+      {/* 1. TELA MINHA AGENDA (DASHBOARD PRINCIPAL) */}
+      {initialSection === 'dashboard' && (
         <>
-          {/* Barra de modos (Diário, Semanal, Mensal, Semestral, Anual, Lista) e filtros */}
+          <div className="space-y-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+              {[
+                {
+                  key: 'hoje',
+                  label: 'Hoje',
+                  value: indicators.hoje,
+                  bg: isDark
+                    ? 'bg-sky-500/15 border-sky-400/30 text-sky-200'
+                    : 'bg-[#EAF2FF] border-[#D6E6FF] text-[#1E3A8A]',
+                  icon: Calendar,
+                },
+                {
+                  key: 'proximos7',
+                  label: 'Próximos 7 dias',
+                  value: indicators.proximos7Dias,
+                  bg: isDark
+                    ? 'bg-violet-500/15 border-violet-400/30 text-violet-200'
+                    : 'bg-[#F3EEFE] border-[#E4D8FC] text-[#5B21B6]',
+                  icon: CalendarDays,
+                },
+                {
+                  key: 'pendentes',
+                  label: 'Pendentes',
+                  value: indicators.pendentes,
+                  bg: isDark
+                    ? 'bg-amber-500/15 border-amber-400/30 text-amber-200'
+                    : 'bg-[#FFF3E6] border-[#FDE2C4] text-[#9A3412]',
+                  icon: AlertTriangle,
+                },
+                {
+                  key: 'concluidos_mes',
+                  label: 'Concluídos no mês',
+                  value: indicators.concluidosMes,
+                  bg: isDark
+                    ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200'
+                    : 'bg-[#E9F9EE] border-[#CCF0D8] text-[#166534]',
+                  icon: CheckCircle2,
+                },
+              ].map((kpi) => {
+                const Icon = kpi.icon;
+                const active = quickFilter === kpi.key;
+                return (
+                  <button
+                    key={kpi.key}
+                    type="button"
+                    onClick={() =>
+                      setQuickFilter((prev) => (prev === kpi.key ? '' : kpi.key))
+                    }
+                    className={`rounded-2xl border p-4 text-left transition ${kpi.bg} ${
+                      active ? 'ring-2 ring-violet-600' : 'hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <Icon className="h-4 w-4" />
+                      <span>{kpi.label}</span>
+                    </div>
+                    <div className="mt-1.5 text-3xl font-extrabold tabular-nums">{kpi.value}</div>
+                    <div className="text-[11px] opacity-80">compromissos</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {[
+                { key: 'amanha', label: `Amanhã: ${indicators.amanha}` },
+                { key: 'proximos30', label: `Próximos 30 dias: ${indicators.proximos30Dias}` },
+                { key: 'atrasados', label: `Atrasados: ${indicators.atrasados}` },
+                {
+                  key: 'lembretes',
+                  label: `Lembretes programados: ${indicators.lembretesProgramados}`,
+                },
+              ].map((pill) => {
+                const active = quickFilter === pill.key;
+                return (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={() => {
+                      if (pill.key === 'lembretes') {
+                        setNotifOpen(true);
+                      } else {
+                        setQuickFilter((prev) => (prev === pill.key ? '' : pill.key));
+                      }
+                    }}
+                    className={`rounded-full border px-3 py-1 font-semibold transition ${
+                      active
+                        ? 'bg-[#43239D] text-white border-[#43239D]'
+                        : isDark
+                          ? 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                );
+              })}
+              {quickFilter && (
+                <button
+                  type="button"
+                  onClick={() => setQuickFilter('')}
+                  className="text-xs font-bold text-violet-700 hover:underline ml-1"
+                >
+                  Limpar filtro rápido
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className={`rounded-2xl border p-3.5 space-y-3 ${surfaceCard}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
@@ -649,7 +797,6 @@ export function AgendaInteligenteClient({
             </div>
           </div>
 
-          {/* Grid principal: Calendário central + Próximos compromissos na direita (Print 3) */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
             <div className="xl:col-span-8">
               {loading ? (
@@ -667,7 +814,7 @@ export function AgendaInteligenteClient({
                   occurrences={occurrences}
                   categories={categories}
                   isDark={isDark}
-                  canCreate={!permissions.isReadOnly && permissions.canCreateOwn}
+                  canCreate={canCreate}
                   onSelectDate={setSelectedDate}
                   onNavigatePeriod={handleNavigatePeriod}
                   onSelectYear={handleSelectYear}
@@ -675,31 +822,21 @@ export function AgendaInteligenteClient({
                     setAnchorDate(todayDate);
                     setSelectedDate(todayDate);
                   }}
-                  onOpenOccurrence={(occ) => {
-                    setEditingOcc(occ);
-                    setModalInitialDate(occ.localStartDate);
-                    setModalOpen(true);
-                  }}
-                  onCreateOnDate={(dateStr) => {
-                    setEditingOcc(null);
-                    setModalInitialDate(dateStr);
-                    setModalOpen(true);
-                  }}
+                  onOpenOccurrence={openOccurrenceModal}
+                  onCreateOnDate={openNewModal}
                 />
               )}
             </div>
 
-            {/* Coluna lateral direita: Próximos compromissos com contagem regressiva */}
             <div className={`xl:col-span-4 rounded-3xl border p-4 sm:p-5 space-y-3.5 ${surfaceCard}`}>
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-extrabold">Próximos compromissos</h2>
-                <button
-                  type="button"
-                  onClick={() => setView('LISTA')}
+                <Link
+                  href="/agenda/proximos"
                   className="text-xs font-bold text-[#43239D] hover:underline"
                 >
                   Ver todos →
-                </button>
+                </Link>
               </div>
 
               {upcoming.length === 0 ? (
@@ -712,11 +849,7 @@ export function AgendaInteligenteClient({
                     <button
                       key={occ.occurrenceKey}
                       type="button"
-                      onClick={() => {
-                        setEditingOcc(occ);
-                        setModalInitialDate(occ.localStartDate);
-                        setModalOpen(true);
-                      }}
+                      onClick={() => openOccurrenceModal(occ)}
                       className="w-full rounded-2xl p-3 text-left text-white flex items-center justify-between gap-2.5 shadow-xs hover:opacity-95 transition"
                       style={{ backgroundColor: occ.color }}
                     >
@@ -744,7 +877,6 @@ export function AgendaInteligenteClient({
             </div>
           </div>
 
-          {/* Linha inferior idêntica ao Print 3: Meus lembretes + Recorrências + Botão + Novo compromisso */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
             <div className={`lg:col-span-5 rounded-3xl border p-4 space-y-2.5 ${surfaceCard}`}>
               <div className="flex items-center justify-between">
@@ -760,7 +892,10 @@ export function AgendaInteligenteClient({
                 <div className="flex items-center justify-between rounded-xl border border-slate-200/80 px-3 py-2">
                   <span className="inline-flex items-center gap-2 font-medium">
                     <Clock className="h-3.5 w-3.5 text-violet-600" />
-                    E-mail: {preferences.defaultOffsetMinutes >= 1440 ? '1 dia antes' : `${preferences.defaultOffsetMinutes} min antes`}
+                    E-mail:{' '}
+                    {preferences.defaultOffsetMinutes >= 1440
+                      ? '1 dia antes'
+                      : `${preferences.defaultOffsetMinutes} min antes`}
                   </span>
                   <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-[10px] font-bold">
                     Ativo
@@ -785,10 +920,26 @@ export function AgendaInteligenteClient({
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 {[
-                  { label: 'Diárias', val: indicators.recurrenceSummary.diarias, cls: 'bg-[#FFF3E6] text-[#9A3412]' },
-                  { label: 'Mensais', val: indicators.recurrenceSummary.mensais, cls: 'bg-[#EAF2FF] text-[#1E3A8A]' },
-                  { label: 'Semestrais', val: indicators.recurrenceSummary.semestrais, cls: 'bg-[#E9F9EE] text-[#166534]' },
-                  { label: 'Anuais', val: indicators.recurrenceSummary.anuais, cls: 'bg-[#F3EEFE] text-[#5B21B6]' },
+                  {
+                    label: 'Diárias',
+                    val: indicators.recurrenceSummary.diarias,
+                    cls: 'bg-[#FFF3E6] text-[#9A3412]',
+                  },
+                  {
+                    label: 'Mensais',
+                    val: indicators.recurrenceSummary.mensais,
+                    cls: 'bg-[#EAF2FF] text-[#1E3A8A]',
+                  },
+                  {
+                    label: 'Semestrais',
+                    val: indicators.recurrenceSummary.semestrais,
+                    cls: 'bg-[#E9F9EE] text-[#166534]',
+                  },
+                  {
+                    label: 'Anuais',
+                    val: indicators.recurrenceSummary.anuais,
+                    cls: 'bg-[#F3EEFE] text-[#5B21B6]',
+                  },
                 ].map((r) => (
                   <div key={r.label} className={`rounded-2xl p-2 ${r.cls}`}>
                     <div className="text-[10px] font-bold">{r.label}</div>
@@ -799,45 +950,240 @@ export function AgendaInteligenteClient({
             </div>
 
             <div className="lg:col-span-2 flex justify-end">
-              {!permissions.isReadOnly && permissions.canCreateOwn && (
+              {canCreate && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingOcc(null);
-                    setModalInitialDate(selectedDate);
-                    setModalOpen(true);
-                  }}
-                  className="w-full rounded-full bg-[#43239D] px-5 py-4 text-xs sm:text-sm font-bold text-white shadow-lg shadow-violet-900/20 hover:bg-[#5B21B6] inline-flex items-center justify-center gap-2 transition"
+                  onClick={() => openNewModal(selectedDate)}
+                  className="w-full rounded-full bg-[#43239D] px-5 py-4 text-xs sm:text-sm font-bold text-white shadow-lg shadow-violet-900/20 hover:bg-[#5B21B6] inline-flex items-center justify-center gap-2 whitespace-nowrap transition"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 shrink-0" />
                   Novo compromisso
                 </button>
               )}
             </div>
           </div>
+        </>
+      )}
 
-          {initialSection === 'historico' && auditLogs.length > 0 && (
-            <div className={`rounded-3xl border p-4 sm:p-5 space-y-3 ${surfaceCard}`}>
-              <h2 className="text-sm font-extrabold">Trilha de Auditoria (SHA-256)</h2>
-              <div className="space-y-2 max-h-64 overflow-y-auto text-xs">
-                {auditLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="rounded-xl border border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2"
+      {/* 2. TELA CALENDÁRIO (TELA CHEIA DEDICADA AO PLANEJAMENTO TEMPORAL) */}
+      {initialSection === 'calendario' && (
+        <>
+          <div className={`rounded-2xl border p-3.5 space-y-3 ${surfaceCard}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1 rounded-xl bg-slate-100/80 p-1">
+                {(
+                  [
+                    ['DIARIO', 'Diário'],
+                    ['SEMANAL', 'Semanal'],
+                    ['MENSAL', 'Mensal'],
+                    ['SEMESTRAL', 'Semestral'],
+                    ['ANUAL', 'Anual'],
+                  ] as Array<[AgendaCalendarView, string]>
+                ).map(([vKey, vLabel]) => (
+                  <button
+                    key={vKey}
+                    type="button"
+                    onClick={() => setView(vKey)}
+                    className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                      view === vKey
+                        ? 'bg-[#43239D] text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-950'
+                    }`}
                   >
-                    <div>
-                      <span className="font-bold">{log.action}</span> ·{' '}
-                      <span className={mutedText}>{log.summary}</span>
-                    </div>
-                    <span className="font-mono text-[10px] text-slate-400">
-                      {log.sha256.slice(0, 14)}…
-                    </span>
-                  </div>
+                    {vLabel}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {(
+                  [
+                    ['todos', 'Todos'],
+                    ['proprios', 'Meus'],
+                    ['compartilhados', 'Compartilhados'],
+                    ['institucionais', 'Institucionais'],
+                  ] as const
+                ).map(([sKey, sLabel]) => (
+                  <button
+                    key={sKey}
+                    type="button"
+                    onClick={() => setScopeTab(sKey)}
+                    className={`rounded-xl border px-2.5 py-1.5 font-semibold transition ${
+                      scopeTab === sKey
+                        ? 'bg-violet-50 border-violet-300 text-violet-900'
+                        : isDark
+                          ? 'border-white/10 text-slate-300'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {sLabel}
+                  </button>
                 ))}
               </div>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filtrar no calendário por título, descrição ou local..."
+                  className={`w-full rounded-xl border pl-8 pr-3 py-2 ${inputCls}`}
+                />
+              </div>
+
+              <select
+                aria-label="Filtrar por categoria"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className={`rounded-xl border px-2.5 py-2 ${inputCls}`}
+              >
+                <option value="">Todas categorias</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Filtrar por prioridade"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as AgendaPriority | '')}
+                className={`rounded-xl border px-2.5 py-2 ${inputCls}`}
+              >
+                <option value="">Todas prioridades</option>
+                {(['BAIXA', 'NORMAL', 'ALTA', 'CRITICA'] as AgendaPriority[]).map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Filtrar por visibilidade"
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value as AgendaVisibility | '')}
+                className={`rounded-xl border px-2.5 py-2 ${inputCls}`}
+              >
+                <option value="">Todas visibilidades</option>
+                {(Object.keys(VISIBILITY_LABEL) as AgendaVisibility[]).map((v) => (
+                  <option key={v} value={v}>
+                    {VISIBILITY_LABEL[v]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className={`rounded-3xl border p-12 text-center text-sm ${surfaceCard}`}>
+              Carregando calendário...
+            </div>
+          ) : (
+            <AgendaCalendarViews
+              view={view === 'LISTA' ? 'MENSAL' : view}
+              semesterMode={semesterMode}
+              onChangeSemesterMode={setSemesterMode}
+              anchorDate={anchorDate}
+              selectedDate={selectedDate}
+              todayDate={todayDate}
+              occurrences={occurrences}
+              categories={categories}
+              isDark={isDark}
+              canCreate={canCreate}
+              onSelectDate={setSelectedDate}
+              onNavigatePeriod={handleNavigatePeriod}
+              onSelectYear={handleSelectYear}
+              onGoToday={() => {
+                setAnchorDate(todayDate);
+                setSelectedDate(todayDate);
+              }}
+              onOpenOccurrence={openOccurrenceModal}
+              onCreateOnDate={openNewModal}
+            />
           )}
         </>
+      )}
+
+      {/* 3. TELA PRÓXIMOS COMPROMISSOS */}
+      {initialSection === 'proximos' && (
+        <AgendaProximosSection
+          occurrences={occurrences}
+          categories={categories}
+          todayDate={todayDate}
+          search={search}
+          onSearchChange={setSearch}
+          categoryId={categoryId}
+          onCategoryChange={setCategoryId}
+          priority={priority}
+          onPriorityChange={setPriority}
+          recurrenceType={recurrenceType}
+          onRecurrenceChange={setRecurrenceType}
+          isDark={isDark}
+          canCreate={canCreate}
+          loading={loading}
+          onOpenOccurrence={openOccurrenceModal}
+          onQuickConclude={handleQuickConclude}
+          onCreateNew={() => openNewModal(todayDate)}
+        />
+      )}
+
+      {/* 4. TELA COMPARTILHADOS */}
+      {initialSection === 'compartilhados' && (
+        <AgendaCompartilhadosSection
+          occurrences={occurrences}
+          categories={categories}
+          currentUserId={preferences.userId}
+          search={search}
+          onSearchChange={setSearch}
+          categoryId={categoryId}
+          onCategoryChange={setCategoryId}
+          priority={priority}
+          onPriorityChange={setPriority}
+          isDark={isDark}
+          canCreate={canCreate}
+          loading={loading}
+          onOpenOccurrence={openOccurrenceModal}
+          onRespondRsvp={handleRespondRsvp}
+          onCreateNew={() => openNewModal(todayDate)}
+        />
+      )}
+
+      {/* 5. TELA HISTÓRICO */}
+      {initialSection === 'historico' && (
+        <AgendaHistoricoSection
+          occurrences={occurrences}
+          categories={categories}
+          auditLogs={auditLogs}
+          todayDate={todayDate}
+          search={search}
+          onSearchChange={setSearch}
+          categoryId={categoryId}
+          onCategoryChange={setCategoryId}
+          isDark={isDark}
+          loading={loading}
+          onOpenOccurrence={openOccurrenceModal}
+        />
+      )}
+
+      {/* 6. TELA CONFIGURAÇÕES DE LEMBRETES */}
+      {initialSection === 'configuracoes' && (
+        <AgendaPreferencesPanel
+          preferences={preferences}
+          emailOutbox={emailOutbox}
+          categories={categories}
+          canManageCategories={permissions.canManageCategories}
+          isReadOnly={permissions.isReadOnly}
+          isDark={isDark}
+          onUpdated={setPreferences}
+          onCategoryCreated={() => void carregarDados()}
+          onRunWorkerSandbox={
+            process.env.NODE_ENV !== 'production' ? handleRunWorkerDev : undefined
+          }
+        />
       )}
 
       <AgendaEventModal
@@ -864,9 +1210,7 @@ export function AgendaInteligenteClient({
         onOpenEvent={(eventId) => {
           const match = occurrences.find((o) => o.eventId === eventId);
           if (match) {
-            setEditingOcc(match);
-            setModalInitialDate(match.localStartDate);
-            setModalOpen(true);
+            openOccurrenceModal(match);
           }
         }}
       />

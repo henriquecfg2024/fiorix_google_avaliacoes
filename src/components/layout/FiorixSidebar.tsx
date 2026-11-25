@@ -149,7 +149,7 @@ export function FiorixSidebar() {
       return true;
     }
 
-    if (href === "/cartorio-virtual" || href === "/gestao-documental") {
+    if (href === "/cartorio-virtual" || href === "/gestao-documental" || href === "/agenda") {
       return pathname === href;
     }
 
