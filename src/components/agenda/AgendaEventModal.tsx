@@ -33,6 +33,8 @@ interface AgendaEventModalProps {
   initialDate: string;
   editingOccurrence: AgendaOccurrenceView | null;
   categories: AgendaCategoryDTO[];
+  defaultChannel?: AgendaReminderChannel;
+  defaultOffsetMinutes?: number;
   permissions: {
     canCreateOwn: boolean;
     canAssignOrCreateSetorial: boolean;
@@ -60,6 +62,8 @@ export function AgendaEventModal({
   initialDate,
   editingOccurrence,
   categories,
+  defaultChannel = 'EMAIL',
+  defaultOffsetMinutes = 30,
   permissions,
   onClose,
   onSaved,
@@ -158,13 +162,20 @@ export function AgendaEventModal({
       setMonthEndPolicy('ULTIMO_DIA');
       setEndDate('');
       setMaxOccurrences('');
-      setReminders([
-        { channel: 'EMAIL', offsetMinutes: 1440 },
-        { channel: 'POPUP', offsetMinutes: 30 },
-      ]);
+      const prefChannel = defaultChannel ?? 'EMAIL';
+      const prefOffset =
+        typeof defaultOffsetMinutes === 'number' ? defaultOffsetMinutes : 30;
+      setReminders(
+        prefChannel === 'POPUP'
+          ? [{ channel: 'POPUP', offsetMinutes: prefOffset }]
+          : [
+              { channel: prefChannel, offsetMinutes: prefOffset },
+              { channel: 'POPUP', offsetMinutes: 30 },
+            ]
+      );
       setParticipantInput('');
     }
-  }, [open, editingOccurrence, initialDate, categories]);
+  }, [open, editingOccurrence, initialDate, categories, defaultChannel, defaultOffsetMinutes]);
 
   useEffect(() => {
     if (!open) return;

@@ -365,6 +365,7 @@ export async function processDueAgendaNotificationJobs(params: {
       );
 
       const result = await dispatchAgendaReminderEmail({
+        tenantId: event.tenantId,
         recipientName,
         recipientEmail,
         eventTitle: job.eventTitle,

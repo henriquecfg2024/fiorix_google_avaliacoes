@@ -1,9 +1,11 @@
 import nodemailer from 'nodemailer';
+import { getAlertConfig } from '@/lib/alerts/alert-storage';
 import { isAgendaSandboxMode } from './feature-flags';
 import { extractFirstName, formatLocalDateBr, formatHourShortBr } from './timezone';
 import type { AgendaPriority } from './types';
 
 export interface AgendaEmailComposeInput {
+  tenantId?: string;
   recipientName?: string | null;
   recipientEmail: string;
   eventTitle: string;
@@ -170,8 +172,28 @@ export async function dispatchAgendaReminderEmail(
     };
   }
 
-  const resendKey = process.env.RESEND_API_KEY?.trim();
-  const fromEmail = process.env.SMTP_FROM?.trim() || process.env.SMTP_USER?.trim() || 'agenda@fiorix.app';
+  const tenantAlertCfg = input.tenantId
+    ? await getAlertConfig(input.tenantId).catch(() => null)
+    : null;
+  const tenantEmailCfg = tenantAlertCfg?.emailConfig;
+
+  const tenantPrefersResend =
+    tenantAlertCfg?.emailProvider === 'resend' || Boolean(tenantEmailCfg?.resendApiKey?.trim());
+  const tenantHasSmtp = Boolean(
+    tenantEmailCfg?.host?.trim() && tenantEmailCfg?.user?.trim() && tenantEmailCfg?.pass?.trim()
+  );
+
+  const resendKey = tenantPrefersResend
+    ? tenantEmailCfg?.resendApiKey?.trim() || process.env.RESEND_API_KEY?.trim()
+    : !tenantHasSmtp
+      ? process.env.RESEND_API_KEY?.trim()
+      : undefined;
+  const fromEmail =
+    tenantEmailCfg?.from?.trim() ||
+    process.env.SMTP_FROM?.trim() ||
+    tenantEmailCfg?.user?.trim() ||
+    process.env.SMTP_USER?.trim() ||
+    'agenda@fiorix.app';
 
   if (resendKey) {
     try {
@@ -228,17 +250,19 @@ export async function dispatchAgendaReminderEmail(
     }
   }
 
-  const host = process.env.SMTP_HOST?.trim();
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim();
+  const host = tenantEmailCfg?.host?.trim() || process.env.SMTP_HOST?.trim();
+  const port = Number(tenantEmailCfg?.port || process.env.SMTP_PORT || 587);
+  const user = tenantEmailCfg?.user?.trim() || process.env.SMTP_USER?.trim();
+  const pass = tenantEmailCfg?.pass?.trim() || process.env.SMTP_PASS?.trim();
+  const secure = tenantEmailCfg?.secure ?? port === 465;
 
   if (!host || !user || !pass) {
     return {
       success: false,
       status: 'FALHA',
       providerMessageId: null,
-      errorMessage: 'Provedor SMTP/Resend não configurado para envio de lembretes.',
+      errorMessage:
+        'Provedor SMTP/Resend não configurado na Central de Operações nem nas variáveis do servidor.',
       subject,
       html,
       text,
@@ -249,8 +273,11 @@ export async function dispatchAgendaReminderEmail(
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465,
+      secure,
       auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
     const info = await transporter.sendMail({
       from: `FIORIX Agenda <${fromEmail}>`,

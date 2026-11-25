@@ -1191,6 +1191,8 @@ export function AgendaInteligenteClient({
         initialDate={modalInitialDate}
         editingOccurrence={editingOcc}
         categories={categories}
+        defaultChannel={preferences.defaultChannel}
+        defaultOffsetMinutes={preferences.defaultOffsetMinutes}
         permissions={permissions}
         onClose={() => setModalOpen(false)}
         onSaved={() => void carregarDados()}

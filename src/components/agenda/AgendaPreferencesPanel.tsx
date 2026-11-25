@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Mail, Play, Plus, Save, Tag } from 'lucide-react';
+import { Bell, Mail, Play, Plus, Save, Send, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   REMINDER_OFFSET_PRESETS,
@@ -60,6 +60,7 @@ export function AgendaPreferencesPanel({
   const [form, setForm] = useState<AgendaUserPreferenceDTO>(preferences);
   const [saving, setSaving] = useState(false);
   const [runningWorker, setRunningWorker] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
 
   const [catName, setCatName] = useState('');
   const [catColor, setCatColor] = useState('#2563EB');
@@ -133,6 +134,30 @@ export function AgendaPreferencesPanel({
       toast.error('Erro de rede ao criar categoria.');
     } finally {
       setCreatingCat(false);
+    }
+  }
+
+  async function handleTestEmail() {
+    if (testingEmail || isReadOnly) return;
+    setTestingEmail(true);
+    try {
+      const res = await fetch('/api/agenda/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'TEST_EMAIL' }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body?.ok) {
+        toast.error(
+          body?.errorMessage || body?.error || 'Não foi possível enviar o e-mail de teste.'
+        );
+        return;
+      }
+      toast.success(`E-mail de teste enviado para ${body.recipientEmail}.`);
+    } catch {
+      toast.error('Erro de comunicação ao testar envio de e-mail.');
+    } finally {
+      setTestingEmail(false);
     }
   }
 
@@ -312,16 +337,41 @@ export function AgendaPreferencesPanel({
 
         {/* Histórico de Lembretes por E-mail */}
         <div className={`rounded-3xl border p-5 space-y-3 ${cardSurface}`}>
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <Mail className="h-4 w-4" />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <Mail className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold">Histórico de Lembretes por E-mail</h2>
+                <p className="text-xs text-slate-500">
+                  Auditoria dos lembretes de e-mail processados para sua conta.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-extrabold">Histórico de Lembretes por E-mail</h2>
-              <p className="text-xs text-slate-500">
-                Auditoria dos lembretes de e-mail processados para sua conta.
-              </p>
-            </div>
+            {!isReadOnly && (
+              <button
+                type="button"
+                disabled={testingEmail}
+                onClick={() => void handleTestEmail()}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 transition"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {testingEmail ? 'Enviando...' : 'Testar envio de e-mail'}
+              </button>
+            )}
+          </div>
+
+          <div
+            className={`rounded-2xl border px-3 py-2 text-[11px] ${
+              isDark
+                ? 'border-sky-400/20 bg-sky-500/10 text-sky-200'
+                : 'border-sky-200 bg-sky-50 text-sky-900'
+            }`}
+          >
+            O envio utiliza automaticamente o <strong>E-mail Corporativo</strong> configurado na
+            Central de Operações (SMTP / Resend), enviando cada lembrete apenas ao e-mail do usuário
+            dono ou participante do compromisso.
           </div>
 
           {emailOutbox.length === 0 ? (

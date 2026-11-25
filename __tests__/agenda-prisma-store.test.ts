@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prismaMocks = vi.hoisted(() => ({
+  getAlertConfig: vi.fn(),
+  sendMail: vi.fn(async () => ({ messageId: 'smtp-msg-1' })),
+  createTransport: vi.fn(),
   agendaCategoryCount: vi.fn(async () => 1),
   agendaCategoryCreateMany: vi.fn(async () => ({ count: 12 })),
   agendaCategoryFindMany: vi.fn(async () => [
@@ -50,6 +53,14 @@ const prismaMocks = vi.hoisted(() => ({
   agendaAuditLogFindMany: vi.fn(async () => []),
 }));
 
+vi.mock('@/lib/alerts/alert-storage', () => ({
+  getAlertConfig: prismaMocks.getAlertConfig,
+}));
+vi.mock('nodemailer', () => ({
+  default: {
+    createTransport: prismaMocks.createTransport,
+  },
+}));
 vi.mock('@/lib/auth-helpers', () => ({
   requireAuth: vi.fn(),
 }));
@@ -87,6 +98,7 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+import { dispatchAgendaReminderEmail } from '@/lib/agenda/email-service';
 import type { AgendaAccessContext } from '@/lib/agenda/permissions';
 import {
   createAgendaEvent,
@@ -203,5 +215,50 @@ describe('Agenda Inteligente — Adapter PostgreSQL/Prisma em Produção (sem da
     expect(welcome.scenario).toBe('F_FALHA_CONSULTA');
     expect(welcome.queryFailed).toBe(true);
     expect(welcome.todayItems).toEqual([]);
+  });
+
+  it('reaproveita SMTP Corporativo da Central de Operações ao enviar lembrete por e-mail em produção', async () => {
+    prismaMocks.createTransport.mockReturnValue({ sendMail: prismaMocks.sendMail });
+    prismaMocks.getAlertConfig.mockResolvedValueOnce({
+      tenantId: 'tenant-prod',
+      emailProvider: 'smtp',
+      emailConfig: {
+        host: 'smtp.durend.com.br',
+        port: 587,
+        user: 'henrique@7risp.com.br',
+        pass: 'segredo-mock',
+      },
+    });
+
+    const result = await dispatchAgendaReminderEmail({
+      tenantId: 'tenant-prod',
+      recipientName: 'Henrique Gama',
+      recipientEmail: 'henrique@7risp.com.br',
+      eventTitle: 'Reunião Diretoria',
+      localDate: '2026-11-26',
+      localTime: '10:00',
+      allDay: false,
+      priority: 'ALTA',
+      countdownLabel: 'Falta 1 dia',
+      isConfidential: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('ACEITA_PROVEDOR');
+    expect(prismaMocks.getAlertConfig).toHaveBeenCalledWith('tenant-prod');
+    expect(prismaMocks.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: 'smtp.durend.com.br',
+        port: 587,
+        secure: false,
+        auth: { user: 'henrique@7risp.com.br', pass: 'segredo-mock' },
+      })
+    );
+    expect(prismaMocks.sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'henrique@7risp.com.br',
+        subject: 'FIORIX | Lembrete de compromisso — Reunião Diretoria',
+      })
+    );
   });
 });
