@@ -31,6 +31,22 @@ AS $$
   SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
+CREATE TABLE IF NOT EXISTS public._prisma_migrations (
+  id text PRIMARY KEY,
+  migration_name text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public."Tenant" (
+  id text PRIMARY KEY,
+  name text NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public."User" (
+  id text PRIMARY KEY,
+  "tenantId" text NOT NULL,
+  role text NOT NULL
+);
+
 CREATE OR REPLACE FUNCTION public.get_auth_tenant_id()
 RETURNS text
 LANGUAGE sql
@@ -50,22 +66,6 @@ SET search_path = pg_catalog, public
 AS $$
   SELECT COALESCE((SELECT role = 'MASTER' FROM public."User" WHERE id = (SELECT auth.uid())::text LIMIT 1), false);
 $$;
-
-CREATE TABLE IF NOT EXISTS public._prisma_migrations (
-  id text PRIMARY KEY,
-  migration_name text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public."Tenant" (
-  id text PRIMARY KEY,
-  name text NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public."User" (
-  id text PRIMARY KEY,
-  "tenantId" text NOT NULL,
-  role text NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS public.fiorix_nav_group_rules (
   id text PRIMARY KEY,
