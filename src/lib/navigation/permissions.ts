@@ -49,23 +49,26 @@ export function filterNavigationByRole(
     // MASTER: Apenas o MASTER vê o grupo 'master'
     if (key === "master" && role !== "MASTER") continue;
     if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
+    if (key === "agendaInteligente" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE"].includes(role)) continue;
     if (key === "cartorioVirtual" && !["ADMIN", "MASTER", "SUBSTITUTO", "VISITANTE", "COLABORADOR"].includes(role)) continue;
 
-    // COLABORADOR: vê 'operacional', 'comunicacaoInterna' e 'pessoas' (MEU ESPAÇO)
+    // COLABORADOR: vê 'operacional', 'comunicacaoInterna', 'agendaInteligente' e 'pessoas' (MEU ESPAÇO)
     if (
       isColaborador &&
       key !== "cartorioVirtual" &&
       key !== "pessoas" &&
       key !== "comunicacaoInterna" &&
+      key !== "agendaInteligente" &&
       key !== "operacional"
     )
       continue;
 
-    // RH: vê 'comunicacaoInterna', 'trabalho' (RECURSOS HUMANOS: Comunicados, Férias, Holerites) e 'pessoas' (MEU ESPAÇO)
+    // RH: vê 'comunicacaoInterna', 'agendaInteligente', 'trabalho' (RECURSOS HUMANOS: Comunicados, Férias, Holerites) e 'pessoas' (MEU ESPAÇO)
     if (
       isRH &&
       key !== "pessoas" &&
       key !== "comunicacaoInterna" &&
+      key !== "agendaInteligente" &&
       key !== "trabalho"
     )
       continue;

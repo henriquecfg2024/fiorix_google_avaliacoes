@@ -8,6 +8,7 @@ import { NavigationProgress } from '@/components/layout/NavigationProgress';
 
 import { FiorixAgent } from '@/components/agent/FiorixAgent';
 import { GlobalMessagingListener } from '@/components/mensagens/GlobalMessagingListener';
+import { GlobalAgendaReminderHost } from '@/components/agenda/GlobalAgendaReminderHost';
 
 import { RouteAccessGuard } from '@/components/layout/RouteAccessGuard';
 import { VisitorAccessBanner } from '@/components/layout/VisitorAccessBanner';
@@ -60,6 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Assistente FIORIX • IA — global em todas as páginas */}
       <div className="print:hidden">
         <FiorixAgent />
+      </div>
+
+      {/* Boas-Vindas Inteligentes no login + Pop-ups globais de lembretes */}
+      <div className="print:hidden">
+        <GlobalAgendaReminderHost />
       </div>
     </div>
   );

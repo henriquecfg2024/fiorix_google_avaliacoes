@@ -64,6 +64,12 @@ const action = (scope: RouteAccessScope, risk: RouteRisk, extra: Partial<E> = {}
 export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> = Object.freeze({
   // ─── PÁGINAS ──────────────────────────────────────────────────────────────
   'app/(dashboard)/administracao/its/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'its.gestao' }),
+  'app/(dashboard)/agenda/calendario/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/(dashboard)/agenda/compartilhados/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/(dashboard)/agenda/configuracoes/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/(dashboard)/agenda/historico/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/(dashboard)/agenda/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/(dashboard)/agenda/proximos/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
   'app/(dashboard)/administracao/mensagens/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'rotina.mensagens', note: 'Gestão de Mensagens (submenu administrativo); nó filho a definir na 6.1.' }),
   'app/(dashboard)/administracao/rh/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'pessoas.gestao' }),
   'app/(dashboard)/avaliacoes/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'google.avaliacoes' }),
@@ -143,6 +149,15 @@ export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> 
   'app/visualizador-documental/page.tsx': page('PENDING_CATALOG', 'HIGH', { suggestedModuleId: 'documental.gestao', note: 'Janela dedicada autenticada via requireDocumentAccess.' }),
 
   // ─── APIs ─────────────────────────────────────────────────────────────────
+  'app/api/agenda/categories/route.ts': api('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/dashboard/route.ts': api('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/events/[id]/route.ts': api('CANONICAL', 'HIGH', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/events/[id]/status/route.ts': api('CANONICAL', 'HIGH', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/events/route.ts': api('CANONICAL', 'HIGH', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/notifications/route.ts': api('CANONICAL', 'MEDIUM', { moduleId: 'agenda.inteligente' }),
+  'app/api/agenda/preferences/route.ts': api('ACCOUNT_SELF', 'LOW', { note: 'Preferências pessoais da Agenda Inteligente.' }),
+  'app/api/agenda/welcome/route.ts': api('SHARED_UTILITY', 'LOW', { note: 'Resumo de boas-vindas no login com validação estrita de sessão e permissão de módulo.' }),
+  'app/api/cron/agenda-reminders/route.ts': api('MACHINE_TOKEN', 'HIGH', { note: 'Processamento em lote de lembretes vencidos via CRON_SECRET (ou MASTER em homologação local).' }),
   'app/api/auth/callback/google/route.ts': api('PUBLIC_AUTH', 'HIGH'),
   'app/api/auth/google/route.ts': api('PUBLIC_AUTH', 'HIGH'),
   'app/api/auth/[...nextauth]/route.ts': api('PUBLIC_AUTH', 'HIGH'),

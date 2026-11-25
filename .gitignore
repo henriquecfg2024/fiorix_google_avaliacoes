@@ -65,3 +65,7 @@ backups/
 # Scripts temporários de automação local
 scratch/
 
+# Sandbox local da Agenda Inteligente V1.0
+.fiorix-agenda-sandbox/
+
+
