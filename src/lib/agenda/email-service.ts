@@ -22,6 +22,8 @@ export interface AgendaEmailDispatchResult {
   success: boolean;
   status: 'SANDBOX_SIMULADA' | 'ACEITA_PROVEDOR' | 'ENTREGUE_CONFIRMADA' | 'FALHA';
   providerMessageId: string | null;
+  providerHost?: string | null;
+  providerResponse?: string | null;
   errorMessage: string | null;
   subject: string;
   html: string;
@@ -232,6 +234,8 @@ export async function dispatchAgendaReminderEmail(
         success: true,
         status: 'ACEITA_PROVEDOR',
         providerMessageId: parsed?.id ?? null,
+        providerHost: 'api.resend.com',
+        providerResponse: `HTTP ${res.status}`,
         errorMessage: null,
         subject,
         html,
@@ -242,6 +246,8 @@ export async function dispatchAgendaReminderEmail(
         success: false,
         status: 'FALHA',
         providerMessageId: null,
+        providerHost: 'api.resend.com',
+        providerResponse: null,
         errorMessage: err instanceof Error ? err.message : 'Erro ao conectar ao provedor Resend.',
         subject,
         html,
@@ -261,6 +267,8 @@ export async function dispatchAgendaReminderEmail(
       success: false,
       status: 'FALHA',
       providerMessageId: null,
+      providerHost: host || null,
+      providerResponse: null,
       errorMessage:
         'Provedor SMTP/Resend não configurado na Central de Operações nem nas variáveis do servidor.',
       subject,
@@ -286,20 +294,60 @@ export async function dispatchAgendaReminderEmail(
       html,
       text,
     });
+
+    const accepted = Array.isArray(info.accepted) ? info.accepted : [];
+    const rejected = Array.isArray(info.rejected) ? info.rejected : [];
+    const providerResponse = typeof info.response === 'string' ? info.response : null;
+
+    console.info('[Agenda Email]', {
+      providerHost: host,
+      port,
+      recipientEmail: input.recipientEmail,
+      accepted,
+      rejected,
+      messageId: info.messageId || null,
+      response: providerResponse,
+    });
+
+    if (rejected.length > 0 || (Array.isArray(info.accepted) && accepted.length === 0)) {
+      const rejectedList = rejected.map((entry) => String(entry)).join(', ') || input.recipientEmail;
+      return {
+        success: false,
+        status: 'FALHA',
+        providerMessageId: info.messageId || null,
+        providerHost: host,
+        providerResponse,
+        errorMessage: `Destinatário rejeitado pelo servidor SMTP: ${rejectedList}`,
+        subject,
+        html,
+        text,
+      };
+    }
+
     return {
       success: true,
       status: 'ACEITA_PROVEDOR',
       providerMessageId: info.messageId || null,
+      providerHost: host,
+      providerResponse,
       errorMessage: null,
       subject,
       html,
       text,
     };
   } catch (err) {
+    console.warn('[Agenda Email] Falha SMTP:', {
+      providerHost: host,
+      port,
+      recipientEmail: input.recipientEmail,
+      error: err instanceof Error ? err.message : 'Falha no envio SMTP.',
+    });
     return {
       success: false,
       status: 'FALHA',
       providerMessageId: null,
+      providerHost: host,
+      providerResponse: null,
       errorMessage: err instanceof Error ? err.message : 'Falha no envio SMTP.',
       subject,
       html,

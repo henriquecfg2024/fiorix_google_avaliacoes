@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prismaMocks = vi.hoisted(() => ({
   getAlertConfig: vi.fn(),
-  sendMail: vi.fn(async () => ({ messageId: 'smtp-msg-1' })),
+  sendMail: vi.fn(async () => ({
+    messageId: 'smtp-msg-1',
+    accepted: ['henrique@7risp.com.br'] as string[],
+    rejected: [] as string[],
+    response: '250 2.0.0 Ok: queued as ABC123',
+  })),
   createTransport: vi.fn(),
   agendaCategoryCount: vi.fn(async () => 1),
   agendaCategoryCreateMany: vi.fn(async () => ({ count: 12 })),
@@ -245,6 +250,8 @@ describe('Agenda Inteligente — Adapter PostgreSQL/Prisma em Produção (sem da
 
     expect(result.success).toBe(true);
     expect(result.status).toBe('ACEITA_PROVEDOR');
+    expect(result.providerHost).toBe('smtp.durend.com.br');
+    expect(result.providerResponse).toBe('250 2.0.0 Ok: queued as ABC123');
     expect(prismaMocks.getAlertConfig).toHaveBeenCalledWith('tenant-prod');
     expect(prismaMocks.createTransport).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -260,5 +267,38 @@ describe('Agenda Inteligente — Adapter PostgreSQL/Prisma em Produção (sem da
         subject: 'FIORIX | Lembrete de compromisso — Reunião Diretoria',
       })
     );
+
+    // Garante que rejeição explícita pelo servidor SMTP é tratada como FALHA
+    prismaMocks.sendMail.mockResolvedValueOnce({
+      messageId: 'smtp-msg-rej',
+      accepted: [],
+      rejected: ['henrique@7risp.com.br'],
+      response: '550 5.1.1 User unknown',
+    });
+    prismaMocks.getAlertConfig.mockResolvedValueOnce({
+      tenantId: 'tenant-prod',
+      emailProvider: 'smtp',
+      emailConfig: {
+        host: 'smtp.durend.com.br',
+        port: 587,
+        user: 'henrique@7risp.com.br',
+        pass: 'segredo-mock',
+      },
+    });
+    const rejectedResult = await dispatchAgendaReminderEmail({
+      tenantId: 'tenant-prod',
+      recipientName: 'Henrique Gama',
+      recipientEmail: 'henrique@7risp.com.br',
+      eventTitle: 'Teste Rejeição',
+      localDate: '2026-11-26',
+      localTime: '10:00',
+      allDay: false,
+      priority: 'NORMAL',
+      countdownLabel: 'Hoje',
+      isConfidential: false,
+    });
+    expect(rejectedResult.success).toBe(false);
+    expect(rejectedResult.status).toBe('FALHA');
+    expect(rejectedResult.errorMessage).toContain('henrique@7risp.com.br');
   });
 });

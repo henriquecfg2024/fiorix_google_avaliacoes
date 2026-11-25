@@ -61,6 +61,16 @@ export function AgendaPreferencesPanel({
   const [saving, setSaving] = useState(false);
   const [runningWorker, setRunningWorker] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [testEmailInput, setTestEmailInput] = useState('');
+  const [lastEmailTestResult, setLastEmailTestResult] = useState<{
+    ok: boolean;
+    recipientEmail: string;
+    status: string;
+    providerHost?: string | null;
+    providerMessageId?: string | null;
+    providerResponse?: string | null;
+    errorMessage?: string | null;
+  } | null>(null);
 
   const [catName, setCatName] = useState('');
   const [catColor, setCatColor] = useState('#2563EB');
@@ -141,19 +151,32 @@ export function AgendaPreferencesPanel({
     if (testingEmail || isReadOnly) return;
     setTestingEmail(true);
     try {
+      const trimmedTestEmail = testEmailInput.trim();
       const res = await fetch('/api/agenda/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'TEST_EMAIL' }),
+        body: JSON.stringify({
+          action: 'TEST_EMAIL',
+          ...(trimmedTestEmail ? { testEmail: trimmedTestEmail } : {}),
+        }),
       });
       const body = await res.json();
+      setLastEmailTestResult({
+        ok: Boolean(res.ok && body?.ok),
+        recipientEmail: String(body?.recipientEmail || trimmedTestEmail || ''),
+        status: String(body?.status || (res.ok ? 'ACEITA_PROVEDOR' : 'FALHA')),
+        providerHost: body?.providerHost ?? null,
+        providerMessageId: body?.providerMessageId ?? null,
+        providerResponse: body?.providerResponse ?? null,
+        errorMessage: body?.errorMessage || body?.error || null,
+      });
       if (!res.ok || !body?.ok) {
         toast.error(
           body?.errorMessage || body?.error || 'Não foi possível enviar o e-mail de teste.'
         );
         return;
       }
-      toast.success(`E-mail de teste enviado para ${body.recipientEmail}.`);
+      toast.success(`E-mail de teste aceito pelo SMTP para ${body.recipientEmail}.`);
     } catch {
       toast.error('Erro de comunicação ao testar envio de e-mail.');
     } finally {
@@ -373,6 +396,68 @@ export function AgendaPreferencesPanel({
             Central de Operações (SMTP / Resend), enviando cada lembrete apenas ao e-mail do usuário
             dono ou participante do compromisso.
           </div>
+
+          {!isReadOnly && (
+            <div className="flex flex-col sm:flex-row gap-2 text-xs">
+              <input
+                type="email"
+                value={testEmailInput}
+                onChange={(e) => setTestEmailInput(e.target.value)}
+                placeholder="E-mail de teste opcional (ex: seu Gmail; vazio = seu e-mail cadastrado)"
+                className={`flex-1 rounded-xl border px-3 py-2 ${inputSurface}`}
+              />
+            </div>
+          )}
+
+          {lastEmailTestResult && (
+            <div
+              className={`rounded-2xl border p-3 text-xs space-y-1 ${
+                lastEmailTestResult.ok
+                  ? isDark
+                    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                  : isDark
+                    ? 'border-rose-400/30 bg-rose-500/10 text-rose-200'
+                    : 'border-rose-200 bg-rose-50 text-rose-950'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 font-bold">
+                <span>
+                  {lastEmailTestResult.ok
+                    ? `Envio aceito para ${lastEmailTestResult.recipientEmail}`
+                    : `Falha no envio${lastEmailTestResult.recipientEmail ? ` para ${lastEmailTestResult.recipientEmail}` : ''}`}
+                </span>
+                <span className="rounded-full bg-white/80 text-slate-800 px-2 py-0.5 text-[10px]">
+                  {lastEmailTestResult.status}
+                </span>
+              </div>
+              {lastEmailTestResult.providerHost && (
+                <div className="text-[11px] opacity-90">
+                  Servidor SMTP: <strong>{lastEmailTestResult.providerHost}</strong>
+                  {lastEmailTestResult.providerResponse
+                    ? ` · Resposta: ${lastEmailTestResult.providerResponse}`
+                    : ''}
+                </div>
+              )}
+              {lastEmailTestResult.providerMessageId && (
+                <div className="text-[11px] font-mono opacity-80 truncate">
+                  Message-ID: {lastEmailTestResult.providerMessageId}
+                </div>
+              )}
+              {lastEmailTestResult.errorMessage && (
+                <div className="text-[11px] font-semibold">
+                  Detalhe: {lastEmailTestResult.errorMessage}
+                </div>
+              )}
+              {lastEmailTestResult.ok && (
+                <div className="text-[11px] opacity-85 pt-0.5">
+                  Caso não apareça na Caixa de Entrada do Zimbra quando remetente e destinatário são
+                  o mesmo endereço, verifique a pasta <strong>Spam / Lixo Eletrônico</strong> ou
+                  teste informando um e-mail alternativo acima.
+                </div>
+              )}
+            </div>
+          )}
 
           {emailOutbox.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-xs text-slate-500">

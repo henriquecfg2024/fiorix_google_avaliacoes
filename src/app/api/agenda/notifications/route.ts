@@ -87,6 +87,9 @@ export async function POST(request: NextRequest) {
           ok: dispatch.success,
           recipientEmail: targetEmail,
           status: dispatch.status,
+          providerHost: dispatch.providerHost ?? null,
+          providerMessageId: dispatch.providerMessageId,
+          providerResponse: dispatch.providerResponse ?? null,
           errorMessage: dispatch.errorMessage,
         },
         dispatch.success ? 200 : 422
