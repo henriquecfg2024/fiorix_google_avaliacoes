@@ -67,11 +67,11 @@ export function AgendaPreferencesPanel({
   }
 
   const cardSurface = isDark
-    ? 'bg-[#0D1322] border-white/10 text-slate-100'
-    : 'bg-white border-slate-200 text-slate-900 shadow-xs';
+    ? 'bg-[#0D1322] border-white/10 text-slate-100 [color-scheme:dark]'
+    : 'bg-white border-slate-200 text-slate-900 shadow-xs [color-scheme:light]';
   const inputSurface = isDark
-    ? 'border-white/15 bg-[#070A12] text-white'
-    : 'border-slate-300 bg-white text-slate-900';
+    ? 'border-white/15 bg-[#070A12] text-white placeholder:text-slate-500 focus:border-violet-400 focus:outline-none [color-scheme:dark]'
+    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 shadow-2xs focus:border-[#43239D] focus:ring-2 focus:ring-violet-500/20 focus:outline-none [color-scheme:light]';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -186,7 +186,7 @@ export function AgendaPreferencesPanel({
                 checked={form.showCompleted}
                 disabled={isReadOnly}
                 onChange={(e) => setForm({ ...form, showCompleted: e.target.checked })}
-                className="h-4 w-4 accent-[#43239D]"
+                className={`h-4 w-4 accent-[#43239D] ${isDark ? '[color-scheme:dark]' : '[color-scheme:light]'}`}
               />
               Exibir compromissos concluídos
             </label>
@@ -196,7 +196,7 @@ export function AgendaPreferencesPanel({
                 checked={form.webPushEnabled}
                 disabled={isReadOnly}
                 onChange={(e) => setForm({ ...form, webPushEnabled: e.target.checked })}
-                className="h-4 w-4 accent-[#43239D]"
+                className={`h-4 w-4 accent-[#43239D] ${isDark ? '[color-scheme:dark]' : '[color-scheme:light]'}`}
               />
               Habilitar Web Push complementar
             </label>

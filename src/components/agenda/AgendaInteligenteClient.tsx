@@ -307,14 +307,16 @@ export function AgendaInteligenteClient({
     }
   }
 
-  const pageBg = isDark ? 'bg-[#070A12] text-white' : 'bg-[#F4F6FB] text-slate-900';
+  const pageBg = isDark
+    ? 'bg-[#070A12] text-white [color-scheme:dark]'
+    : 'bg-[#F4F6FB] text-slate-900 [color-scheme:light]';
   const surfaceCard = isDark
     ? 'bg-[#0D1322] border-white/10 text-slate-100'
     : 'bg-white border-slate-200/80 text-slate-900 shadow-xs';
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-500';
   const inputCls = isDark
-    ? 'border-white/15 bg-[#070A12] text-white'
-    : 'border-slate-200 bg-white text-slate-900';
+    ? 'border-white/15 bg-[#070A12] text-white placeholder:text-slate-500 focus:border-violet-400 focus:outline-none [color-scheme:dark]'
+    : 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 shadow-2xs focus:border-[#43239D] focus:outline-none [color-scheme:light]';
 
   const sectionTitle =
     initialSection === 'calendario'

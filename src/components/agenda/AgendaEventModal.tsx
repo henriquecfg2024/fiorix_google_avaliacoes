@@ -45,6 +45,16 @@ interface AgendaEventModalProps {
 
 const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+const LABEL_CLASS = 'block text-xs font-bold text-slate-800 mb-1.5';
+const FIELD_CLASS =
+  'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs transition focus:border-[#43239D] focus:ring-2 focus:ring-violet-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed [color-scheme:light]';
+const SELECT_CLASS =
+  'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-2xs transition focus:border-[#43239D] focus:ring-2 focus:ring-violet-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed [color-scheme:light]';
+const TEXTAREA_CLASS =
+  'w-full min-h-[82px] resize-y rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs transition focus:border-[#43239D] focus:ring-2 focus:ring-violet-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed [color-scheme:light]';
+const COMPACT_FIELD_CLASS =
+  'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 shadow-2xs transition focus:border-[#43239D] focus:ring-2 focus:ring-violet-500/20 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed [color-scheme:light]';
+
 export function AgendaEventModal({
   open,
   initialDate,
@@ -338,12 +348,12 @@ export function AgendaEventModal({
 
   return (
     <div
-      className="fixed inset-0 z-[72] flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-3 sm:p-4"
+      className="fixed inset-0 z-[72] flex items-center justify-center bg-slate-950/55 backdrop-blur-xs p-3 sm:p-4 [color-scheme:light]"
       role="dialog"
       aria-modal="true"
       aria-label={isEditing ? 'Detalhes do compromisso' : 'Novo compromisso'}
     >
-      <div className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-white text-slate-900 shadow-2xl border border-slate-200 p-5 sm:p-6 space-y-5">
+      <div className="w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-3xl bg-white text-slate-900 shadow-2xl border border-slate-200 p-5 sm:p-6 space-y-5 [color-scheme:light]">
         <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div>
             <h2 className="text-lg font-extrabold text-slate-950">
@@ -403,26 +413,26 @@ export function AgendaEventModal({
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="sm:col-span-2">
-            <label className="block font-bold text-slate-700 mb-1">Título *</label>
+            <label className={LABEL_CLASS}>Título *</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={!canSubmit}
               placeholder="Ex.: Reunião semanal de Gestão de Prazos"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-violet-600 focus:outline-none"
+              className={FIELD_CLASS}
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Categoria</label>
+            <label className={LABEL_CLASS}>Categoria</label>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 bg-white"
+              className={SELECT_CLASS}
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -433,12 +443,12 @@ export function AgendaEventModal({
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Prioridade</label>
+            <label className={LABEL_CLASS}>Prioridade</label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as AgendaPriority)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 bg-white"
+              className={SELECT_CLASS}
             >
               {(['BAIXA', 'NORMAL', 'ALTA', 'CRITICA'] as AgendaPriority[]).map((p) => (
                 <option key={p} value={p}>
@@ -448,31 +458,31 @@ export function AgendaEventModal({
             </select>
           </div>
 
-          <div className="sm:col-span-2 flex items-center gap-3">
-            <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+          <div className="sm:col-span-2 flex flex-wrap items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100/80 transition">
               <input
                 type="checkbox"
                 checked={allDay}
                 onChange={(e) => setAllDay(e.target.checked)}
                 disabled={!canSubmit}
-                className="h-4 w-4 accent-[#43239D]"
+                className="h-4 w-4 rounded accent-[#43239D] [color-scheme:light]"
               />
               Evento de dia inteiro
             </label>
-            <label className="inline-flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100/80 transition">
               <input
                 type="checkbox"
                 checked={isConfidential}
                 onChange={(e) => setIsConfidential(e.target.checked)}
                 disabled={!canSubmit}
-                className="h-4 w-4 accent-[#43239D]"
+                className="h-4 w-4 rounded accent-[#43239D] [color-scheme:light]"
               />
               Confidencial (minimiza dados em e-mails)
             </label>
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Data inicial *</label>
+            <label className={LABEL_CLASS}>Data inicial *</label>
             <input
               type="date"
               value={localStartDate}
@@ -481,54 +491,54 @@ export function AgendaEventModal({
                 if (localEndDate < e.target.value) setLocalEndDate(e.target.value);
               }}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           {!allDay && (
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Horário inicial</label>
+              <label className={LABEL_CLASS}>Horário inicial</label>
               <input
                 type="time"
                 value={localStartTime}
                 onChange={(e) => setLocalStartTime(e.target.value)}
                 disabled={!canSubmit}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                className={FIELD_CLASS}
               />
             </div>
           )}
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Data final *</label>
+            <label className={LABEL_CLASS}>Data final *</label>
             <input
               type="date"
               value={localEndDate}
               onChange={(e) => setLocalEndDate(e.target.value)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           {!allDay && (
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Horário final</label>
+              <label className={LABEL_CLASS}>Horário final</label>
               <input
                 type="time"
                 value={localEndTime}
                 onChange={(e) => setLocalEndTime(e.target.value)}
                 disabled={!canSubmit}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+                className={FIELD_CLASS}
               />
             </div>
           )}
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Visibilidade</label>
+            <label className={LABEL_CLASS}>Visibilidade</label>
             <select
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as AgendaVisibility)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 bg-white"
+              className={SELECT_CLASS}
             >
               <option value="INDIVIDUAL">{VISIBILITY_LABEL.INDIVIDUAL}</option>
               <option value="COMPARTILHADO">{VISIBILITY_LABEL.COMPARTILHADO}</option>
@@ -542,43 +552,43 @@ export function AgendaEventModal({
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Departamento / Setor</label>
+            <label className={LABEL_CLASS}>Departamento / Setor</label>
             <input
               type="text"
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
               disabled={!canSubmit}
               placeholder="Ex.: TI, Registro, RH"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Local</label>
+            <label className={LABEL_CLASS}>Local</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={!canSubmit}
               placeholder="Sala de reuniões / Presencial"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">Link de reunião</label>
+            <label className={LABEL_CLASS}>Link de reunião</label>
             <input
               type="url"
               value={meetingLink}
               onChange={(e) => setMeetingLink(e.target.value)}
               disabled={!canSubmit}
               placeholder="https://meet.google.com/..."
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-bold text-slate-700 mb-1">
+            <label className={LABEL_CLASS}>
               Participantes (e-mails ou IDs separados por vírgula)
             </label>
             <input
@@ -587,42 +597,44 @@ export function AgendaEventModal({
               onChange={(e) => setParticipantInput(e.target.value)}
               disabled={!canSubmit}
               placeholder="ex: maria@7risp.com.br, joao@7risp.com.br"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              className={FIELD_CLASS}
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-bold text-slate-700 mb-1">Descrição</label>
+            <label className={LABEL_CLASS}>Descrição</label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              placeholder="Descreva pauta, objetivo ou informações importantes deste compromisso..."
+              className={TEXTAREA_CLASS}
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block font-bold text-slate-700 mb-1">Observações</label>
+            <label className={LABEL_CLASS}>Observações</label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               disabled={!canSubmit}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900"
+              placeholder="Notas adicionais, orientações de acesso ou checklist..."
+              className={TEXTAREA_CLASS}
             />
           </div>
 
           {/* Recorrência Inteligente */}
-          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Recorrência</label>
+                <label className={LABEL_CLASS}>Recorrência</label>
                 <select
                   value={recurrenceType}
                   onChange={(e) => setRecurrenceType(e.target.value as AgendaRecurrenceType)}
                   disabled={!canSubmit}
-                  className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                  className={COMPACT_FIELD_CLASS}
                 >
                   {(Object.keys(RECURRENCE_LABEL) as AgendaRecurrenceType[]).map((key) => (
                     <option key={key} value={key}>
@@ -635,7 +647,7 @@ export function AgendaEventModal({
               {recurrenceType !== 'UNICO' && (
                 <>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Intervalo</label>
+                    <label className={LABEL_CLASS}>Intervalo</label>
                     <input
                       type="number"
                       min={1}
@@ -643,17 +655,17 @@ export function AgendaEventModal({
                       value={interval}
                       onChange={(e) => setInterval(Math.max(1, Number(e.target.value)))}
                       disabled={!canSubmit}
-                      className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                      className={COMPACT_FIELD_CLASS}
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Encerra em</label>
+                    <label className={LABEL_CLASS}>Encerra em</label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       disabled={!canSubmit}
-                      className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                      className={COMPACT_FIELD_CLASS}
                     />
                   </div>
                 </>
@@ -661,16 +673,16 @@ export function AgendaEventModal({
             </div>
 
             {recurrenceType !== 'UNICO' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {recurrenceType === 'PERSONALIZADO' && (
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">Unidade</label>
+                    <label className={LABEL_CLASS}>Unidade</label>
                     <select
                       value={customUnit}
                       onChange={(e) =>
                         setCustomUnit(e.target.value as 'DIAS' | 'SEMANAS' | 'MESES' | 'ANOS')
                       }
-                      className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                      className={COMPACT_FIELD_CLASS}
                     >
                       <option value="DIAS">Dias</option>
                       <option value="SEMANAS">Semanas</option>
@@ -681,7 +693,7 @@ export function AgendaEventModal({
                 )}
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Regra de dia útil</label>
+                  <label className={LABEL_CLASS}>Regra de dia útil</label>
                   <select
                     value={businessDayRule}
                     onChange={(e) =>
@@ -689,7 +701,7 @@ export function AgendaEventModal({
                         e.target.value as 'NONE' | 'FIRST_BUSINESS_DAY' | 'LAST_BUSINESS_DAY'
                       )
                     }
-                    className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                    className={COMPACT_FIELD_CLASS}
                   >
                     <option value="NONE">Data fixa</option>
                     <option value="FIRST_BUSINESS_DAY">1º dia útil do mês</option>
@@ -698,7 +710,7 @@ export function AgendaEventModal({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className={LABEL_CLASS}>
                     Dia inexistente (ex.: 31)
                   </label>
                   <select
@@ -706,7 +718,7 @@ export function AgendaEventModal({
                     onChange={(e) =>
                       setMonthEndPolicy(e.target.value as 'ULTIMO_DIA' | 'IGNORAR_MES')
                     }
-                    className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                    className={COMPACT_FIELD_CLASS}
                   >
                     <option value="ULTIMO_DIA">Usar último dia do mês</option>
                     <option value="IGNORAR_MES">Ignorar o mês</option>
@@ -714,7 +726,7 @@ export function AgendaEventModal({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Máx. ocorrências</label>
+                  <label className={LABEL_CLASS}>Máx. ocorrências</label>
                   <input
                     type="number"
                     min={1}
@@ -724,7 +736,7 @@ export function AgendaEventModal({
                     onChange={(e) =>
                       setMaxOccurrences(e.target.value ? Number(e.target.value) : '')
                     }
-                    className="w-full rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-900"
+                    className={COMPACT_FIELD_CLASS}
                   />
                 </div>
               </div>
@@ -734,7 +746,7 @@ export function AgendaEventModal({
               recurrenceType === 'QUINZENAL' ||
               (recurrenceType === 'PERSONALIZADO' && customUnit === 'SEMANAS')) && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="font-bold text-slate-600 mr-1">Dias da semana:</span>
+                <span className="font-bold text-slate-700 mr-1">Dias da semana:</span>
                 {WEEKDAY_NAMES.map((label, wd) => {
                   const active = weekdays.includes(wd);
                   return (
@@ -746,10 +758,10 @@ export function AgendaEventModal({
                           prev.includes(wd) ? prev.filter((x) => x !== wd) : [...prev, wd]
                         )
                       }
-                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold border ${
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border transition ${
                         active
                           ? 'bg-[#43239D] text-white border-[#43239D]'
-                          : 'bg-white text-slate-600 border-slate-300'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                       }`}
                     >
                       {label}
@@ -761,9 +773,9 @@ export function AgendaEventModal({
           </div>
 
           {/* Lembretes múltiplos */}
-          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5">
+          <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/90 p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-700">Lembretes programados</span>
+              <span className="text-xs font-bold text-slate-800">Lembretes programados</span>
               {canSubmit && (
                 <button
                   type="button"
@@ -773,14 +785,14 @@ export function AgendaEventModal({
                       { channel: 'POPUP', offsetMinutes: 15 },
                     ])
                   }
-                  className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-300 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-100"
+                  className="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100 shadow-2xs"
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-3.5 w-3.5" />
                   Adicionar lembrete
                 </button>
               )}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {reminders.map((rem, idx) => (
                 <div key={idx} className="flex flex-wrap items-center gap-2">
                   <select
@@ -795,7 +807,7 @@ export function AgendaEventModal({
                         )
                       )
                     }
-                    className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900"
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 shadow-2xs focus:border-[#43239D] focus:outline-none [color-scheme:light]"
                   >
                     <option value="EMAIL">E-mail</option>
                     <option value="POPUP">Pop-up FIORIX</option>
@@ -811,7 +823,7 @@ export function AgendaEventModal({
                         )
                       )
                     }
-                    className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900 flex-1"
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 shadow-2xs focus:border-[#43239D] focus:outline-none flex-1 [color-scheme:light]"
                   >
                     {REMINDER_OFFSET_PRESETS.map((preset) => (
                       <option key={preset.minutes} value={preset.minutes}>
@@ -826,9 +838,9 @@ export function AgendaEventModal({
                         setReminders((prev) => prev.filter((_, i) => i !== idx))
                       }
                       aria-label="Remover lembrete"
-                      className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                      className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
